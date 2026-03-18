@@ -95,4 +95,65 @@ Record of decisions made during planning. Each entry captures what was decided, 
 
 ---
 
+## DEC-006: Monorepo with planning docs alongside code
+
+**Date:** 2026-03-17
+**Status:** Final
+**Category:** Development workflow
+**Source:** R-008/R-009 research
+
+**Decision:** The project will be a monorepo. Current planning docs (running-app-org/) become the repo root. Planning docs live in `docs/` alongside application code in `src/`. No separate docs repo.
+
+**Rationale:** Strong practitioner consensus that monorepo is significantly better for AI-assisted development. A single context window with access to planning docs, schema, API definitions, and components enables holistic reasoning. Plan files serve as session-handoff context that survives context resets. Version control captures plan evolution alongside code.
+
+**Alternatives considered:**
+- Separate planning repo + code repo (breaks AI context, requires manual cross-referencing)
+- External docs tool like Notion (invisible to Claude Code, no version control tie-in)
+
+---
+
+## DEC-007: CLAUDE.md + ROADMAP.md as context infrastructure
+
+**Date:** 2026-03-17
+**Status:** Final
+**Category:** Development workflow
+**Source:** R-008/R-009 research
+
+**Decision:** Use a lean CLAUDE.md (<200 lines, stable project identity) plus a living ROADMAP.md (current phase, status, priorities) as the primary context handoff mechanism between sessions. Supplement with a `/catchup` slash command and per-feature plan files.
+
+**Rationale:** This is the emerging best practice across Claude Code power users. CLAUDE.md auto-loads every session. ROADMAP.md provides the "where are we" state that changes between sessions. Plan files give deep context for specific features/POCs. Together they solve the cold-start problem without over-engineering.
+
+---
+
+## DEC-008: Plan-first development cycle
+
+**Date:** 2026-03-17
+**Status:** Final
+**Category:** Development workflow
+**Source:** R-008/R-009 research
+
+**Decision:** Adopt the research → plan → annotate → implement cycle for all feature work. No implementation without a reviewed plan file. Sessions capped at 30-45 minutes with one clear objective.
+
+**Rationale:** Strongest consensus finding across practitioners. Separating planning from execution dramatically reduces rework and scope creep. Plan files double as documentation and session-handoff context. Short focused sessions prevent context degradation (the #1 documented failure mode in autonomous Claude Code usage).
+
+---
+
+## DEC-009: Single agent + built-in subagents, no orchestration frameworks
+
+**Date:** 2026-03-17
+**Status:** Final
+**Category:** Development workflow
+**Source:** R-008/R-009 research
+
+**Decision:** Use a single well-configured Claude Code instance with built-in subagents (Explore, Plan, general-purpose). Skip multi-agent orchestration frameworks (Gas Town, claude-flow, Agent Teams). Revisit only if parallel feature work becomes a regular need — then Claude Squad is the minimal option.
+
+**Rationale:** Multi-agent setups are expensive (3-4x tokens), complex, and unnecessary for a solo side project. The built-in Plan subagent covers most needs. Orchestration frameworks add failure modes without proportional value at this scale.
+
+**Alternatives considered:**
+- Gas Town (powerful but requires multiple Claude Max accounts, $300+/month)
+- Agent Teams (experimental, 3-4x token cost, overkill for solo work)
+- Claude Squad (reasonable middle ground, defer until parallel work is needed)
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
