@@ -41,7 +41,7 @@ Record of decisions made during planning. Each entry captures what was decided, 
 ## DEC-003: Three-tier planning model (macro/meso/micro) — needs validation
 
 **Date:** Pre-planning
-**Status:** Tentative — pending research (R-004) and POC 3
+**Status:** Final — validated by R-004 research, with 4 modifications (see DEC-014)
 **Category:** Planning architecture
 
 **Decision:** The training plan operates across three layers — macro (season), meso (weekly cycles), micro (daily prescriptions) — with different update frequencies and context detail levels.
@@ -186,6 +186,69 @@ Default blending logic by experience level:
 - Advanced (50+mpw, competitive): Hudson adaptive approach with Daniels zone precision, or explicit methodology selection
 
 **Rationale:** Knopp et al. (2024) analysis of 92 marathon plans found all converge on ~79% easy-zone training — the universal guardrail layer is larger than expected. Divergences (long run distance, tempo definition, periodization model) are real but parameterizable. Human coaches blend methodologies routinely; the AI should too, with transparent explanation of which elements come from where.
+
+---
+
+## DEC-012: Five-level escalation ladder with PID dampening and hysteresis
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / Adaptation
+**Source:** R-004 research
+
+**Decision:** Adaptation responses follow a 5-level escalation ladder: Level 0 (absorb — log only, no LLM), Level 1 (micro-adjust — deterministic swap of 1-2 workouts), Level 2 (week restructure — first level requiring LLM coaching judgment), Level 3 (phase reconsideration — LLM re-evaluates periodization), Level 4 (plan overhaul — requires user confirmation). State transitions use hysteresis thresholds (different values for entering vs. exiting concern states). Signal processing uses EWMA trend detection — only EWMA threshold crossings trigger changes, not single data points. PID-inspired dampening (proportional, integral via EWMA, derivative for rate-of-change) prevents oscillation.
+
+**Rationale:** Cross-domain validation from control theory (PID controllers used in 95% of industrial systems), game AI (Left 4 Dead Director's intensity pacing with hysteresis), and financial rebalancing (drift-band thresholds to avoid excessive trading). The central failure mode without this is cascading over-correction. TrainerRoad's Adaptive Training (trained on millions of workouts) validates the approach of adapting difficulty within stable structure.
+
+**Key rules:**
+- Never redistribute missed mileage — move forward
+- Easy day over-performance warrants coaching conversation, not plan upgrade
+- Key workout over-performance → conservative 2-3% target increases only
+- Level 4 changes always require user confirmation
+
+---
+
+## DEC-013: Event-sourced plan state with Marten on PostgreSQL
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / Data
+**Source:** R-004 research
+
+**Decision:** Plan state uses a hybrid document + event log pattern via Marten (v8.x, MIT licensed). Current plan state lives as a JSON document (for LLM consumption via structured outputs). Every modification is recorded as an immutable event. Both the deterministic computation layer and the LLM coaching layer append to the same Marten event stream. Wolverine handles reliable message processing with outbox patterns.
+
+**Rationale:** A pure document model has no change history and creates conflicts between computation and LLM layers. Pure event sourcing makes it harder to pass full state to the LLM. The hybrid approach gives both. Marten is native to the .NET + PostgreSQL stack, provides event streams per entity, inline projections, optimistic concurrency, and snapshots — approximately 10 lines of configuration. The event stream IS the audit trail, enabling native undo (replay excluding unwanted events).
+
+**Alternatives considered:**
+- Pure document store (no audit trail, no conflict resolution)
+- Pure event sourcing (projection complexity makes LLM context assembly harder)
+- Separate audit logging (redundant with event sourcing, extra maintenance)
+
+---
+
+## DEC-014: Constraints-and-templates plan storage with on-demand micro generation
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / Planning
+**Source:** R-004 research
+
+**Decision:** Macro tier stores phase schedule with constraints (~200 tokens). Meso tier stores weekly templates with slot types (~150 tokens). Micro tier (daily prescriptions) is generated on demand from macro constraints + meso template + monitoring state, then stored after generation. No pre-stored 16-week daily schedule.
+
+**Rationale:** R-004's central insight: the primary failure mode of the three-tier model is rigidity of stored data. Storing constraints and regenerating on disruption means every edge case is a regeneration trigger, not a data corruption problem. Also token-efficient (~3,150 tokens for full coaching context). For goalless runners, the macro tier degrades to a simple "current emphasis" tag — same architecture, no codepath fork. Validated by Copilot Workspace's Spec → Plan → Implementation pipeline and HTN (Hierarchical Task Network) planning from AI research.
+
+---
+
+## DEC-015: Context injection with positional optimization and prompt caching
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / LLM Integration
+**Source:** R-004 research
+
+**Decision:** Context payload totals ~15K tokens (7.5% of 200K window). A deterministic ContextAssembler selects and positions context based on interaction type. Stable prefix (~6.3K tokens: system prompt + user profile + plan state) placed at the START for prompt caching (90% cost reduction). Conversational context placed at the END. Interaction-specific assembly: workout feedback gets last 1-3 workouts; race readiness gets full plan + 16-week summaries. Training history uses a 5-layer pre-computed summarization hierarchy (raw → daily → weekly → phase → trend narrative).
+
+**Rationale:** Research shows LLMs have 30%+ accuracy drop for information buried in the middle of context. Placing critical reference data at start/end matches the U-curve. Pre-computed summaries (validated by Google's PH-LLM and Mem0's production system) outperform raw data injection and achieve 80-90% token reduction. Prompt caching on the stable prefix saves ~$2.70 per million tokens.
 
 ---
 

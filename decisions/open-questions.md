@@ -23,16 +23,16 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 
 | Question | Status | Notes |
 |----------|--------|-------|
-| What triggers a micro vs. meso vs. macro replan? | Open | Micro: any logged workout deviation. Meso: cumulative pattern over a week+. Macro: goal change, injury, major timeline shift. But where exactly are the thresholds? |
-| How does the system weight subjective input vs. objective data? | Open | "I feel great" vs. HRV says you're fatigued. Who wins? Probably need a framework for reconciling conflicting signals. |
-| How aggressively should it redistribute missed mileage? | Open | Too aggressive = injury risk. Too passive = falls behind plan. Needs POC testing with simulated scenarios. |
+| What triggers a micro vs. meso vs. macro replan? | Decided | R-004 produced a concrete 5-level escalation ladder: Level 0 (absorb/log only), Level 1 (micro-adjust next 1-2 workouts), Level 2 (week restructure — first level needing LLM), Level 3 (phase reconsideration), Level 4 (plan overhaul — requires user confirmation). Specific thresholds defined using ACWR bands with hysteresis and EWMA trend detection. See DEC-012 and self-optimization.md. |
+| How does the system weight subjective input vs. objective data? | Leaning | R-004's escalation ladder routes signals through EWMA trend detection — single subjective reports are absorbed (Level 0), but persistent patterns trigger escalation. The traffic-light framework (R-001) provides the reconciliation model: objective metrics (HR, pace) + subjective reports → composite readiness assessment. Needs POC validation for exact weighting. |
+| How aggressively should it redistribute missed mileage? | Decided | R-004: NEVER redistribute missed mileage (universal coaching rule). Move forward. Use drift-band tolerance (±15% of weekly target) — if within band, no intervention. Use upcoming easy sessions to gradually correct, never compress recovery. See self-optimization.md escalation ladder for specific missed-workout routing. |
 
 ## Memory & Context
 
 | Question | Status | Notes |
 |----------|--------|-------|
-| What context gets injected per AI call? How is it structured? | Open | This is the foundational design question. POC 1 should explore this directly. |
-| How is long-term history summarized to fit context windows? | Open | Rolling summaries? Statistical aggregates? Trend narratives? Needs experimentation. |
+| What context gets injected per AI call? How is it structured? | Decided | R-004 produced a concrete token budget (~15K tokens, 7.5% of 200K window) with interaction-specific assembly and positional optimization. Stable prefix (system + profile + plan, ~6.3K tokens) is cacheable. See DEC-013 and memory-and-architecture.md. POC 1 will validate in practice. |
+| How is long-term history summarized to fit context windows? | Decided | R-004: 5-layer summarization hierarchy. Raw data (never in context) → per-workout (~100-150 tokens) → weekly (~200-300) → phase (~300-500) → trend narrative (~500 tokens, LLM-generated). All pre-computed by background jobs, not generated at query time. 80-90% token reduction. See memory-and-architecture.md. |
 | How do conversation history and structured data relate? | Open | Leaning: both matter independently. Structured data (profile, plan, history) makes the AI competent. Conversation history makes it feel like a relationship (remembers you hate treadmills, knows about your schedule conflicts). Both get injected into context but serve different purposes. Exact architecture should emerge from POC 1 — this is a core question for context injection design. |
 
 ## UX
@@ -45,7 +45,7 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 | How does the user know the app is working? | Open | Success is two things: short-term it's the feeling of being coached (someone is managing my training), long-term it's results (I PR'd, I finished the race, I'm running more consistently). The app should surface both — some kind of progress visibility that reinforces the value even before a race happens. Needs design exploration. |
 | What's the approval model for plan changes? | Leaning | Default: AI proposes, user approves. But minor/logistical tweaks (day swaps, small adjustments) probably shouldn't require approval. Need to define the threshold — what counts as "minor enough" to auto-apply vs. "significant enough" to require confirmation. |
 | Can users pin constraints the AI must respect? | Open | E.g., "long run is always Sunday," "never schedule before 7am." This gives users control without micromanaging every change. Needs design exploration. |
-| How does the user undo / reset when the AI is on a bad track? | Open | Biggest challenge: users will prompt the AI in unexpected or potentially malicious ways, and AI state builds on itself — one bad input can cascade. Need a way to backtrack. Could range from simple ("reset my plan") to nuanced ("ignore what I said last week about my knee"). Touches safety, trust, and architecture. Not MVP but needs early thinking. |
+| How does the user undo / reset when the AI is on a bad track? | Leaning | R-004's event-sourced architecture (Marten) provides native undo: replay the event stream excluding the unwanted event and regenerate the projection. Every adaptation decision includes full audit trail (trigger, escalation level, monitoring snapshot, LLM rationale). "Reset my plan" = regenerate from macro tier downward. "Ignore what I said about my knee" = exclude specific events. The architecture makes this a solved problem at the data layer; UX for surfacing it still needs design. |
 
 ## Engagement & Re-engagement
 
