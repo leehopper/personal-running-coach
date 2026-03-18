@@ -62,7 +62,7 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 |----------|--------|-------|
 | Running only, or multi-sport from the start? | Open | Leaning running-only for MVP to reduce complexity. Multi-sport adds significant planning logic. |
 | How does the planning model work for goalless users? | Leaning | NOT a separate planning mode. The same flexible architecture handles both goal-driven and maintenance users — the AI reasons differently based on inputs, but the system doesn't fork. This reinforces the broader principle: build one flexible system, don't introduce granularity until forced to. Same applies to future multi-sport support — running is the focus now, but the architecture shouldn't have "running" baked in. |
-| Does the MVP need any passive data integration? | Open | Manual logging might be enough for MVP. But auto-import from Strava/Garmin would significantly reduce friction. R-002 finding: Strava's API explicitly prohibits AI/ML use of its data. Garmin dropped its $5K developer fee and provides free API access with full .FIT data. Garmin-first is the viable integration path. |
+| Does the MVP need any passive data integration? | Decided | R-006 provides the staged answer. MVP-0: manual .FIT upload or unofficial Garmin library (`garth`) for personal use — zero API dependency. MVP-1: official Garmin Connect Developer Program with push webhooks (requires LLC for developer approval). Polar as easiest second platform (~1 week effort). Strava is unusable (AI/ML prohibition confirmed, 7-day cache limit, analytics ban). Apple HealthKit incompatible with web-first (on-device only). See DEC-024 and memory-and-architecture.md. |
 
 ## Business
 

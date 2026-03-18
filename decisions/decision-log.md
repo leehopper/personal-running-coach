@@ -383,4 +383,53 @@ At scale (thousands of users): deploy an LLM gateway (Portkey or LiteLLM proxy) 
 
 ---
 
+## DEC-024: Garmin-first integration with staged platform expansion
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / Integration
+**Source:** R-006 research
+
+**Decision:** Garmin Connect API is the primary wearable integration target. Strava is unusable for AI products (explicit AI/ML prohibition, 7-day cache limit, analytics ban). Apple HealthKit is incompatible with web-first architecture (on-device only, requires native iOS app). Integration stages: MVP-0 uses manual .FIT upload or unofficial `garth`/`python-garminconnect` library for personal use. MVP-1 uses official Garmin Connect Developer Program (push webhooks for Activity + Health APIs). Polar is the recommended second platform at MVP-1 (self-service API, OAuth 2.0, no documented AI restrictions, ~1 week additional effort). Oura for sleep/readiness at public launch (~1 week effort). Defer Apple HealthKit iOS companion app and COROS until user demand justifies investment.
+
+**Rationale:** R-006 confirmed Garmin permits AI/ML usage with user consent and an AI Transparency Statement in the privacy policy (Section 15.10 of developer agreement). Garmin provides the richest running data through both structured API summaries and raw .FIT files, including Training Effect, running dynamics, VO2max, HRV, Training Readiness, and Body Battery — none of which are available through Apple Health sync. Developer program is free (dropped $5K fee), approval within 2 business days. Strava's restrictions are comprehensive and tightening post-Runna acquisition.
+
+**Key gotchas:**
+- Garmin developer program requires a business entity (LLC) — individual approval uncertain
+- Smart Recording (default) creates variable-interval data; build split calculation for both modes
+- Third-party activities synced TO Garmin Connect don't forward to API partners
+- Garmin webhook endpoints cannot have Authorization headers (IP whitelist only)
+- OAuth may be 1.0a or 2.0 depending on integration vintage — confirm during integration call
+- Garmin retains API data only ~7 days — prompt ingestion and storage critical
+
+---
+
+## DEC-025: .FIT file parsing for deterministic layer, API summary for LLM layer
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / Data
+**Source:** R-006 research
+
+**Decision:** Use a two-track data extraction strategy. Activity Summary JSON (pushed via webhook) feeds the LLM coaching layer's ~100-150 token workout summaries — distance, duration, avg pace, avg HR, elevation are sufficient for conversational coaching. .FIT file parsing (using `fitdecode` or Garmin's official `garmin-fit-sdk`) feeds the deterministic computation layer — per-lap pace/HR, running dynamics (ground contact time, vertical oscillation, stride length), Training Effect, precise split calculations. Both tracks process from the same webhook event.
+
+**Rationale:** R-006 found that the Activity Summary API has notable gaps for coaching-quality data: Training Effect, ground contact time, vertical oscillation, stride length, and running power live only in .FIT file messages. HR zones must be calculated from samples. The computation layer needs this precision for ACWR calculation, load monitoring, and safety guardrails. The LLM layer doesn't — aggregate metrics are sufficient for natural language coaching.
+
+**Storage:** Raw .FIT files are parsed on receipt and deleted (not stored long-term). Structured fields extracted to PostgreSQL. AES-256 encryption at rest qualifies as "secured" under FTC HBNR.
+
+---
+
+## DEC-026: Graceful degradation for device-tier data gaps
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / Integration
+**Source:** R-006 research
+
+**Decision:** Design the computation layer to gracefully degrade when premium device metrics are missing. Check for null fields rather than assuming their presence. Forerunner 265 is the baseline target device for serious recreational runners, providing: Training Readiness, HRV Status, Training Effect, wrist-based running dynamics, running power, barometric elevation. FR 55 lacks HRV, sleep score, Training Effect, running dynamics, and barometric altimeter. FR 165 adds most wellness metrics but lacks Training Status and Training Readiness. When metrics are absent, the system falls back to basic metrics (distance, duration, pace, HR) which are universal across all GPS watches.
+
+**Rationale:** R-006 documented significant data availability differences across Garmin's device tiers. Building hard dependencies on premium metrics (Training Readiness, running dynamics) would exclude users with entry-level devices. The deterministic layer's safety guardrails (ACWR, volume spikes, intensity distribution) work with basic metrics; premium metrics enhance coaching quality but shouldn't gate it.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

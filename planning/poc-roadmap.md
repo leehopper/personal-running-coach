@@ -70,6 +70,18 @@ R-007 research established that evaluation should start alongside POC work, not 
 - Does open conversation produce useful adaptations?
 - Where does the AI need more guardrails or structure?
 
+**Status:** Not started
+
+---
+
+## Data Integration Notes (from R-006)
+
+MVP-0 data strategy: **manual .FIT file upload** (zero API dependency, zero approval process) or unofficial `garth` library polling personal Garmin account. Validates coaching intelligence before investing in integration infrastructure.
+
+MVP-1 transition: Official Garmin Connect Developer Program (push webhooks). Requires LLC for developer approval. Four-stage pipeline: Ingress → Process → Compute → Summarize. See memory-and-architecture.md for pipeline details and DEC-024/025/026 for integration decisions.
+
+**Garmin Training API** enables pushing adapted workouts back to users' Garmin devices — closes the feedback loop and is a major differentiator. User sees tomorrow's workout appear on their watch automatically. Target for public launch stage.
+
 **Approach:** Build a minimal chat interface and test with real use.
 
 **Status:** Not started

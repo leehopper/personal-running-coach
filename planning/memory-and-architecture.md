@@ -55,3 +55,35 @@ A future architecture might split responsibilities:
 - A triage agent for routing user input to the right response type
 
 For now, a single well-prompted agent with good context is sufficient and avoids orchestration complexity.
+
+## Wearable Data Pipeline (from R-006)
+
+The app sits on top of wearable data as a "planning intelligence layer." Four-stage pipeline designed around the two-layer architecture:
+
+**Stage 1 — Ingress** (stateless): Receive webhook POST → verify sender (IP whitelist for Garmin) → store raw payload → return 200 immediately. Zero business logic.
+
+**Stage 2 — Process** (async worker): Dequeue raw webhook → check idempotency → extract structured fields from Activity Summary JSON AND parse .FIT file → extract wellness data (sleep, HRV, Training Readiness, VO2max) from Health API → write to canonical tables.
+
+**Stage 3 — Compute** (deterministic layer): Calculate derived metrics (pace zones, HR zone time, ACWR, race-readiness) → update five-layer summarization hierarchy → write computed results to event-sourced plan state.
+
+**Stage 4 — Summarize** (LLM layer): Generate ~100-150 token workout summary → incorporate daily wellness context → feed to coaching conversation.
+
+### Data split between layers
+
+Activity Summary JSON feeds the LLM coaching layer's summaries (distance, duration, avg pace, avg HR, elevation — sufficient for conversational coaching). .FIT file parsing feeds the deterministic computation layer's detailed analysis (per-lap pace/HR, running dynamics, Training Effect, precise split calculations).
+
+### Storage strategy (minimized for FTC HBNR compliance)
+
+- Raw webhooks: 30-day retention then delete (debugging only)
+- Raw .FIT files: parse on receipt, extract structured fields, delete the file
+- Structured activity data: retained for account lifetime, encrypted at rest (AES-256)
+- LLM summaries and trend narratives: retained for account lifetime
+- Daily wellness data: retained for account lifetime
+
+AES-256 encryption qualifies data as "secured" under FTC HBNR — breaches of properly encrypted data don't trigger the 60-day notification requirement.
+
+**Critical:** event source the plan state (coaching decisions, adaptations) but do NOT event source imported workout data. Workouts are external facts (idempotent CRUD); plan adaptations are domain events (append-only).
+
+### Multi-source deduplication
+
+Match on start time ±5 minutes + sport type + duration ±10%. Source priority for running: Garmin direct > COROS/Polar direct > Strava > Apple Health. For sleep: Oura > WHOOP > Garmin > Apple Watch. Complementary data (watch for running + ring for sleep) links by user + date, no dedup needed.
