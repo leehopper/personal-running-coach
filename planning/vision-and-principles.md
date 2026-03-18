@@ -21,7 +21,8 @@ The defensible advantage will **not** come from the AI model itself (commoditizi
 Key strategic implications:
 - Plan generation is table stakes, not a differentiator
 - Transparency and explainability ("here's why I'm adjusting your plan") is a real competitive edge — most competitors are black boxes
-- Runna's 2026 injury controversy shows that aggressive algorithms without safety guardrails create reputational risk. Conservative, explainable coaching is a feature, not a limitation.
+- Runna's 2026 injury controversy shows that aggressive algorithms without safety guardrails create reputational risk. Conservative, explainable coaching is a feature, not a limitation. R-003 confirms: no lawsuits resulted, but the reputational damage was significant. The real risk is social media narratives, not litigation.
+- The hybrid architecture (deterministic safety + LLM coaching) is a legal asset — it maps onto the information-vs-product distinction courts already draw. See safety-and-legal.md.
 - Strava's API explicitly prohibits using its data for AI/ML. Garmin-first integration strategy is the viable path.
 - The "just use ChatGPT" option is real competition — the product must be meaningfully better than what a power user can do with manual prompting.
 

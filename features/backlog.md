@@ -6,6 +6,7 @@ A living document for capturing feature ideas, rough priority signals, and notes
 
 - **MVP** — Required for first usable version (personal use / friends)
 - **Near-term** — Strong candidates for fast follow after MVP
+- **Pre-Public Release** — Required before anyone beyond founder/friends uses the product (legal, safety, compliance)
 - **Future** — Interesting but not blocking anything now
 - **Exploring** — Needs more thinking before even rough prioritization
 
@@ -23,7 +24,6 @@ A living document for capturing feature ideas, rough priority signals, and notes
 | Calendar or list view of workouts | Primary surface for seeing what's coming up. |
 | Basic proactive coaching | Missed workout handling, simple pattern detection. |
 | Coach training phase | Explicit first ~2 weeks where the AI is learning the user's fitness, schedule, and preferences. Sets expectations that the plan will improve. Gives the AI a natural window to ask more questions without feeling intrusive. |
-
 ## Near-Term
 
 | Feature | Notes |
@@ -33,6 +33,19 @@ A living document for capturing feature ideas, rough priority signals, and notes
 | Richer proactive coaching | Fatigue modeling, taper initiation, multi-signal readiness. |
 | Workout detail expansion | Warm-up/cool-down routines, dynamic stretching suggestions. |
 | Progress visualization | Weekly mileage charts, pace trends, goal progress. |
+
+## Pre-Public Release
+
+Required before the product is available to anyone beyond the founder and trusted friends. Not needed for MVP (personal use / friends circle where risk is accepted).
+
+| Feature | Notes |
+|---------|-------|
+| Health screening gate | PAR-Q-inspired intake screening (heart conditions, chest pain, dizziness, bone/joint, blood pressure medication). Results connect to deterministic safety layer — flagged conditions adjust volume ceilings, intensity limits, mandatory referral triggers. See DEC-018. |
+| Medical scope keyword triggers | Hard-coded triggers for cardiac symptoms, persistent injury, RED-S indicators, medical conditions that auto-generate "see a professional" responses. Part of deterministic layer. See DEC-019. |
+| Beta participation agreement | Clickwrap agreement: "as is" disclaimer, liability cap, assumption of risk, health disclaimer. See DEC-017. |
+| LLC formation | Form LLC + separate bank account before any public exposure. ~$500. |
+| Privacy policy | Data collection, storage, breach notification procedures. Required for FTC HBNR compliance. See DEC-020. |
+| Full Terms of Service | Mandatory arbitration + class action waiver, AI disclosure, health disclaimer, liability cap. See DEC-017. |
 
 ## Future
 
@@ -53,6 +66,8 @@ A living document for capturing feature ideas, rough priority signals, and notes
 | Idea | Thinking |
 |------|----------|
 | Running-only vs. multi-sport MVP | Keeping running-only simplifies everything, but some users may expect basic cross-training support from day one. |
+| Exercise addiction detection | Monitor rest day distress, excessive override requests, compulsive exercise patterns. R-003 identified ~8.6% of amateur runners meet exercise addiction criteria; technology use correlates with higher injury rates. Design: detect patterns that suggest compulsive behavior, adjust coaching tone. |
+| RED-S screening and pattern detection | Intake screening for menstrual health, eating habits, bone density history. Ongoing pattern detection for energy deficiency indicators. R-003: 23-80% of female athletes experience some degree of low energy availability. |
 
 ## Monetization Ideas (Deferred)
 

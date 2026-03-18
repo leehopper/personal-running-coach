@@ -277,6 +277,58 @@ Default blending logic by experience level:
 
 **Rationale:** HealthBench (OpenAI, 2025) demonstrated that penalty-aware scoring where negative criteria dominate is essential for safety-critical domains. Anthropic's Bloom tool shows Claude judges achieve κ = 0.92 intra-rater consistency. Hamel Husain's practitioner insight: spend 60-80% of early effort on error analysis and understanding failures, not building automated checks. The CheckList framework (Microsoft Research) provides the scenario taxonomy: minimum functionality tests, invariance tests, directional expectation tests.
 
+---
+
+## DEC-017: Staged legal stack with three highest-ROI priorities
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Legal / Business
+**Source:** R-003 research
+
+**Decision:** Legal infrastructure scales with product maturity: MVP-0 (~$500, LLC + documentation), MVP-1 (~$1K/yr, beta agreement + health screening + privacy policy + logging), public beta (~$3-4K/yr, full ToS with mandatory arbitration + insurance), scale (~$15-30K/yr, professional review + AI governance). Three highest-ROI legal actions: (1) mandatory arbitration with class action waiver, (2) FTC Health Breach Notification Rule compliance, (3) comprehensive logging of deterministic safety layer decisions.
+
+**Rationale:** R-003 found zero successful lawsuits against fitness apps for coaching advice, but *Garcia v. Character Technologies* (2025) opened product liability for AI chatbots. Section 230 will not protect. The product's hybrid architecture (deterministic computation + LLM conversation) maps favorably onto the information-vs-product legal distinction (*Winter v. Putnam*). Assumption of risk doctrine is robust in fitness law. The arbitration clause prevents class actions (highest-magnitude risk), HBNR compliance addresses the regulation with real financial teeth ($43,792/violation/day), and safety logging proves guardrails work if challenged.
+
+---
+
+## DEC-018: Health screening gate at MVP-1 connected to deterministic layer
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Safety / Legal
+**Source:** R-003 research
+
+**Decision:** Implement a PAR-Q-inspired (not formal PAR-Q, which is copyrighted) health screening gate before users begin training. Covers: heart conditions, chest pain during activity, dizziness, bone/joint problems, blood pressure medication, other known contraindications. Critical rule: screening results MUST connect to the deterministic safety layer, adjusting parameters for flagged users. Screening without acting on results creates worse legal exposure than not screening at all.
+
+**Rationale:** No major fitness app currently requires health screening, but R-003 identified that implementing screening creates a stronger duty of care. If the app screens and then ignores the results (e.g., providing high-intensity plans to someone who flagged cardiovascular issues), the legal position is worse than not screening. The screening gate feeds directly into the guardrail system (DEC-010) — flagged conditions adjust volume ceilings, intensity limits, and mandatory referral triggers.
+
+---
+
+## DEC-019: Hard keyword triggers for medical scope boundaries
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Safety / Architecture
+**Source:** R-003 research
+
+**Decision:** Implement deterministic keyword-based triggers that automatically generate medical referral responses for scope-boundary topics. Trigger categories: cardiac symptoms ("chest pain," "heart pounding," "irregular heartbeat"), persistent injury ("persistent pain," "pain getting worse," "can't walk"), RED-S indicators ("missed periods," "stress fracture," "not eating enough"), and medical conditions ("diagnosed with," "medication for"). These are hard-coded in the deterministic layer, not dependent on LLM self-policing.
+
+**Rationale:** R-003 identified scope creep into medical territory as the primary conversational risk. Users will ask about pain, nutrition, body composition, and mental health regardless of system prompts. LLM guardrails can drift, especially in multi-turn conversations where context accumulates. Hard keyword triggers are more reliable than relying on the LLM to self-police. This aligns with the core architectural principle (DEC-010): safety-critical decisions are deterministic code, not LLM judgment. The keyword list grows from adversarial testing (DEC-016).
+
+---
+
+## DEC-020: FTC Health Breach Notification Rule compliance from day one
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Compliance / Data
+**Source:** R-003 research
+
+**Decision:** Treat the product as a "vendor of personal health records" under 16 CFR Part 318 from the earliest stage with external users (MVP-1). This means: breach notification procedures, no sharing health data with analytics providers without explicit consent, privacy policy covering data collection/storage/breach procedures, and logging of consent timestamps.
+
+**Rationale:** R-003 identified HBNR as the compliance requirement most founders miss. The FTC explicitly stated that a fitness app with "technical capacity to draw identifiable health information from both the user and the fitness tracker is a PHR." The product consuming Garmin/health API data + user-inputted reports qualifies. Penalties are $43,792 per violation per day. "Breach" includes unauthorized disclosures (sharing with analytics without consent), not just cyberattacks. Washington's My Health My Data Act adds a private right of action with no revenue threshold. Early compliance is cheaper than retrofitting.
+
 **Key tools:** Promptfoo (MIT-licensed, YAML-based, built-in caching), Langfuse (open-source, self-hostable), Git for prompt versioning. Total cost: $30-70/month at full scale.
 
 ---
