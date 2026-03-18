@@ -1,0 +1,50 @@
+# Research Queue
+
+Topics to hand off to a deep research agent. Each entry captures the question, why it matters, and where findings should feed back into the planning docs. Full research artifacts live in `research/artifacts/` — only outcomes and key takeaways get pulled into the main planning documents.
+
+## How to Use
+
+1. Add a topic below with a clear research question and context on why it matters.
+2. Hand off to a deep research agent.
+3. Store the full output in `artifacts/` (e.g., `artifacts/competitive-landscape.md`).
+4. Summarize key takeaways back into the relevant planning doc and update status here.
+
+---
+
+## Priority Ordering
+
+Research is batched by dependency. Later batches depend on findings from earlier ones.
+
+- **Batch 1 (Kick off now — unblocks everything else):**
+  R-008 + R-009 (dev tooling & workflow) — shapes how you run every other research task and POC.
+  R-002 (competitive landscape) — validates the problem space before investing in solutions.
+
+- **Batch 2 (Kick off after Batch 1, or in parallel if capacity allows):**
+  R-001 + R-004 (training methodologies + planning architectures) — directly feeds POC 1 and POC 3.
+  R-007 (testing non-deterministic outputs) — needed before POC work so you can evaluate results.
+
+- **Batch 3 (Important but not blocking POCs):**
+  R-003 (safety/liability), R-005 (BYOM + model strategy), R-006 (wearable integrations).
+
+---
+
+## Queue
+
+| # | Topic | Research Question | Why It Matters | Status | Artifact |
+|---|-------|-------------------|----------------|--------|----------|
+| R-001 | Training methodologies as configurable frameworks | What are the major running training methodologies (Daniels, Hanson, Pfitzinger, 80/20, etc.), how do they differ in structure and philosophy, and how could an AI select and blend between them based on user profile and feedback? | Core to the product — the AI needs a principled basis for plan generation, and users benefit from methodology choice. Also need to understand where LLMs are strong vs. weak on training science. | Queued | — |
+| R-002 | Competitive landscape & market opportunity | What do existing AI running coaches and adaptive training tools (TrainAsONE, COROS coach, Garmin Coach, Runna, etc.) actually do? Where do they fall short? What do users complain about? Does a truly adaptive AI coaching product already exist? If not, why — is it a market gap or is there a structural reason it hasn't been built? | Validates the problem space, identifies differentiation opportunities, and answers the fundamental "why doesn't this exist yet" question. Could reveal barriers we haven't considered. | Queued | — |
+| R-003 | Safety, liability, and legal guardrails | What are the real risks of AI-generated training plans (overtraining, injury, cardiac events, etc.)? What is the legal liability if a user is harmed following AI-generated advice? How do existing fitness apps handle this (disclaimers, waivers, limits on advice)? Given that users can already get similar advice from raw AI chat, what is the incremental liability of packaging it as a product? | Critical for understanding worst-case exposure. Directly informs what guardrails are legally necessary vs. nice-to-have, and whether the product needs medical disclaimers, age restrictions, or health screening gates. | Queued | — |
+| R-004 | AI-driven planning architectures and tiered plan models | What design patterns exist for AI systems that manage multi-layered, evolving plans? How do other AI-first products (not just running) handle the tension between structured plan state and flexible AI output? Is macro/meso/micro the right decomposition, or are there better models? | The three-tier model is a core assumption. Need to validate it against real-world patterns before it becomes load-bearing in the data model. Directly feeds into POC 3. | Queued | — |
+| R-005 | BYOM (Bring Your Own Model) and model dependency strategy | Is it feasible to let users bring their own API key (OpenAI, Anthropic, etc.) for unlimited querying, alongside a default in-house model with usage limits? What are the UX, security, and architectural implications? How do other AI-first products handle this (e.g., Cursor, Typingmind, OpenRouter)? Additionally: should the product be model-agnostic or optimized for one provider? What's the cost of supporting multiple models (prompt portability, behavior differences, testing overhead)? | Directly shapes the monetization model and architecture. BYOM could eliminate the cost barrier for power users, but adds complexity. Model-agnostic design provides resilience against provider changes but costs more upfront. These questions are intertwined and should be researched together. | Queued | — |
+| R-006 | Wearable & platform integration feasibility | What does integration with Garmin Connect, Apple Health, Strava, and similar platforms actually require? What APIs are available, what are the approval processes, rate limits, and data access restrictions? Which platforms are easiest to integrate first? | The app's value increases dramatically with automatic data ingestion. Need to understand the real effort and constraints for each platform before committing to an integration roadmap. | Queued | — |
+| R-007 | Testing non-deterministic AI outputs | How do you evaluate the quality of AI-generated training plans when outputs are non-deterministic? What scoring criteria, rubrics, or automated evaluation frameworks exist for assessing plan quality? How can you set thresholds for "good enough" coaching output? | Essential for both development confidence and ongoing quality assurance. Without a way to measure output quality, you can't tell if prompt changes or model updates are making things better or worse. Feeds directly into POC work. | Queued | — |
+| R-008 | Claude Code best practices, plugins, and agent frameworks | What are the current best practices for building a full product with Claude Code? Investigate "everything claude code," "awesome-claude-code," and similar community resources. What skills, plugins, agent team patterns, and frameworks exist? How to maximize AI-assisted development — multi-agent workflows, custom skills, MCP servers, etc. Focus on what's available for personal/open-source use (not proprietary). | This is the development methodology for the entire project. Getting the tooling right early compounds across every phase of building. Want to leverage the cutting edge of what's possible with Claude Code rather than using it as a basic coding assistant. | Queued | — |
+| R-009 | AI-assisted side project workflow and context management | How do solo builders / side project developers organize AI-assisted development across project phases? Specifically: (1) How to maintain a clean separation between planning/ideation docs and active codebase so ongoing ideas don't pollute the build. (2) How to hand off rich context from one phase to the next (e.g., planning → POC → MVP → post-MVP) so each new agent session doesn't start cold. (3) What repo structures, CLAUDE.md patterns, multi-workspace setups, or project scaffolding approaches exist for this? (4) How to run autonomous agents effectively on a side project — what guardrails and structures produce good outcomes without constant supervision? Look at how the Claude Code community handles this, what conventions are emerging, and whether existing frameworks (agent-stack, claude-flow, etc.) solve parts of this. | This is the operational problem for the entire project. Building is a side project with limited time — need to maximize what autonomous agents can accomplish per session. The planning docs we've built are the first layer, but need a clear bridge from "organized planning docs" to "agent can pick this up and build the next phase." Without this, each session starts from scratch and planning/ideation work gets tangled with implementation. | Queued | — |
+
+### Status Key
+
+- **Queued** — Ready to hand off
+- **In Progress** — Research agent working on it
+- **Done** — Artifact complete, needs integration
+- **Integrated** — Takeaways pulled into planning docs
