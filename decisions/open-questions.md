@@ -68,15 +68,15 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 
 | Question | Status | Notes |
 |----------|--------|-------|
-| Regeneration limits per tier: what are the right numbers? | Open | Depends on what "regeneration" means and what the actual API costs look like. R-002 finding: LLM costs have collapsed to $0.04–$1.00/month per user at 2-5 interactions/week. Cost may not be the constraint it was assumed to be — the pricing model may not need to be usage-gated at all. |
-| What qualifies as a "regeneration" vs. a minor adjustment? | Open | Full replan of meso+micro = regeneration? Single workout swap = minor? Need a clear definition. |
+| Regeneration limits per tier: what are the right numbers? | Decided | R-005 resolves this: at $1-3/month per user LLM costs against $10-15/month subscription, usage gating is unnecessary. No regeneration limits needed — absorb costs into flat subscription. The free tier gates on total AI coaching messages (5-10/month), not regeneration type. See DEC-021 and DEC-023. |
+| What qualifies as a "regeneration" vs. a minor adjustment? | Decided | This distinction is no longer needed for pricing purposes (DEC-021: no usage-based pricing). For the escalation ladder (DEC-012), the distinction exists at the architectural level: Level 0-1 are deterministic micro-adjustments (no LLM cost), Level 2+ involve LLM reasoning (coaching cost). But users don't see or pay for this difference. |
 
 ## Data & Privacy
 
 | Question | Status | Notes |
 |----------|--------|-------|
 | What are the data privacy implications of storing health-adjacent data? | Decided | R-003 clarifies: HIPAA does NOT apply (not a covered entity). FDA exempt (general wellness). But FTC Health Breach Notification Rule DOES apply — the app is a "vendor of personal health records" once it consumes Garmin/health data + user reports. Penalties: $43,792/violation/day. "Breach" includes unauthorized disclosures, not just cyberattacks. WA My Health My Data Act has private right of action with no revenue threshold. CCPA/CPRA likely at scale. Action: treat as PHR vendor from MVP-1, no sharing with analytics without consent, breach notification procedures, privacy policy, consent logging. See DEC-020 and safety-and-legal.md. |
-| Where does user data live relative to the AI? | Open | When the AI processes a user's context, what gets sent to the model provider? If BYOM is in play, user data flows through their chosen provider. R-003 note: Whoop discloses a "zero-retention/zero training" policy with OpenAI — this is a reasonable standard to match. Need to understand what data exposure looks like per architecture choice. R-005 (BYOM) research will further inform this. |
+| Where does user data live relative to the AI? | Leaning | R-005 simplifies this: no BYOM means all data flows through one provider (Anthropic for MVP). Require zero-retention/zero-training agreement with provider (Whoop's standard with OpenAI). The context payload (~15K tokens) includes training history, fatigue reports, and injury mentions — all health-adjacent data subject to FTC HBNR (DEC-020). Anthropic's API data usage policy should be validated. At scale, the LLM gateway (DEC-022) provides centralized control over what data flows where. |
 
 ## Safety
 

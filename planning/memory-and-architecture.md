@@ -32,6 +32,20 @@ Training history is stored at five compression layers, each pre-computed by back
 
 This achieves 80-90% token reduction while improving response quality through selective summarization over blanket data inclusion. Validated by Mem0's production system and Wang et al.'s recursive summarization research.
 
+## LLM Provider Strategy (from R-005)
+
+**Primary model: TBD — POC validation required.** Candidates are Claude Haiku 4.5 (~$2.50/user/month) and Claude Sonnet 4.5 (~$7.60/user/month). R-005 recommended Haiku on cost grounds, but coaching quality (empathetic tone, nuanced injury detection, multi-turn persona consistency) was not validated. Both are within subscription-absorbing range. POC 1 should test both using the DEC-016 eval framework and make a data-driven selection.
+
+**Abstraction:** All LLM calls route through a thin adapter interface. Use Vercel AI SDK (TypeScript) or LiteLLM as SDK import (Python) — near-zero latency overhead (~500µs). Prompts stored in versioned config files, not code. Anthropic's explicit prompt caching with 1-hour TTL on the stable prefix.
+
+**No BYOM.** At $1-3/month per user LLM costs, BYOM solves a problem that doesn't exist while creating security, compliance, and UX problems. No AI fitness product offers it. See DEC-021.
+
+**Fallback strategy (growth stage):** Test GPT-4.1 mini or Gemini 2.5 Flash with existing prompts. ~70-80% of prompt engineering transfers across models. Configure automatic failover for Anthropic outages. Build 20-30 behavioral test cases that validate coaching responses across providers.
+
+**Model routing (scale):** Route simple queries (greetings, FAQ) to a budget model (~$0.25/user/month). Route complex coaching (adaptation reasoning, injury response) to primary model. 30-50% average cost reduction. Deploy via LLM gateway (Portkey or LiteLLM proxy).
+
+**Provider risk mitigation:** The key architectural decisions are prompts in config files, structured output validation independent of provider, eval suite testing across models, and provider-specific features isolated behind interfaces. Switching takes 1-2 weeks basic, 4-8 weeks production quality.
+
 ## Multi-Agent Consideration (Future)
 
 A future architecture might split responsibilities:

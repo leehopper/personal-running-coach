@@ -329,7 +329,57 @@ Default blending logic by experience level:
 
 **Rationale:** R-003 identified HBNR as the compliance requirement most founders miss. The FTC explicitly stated that a fitness app with "technical capacity to draw identifiable health information from both the user and the fitness tracker is a PHR." The product consuming Garmin/health API data + user-inputted reports qualifies. Penalties are $43,792 per violation per day. "Breach" includes unauthorized disclosures (sharing with analytics without consent), not just cyberattacks. Washington's My Health My Data Act adds a private right of action with no revenue threshold. Early compliance is cheaper than retrofitting.
 
-**Key tools:** Promptfoo (MIT-licensed, YAML-based, built-in caching), Langfuse (open-source, self-hostable), Git for prompt versioning. Total cost: $30-70/month at full scale.
+---
+
+## DEC-021: No BYOM — absorb LLM costs into subscription pricing
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / Monetization
+**Source:** R-005 research
+
+**Decision:** Do not implement Bring Your Own Model (BYOM). Absorb LLM costs into a flat subscription. At $1–3/month per user in LLM costs against a $10–15/month subscription, gross margin on inference exceeds 75%. No AI fitness product offers BYOM. The engineering complexity (key management, security, multi-provider testing, compliance documentation), regulatory risk (BYOM makes FTC HBNR compliance harder, not easier), and user friction (runners are not developers) far exceed the marginal savings.
+
+**Rationale:** R-005 found that BYOM solves a cost problem that doesn't exist at this price point while creating security, compliance, and UX problems that do. Users would actually pay *more* with their own keys (losing prompt caching optimizations). TypingMind's BYOM model works because its users are developers — runners don't want to manage API accounts. Every competitor (Runna $20/mo, WHOOP $24-30/mo, TrainAsONE $12/mo) absorbs AI costs into subscription pricing.
+
+**Alternatives considered:**
+- BYOM as premium tier (complexity doesn't justify it at sub-$3/user/month costs)
+- Usage-based pricing (adds billing complexity, user anxiety about costs)
+- Credits system (unnecessary friction at this cost structure)
+
+---
+
+## DEC-022: Thin abstraction layer optimized for one provider, with tested fallback
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / LLM Integration
+**Source:** R-005 research
+
+**Decision:** Route all LLM calls through a thin adapter interface (`complete(messages, config) → response`). Optimize prompts for Claude (Anthropic) as the primary provider. Use Vercel AI SDK (if TypeScript) or LiteLLM as SDK import (if Python) — both add near-zero latency (~500µs). Store the 6.3K-token stable prefix in a versioned config file, not in code. Use Anthropic's explicit prompt caching with 1-hour TTL.
+
+At growth stage (hundreds of users): test a fallback model (GPT-4.1 mini or Gemini 2.5 Flash) with existing prompts, configure automatic failover for Anthropic outages, and build 20-30 behavioral test cases that validate coaching across providers.
+
+At scale (thousands of users): deploy an LLM gateway (Portkey or LiteLLM proxy) for cost tracking, rate limiting, and model routing (simple queries → budget model, complex coaching → primary model, 30-50% cost reduction).
+
+**Rationale:** Provider risk is real — GPT-4 quality regressed measurably, GPT-4.5 was deprecated after 4 months, Jasper AI's business was threatened by ChatGPT's launch. But the mitigation is a thin adapter + eval suite, not BYOM infrastructure. ~70-80% of prompt engineering transfers across models; switching takes 1-2 weeks for basic functionality. The key architectural decisions: prompts in config files, structured output validation independent of provider, eval suite testing behavior across models, provider-specific features isolated behind interfaces.
+
+**Model selection for MVP: POC validation required.** R-005 recommended Haiku 4.5 (~$2.50/user/month) on cost-quality tradeoff, but did not validate coaching capability. The coaching layer demands nuanced multi-turn conversation — empathetic plan adjustments, subtle injury signal detection, persona consistency, medical scope adherence — which may exceed Haiku's strengths. Sonnet 4.5 (~$7.60/user/month) is still within subscription-absorbing range at $12-15/month pricing (49% gross margin). **POC 1 should test both Haiku and Sonnet on coaching scenarios using the DEC-016 eval framework, then make a data-driven model selection.** The thin adapter layer makes this a config change, not a rewrite.
+
+---
+
+## DEC-023: Subscription pricing model — free tier + paid tier with reverse trial
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Monetization
+**Source:** R-005 research
+
+**Decision:** Pricing model (when monetization becomes relevant): free tier with limited AI coaching messages (5-10/month on a budget model like GPT-4o-mini at ~$0.33/user/month) to demonstrate value, paid tier at $12-15/month with unlimited coaching on the primary model (Claude Haiku 4.5). Annual plan at ~$99/year. 14-day reverse trial (full access, then downgrade). This mirrors the pattern used by ChatGPT, Cursor, and Perplexity.
+
+**Rationale:** AI fitness products cluster at $10-30/month (Runna $20, TrainAsONE $12, TrainerRoad $25, PKRS.AI $30). At $12-15/month with ~$2.50/user/month LLM costs, gross margin on inference is 75-83%. Reverse trials produce better conversion than permanent free tiers. Model quality gating (budget model for free, stronger model for paid) creates a natural value ladder without usage tracking complexity.
+
+**Note:** This is a monetization framework for when it becomes relevant, not an MVP concern. Deferred until post-MVP validation.
 
 ---
 
