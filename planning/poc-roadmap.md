@@ -11,6 +11,10 @@ Two distinct milestones, not one:
 
 POCs below are ordered to support this progression: POC 1 and POC 4 feed MVP-0, POC 2 feeds MVP-1.
 
+### Evaluation Strategy (from R-007)
+
+R-007 research established that evaluation should start alongside POC work, not after. Begin with 15-20 manually curated test scenarios scored in a spreadsheet (safety, personalization, scope boundaries). Every POC generates test cases that feed the growing eval suite. By the time POC work completes, the eval suite should have ~50 scenarios with binary safety checks + LLM-as-judge quality scoring. See decision log DEC-016 for the full progressive roadmap.
+
 ---
 
 ## POC 1: Context Injection & Plan Quality
@@ -34,8 +38,11 @@ POCs below are ordered to support this progression: POC 1 and POC 4 feed MVP-0, 
 **Sub-questions:**
 - Does it know when to absorb a deviation vs. restructure?
 - How do you prevent cascading over-corrections?
+- Does the 5-level escalation ladder (DEC-012) produce appropriate responses across the full range of scenarios?
 
-**Approach:** Test with a simulated sequence of workouts with intentional deviations.
+**Approach:** Test with a simulated sequence of workouts with intentional deviations. Use the R-007 scenario library structure (CheckList framework: minimum functionality tests, invariance tests, directional expectation tests). Specifically test multi-turn escalation patterns (e.g., gradually increasing fatigue signals across 4+ turns).
+
+**Eval approach:** Binary safety pass/fail on every adaptation response + LLM-as-judge for training accuracy and communication quality. Run each scenario 3-5 times at production temperature to catch stochastic failures.
 
 **Status:** Not started
 

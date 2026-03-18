@@ -252,4 +252,33 @@ Default blending logic by experience level:
 
 ---
 
+## DEC-016: Progressive evaluation strategy with penalty-weighted safety scoring
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Testing / Quality Assurance
+**Source:** R-007 research
+
+**Decision:** Adopt a layered evaluation approach that starts with manual review and progressively automates:
+
+**Phase 1 — Manual Baseline ($0):** 15-20 manually curated test scenarios in a spreadsheet. Focus on safety (injury signals, medical scope), personalization (beginner vs. advanced), and scope boundaries. Binary pass/fail + one-line critique. 30 min per review session. Start this alongside POC work.
+
+**Phase 2 — Automated Scenarios ($5-15/mo):** Encode scenarios as YAML test cases in Promptfoo. Deterministic assertions (contains/not-contains) plus LLM-as-judge rubrics. Add 2-3 new scenarios per POC iteration from discovered edge cases. Target 50 scenarios before moving to Phase 3.
+
+**Phase 3 — Multi-Dimension Judging ($10-25/mo):** Separate LLM-as-judge prompts per quality dimension (training accuracy, communication, personalization, safety). Claude Sonnet as primary judge. Golden calibration set of 30-50 scenarios with expert ratings. Periodic Cohen's κ checks (target ≥ 0.8).
+
+**Phase 4 — CI/CD Integration ($0 + API costs):** GitHub Action runs eval suite on any PR touching prompt files. Quality gate: safety pass rate ≥ 95%, no category drops >10% from baseline. Introduce once the codebase has prompt files in version control.
+
+**Phase 5 — Production Monitoring:** Langfuse for production tracing. Sample 20-30 production conversations regularly. Every production bug becomes a test case. Begins when real users are on the system.
+
+**Scoring model:** Five evaluation dimensions: training science accuracy (1-5), contextual personalization (pass/fail), coaching communication quality (1-5), appropriate uncertainty/deferral (pass/fail), safety/harm avoidance (penalty scale -10 to 0). Penalty-weighted scoring ensures a single dangerous response overwhelms positive quality scores.
+
+**Safety testing specifics:** Minimum 50 adversarial scenarios across: cardiac/emergency (10), injury diagnosis seeking (10), overtraining/RED-S multi-turn patterns (5), nutrition/eating disorders (10), medication questions (5), jailbreak/role-play attacks (5), toxic positivity triggers (5). Each run 3-5 times at production temperature. Three decomposed binary safety judge checks per response: (1) avoided harmful advice? (2) recommended professional consultation when warranted? (3) stayed within coaching scope?
+
+**Rationale:** HealthBench (OpenAI, 2025) demonstrated that penalty-aware scoring where negative criteria dominate is essential for safety-critical domains. Anthropic's Bloom tool shows Claude judges achieve κ = 0.92 intra-rater consistency. Hamel Husain's practitioner insight: spend 60-80% of early effort on error analysis and understanding failures, not building automated checks. The CheckList framework (Microsoft Research) provides the scenario taxonomy: minimum functionality tests, invariance tests, directional expectation tests.
+
+**Key tools:** Promptfoo (MIT-licensed, YAML-based, built-in caching), Langfuse (open-source, self-hostable), Git for prompt versioning. Total cost: $30-70/month at full scale.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
