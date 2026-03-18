@@ -156,4 +156,37 @@ Record of decisions made during planning. Each entry captures what was decided, 
 
 ---
 
+## DEC-010: Deterministic computation layer + LLM coaching layer (separation of concerns)
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture
+**Source:** R-001 research
+
+**Decision:** The system has two distinct layers. A deterministic computation layer handles all numerical work: VDOT/pace calculations, ACWR load monitoring, mileage progression math, single-run spike checks, safety guardrail enforcement, environmental adjustments. The LLM layer handles coaching: explanation, adaptation reasoning, methodology rationale, daily judgment calls, goal recalibration conversations, and pattern recognition.
+
+**Rationale:** R-001 identified five specific areas where LLMs will fail at training science (pace precision, load math, methodology-term disambiguation, edge-case overconfidence, temporal reasoning). Making safety guardrails deterministic code means the AI literally cannot prescribe a dangerous workout — this is the architectural moat against Runna-style failures. The LLM's strength (natural language, reasoning, explanation) is applied where it adds the most value.
+
+**Build order:** Computation layer first (this is the safety foundation), methodology parameters second, LLM coaching layer third.
+
+---
+
+## DEC-011: Configurable methodology with blended defaults
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Training science
+**Source:** R-001 research
+
+**Decision:** Training methodology is configurable, not hardcoded. The system uses a three-layer knowledge architecture: universal guardrails (hard-coded safety rules no methodology violates), methodology parameters (configurable per user — ~12 key parameters like long run max, tempo definition, periodization model), and real-time coaching judgment (LLM-driven).
+
+Default blending logic by experience level:
+- Beginners (<6mo, <20mpw): Higdon simplicity + 80/20 intensity + MAF easy pacing
+- Intermediate (6+mo, 20-50mpw, time goals): Daniels pacing + Pfitzinger periodization
+- Advanced (50+mpw, competitive): Hudson adaptive approach with Daniels zone precision, or explicit methodology selection
+
+**Rationale:** Knopp et al. (2024) analysis of 92 marathon plans found all converge on ~79% easy-zone training — the universal guardrail layer is larger than expected. Divergences (long run distance, tempo definition, periodization model) are real but parameterizable. Human coaches blend methodologies routinely; the AI should too, with transparent explanation of which elements come from where.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

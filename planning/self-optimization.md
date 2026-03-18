@@ -29,3 +29,25 @@ A user who slept poorly for three nights and reports feeling tired should not be
 If accumulated data shows that the original goal (e.g., sub-2-hour half marathon) is unrealistic or too conservative given actual performance, the system should surface this insight and suggest a revised target.
 
 This is a macro-level adjustment triggered by micro-level data over time.
+
+## Key Architecture Insight (from R-001)
+
+The self-optimization model has a critical architectural implication: **the LLM handles reasoning and explanation, NOT raw computation.** All load management, pace calculation, and safety checking must be deterministic code. The AI's job is:
+
+1. Interpreting user feedback (subjective input, life context)
+2. Explaining adjustments in plain language ("here's why I'm changing your plan")
+3. Making judgment calls within computed safe boundaries
+4. Pattern recognition across training history
+5. Goal recalibration conversations
+
+The computation layer handles: VDOT/pace lookups, ACWR calculations, mileage progression math, single-run spike checks, safety guardrail enforcement. These are never LLM-generated — the model literally cannot prescribe something the code layer blocks.
+
+## Daily Adaptation Framework (from R-001)
+
+Research on Norwegian world-class coaches found they use a traffic-light system for daily decisions:
+
+- **Green (continue as planned):** Mild soreness fading after warmup, normal tiredness, stable mood, RHR within 3-5 beats of baseline
+- **Amber (reduce 15-25%):** Heavy legs 3+ days, poor sleep multiple nights, lingering aches, RHR 5-7 above normal, loss of motivation
+- **Red (major modification):** Illness symptoms, injury pain, severe fatigue, RHR 10+ above baseline
+
+Universal coaching rule for missed workouts: **never try to make them up.** Move forward. Never compress recovery to squeeze in missed work.
