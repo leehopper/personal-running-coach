@@ -12,6 +12,19 @@ Existing training tools fall into two camps: static plan generators that slot yo
 
 This platform is not a plan generator. It is an AI orchestrator that maintains an ongoing coaching relationship. The plan is one output of that relationship. The real product is the persistent, adaptive intelligence that understands the user's body, goals, constraints, and training history — and reasons about all of it continuously.
 
+## Competitive Reality (from R-002, March 2026)
+
+The whitespace — a persistent, conversational, truly adaptive AI coaching relationship for runners — exists today but is being targeted from multiple directions. Kotcha (€3.5M, Kipchoge-backed) is the most direct competitor. Strava acquired Runna and is building toward AI coaching. Google Fitbit shipped a Gemini-powered coach. Several other startups (NXT RUN, Racemate, Enduco) are converging on the concept.
+
+The defensible advantage will **not** come from the AI model itself (commoditizing fast) or plan generation logic (TrainAsONE has done this for years). It will come from the **quality of the coaching relationship**: deep persistent context, transparent reasoning, earned trust through conservative safety defaults, and the feeling that the coach actually knows you. That's a product design and domain expertise problem more than a technology problem.
+
+Key strategic implications:
+- Plan generation is table stakes, not a differentiator
+- Transparency and explainability ("here's why I'm adjusting your plan") is a real competitive edge — most competitors are black boxes
+- Runna's 2026 injury controversy shows that aggressive algorithms without safety guardrails create reputational risk. Conservative, explainable coaching is a feature, not a limitation.
+- Strava's API explicitly prohibits using its data for AI/ML. Garmin-first integration strategy is the viable path.
+- The "just use ChatGPT" option is real competition — the product must be meaningfully better than what a power user can do with manual prompting.
+
 ## Core Principle
 
 The system should do the heavy lifting that the user currently does manually when working with AI tools: maintaining context, re-prompting with history, managing plan state, and triggering the right kind of adjustment at the right time.

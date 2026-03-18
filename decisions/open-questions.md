@@ -62,13 +62,13 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 |----------|--------|-------|
 | Running only, or multi-sport from the start? | Open | Leaning running-only for MVP to reduce complexity. Multi-sport adds significant planning logic. |
 | How does the planning model work for goalless users? | Leaning | NOT a separate planning mode. The same flexible architecture handles both goal-driven and maintenance users — the AI reasons differently based on inputs, but the system doesn't fork. This reinforces the broader principle: build one flexible system, don't introduce granularity until forced to. Same applies to future multi-sport support — running is the focus now, but the architecture shouldn't have "running" baked in. |
-| Does the MVP need any passive data integration? | Open | Manual logging might be enough for MVP. But auto-import from Strava/Garmin would significantly reduce friction. |
+| Does the MVP need any passive data integration? | Open | Manual logging might be enough for MVP. But auto-import from Strava/Garmin would significantly reduce friction. R-002 finding: Strava's API explicitly prohibits AI/ML use of its data. Garmin dropped its $5K developer fee and provides free API access with full .FIT data. Garmin-first is the viable integration path. |
 
 ## Business
 
 | Question | Status | Notes |
 |----------|--------|-------|
-| Regeneration limits per tier: what are the right numbers? | Open | Depends on what "regeneration" means and what the actual API costs look like. |
+| Regeneration limits per tier: what are the right numbers? | Open | Depends on what "regeneration" means and what the actual API costs look like. R-002 finding: LLM costs have collapsed to $0.04–$1.00/month per user at 2-5 interactions/week. Cost may not be the constraint it was assumed to be — the pricing model may not need to be usage-gated at all. |
 | What qualifies as a "regeneration" vs. a minor adjustment? | Open | Full replan of meso+micro = regeneration? Single workout swap = minor? Need a clear definition. |
 
 ## Data & Privacy
@@ -82,8 +82,8 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 
 | Question | Status | Notes |
 |----------|--------|-------|
-| How to guardrail against unsafe training advice (injury risk)? | Open | The AI could suggest dangerous load increases. Need guardrails around rate of progression, rest requirements, injury signals. |
-| What disclaimers or limitations are needed? | Open | "Not medical advice" at minimum. Need to research what similar apps do here. |
+| How to guardrail against unsafe training advice (injury risk)? | Open | The AI could suggest dangerous load increases. Need guardrails around rate of progression, rest requirements, injury signals. R-002 finding: Runna's 2026 injury controversy (PTs reporting stress fractures, Achilles tendinopathy from aggressive plans) is a cautionary tale. Conservative defaults + explainable reasoning could be a competitive advantage, not just risk mitigation. FDA Jan 2026 guidance explicitly excludes fitness wellness tools from regulation, so regulatory risk is low. |
+| What disclaimers or limitations are needed? | Open | "Not medical advice" at minimum. Need to research what similar apps do here. R-002 confirms low regulatory risk (FDA fitness exclusion) but reputational risk is real given Runna controversy. |
 | How does the system handle AI output failures? | Open | LLMs hallucinate — what happens when the AI produces an incoherent plan, contradicts itself, or suggests something nonsensical? Two layers to consider: (1) programmatic validation that catches obvious issues (no rest days, unsafe mileage jumps, impossible paces) before showing output to user, and (2) user feedback mechanism (flag/thumbs down) for subtle problems the system can't catch. The R-007 scoring criteria could double as a production validation layer. |
 
 ## Development Workflow
