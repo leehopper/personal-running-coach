@@ -356,11 +356,13 @@ Default blending logic by experience level:
 **Category:** Architecture / LLM Integration
 **Source:** R-005 research
 
-**Decision:** Route all LLM calls through a thin adapter interface (`complete(messages, config) → response`). Optimize prompts for Claude (Anthropic) as the primary provider. Use Vercel AI SDK (if TypeScript) or LiteLLM as SDK import (if Python) — both add near-zero latency (~500µs). Store the 6.3K-token stable prefix in a versioned config file, not in code. Use Anthropic's explicit prompt caching with 1-hour TTL.
+**Decision:** Use Claude Sonnet 4.5 as the primary model from day one. Route all LLM calls through a thin adapter interface (`complete(messages, config) → response`). Optimize prompts for Claude (Anthropic) as the primary provider. Use Vercel AI SDK (if TypeScript) or LiteLLM as SDK import (if Python) — both add near-zero latency (~500µs). Store the 6.3K-token stable prefix in a versioned config file, not in code. Use Anthropic's explicit prompt caching with 1-hour TTL.
 
 At growth stage (hundreds of users): test a fallback model (GPT-4.1 mini or Gemini 2.5 Flash) with existing prompts, configure automatic failover for Anthropic outages, and build 20-30 behavioral test cases that validate coaching across providers.
 
 At scale (thousands of users): deploy an LLM gateway (Portkey or LiteLLM proxy) for cost tracking, rate limiting, and model routing (simple queries → budget model, complex coaching → primary model, 30-50% cost reduction).
+
+**Update (2026-03-18):** Model selection is no longer a POC validation item. Sonnet 4.5 is the model from day one — the coaching layer demands nuanced multi-turn conversation (empathetic adjustments, injury signal detection, persona consistency per DEC-027) that warrants starting with the stronger model. At ~$7.60/user/month, still within subscription-absorbing range at $12-15/month pricing.
 
 **Rationale:** Provider risk is real — GPT-4 quality regressed measurably, GPT-4.5 was deprecated after 4 months, Jasper AI's business was threatened by ChatGPT's launch. But the mitigation is a thin adapter + eval suite, not BYOM infrastructure. ~70-80% of prompt engineering transfers across models; switching takes 1-2 weeks for basic functionality. The key architectural decisions: prompts in config files, structured output validation independent of provider, eval suite testing behavior across models, provider-specific features isolated behind interfaces.
 
@@ -375,9 +377,9 @@ At scale (thousands of users): deploy an LLM gateway (Portkey or LiteLLM proxy) 
 **Category:** Monetization
 **Source:** R-005 research
 
-**Decision:** Pricing model (when monetization becomes relevant): free tier with limited AI coaching messages (5-10/month on a budget model like GPT-4o-mini at ~$0.33/user/month) to demonstrate value, paid tier at $12-15/month with unlimited coaching on the primary model (Claude Haiku 4.5). Annual plan at ~$99/year. 14-day reverse trial (full access, then downgrade). This mirrors the pattern used by ChatGPT, Cursor, and Perplexity.
+**Decision:** Pricing model (when monetization becomes relevant): free tier with limited AI coaching messages (5-10/month on a budget model like GPT-4o-mini at ~$0.33/user/month) to demonstrate value, paid tier at $12-15/month with unlimited coaching on the primary model (Claude Sonnet 4.5, ~$7.60/user/month). Annual plan at ~$99/year. 14-day reverse trial (full access, then downgrade). This mirrors the pattern used by ChatGPT, Cursor, and Perplexity.
 
-**Rationale:** AI fitness products cluster at $10-30/month (Runna $20, TrainAsONE $12, TrainerRoad $25, PKRS.AI $30). At $12-15/month with ~$2.50/user/month LLM costs, gross margin on inference is 75-83%. Reverse trials produce better conversion than permanent free tiers. Model quality gating (budget model for free, stronger model for paid) creates a natural value ladder without usage tracking complexity.
+**Rationale:** AI fitness products cluster at $10-30/month (Runna $20, TrainAsONE $12, TrainerRoad $25, PKRS.AI $30). At $12-15/month with ~$7.60/user/month LLM costs, gross margin on inference is ~40-50%. Thinner than Haiku but still viable, and the coaching quality justifies it — the product's differentiator is the intelligence layer. Reverse trials produce better conversion than permanent free tiers. Model quality gating (budget model for free, stronger model for paid) creates a natural value ladder without usage tracking complexity.
 
 **Note:** This is a monetization framework for when it becomes relevant, not an MVP concern. Deferred until post-MVP validation.
 

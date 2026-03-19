@@ -34,7 +34,7 @@ This achieves 80-90% token reduction while improving response quality through se
 
 ## LLM Provider Strategy (from R-005)
 
-**Primary model: TBD — POC validation required.** Candidates are Claude Haiku 4.5 (~$2.50/user/month) and Claude Sonnet 4.5 (~$7.60/user/month). R-005 recommended Haiku on cost grounds, but coaching quality (empathetic tone, nuanced injury detection, multi-turn persona consistency) was not validated. Both are within subscription-absorbing range. POC 1 should test both using the DEC-016 eval framework and make a data-driven selection.
+**Primary model: Claude Sonnet 4.5** (~$7.60/user/month). The coaching layer demands nuanced multi-turn conversation — empathetic adjustments, injury signal detection, persona consistency (DEC-027) — that warrants starting with the stronger model. Still within subscription-absorbing range at $12-15/month pricing. See DEC-022.
 
 **Abstraction:** All LLM calls route through a thin adapter interface. Use Vercel AI SDK (TypeScript) or LiteLLM as SDK import (Python) — near-zero latency overhead (~500µs). Prompts stored in versioned config files, not code. Anthropic's explicit prompt caching with 1-hour TTL on the stable prefix.
 

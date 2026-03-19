@@ -24,9 +24,7 @@ R-007 research established that evaluation should start alongside POC work, not 
 **Sub-questions:**
 - What does the context payload need to look like?
 - How does plan quality degrade as history grows and needs summarization?
-- **Model selection validation:** Test both Claude Haiku 4.5 and Sonnet 4.5 on coaching scenarios using DEC-016 eval framework. The coaching layer demands nuanced multi-turn conversation (empathetic adjustments, injury signal detection, persona consistency) — need data on whether Haiku is sufficient or Sonnet is required. Both are within subscription-absorbing range ($2.50 vs. $7.60/user/month). See DEC-022.
-
-**Why it matters:** This is the foundational question — everything else depends on the AI's coaching quality. Model selection directly affects both cost structure and user experience.
+**Why it matters:** This is the foundational question — everything else depends on the AI's coaching quality. Claude Sonnet 4.5 is the model from day one (DEC-022).
 
 **Status:** Not started
 
