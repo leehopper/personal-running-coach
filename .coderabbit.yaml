@@ -1,0 +1,10 @@
+language: en-US
+reviews:
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "backend/**"
+      instructions: "Review for .NET 10 / C# 14 best practices, EF Core patterns, and adherence to the module-first architecture described in backend/CLAUDE.md."
+    - path: "frontend/**"
+      instructions: "Review for React 19 / TypeScript strict patterns, RTK Query usage, and adherence to the module-first structure described in frontend/CLAUDE.md."

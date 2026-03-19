@@ -1,0 +1,36 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.DotSettings.user
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+appsettings.Local.json
+*.pfx
+
+# Docker volumes
+pgdata/
+
+# Test results
+TestResults/
+coverage/
+
+# Misc
+*.log

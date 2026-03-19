@@ -1,0 +1,29 @@
+pre-commit:
+  parallel: true
+  commands:
+    dotnet-format:
+      glob: "backend/**/*.cs"
+      run: cd backend && dotnet format RunCoach.slnx --verify-no-changes --no-restore
+    eslint:
+      root: "frontend/"
+      glob: "src/**/*.{ts,tsx}"
+      run: npx eslint {staged_files}
+    prettier:
+      root: "frontend/"
+      glob: "src/**/*.{ts,tsx,css,json}"
+      run: npx prettier --check {staged_files}
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx commitlint --edit {1}
+
+pre-push:
+  parallel: true
+  commands:
+    dotnet-test:
+      glob: "backend/**/*.cs"
+      run: cd backend && dotnet test RunCoach.slnx --no-build --filter "Category\!=Integration"
+    typescript-check:
+      glob: "frontend/src/**/*.{ts,tsx}"
+      run: cd frontend && npx tsc --noEmit
