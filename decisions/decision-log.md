@@ -356,17 +356,15 @@ Default blending logic by experience level:
 **Category:** Architecture / LLM Integration
 **Source:** R-005 research
 
-**Decision:** Use Claude Sonnet 4.5 as the primary model from day one. Route all LLM calls through a thin adapter interface (`complete(messages, config) → response`). Optimize prompts for Claude (Anthropic) as the primary provider. Use Vercel AI SDK (if TypeScript) or LiteLLM as SDK import (if Python) — both add near-zero latency (~500µs). Store the 6.3K-token stable prefix in a versioned config file, not in code. Use Anthropic's explicit prompt caching with 1-hour TTL.
+**Decision:** Use Claude Sonnet 4.5 as the primary model from day one. Route all LLM calls through a thin adapter interface (`complete(messages, config) → response`). Optimize prompts for Claude (Anthropic) as the primary provider. Store the 6.3K-token stable prefix in a versioned config file, not in code. Use Anthropic's explicit prompt caching with 1-hour TTL.
 
 At growth stage (hundreds of users): test a fallback model (GPT-4.1 mini or Gemini 2.5 Flash) with existing prompts, configure automatic failover for Anthropic outages, and build 20-30 behavioral test cases that validate coaching across providers.
 
 At scale (thousands of users): deploy an LLM gateway (Portkey or LiteLLM proxy) for cost tracking, rate limiting, and model routing (simple queries → budget model, complex coaching → primary model, 30-50% cost reduction).
 
-**Update (2026-03-18):** Model selection is no longer a POC validation item. Sonnet 4.5 is the model from day one — the coaching layer demands nuanced multi-turn conversation (empathetic adjustments, injury signal detection, persona consistency per DEC-027) that warrants starting with the stronger model. At ~$7.60/user/month, still within subscription-absorbing range at $12-15/month pricing.
+**Rationale:** The coaching layer demands nuanced multi-turn conversation — empathetic adjustments, injury signal detection, persona consistency per DEC-027 — that warrants starting with the stronger model. At ~$7.60/user/month, still within subscription-absorbing range at $12-15/month pricing (49% gross margin). R-005 originally recommended Haiku 4.5 (~$2.50/user/month) on cost-quality tradeoff, but the coaching quality requirements make Sonnet the better starting point. Model selection is not a POC validation item — start with Sonnet, revisit only if cost becomes a constraint at scale.
 
-**Rationale:** Provider risk is real — GPT-4 quality regressed measurably, GPT-4.5 was deprecated after 4 months, Jasper AI's business was threatened by ChatGPT's launch. But the mitigation is a thin adapter + eval suite, not BYOM infrastructure. ~70-80% of prompt engineering transfers across models; switching takes 1-2 weeks for basic functionality. The key architectural decisions: prompts in config files, structured output validation independent of provider, eval suite testing behavior across models, provider-specific features isolated behind interfaces.
-
-**Model selection for MVP: POC validation required.** R-005 recommended Haiku 4.5 (~$2.50/user/month) on cost-quality tradeoff, but did not validate coaching capability. The coaching layer demands nuanced multi-turn conversation — empathetic plan adjustments, subtle injury signal detection, persona consistency, medical scope adherence — which may exceed Haiku's strengths. Sonnet 4.5 (~$7.60/user/month) is still within subscription-absorbing range at $12-15/month pricing (49% gross margin). **POC 1 should test both Haiku and Sonnet on coaching scenarios using the DEC-016 eval framework, then make a data-driven model selection.** The thin adapter layer makes this a config change, not a rewrite.
+Provider risk is real — GPT-4 quality regressed measurably, GPT-4.5 was deprecated after 4 months, Jasper AI's business was threatened by ChatGPT's launch. But the mitigation is a thin adapter + eval suite, not BYOM infrastructure. ~70-80% of prompt engineering transfers across models; switching takes 1-2 weeks for basic functionality. The key architectural decisions: prompts in config files, structured output validation independent of provider, eval suite testing behavior across models, provider-specific features isolated behind interfaces.
 
 ---
 
@@ -506,6 +504,104 @@ Add a dedicated crisis response protocol for suicidal ideation and self-harm tri
 Add a three-tier sensitive disclosure escalation (green = coaching-scope, amber = professional referral recommended, red = immediate action required) that standardizes the response pattern across all population-specific triggers.
 
 **Rationale:** DEC-019's original four categories (cardiac, persistent injury, RED-S, medical conditions) are necessary but insufficient. R-011 identified that populations like pregnant runners, youth athletes, and runners with chronic conditions have distinct trigger vocabularies that the original system would miss entirely. "Gestational diabetes," "growth spurt + pain," "insulin pump," "pelvic floor" — none of these would have triggered the original keyword system. The crisis protocol addresses the most dangerous failure mode: an AI continuing to coach through a mental health crisis. Making this deterministic removes the possibility of LLM misjudgment in the highest-stakes scenario.
+
+---
+
+## DEC-031: Full-stack technology choices
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Technology / Infrastructure
+
+**Decision:** The complete technology stack for the project, decided through structured discussion. All choices prioritize open-source tooling, best practices from day one, clean architecture, containerization, and optimization for Claude Code–assisted development workflows.
+
+### Backend
+
+- **Runtime:** .NET 9 (C# 13). Upgrade path to .NET 10 LTS (Nov 2026).
+- **Web framework:** ASP.NET Core with traditional controllers. Clean controller → service → repository layering.
+- **ORM / Data access:** EF Core for relational data (users, workout history, structured activity data). Marten (v8.x) for event-sourced plan state on PostgreSQL JSONB (per DEC-013). Clear ownership boundaries: EF Core owns relational tables, Marten owns event streams and document projections.
+- **Background processing:** Wolverine for message-based job processing with outbox pattern and durable queues on PostgreSQL. Handles the wearable data pipeline (webhook ingestion → processing → computation → summarization) and background summarization jobs. Native integration with Marten event streams.
+- **Auth:** ASP.NET Core Identity + JWT tokens. Scaffold early so every endpoint is auth-aware from day one. OAuth/social login providers layered in incrementally as needed.
+- **API documentation:** Swashbuckle (Swagger/OpenAPI). Auto-generates OpenAPI spec from controllers. Swagger UI for interactive testing. Spec is readable by Claude Code for API comprehension.
+- **LLM adapter:** Thin service interface wrapping Anthropic C# SDK (`complete(messages, config) → response`). Prompts stored in versioned config files, not code. Anthropic prompt caching with 1-hour TTL on stable prefix. Per DEC-022.
+- **Logging / Observability:** OpenTelemetry instrumentation + Aspire Dashboard (standalone Docker container). Traces, metrics, and structured logs in one UI from day one. Instrumentation is portable to Grafana/Jaeger/etc. at scale.
+- **Code quality:** EditorConfig + .NET Analyzers + StyleCop Analyzers + Central Package Management. Enforced at build time. Integrated into Claude Code PostToolUse hooks.
+
+### Frontend
+
+- **Framework:** React 19 + TypeScript (strict mode).
+- **Build tool:** Vite. Pure client-side SPA — no server-side rendering. Clean separation from .NET API backend.
+- **Routing:** React Router v7.
+- **State management:** Redux Toolkit + RTK Query. RTK Query handles server state caching (data fetching, background refetching, optimistic updates). Redux slices kept minimal — only truly global client state (auth, UI preferences, active conversation). Avoid unnecessary global state; prefer local component state where appropriate.
+- **Styling:** Tailwind CSS + shadcn/ui (Radix primitives). Utility-first CSS with copy-paste component library.
+- **Code quality:** ESLint + Prettier + Biome lint rules. Integrated into Claude Code PostToolUse hooks.
+
+### Testing
+
+- **Backend:** xUnit + FluentAssertions + NSubstitute. Unit tests for services and computation layer. Integration tests for repository layer and API endpoints.
+- **Frontend:** Vitest + React Testing Library. Component-level tests.
+- **E2E:** Playwright. Browser-based integration tests for critical user flows.
+- **AI evaluation:** Progressive eval strategy per DEC-016. Manual scenarios → Promptfoo YAML → LLM-as-judge → CI/CD integration.
+- **Design principle:** Testing is built into the architecture from day one at all appropriate layers, not bolted on later.
+
+### Infrastructure
+
+- **Container runtime:** Colima (open-source Docker Desktop replacement on macOS).
+- **Container orchestration (local dev):** Docker Compose defining all services + Tilt for inner dev loop (file watching, auto-rebuild, live-update, service dashboard).
+- **Services in Compose:** .NET API, PostgreSQL, pgAdmin, Redis, Aspire Dashboard. React dev server runs via Tilt (Vite dev server with hot reload).
+- **Database:** PostgreSQL (primary data store + Marten event store + Wolverine message persistence). pgAdmin for database management.
+- **Caching:** Redis — included from day one but used lightly. Response caching, rate limiting prep, session storage. Not a primary data store.
+- **CI/CD:** GitHub Actions. Build, test, lint pipelines. Quality gates per DEC-016 Phase 4 (safety pass rate ≥ 95% on prompt changes).
+- **Secrets management:** .NET user-secrets for local dev, environment variables in containers. No secrets in code or config files.
+
+### Conventions
+
+- **API versioning:** URL-based (`/api/v1/`) from day one.
+- **Health checks:** ASP.NET Core health check middleware. Docker Compose and Tilt depend on health endpoints.
+- **CORS:** Configured from day one (React dev server on different port than API).
+- **Database migrations:** EF Core migrations for relational schema (run as separate step, not on startup). Marten manages its own schema.
+
+**Rationale:** Stack choices optimize for three things simultaneously: (1) Clean, maintainable architecture with enterprise patterns (controller/service/repository, event sourcing, structured logging, comprehensive testing). (2) Open-source tooling throughout — no vendor lock-in except Anthropic for LLM (mitigated by thin adapter per DEC-022). (3) Claude Code workflow optimization — every tool was evaluated for how well it supports AI-assisted development (code generation, auto-formatting hooks, readable configuration, OpenAPI spec as context).
+
+**Alternatives considered:**
+- Next.js for frontend (rejected — server layer redundant with .NET backend, creates confusion about where logic lives)
+- TanStack Query over RTK Query (lighter, but Redux provides unified state management story for a chat-heavy app)
+- Keycloak for auth (rejected — heavy for MVP, another service to maintain; ASP.NET Core Identity handles needs through MVP-1)
+- Serilog + Seq for logging (rejected in favor of OpenTelemetry + Aspire Dashboard — more future-proof, same effort)
+- .NET 8 LTS (rejected — .NET 9 is current, .NET 10 LTS arrives Nov 2026 before long-term support becomes a concern)
+
+---
+
+## DEC-032: Docker Compose + Tilt for local dev, K8s deferred to public beta
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Infrastructure
+
+**Decision:** Use Docker Compose + Tilt for local development and early deployment. Defer Kubernetes to the public beta stage (hundreds of users). Tilt supports both Docker Compose and K8s as targets, so the Tiltfile migrates with minimal changes. All containerization work (Dockerfiles, health checks, environment-based config, secrets via env vars) is K8s-ready.
+
+**MVP-1 deployment (friends):** Deploy to a managed platform (Fly.io, Railway) or a single VPS with Docker Compose + Caddy for automatic HTTPS. Same Docker Compose setup used locally. ~$0-10/month at friends-and-family scale.
+
+**Rationale:** K8s solves problems that don't exist at MVP scale (independent service scaling, rolling deployments, service mesh). The operational tax — Helm charts, ingress controllers, RBAC, PVC management — is disproportionate for a solo side project. Docker Compose + Tilt provides a fast inner dev loop with file watching, auto-rebuild, and a service dashboard. When K8s becomes warranted (public beta), Tilt's dual-target support and the existing containerization work make migration low-effort.
+
+---
+
+## DEC-033: Client-agnostic API design for future native app support
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Architecture / Platform strategy
+**Amends:** DEC-005 (web first), DEC-024 (Garmin-first integration)
+
+**Decision:** The REST API is designed to be client-agnostic from day one. No browser-specific assumptions (no cookie-based auth, no HTML responses, no CORS-only security patterns). JWT-based auth works identically for web and native clients. The React SPA and a future iOS app are both "clients" consuming the same API.
+
+**Integration priority revised:** MVP-0 uses manual workout input (chat-based or form-based). Apple Health integration is prioritized over Garmin for MVP-1 because the builder and initial testers use Apple Watch. Apple HealthKit requires a native iOS app (on-device only API) — a minimal SwiftUI companion app that reads HealthKit and POSTs to the backend's workout ingestion endpoint. Garmin integration follows as a fast-follow or concurrent effort once the ingestion endpoint exists.
+
+**Workout ingestion endpoint:** Design a generic `/api/v1/workouts/ingest` endpoint that accepts structured workout data (distance, duration, heart rate samples, pace splits, source metadata) regardless of origin — manual input, HealthKit push, Garmin webhook, or future sources. Source-agnostic from the start.
+
+**Rationale:** The builder and initial test users are Apple ecosystem users. DEC-024's Garmin-first recommendation was based on API capability analysis, not user research. The web-first decision (DEC-005) remains correct for the primary coaching interface — conversation, plan viewing, and onboarding are web-native. But the data ingestion path may require a thin iOS companion sooner than originally planned. Designing the API as client-agnostic costs nothing and keeps this option open.
+
+**DEC-005 still holds:** The web app is the primary product surface. A native iOS app, if built, is a HealthKit data bridge first and a full client second. The decision to expand the iOS app into a full native client is deferred until product-market fit is validated on web.
 
 ---
 

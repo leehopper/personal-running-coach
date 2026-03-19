@@ -99,10 +99,10 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 
 | Question | Status | Notes |
 |----------|--------|-------|
-| How to structure the project for clean phase-to-phase context handoff? | Leaning | R-008/R-009 research points strongly to: CLAUDE.md (<200 lines, stable project identity) + ROADMAP.md (living phase/status tracker) + plan files per feature/POC. Update CLAUDE.md's "Current Phase" section when transitioning. Use `/catchup` slash command to bootstrap each session. Monorepo with docs alongside code. Need to implement this as part of POC setup. |
-| How to keep ideation and active build separated? | Leaning | Maintain an IDEAS.md parking lot in docs/. During dev sessions, quick "add to IDEAS.md" without breaking flow. Between sessions, promote worthy items to ROADMAP.md or features/backlog. The `#` prefix in Claude Code saves transient thoughts to memory. Current planning docs (features/backlog.md, open-questions.md) remain the structured home for promoted ideas. |
-| What does the CLAUDE.md / agent scaffolding look like for this project? | Leaning | Start with 60-100 lines: project purpose, tech stack, directory structure, build/test/lint commands, conventions, "Current Phase: POC" pointing to plan files, post-task checklist. Reference planning docs: "Before starting any feature work, read docs/plans/." Grow iteratively based on what Claude gets wrong — don't over-design upfront. Subdirectory CLAUDE.md files for frontend/backend-specific context. |
-| How to scope agent tasks for good autonomous outcomes? | Leaning | 30-45 minute focused sessions with one clear objective. Commit after every completed task. Plan-first cycle: research.md → plan.md → annotate → implement. Use hooks (PreToolUse, PostToolUse) for technical guardrails — text rules alone don't hold. Maintain GUARDRAILS.md for learned failure patterns. Treat AI output as untrusted junior dev code — review all diffs. |
+| How to structure the project for clean phase-to-phase context handoff? | Decided | CLAUDE.md (<200 lines, stable project identity) + ROADMAP.md (living phase/status tracker) + plan files per feature/POC. Monorepo with docs alongside code. See DEC-006, DEC-007. |
+| How to keep ideation and active build separated? | Decided | IDEAS.md parking lot in docs/. Quick capture during dev sessions, promote between sessions. See DEC-008. |
+| What does the CLAUDE.md / agent scaffolding look like for this project? | Decided | 60-100 lines, iteratively grown. Subdirectory CLAUDE.md files for frontend/backend. See DEC-007, DEC-008. |
+| How to scope agent tasks for good autonomous outcomes? | Decided | 30-45 minute focused sessions, plan-first cycle, hooks for guardrails. See DEC-008, DEC-009. |
 
 ---
 
