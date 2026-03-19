@@ -42,7 +42,7 @@ Planning and setup are complete. The repo is fully scaffolded with backend, fron
 - Backend: .NET 10 solution with RunCoach.Api + RunCoach.Api.Tests, Directory.Build.props (TreatWarningsAsErrors, analyzers), Central Package Management, .editorconfig, smoke test (GET /health → 200 OK)
 - Frontend: React 19 + Vite + TypeScript strict, Tailwind CSS v4, Redux Toolkit, React Router v7, module-first structure, ESLint + Prettier, Vitest smoke test
 - Docker: docker-compose.yml (postgres, pgadmin, redis, aspire-dashboard, api, web), multi-stage Dockerfiles, Tiltfile
-- Tooling: Lefthook (pre-commit/commit-msg/pre-push), commitlint, CodeRabbit, Claude Code GitHub Action, CI pipeline (path-filtered, CodeQL, Codecov), Dependabot
+- Tooling: Lefthook (pre-commit/commit-msg/pre-push), commitlint, CI pipeline (path-filtered, CodeQL, Codecov), Dependabot
 - Deviation: `Modules/Shared` → `Modules/Common` (CA1716 reserved keyword conflict with TreatWarningsAsErrors)
 
 ## Next Up
@@ -74,3 +74,7 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 - Garmin integration (deferred to post-MVP-1, Apple Health prioritized per DEC-033)
 - Frontend visual design planning (flagged, not yet started)
 - Performance regression testing in CI (deferred per DEC-034)
+- SonarCloud dashboard (deferred — SonarAnalyzer.CSharp NuGet covers ~90% of value in-build; add dashboard when codebase grows)
+- CodeRabbit PR review (deferred — repo is private, CodeRabbit is free for OSS only; using local `/review-pr` via Max subscription instead)
+- Claude Code GitHub Action for PR review (deferred — requires paid API key; using local `/review-pr` via Max subscription instead)
+- Public repo visibility (deferred — keeping private to protect coaching prompt IP; revisit when/if free OSS tooling tier becomes worth it)

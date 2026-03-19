@@ -706,6 +706,15 @@ Human review is a significant portion of the development cycle — the right rat
 - Performance regression testing in CI (deferred — GitHub-hosted runners have 5–20% variance, makes detection unreliable; revisit with k6 smoke tests when specific hot paths exist)
 - Snyk (rejected initially — superior fix-PR automation but adds account friction and free-tier limits; reconsider if repo goes private)
 
+### Amendment: Private repo adjustments (2026-03-19)
+
+The repo is private for now to protect coaching prompt IP and persona design. This changes the cost assumptions in the original decision (which assumed open source). Adjustments:
+
+- **Layer 2 (PR review):** CodeRabbit removed (free for OSS only, paid for private). Claude Code GitHub Action removed (requires paid API key). Replaced by local `/review-pr` via Claude Code Max subscription at zero marginal cost. Cross-model review benefit is lost but acceptable for solo dev phase.
+- **Layer 3 (CI):** CodeQL and Dependabot still work for private repos. Codecov configured with token for private repo access.
+- **Layer 4 (Dashboard):** SonarCloud deferred (free for OSS only). Using SonarAnalyzer.CSharp NuGet in-build for ~90% of analysis value per the lightweight alternative already documented above.
+- **Revisit trigger:** If/when repo goes public, restore CodeRabbit + Claude Action + SonarCloud to match the original five-layer design.
+
 ---
 
 ## DEC-035: Coding standards, rulesets, and project conventions
