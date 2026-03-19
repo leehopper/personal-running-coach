@@ -140,4 +140,65 @@ These findings feed directly into product design:
 
 ---
 
-*Full research artifact: research/artifacts/batch-3a-safety-liability.md*
+## Population-Specific Safety Framework
+
+*Source: R-011 research. Full artifact: research/artifacts/batch-4b-special-populations-safety.md*
+
+Core principle across all populations: **observe, adapt, and refer — never diagnose, prescribe, or treat.**
+
+### Population-Adjusted Guardrails (DEC-028)
+
+The default safety guardrails are adjusted per population. Key changes from the defaults (single-run spike ≤30%, ACWR 0.8–2.0, ≥70% easy, max 3 quality/week):
+
+- **Pregnant:** ACWR tightened to 0.8–1.3, RPE ceiling 14 (Borg 6–20), ≥85% easy, max 1 quality session (RPE-capped), spike ≤20%, block altitude >1,800m and temp >32°C. Provider clearance required.
+- **Postpartum:** Hard block on running before 12 weeks. Walk/run only initially, ≥90% easy, ACWR 0.8–1.3. Monitor for leaking/heaviness/dragging at every check-in.
+- **Youth (≤14):** Volume ceilings (15–20 mpw ≤12yo, 25–30 mpw 13–14yo), ≥85% easy, 0–1 quality sessions, ACWR 0.8–1.2, block 7/7 training days under 16. Growth spurt + pain → medical referral.
+- **Masters 50+:** 9-day training cycles for 50–59, 4–5 day hard-session spacing for 60+. Volume increase capped at 5–7%/week (50s) or 3–5%/week (60+). ACWR 0.8–1.2 for 60+. Flag no strength training after 3 prompts.
+- **Injury return:** 100% easy initially, alternate-day running, traffic-light pain monitoring (green 0–3, amber 4–5, red 6+), two red-light readings = automatic referral and pause.
+- **Chronic conditions:** Beta-blocker flag → switch all training from HR-based to RPE. T1D: pre-run safety checklist mandatory. Unmanaged arrhythmia: block vigorous programming until clearance.
+
+### Extended Health Screening (DEC-029)
+
+Additions to the PAR-Q-inspired screening gate (DEC-018):
+
+- **Pregnancy/postpartum:** "Currently pregnant or given birth in last 12 months?" → if yes, require provider clearance (pregnant) or enforce 12-week hard block (postpartum), ask about delivery type and pelvic health assessment
+- **Age/development:** Date of birth mandatory. Under-18 triggers parental involvement flow (COPPA consent for <13). Over-50 new to vigorous exercise → recommend medical checkup
+- **Female athlete health:** Quarterly check-in on menstrual regularity, energy levels (energy availability proxy), stress fracture history. 3+ missed periods → referral. 2+ career stress fractures → RED-S screening referral
+- **Chronic conditions:** Specific prompts for asthma, diabetes (type), arrhythmias, hypertension, thyroid conditions. "Any medications affecting heart rate?" (beta-blocker detection). Unmanaged conditions block vigorous programming
+- **Mental health baseline:** Motivation rating (1–5, repeated at check-ins), current mental health challenges, sleep hours — establishes baseline for pattern detection, does not gate access
+- **Injury history:** Current pain/injury status. "Told by a professional to avoid running?" — affirmative answer blocks programming until clearance
+
+### Expanded Keyword Triggers (DEC-030)
+
+R-011 significantly expands the DEC-019 keyword trigger system. Major new categories:
+
+- **Pregnancy:** pregnant, trimester, postpartum, C-section, pelvic floor, diastasis, vaginal bleeding, contractions, amniotic fluid, preeclampsia, gestational diabetes
+- **Female athlete:** amenorrhea, missed period, irregular period, RED-S, low energy availability, stress fracture (in female runners), ferritin, Female Athlete Triad
+- **Youth:** middle school, high school, cross country + school, growth spurt, growing pains, Osgood, Sever's, "my parents/mom/dad"
+- **Chronic conditions:** insulin pump, CGM, blood sugar, hypoglycemia, metformin, AFib, pacemaker, ICD, beta blocker, hypothyroidism, Hashimoto, levothyroxine, TSH
+- **Injury:** plantar fasciitis, IT band, femoral neck, Achilles + tendon, shin splints, MTSS, patellofemoral, hamstring strain, torn hamstring
+- **Mental health/crisis:** suicidal, kill myself, want to die, self-harm, cutting, end it all, eating disorder, anorexia, bulimia, purging, addicted to running, burned out
+
+**Crisis response protocol:** Suicidal ideation triggers immediate crisis resource display (988 Lifeline, Crisis Text Line 741741), cessation of normal coaching, empathetic acknowledgment, and no continued engagement on the crisis topic.
+
+### Return-to-Run Decision Framework
+
+Universal five-stage framework regardless of injury type:
+
+1. **Triage** — coaching-modification territory or immediate referral? (Femoral neck stress fracture = emergency)
+2. **Active rest** — zero running, cross-training, monitor pain resolution. Exit: 30-min pain-free walk
+3. **Walk/run progression** — traffic-light pain model (green/amber/red) at three checkpoints (during, same day, next morning)
+4. **Volume rebuilding** — 10–30% weekly increase (higher % acceptable at very low absolute mileage), all easy pace, target 75–80% pre-injury mileage
+5. **Intensity reintroduction** — one quality session/week at reduced intensity, 3–4 weeks to normal distribution
+
+**Iron rule:** "If in doubt, refer out." The coach modifies the plan. Tissue diagnosis, rehab exercise prescription, and medical clearance are not coaching.
+
+### Three-Tier Sensitive Disclosure Escalation
+
+- **Green** (coaching-scope): Normal mood fluctuations, single missed period, minor aches responding to modification → validate, adjust, monitor
+- **Amber** (referral recommended): Persistent depression/anxiety, 3+ missed periods, recurring stress fractures, compulsive exercise patterns, OTS symptoms → validate, acknowledge limits, recommend specific professional, continue coaching
+- **Red** (immediate action): Suicidal ideation, femoral neck symptoms, syncope during exercise, chest pain, vaginal bleeding during pregnancy, eating disorder disclosure → stop coaching, provide resources, do not continue topic, document
+
+---
+
+*Full research artifacts: research/artifacts/batch-3a-safety-liability.md, research/artifacts/batch-4b-special-populations-safety.md*

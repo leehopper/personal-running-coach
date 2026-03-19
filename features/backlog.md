@@ -40,8 +40,9 @@ Required before the product is available to anyone beyond the founder and truste
 
 | Feature | Notes |
 |---------|-------|
-| Health screening gate | PAR-Q-inspired intake screening (heart conditions, chest pain, dizziness, bone/joint, blood pressure medication). Results connect to deterministic safety layer — flagged conditions adjust volume ceilings, intensity limits, mandatory referral triggers. See DEC-018. |
-| Medical scope keyword triggers | Hard-coded triggers for cardiac symptoms, persistent injury, RED-S indicators, medical conditions that auto-generate "see a professional" responses. Part of deterministic layer. See DEC-019. |
+| Health screening gate (extended) | PAR-Q-inspired intake screening expanded with: pregnancy/postpartum status, date of birth with age verification (COPPA for <13), chronic condition prompts with beta-blocker detection, mental health baseline, injury history. Periodic check-ins: quarterly menstrual regularity, energy levels, stress fracture history. See DEC-018, DEC-029. |
+| Medical scope keyword triggers (expanded) | Original 4 categories (DEC-019) expanded to 7: pregnancy/postpartum, female athlete health, youth indicators, chronic conditions, injury-specific, mental health/crisis. Crisis response protocol for suicidal ideation triggers. See DEC-030. |
+| Population-adjusted safety guardrails | Deterministic layer enforces per-population limits: pregnancy (ACWR 0.8–1.3, RPE ceiling), postpartum (12-week block), youth (volume ceilings by age), masters (extended recovery spacing), injury return (five-stage framework), chronic conditions (beta-blocker HR→RPE switch). See DEC-028. |
 | Beta participation agreement | Clickwrap agreement: "as is" disclaimer, liability cap, assumption of risk, health disclaimer. See DEC-017. |
 | LLC formation | Form LLC + separate bank account before any public exposure. ~$500. |
 | Privacy policy | Data collection, storage, breach notification procedures. Required for FTC HBNR compliance. See DEC-020. |
@@ -66,8 +67,9 @@ Required before the product is available to anyone beyond the founder and truste
 | Idea | Thinking |
 |------|----------|
 | Running-only vs. multi-sport MVP | Keeping running-only simplifies everything, but some users may expect basic cross-training support from day one. |
-| Exercise addiction detection | Monitor rest day distress, excessive override requests, compulsive exercise patterns. R-003 identified ~8.6% of amateur runners meet exercise addiction criteria; technology use correlates with higher injury rates. Design: detect patterns that suggest compulsive behavior, adjust coaching tone. |
-| RED-S screening and pattern detection | Intake screening for menstrual health, eating habits, bone density history. Ongoing pattern detection for energy deficiency indicators. R-003: 23-80% of female athletes experience some degree of low energy availability. |
+| Exercise addiction detection | R-011 validated: Exercise Addiction Inventory (Terry, Szabo & Griffiths, 2004) identifies 6 components (salience, conflict, mood modification, tolerance, withdrawal, relapse). Detect: running through injury, distress at missed runs, ever-increasing volume, adding rest-day runs, exercise-eating linkage. Response: refuse to program more volume, reframe rest. Folded into coaching persona and expanded keyword triggers (DEC-030). Pre-Public Release implementation. |
+| RED-S screening and pattern detection | R-011 validated with concrete thresholds: 3+ missed periods → referral, 2+ career stress fractures in female runner → RED-S screening referral, rapid unexplained weight loss + declining performance + frequent illness. Folded into extended screening (DEC-029) as quarterly check-ins. Pre-Public Release implementation. |
+| Return-to-run coaching for common injuries | R-011 produced injury-specific coaching modifications for 7 injuries (plantar fasciitis, IT band, stress fractures, Achilles tendinopathy, shin splints, patellofemoral, hamstring). Universal five-stage framework. Femoral neck = emergency referral. Traffic-light pain monitoring. Pre-Public Release implementation. |
 
 ## Monetization Ideas (Deferred)
 

@@ -464,4 +464,47 @@ See `planning/coaching-persona.md` for full playbooks and vocabulary.
 
 ---
 
+## DEC-028: Population-adjusted safety guardrails
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Safety / Architecture
+**Source:** R-011 research
+
+**Decision:** The deterministic safety guardrails (DEC-010) are adjusted per population. Pregnancy tightens ACWR to 0.8–1.3 with RPE ceiling of 14, blocks altitude >1,800m and temp >32°C, requires provider clearance. Postpartum enforces a hard 12-week running block per Goom et al. 2019. Youth runners get age-stratified volume ceilings (15–20 mpw ≤12, 25–30 mpw 13–14, 35–45 mpw 15–16, 45–55 mpw 17–18) with 7/7 training blocked under 16. Masters 50+ get extended recovery spacing (hard session every 3rd day for 50s, every 4–5 days for 60+) and tighter volume progression caps (5–7%/week 50s, 3–5%/week 60+). Injury return uses a universal five-stage framework with traffic-light pain monitoring. Chronic conditions trigger specific adjustments: beta-blockers switch HR-based training to RPE, T1D requires pre-run safety checklist, unmanaged arrhythmia blocks vigorous programming until clearance.
+
+**Rationale:** R-011 found that the default guardrails (designed for healthy 18–39-year-olds) are insufficient for several populations. A 60-year-old returning from injury needs ACWR 0.8–1.15, not 0.8–2.0. A 12-year-old exceeding 20 mpw risks growth plate injuries. The deterministic layer must enforce population-appropriate limits — relying on the LLM to "know" these adjustments would violate the core architectural principle (DEC-010). Evidence base: ACOG 2020, Goom/Donnelly/Brockwell 2019, NSCA LTAD 2016, ACSM 2015/2018, Silbernagel pain-monitoring model.
+
+---
+
+## DEC-029: Extended health screening with periodic check-ins
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Safety / UX
+**Source:** R-011 research
+
+**Decision:** Expand the PAR-Q-inspired screening gate (DEC-018) with population-specific questions: pregnancy/postpartum status (with hard gates on programming), date of birth with age verification (COPPA flow for <13, parental acknowledgment for 13–17), chronic condition prompts (asthma, diabetes type, arrhythmias, hypertension, thyroid) with medication-affecting-HR detection (beta-blockers), mental health baseline (motivation 1–5, sleep hours), and injury history. Add periodic check-ins beyond onboarding: quarterly menstrual regularity for female runners, energy levels, and stress fracture history for RED-S screening. 3+ missed periods → referral. 2+ career stress fractures in female runner → RED-S screening referral.
+
+**Rationale:** R-011 demonstrated that one-time onboarding screening misses conditions that develop or emerge during training (menstrual irregularity from increasing load, mental health changes, new chronic condition disclosures). Periodic check-ins catch RED-S warning signs that onboarding alone cannot. Beta-blocker detection is critical because standard HR-based training zones are invalid with beta-blocker use (15–22 bpm reduction) — a user on metoprolol training by HR is undertrained by default. COPPA compliance (updated April 2025) requires verifiable parental consent for under-13.
+
+---
+
+## DEC-030: Expanded keyword trigger system with crisis response protocol
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Safety / Architecture
+**Source:** R-011 research
+
+**Decision:** Significantly expand DEC-019's keyword trigger categories. New categories: pregnancy/postpartum terms (25+ keywords), female athlete health (15+ keywords), youth indicators (15+ keywords), chronic condition terms (30+ keywords), injury-specific terms (20+ keywords), and mental health/crisis terms (25+ keywords). All triggers are deterministic — in the computation layer, not dependent on LLM judgment.
+
+Add a dedicated crisis response protocol for suicidal ideation and self-harm triggers. Tier 1 hard triggers (explicit crisis language) immediately: stop coaching conversation, display crisis resources (988 Lifeline, Crisis Text Line 741741), acknowledge with empathy, and cease engagement on the crisis topic. Normal coaching resumes only when the user re-engages on training. This is deterministic behavior, not LLM-dependent — a 2025 Nature study of 29 AI chatbots found none met full criteria for adequate crisis response.
+
+Add a three-tier sensitive disclosure escalation (green = coaching-scope, amber = professional referral recommended, red = immediate action required) that standardizes the response pattern across all population-specific triggers.
+
+**Rationale:** DEC-019's original four categories (cardiac, persistent injury, RED-S, medical conditions) are necessary but insufficient. R-011 identified that populations like pregnant runners, youth athletes, and runners with chronic conditions have distinct trigger vocabularies that the original system would miss entirely. "Gestational diabetes," "growth spurt + pain," "insulin pump," "pelvic floor" — none of these would have triggered the original keyword system. The crisis protocol addresses the most dangerous failure mode: an AI continuing to coach through a mental health crisis. Making this deterministic removes the possibility of LLM misjudgment in the highest-stakes scenario.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
