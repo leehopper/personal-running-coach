@@ -551,7 +551,7 @@ Add a three-tier sensitive disclosure escalation (green = coaching-scope, amber 
 - **Services in Compose:** .NET API, PostgreSQL, pgAdmin, Redis, Aspire Dashboard. React dev server runs via Tilt (Vite dev server with hot reload).
 - **Database:** PostgreSQL (primary data store + Marten event store + Wolverine message persistence). pgAdmin for database management.
 - **Caching:** Redis — included from day one but used lightly. Response caching, rate limiting prep, session storage. Not a primary data store.
-- **CI/CD:** GitHub Actions. Build, test, lint pipelines. Quality gates per DEC-016 Phase 4 (safety pass rate ≥ 95% on prompt changes).
+- **CI/CD:** GitHub Actions. Build, test, lint pipelines. Full quality gate pipeline per DEC-034 (five-layer defense for AI-generated code). Safety pass rate ≥ 95% on prompt changes per DEC-016 Phase 4.
 - **Secrets management:** .NET user-secrets for local dev, environment variables in containers. No secrets in code or config files.
 
 ### Conventions
@@ -602,6 +602,225 @@ Add a three-tier sensitive disclosure escalation (green = coaching-scope, amber 
 **Rationale:** The builder and initial test users are Apple ecosystem users. DEC-024's Garmin-first recommendation was based on API capability analysis, not user research. The web-first decision (DEC-005) remains correct for the primary coaching interface — conversation, plan viewing, and onboarding are web-native. But the data ingestion path may require a thin iOS companion sooner than originally planned. Designing the API as client-agnostic costs nothing and keeps this option open.
 
 **DEC-005 still holds:** The web app is the primary product surface. A native iOS app, if built, is a HealthKit data bridge first and a full client second. The decision to expand the iOS app into a full native client is deferred until product-market fit is validated on web.
+
+---
+
+## DEC-034: Quality gate pipeline — five-layer defense for AI-generated code
+
+**Date:** 2026-03-19
+**Status:** Final
+**Category:** Development workflow / Code quality
+**Informed by:** R-012 research (batch-5-ai-pr-review-quality-tool.md), R-008/R-009 (batch-1 Claude Code workflow)
+
+**Decision:** The project uses a five-layer quality pipeline specifically designed for AI-generated code. Every layer is free for open source except Claude Code API costs (~$2–8/month).
+
+### Layer 1: Pre-commit hooks (Lefthook)
+
+Use **Lefthook** instead of Husky + lint-staged. Single Go binary, no Node.js startup overhead, built-in staged-file support, parallel execution by default. One `lefthook.yml` replaces three dependencies.
+
+**Pre-commit (parallel):**
+- `dotnet format` on staged .cs files (backend/, --no-restore)
+- ESLint + Prettier on staged .ts/.tsx files (frontend/)
+- Auto re-stage fixed files
+
+**Commit-msg:**
+- commitlint with @commitlint/config-conventional (backstop for conventional commits — Claude Code follows the convention via CLAUDE.md, commitlint catches exceptions)
+
+**Pre-push (parallel):**
+- `dotnet test` (unit tests only, --filter "Category=Unit")
+- TypeScript type check (`tsc --noEmit`)
+
+### Layer 2: PR review automation
+
+**CodeRabbit** (free for open source, automatic on every PR) as primary AI reviewer. Combines AST analysis, 40+ SAST tools, and generative AI for line-level review and PR summaries. ~28% noise rate initially, improves via dismissed-comment learning. Configured via `.coderabbit.yaml`.
+
+**Claude Code GitHub Action** (anthropics/claude-code-action@v1, ~$2–8/month API costs) as targeted second reviewer on important PRs via `@claude` mention. Key differentiator: uses a different model than the code author (cross-model review breaks correlated blind spots), references CLAUDE.md for architectural standards, and focuses on complexity, pattern drift, and architectural consistency.
+
+**Codacy** (free for open source) as optional third layer for SAST quality gates that can block merges. Added in Phase 2 if needed.
+
+### Layer 3: CI quality gates (GitHub Actions)
+
+**Phase 1:**
+- Path-filtered CI via dorny/paths-filter — .NET jobs only when backend changes, frontend jobs only when frontend changes
+- `dotnet build` with TreatWarningsAsErrors (Roslyn analyzers + StyleCop enforce at build time)
+- `dotnet test` with Coverlet coverage → Codecov upload (backend flag)
+- `npm ci && vitest run --coverage` → Codecov upload (frontend flag)
+- CodeQL for C# + JavaScript/TypeScript (security scanning, free for public repos)
+- Dependabot configured for NuGet, npm, GitHub Actions, Docker ecosystems
+
+**Phase 2:**
+- Trivy filesystem scan (dependency vulnerabilities, both ecosystems) → SARIF upload to GitHub Security tab
+- Trivy container image scan (post Docker build, CRITICAL/HIGH only, warn-only initially)
+- License compliance checks (weekly scheduled workflow, lightweight CLI tools)
+- SonarCloud integration
+
+**Coverage thresholds:** 60% project target, 70% patch coverage (new code). Patch coverage is especially important — ensures Claude Code writes tests for new features. Codecov Carryforward Flags for path-filtered runs.
+
+### Layer 4: Dashboard and trends (SonarCloud)
+
+Use **SonarCloud free tier** (open source qualifies). Genuine value for AI-generated code: cross-file taint analysis (tracks user input through service layers — ESLint and StyleCop can't do this), cognitive complexity scoring, duplication detection (AI produces 4× more code cloning per GitClear research), and the MCP server integration that feeds SonarCloud findings back into Claude Code's context.
+
+Focus on security hotspot detection, coverage tracking, and duplication metrics — not code smell counts that overlap with existing tools.
+
+**Lightweight alternative if SonarCloud is deferred:** Install `SonarAnalyzer.CSharp` NuGet + `eslint-plugin-sonarjs` into the build pipeline for free. Captures ~90% of analysis value without the platform.
+
+### Layer 5: Human review (irreplaceable)
+
+With AI handling mechanical correctness (~45% of bugs per IBM research), human review focuses exclusively on what AI review is structurally blind to:
+
+1. **Business logic correctness** — does the code solve the right problem with correct domain rules?
+2. **Architectural consistency** — does new code follow established patterns, or did Claude invent something?
+3. **Test quality** — would tests fail if the feature broke? Watch for mocks of the thing being tested, trivial assertions.
+4. **Security threat modeling** — any code touching auth, user input, or secrets gets mandatory human review.
+5. **Scope creep** — did Claude change things beyond what was asked? Speculative changes are the most common AI footgun.
+6. **Dependency verification** — do all referenced packages, imports, and APIs actually exist?
+
+Human review is a significant portion of the development cycle — the right ratio when 100% of code is AI-generated.
+
+### Key research findings driving this decision
+
+- CodeRabbit analysis of 470 PRs: AI-authored code produces 1.7× more issues per PR, logic errors up 75%, security vulnerabilities 1.5–2× higher.
+- IBM Research: LLM-as-judge alone detects ~45% of errors. Supplemented with static analysis hints, coverage rises to ~94%.
+- GitClear: 8× increase in duplicated code when AI reviews its own output, 39.9% decrease in refactored code.
+- Stanford/Meta: instruction adherence averages 43.7% across models over time — the mechanism behind architectural drift.
+- IEEE Spectrum (March 2026): newer AI models produce code that removes safety checks and creates fake output matching expected formats.
+- ProjectDiscovery: 3 AI-generated applications contained 70 exploitable vulnerabilities including 18 Critical/High — traditional code-only review (including AI review) missed all of them.
+
+### Total pipeline cost
+
+| Layer | Monthly cost | Noise |
+|-------|-------------|-------|
+| Pre-commit (Lefthook) | $0 | Low |
+| PR review (CodeRabbit + Claude Action) | $2–8 | Medium |
+| CI gates (CodeQL + Dependabot + Trivy + Codecov) | $0 | Low |
+| Dashboard (SonarCloud) | $0 | Medium → Low |
+| Human review | Your time | N/A |
+
+**Rationale:** The core finding from R-012 research: when 100% of code is AI-generated, no single quality tool is sufficient. Correlated blind spots mean the same biases that cause AI to write a pattern cause AI to accept it in review. The defense is layered: deterministic tools (formatters, analyzers, CodeQL) catch what they're designed for, AI review (CodeRabbit + Claude Action with cross-model review) catches a broader but imperfect set, and human review focuses on the architectural and business-logic layer where AI is structurally blind. The combination reaches ~94% error detection vs. ~45% for AI review alone.
+
+**Alternatives considered:**
+- Husky + lint-staged (rejected — Lefthook is strictly superior for polyglot monorepo: single binary, parallel by default, no lint-staged dependency)
+- GitHub Copilot Code Review (rejected — requires paid subscription, 31 of 47 suggestions duplicate ESLint, 7 factually wrong, diff-only with no cross-file context)
+- Qodo Merge (strong alternative to CodeRabbit with 75 PR reviews/month free tier and less noise — consider if CodeRabbit noise proves unmanageable)
+- Self-hosted SonarQube (rejected — SonarCloud free tier with branch analysis and PR decoration is strictly superior for open source)
+- Performance regression testing in CI (deferred — GitHub-hosted runners have 5–20% variance, makes detection unreliable; revisit with k6 smoke tests when specific hot paths exist)
+- Snyk (rejected initially — superior fix-PR automation but adds account friction and free-tier limits; reconsider if repo goes private)
+
+---
+
+## DEC-035: Coding standards, rulesets, and project conventions
+
+**Date:** 2026-03-19
+**Status:** Final
+**Category:** Development standards / Project conventions
+**Sources:** Uploaded dotnet-ruleset-ideas.md, uploaded react-ruleset-ideas.md, Microsoft dotnet/skills repo, liatrio-labs opinionated-enterprise-standards repo (input only, not overriding), batch-1 Claude Code workflow research
+
+**Decision:** The project adopts a curated set of coding standards synthesized from four external sources, filtered for a solo-developer AI-assisted project. Standards are distributed across the project structure based on scope and enforcement mechanism. Six key convention choices made during synthesis:
+
+1. **React Hook Form + Zod** for all form handling. Schema-based validation with inferred TypeScript types. Zod schemas in `schemas/` directories within feature modules.
+2. **Module-first folder structure** for both backend and frontend. Domain modules contain all related files (controller, service, repository, models) at the module root. Technical layering enforced by code dependency direction, not folder hierarchy.
+3. **Standard DI registration** via `Add{Module}Services()` extension methods. No custom attribute-based scanning. Called explicitly in Program.cs.
+4. **Scoped-first DI lifetimes** for services and repositories (anything in the request pipeline). Singleton only for stateless infrastructure (configuration wrappers, HTTP client factories).
+5. **Microsoft dotnet/skills** installed as a Claude Code plugin for EF Core optimization, MSBuild diagnostics, and .NET upgrade guidance. One principle extracted into root CLAUDE.md: "Don't use LLMs for structured data tasks."
+6. **BDD acceptance criteria** (Given/When/Then) in every plan file. Scenarios double as specs for Playwright E2E and integration tests.
+
+### Rules placement map
+
+| Content | Location | Enforcement |
+|---------|----------|-------------|
+| Project context, architecture, session workflow, key principles | Root `CLAUDE.md` (<200 lines per R-008) | Read every session |
+| .NET coding standards, EF Core patterns, module structure, testing | `backend/CLAUDE.md` | Read when working in backend/ |
+| React/TS standards, component patterns, RTK Query, forms, testing | `frontend/CLAUDE.md` | Read when working in frontend/ |
+| Security & secrets rules | Root `CLAUDE.md` | Always active |
+| Git standards (trunk-based, conventional commits, branch naming) | Root `CLAUDE.md` | Always active |
+| EF Core migration safety | `.claude/rules/` with glob on migrations | Conditional trigger |
+| Format-on-save (dotnet format, prettier) | Claude Code PostToolUse hooks | Automated |
+| Dangerous command blocking | Claude Code PreToolUse hooks | Automated |
+| Pre-commit checks (Lefthook) | `lefthook.yml` | Deterministic |
+| EF Core query optimization, MSBuild diagnostics | dotnet/skills plugin | On-demand skill |
+
+### Backend conventions adopted (from uploaded .NET ruleset, filtered)
+
+- Primary constructors when applicable
+- `_` prefix for private fields
+- Properties initialized with default non-null values
+- One type per file
+- Record types for DTOs with `Dto` suffix
+- Structured logging with `ILogger<T>` and named placeholders
+- Module-first organization: `Modules/{Domain}/` with controller, service, repository at root; Models/, Entities/, Extensions/ as subdirectories
+- Submodules when a module exceeds ~8 root files
+- `Modules/Shared/` for cross-cutting services
+- Code-first EF Core migrations, `{EntityName}Id` naming, Guid PKs, `[Key]`/`[Required]` data annotations preferred over Fluent API
+- Base entity with audit fields (CreatedOn, ModifiedOn)
+- Never modify or delete existing migrations
+- Strongly-typed settings as record types, `IOptions<T>` pattern
+- Layered config: appsettings.json → appsettings.{Environment}.json → appsettings.Local.json (git-ignored)
+- Post-change verification: `dotnet build` after code changes, `dotnet test` after test changes
+- Async EF Core operations throughout
+- `Add{Module}Services()` extension methods for DI registration, called in Program.cs
+- Scoped lifetime default for services/repositories; Singleton only for stateless infrastructure
+
+### Backend conventions rejected
+
+- Attribute-based DI (`[SingletonService]`) — replaced with standard extension method registration
+- Singleton-first lifetime — replaced with scoped-first
+- Object mapping library (Mapster/AutoMapper) — premature for MVP, manual mapping initially
+- In-memory database for integration tests — replaced with Testcontainers + real PostgreSQL
+
+### Frontend conventions adopted (from uploaded React ruleset, filtered)
+
+- Module-based organization: `modules/{feature}/` with component, api, slice, helpers, models, schemas directories
+- File naming: `{name}.{type}.{extension}` (e.g., `.component.tsx`, `.api.ts`, `.slice.ts`, `.hooks.ts`, `.model.ts`, `.schema.ts`, `.spec.tsx`)
+- Pages as lightweight route-level composers under `pages/`
+- Arrow functions for components, `{ComponentName}Props` interfaces, destructured props, named exports
+- Composition over render functions — extract components, never use `renderX()` helpers
+- Component extraction at >20-30 lines, repeated patterns, or independent state
+- TypeScript strict mode, no `any`, type imports, nullish coalescing over `||`
+- State hierarchy: router state → local state → Redux for cross-cutting
+- RTK Query for all HTTP interactions with tagTypes and cache invalidation
+- React Hook Form + Zod for forms, schemas in `schemas/` per module
+- Custom hook naming: `Use{Name}Options`, `Use{Name}Return`, explicit return types
+- Import order: React → third-party → path alias → parent → same-dir → CSS
+- Path alias (`~/`) for cross-module imports
+- Naming: Dto suffix, intent-based handlers (not `handleClick`), boolean verb prefixes (`is`, `has`, `can`)
+- Performance: selective React.memo, proper keys (never array index), code splitting
+- Accessibility: semantic HTML, ARIA, keyboard navigation
+- Security: DOMPurify for HTML content, env vars for config
+
+### Frontend conventions filtered
+
+- MUI-specific styling — replaced with Tailwind CSS + shadcn/ui patterns
+- Three-file API pattern (base/main/enhanced) — single API file per feature for MVP
+- Loading state prescriptions — defer to shadcn/ui patterns
+
+### Testing conventions adopted (cross-stack)
+
+- Test projects mirror source directory structure
+- Arrange / Act / Assert with comments
+- `expected` / `actual` prefixes for values
+- `[Theory]` + `[InlineData]` for parameterized scenarios
+- FluentAssertions for readable assertions
+- Integration tests: WebApplicationFactory + Testcontainers (real PostgreSQL, not in-memory)
+- Full response contract validation with deep equality (excluding audit fields)
+- Frontend: co-located `.spec.tsx` files, test logic-heavy code (helpers, hooks, reducers)
+- BDD acceptance criteria in plan files feed directly into E2E test scenarios
+
+### Plan file format
+
+Every implementation plan file includes BDD acceptance criteria:
+
+```
+## Acceptance Criteria
+
+### Scenario: [descriptive name]
+Given [precondition]
+When [action]
+Then [expected outcome]
+```
+
+Scenarios are the source of truth for what Playwright E2E tests and integration tests must verify.
+
+**Rationale:** Standards are curated for a solo developer whose code is 100% AI-generated. The key tension is between comprehensive rules (which help Claude Code produce consistent output) and CLAUDE.md size (which must stay under 200 lines per batch-1 research). Resolved by distributing rules: root CLAUDE.md for global context and principles, subdirectory CLAUDE.md files for tech-specific standards, .claude/rules/ for conditional triggers, hooks for automated enforcement, and the dotnet/skills plugin for on-demand skills. The enterprise standards repo informed the organizational patterns but its JIRA workflow, Mapster requirement, and minimal-API prohibition were filtered as enterprise-specific.
 
 ---
 
