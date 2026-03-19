@@ -1,40 +1,42 @@
-# AI Running Coach — Planning Hub
+# RunCoach — AI-Powered Adaptive Running Coach
 
-High-level planning documents for an AI-powered adaptive running coach. This collection captures vision, architecture thinking, feature ideas, and open questions as the project moves toward PRD stage.
+An AI running coach that maintains a persistent adaptive coaching relationship. It builds training plans, consumes workout results, and continuously adapts — not a workout tracker, but a planning intelligence layer that complements tools runners already use.
 
-## Structure
+## Repo Structure
 
 ```
-planning/
-  vision-and-principles.md   — Why this exists, what makes it different, design principles
-  interaction-model.md       — Three interaction modes: onboarding, proactive coaching, open conversation
-  planning-architecture.md   — Macro/meso/micro tiered plan structure
-  self-optimization.md       — How the system learns and adapts from real-world feedback
-  memory-and-architecture.md — Agent memory model and context injection strategy
-  safety-and-legal.md        — Legal landscape, regulatory requirements, staged legal stack, risk matrix
-  coaching-persona.md        — Coaching communication design, scenario playbooks, persona calibration
-  poc-roadmap.md             — POC experiments that need to happen before building
-
-features/
-  backlog.md                 — Feature ideas organized by priority horizon (MVP → Future)
-
-decisions/
-  open-questions.md          — Unresolved questions organized by domain
-  decision-log.md            — Decisions made with rationale and alternatives considered
-
-research/
-  research-queue.md          — Topics queued for deep research with status tracking
-  artifacts/                 — Full research outputs (keep detail here, not in planning docs)
+CLAUDE.md              # AI assistant context (project overview, conventions)
+ROADMAP.md             # Living project state — current phase and next steps
+backend/               # .NET 9 API (ASP.NET Core, EF Core, Marten, Wolverine)
+frontend/              # React 19 SPA (TypeScript, Vite, Redux Toolkit, Tailwind)
+docs/
+  planning/            # Vision, architecture, safety, coaching persona
+  decisions/           # Decision log (DEC-001 through DEC-035)
+  features/            # Feature backlog by priority
+  research/            # Research queue, prompts, and full artifacts
+.claude/
+  commands/            # Claude Code slash commands
+  rules/               # Conditional rules (migration safety, secrets)
+  settings.json        # Hook configuration (formatters, dangerous command blocking)
 ```
 
-## How to Use These Docs
+## Quick Start
 
-- **Adding a new idea?** Drop it in `features/backlog.md` under the right priority section.
-- **Have a question that needs answering?** Add it to `decisions/open-questions.md`.
-- **Made a decision?** Update the question status and add an entry to `decisions/decision-log.md`.
-- **Running a POC?** Update status and findings in `planning/poc-roadmap.md`.
-- **Need deeper research?** Add it to `research/research-queue.md`, hand off to a research agent, and store the full output in `research/artifacts/`. Only pull key takeaways back into planning docs.
+See ROADMAP.md for current project status and next steps. The project is in pre-development — planning is complete, scaffolding is in progress.
 
-## What's Next
+## Tech Stack
 
-These documents are pre-PRD. The next stage is to work through the POC roadmap, resolve key open questions, and then synthesize findings into a proper product requirements document.
+- **Backend:** .NET 9 / C# 13, ASP.NET Core controllers, EF Core + Marten (event sourcing), Wolverine, JWT auth
+- **Frontend:** React 19 + TypeScript, Vite, React Router v7, Redux Toolkit + RTK Query, Tailwind + shadcn/ui
+- **Testing:** xUnit + FluentAssertions, Vitest + React Testing Library, Playwright E2E
+- **Infrastructure:** Docker Compose + Tilt, PostgreSQL, Redis, GitHub Actions CI/CD
+- **Quality:** Lefthook, CodeRabbit, Claude Code GitHub Action, CodeQL, Trivy, Codecov, SonarCloud
+
+## Documentation
+
+All planning and research docs live in `docs/`. Key entry points:
+
+- `docs/planning/vision-and-principles.md` — why this exists
+- `docs/decisions/decision-log.md` — all 35 decisions with rationale
+- `docs/research/research-queue.md` — 12 research topics, 11 integrated
+- `docs/planning/poc-roadmap.md` — POC experiments before building

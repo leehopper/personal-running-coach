@@ -15,16 +15,16 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 
 | Question | Status | Notes |
 |----------|--------|-------|
-| How structured is onboarding vs. open conversation? | Leaning | Partially decided — onboarding is structured/sequential, but exact question flow not finalized. |
+| How structured is onboarding vs. open conversation? | Leaning | Partially decided — onboarding is structured/sequential, but exact question flow not finalized. **Feeds POC 4.** |
 | Should the AI initiate proactively, or only respond? | Decided | Both. Proactive coaching is a core differentiator. See decision log. |
-| What does workout logging look like? Chat-based, form, or hybrid? | Open | Chat-only might feel slow for simple logs. Form-only loses the conversational value. Hybrid likely but needs design exploration. Could let the AI ask what it needs based on the workout type. User could also describe recent workouts conversationally rather than filling in fields. |
+| What does workout logging look like? Chat-based, form, or hybrid? | Open | Chat-only might feel slow for simple logs. Form-only loses the conversational value. Hybrid likely but needs design exploration. Could let the AI ask what it needs based on the workout type. User could also describe recent workouts conversationally rather than filling in fields. **Feeds MVP-0 data model and UX design.** |
 
 ## Optimization
 
 | Question | Status | Notes |
 |----------|--------|-------|
 | What triggers a micro vs. meso vs. macro replan? | Decided | R-004 produced a concrete 5-level escalation ladder: Level 0 (absorb/log only), Level 1 (micro-adjust next 1-2 workouts), Level 2 (week restructure — first level needing LLM), Level 3 (phase reconsideration), Level 4 (plan overhaul — requires user confirmation). Specific thresholds defined using ACWR bands with hysteresis and EWMA trend detection. See DEC-012 and self-optimization.md. |
-| How does the system weight subjective input vs. objective data? | Leaning | R-004's escalation ladder routes signals through EWMA trend detection — single subjective reports are absorbed (Level 0), but persistent patterns trigger escalation. The traffic-light framework (R-001) provides the reconciliation model: objective metrics (HR, pace) + subjective reports → composite readiness assessment. Needs POC validation for exact weighting. |
+| How does the system weight subjective input vs. objective data? | Leaning | R-004's escalation ladder routes signals through EWMA trend detection — single subjective reports are absorbed (Level 0), but persistent patterns trigger escalation. The traffic-light framework (R-001) provides the reconciliation model: objective metrics (HR, pace) + subjective reports → composite readiness assessment. Needs POC validation for exact weighting. **Feeds POC 2.** |
 | How aggressively should it redistribute missed mileage? | Decided | R-004: NEVER redistribute missed mileage (universal coaching rule). Move forward. Use drift-band tolerance (±15% of weekly target) — if within band, no intervention. Use upcoming easy sessions to gradually correct, never compress recovery. See self-optimization.md escalation ladder for specific missed-workout routing. |
 
 ## Memory & Context
@@ -33,7 +33,7 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 |----------|--------|-------|
 | What context gets injected per AI call? How is it structured? | Decided | R-004 produced a concrete token budget (~15K tokens, 7.5% of 200K window) with interaction-specific assembly and positional optimization. Stable prefix (system + profile + plan, ~6.3K tokens) is cacheable. See DEC-013 and memory-and-architecture.md. POC 1 will validate in practice. |
 | How is long-term history summarized to fit context windows? | Decided | R-004: 5-layer summarization hierarchy. Raw data (never in context) → per-workout (~100-150 tokens) → weekly (~200-300) → phase (~300-500) → trend narrative (~500 tokens, LLM-generated). All pre-computed by background jobs, not generated at query time. 80-90% token reduction. See memory-and-architecture.md. |
-| How do conversation history and structured data relate? | Open | Leaning: both matter independently. Structured data (profile, plan, history) makes the AI competent. Conversation history makes it feel like a relationship (remembers you hate treadmills, knows about your schedule conflicts). Both get injected into context but serve different purposes. Exact architecture should emerge from POC 1 — this is a core question for context injection design. |
+| How do conversation history and structured data relate? | Open | Leaning: both matter independently. Structured data (profile, plan, history) makes the AI competent. Conversation history makes it feel like a relationship (remembers you hate treadmills, knows about your schedule conflicts). Both get injected into context but serve different purposes. Exact architecture should emerge from POC 1 — this is a core question for context injection design. **Core POC 1 question.** |
 
 ## UX
 
@@ -62,7 +62,7 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 |----------|--------|-------|
 | Running only, or multi-sport from the start? | Open | Leaning running-only for MVP to reduce complexity. Multi-sport adds significant planning logic. |
 | How does the planning model work for goalless users? | Leaning | NOT a separate planning mode. The same flexible architecture handles both goal-driven and maintenance users — the AI reasons differently based on inputs, but the system doesn't fork. This reinforces the broader principle: build one flexible system, don't introduce granularity until forced to. Same applies to future multi-sport support — running is the focus now, but the architecture shouldn't have "running" baked in. |
-| Does the MVP need any passive data integration? | Decided | R-006 provides the staged answer. MVP-0: manual .FIT upload or unofficial Garmin library (`garth`) for personal use — zero API dependency. MVP-1: official Garmin Connect Developer Program with push webhooks (requires LLC for developer approval). Polar as easiest second platform (~1 week effort). Strava is unusable (AI/ML prohibition confirmed, 7-day cache limit, analytics ban). Apple HealthKit incompatible with web-first (on-device only). See DEC-024 and memory-and-architecture.md. |
+| Does the MVP need any passive data integration? | Decided | MVP-0: manual workout input (chat-based or form-based). MVP-1: Apple Health integration prioritized over Garmin (builder and initial testers use Apple Watch). Apple HealthKit requires a native iOS companion app — thin SwiftUI bridge that reads HealthKit and POSTs to the backend's generic workout ingestion endpoint. Garmin as fast-follow. Strava unusable (AI/ML prohibition). See DEC-033 (amends DEC-024), DEC-025, DEC-026. |
 
 ## Business
 
@@ -76,7 +76,7 @@ Living tracker of unresolved questions, design tensions, and things that need PO
 | Question | Status | Notes |
 |----------|--------|-------|
 | What are the data privacy implications of storing health-adjacent data? | Decided | R-003 clarifies: HIPAA does NOT apply (not a covered entity). FDA exempt (general wellness). But FTC Health Breach Notification Rule DOES apply — the app is a "vendor of personal health records" once it consumes Garmin/health data + user reports. Penalties: $43,792/violation/day. "Breach" includes unauthorized disclosures, not just cyberattacks. WA My Health My Data Act has private right of action with no revenue threshold. CCPA/CPRA likely at scale. Action: treat as PHR vendor from MVP-1, no sharing with analytics without consent, breach notification procedures, privacy policy, consent logging. See DEC-020 and safety-and-legal.md. |
-| Where does user data live relative to the AI? | Leaning | R-005 simplifies this: no BYOM means all data flows through one provider (Anthropic for MVP). Require zero-retention/zero-training agreement with provider (Whoop's standard with OpenAI). The context payload (~15K tokens) includes training history, fatigue reports, and injury mentions — all health-adjacent data subject to FTC HBNR (DEC-020). Anthropic's API data usage policy should be validated. At scale, the LLM gateway (DEC-022) provides centralized control over what data flows where. |
+| Where does user data live relative to the AI? | Decided | No BYOM (DEC-021) means all data flows through Anthropic. Anthropic's API has zero-retention by default for API usage. Context payload (~15K tokens) includes health-adjacent data subject to FTC HBNR (DEC-020). LLM gateway (DEC-022) provides centralized control at scale. |
 
 ## Safety
 
