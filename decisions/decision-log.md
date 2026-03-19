@@ -432,4 +432,36 @@ At scale (thousands of users): deploy an LLM gateway (Portkey or LiteLLM proxy) 
 
 ---
 
+## DEC-027: Three-layer coaching communication architecture with scenario playbooks
+
+**Date:** 2026-03-18
+**Status:** Final
+**Category:** Coaching / UX
+**Source:** R-010 research
+
+**Decision:** The coaching persona uses a three-layer communication architecture. Layer 1 (moment-to-moment): every response contains at least one OARS element (Open question, Affirmation, Reflection, or Summary). Layer 2 (information delivery): Elicit-Provide-Elicit pattern — ask what they know → share using neutral language → check their reaction. Layer 3 (substantive conversations): modified GROW framework — Goal, Reality, Options, Way Forward.
+
+Each escalation level (DEC-012) maps to a communication mode: Level 0 = silent, Level 1 = light/informational, Level 2 = brief explanation with rationale, Level 3 = full E-P-E pattern, Level 4 = maximum transparency with alternatives and explicit agreement request.
+
+Eight scenario playbooks define concrete conversational patterns for the most common coaching challenges: easy day over-performance, plan downgrades, goal recalibration, missed workouts, injury scope boundaries, rest day resistance, returning after a break, and the coach training phase. Each includes a structural pattern, key reframes, and explicit anti-patterns.
+
+Default persona calibration: 80% warmth / 20% directness. Increase directness for safety, established trust, repeated patterns, or explicit user request. Decrease for new relationships, post-setback, illness/injury, emotional vulnerability. Warmth expressed through actions (adjusting plans, remembering context) rather than emotional performance (claiming to "feel" or "understand").
+
+**Rationale:** R-010 found that autonomy-supportive language (conditional words over commands, questions before corrections, rationales alongside recommendations) produces measurably better adherence, motivation, and performance outcomes than directive language — even when information content is identical (Hooyman, Wulf & Lewthwaite, 2014). Process goals outperform outcome goals by 15x (Gröpel & Mesagno). AI negative feedback reduces self-efficacy more effectively than human negative feedback because it feels algorithmic and irrefutable (Li et al., 2025) — every piece of negative feedback must be paired with agency-preserving next steps. Research also found that working alliance may not develop with AI coaching, but users still reach goals through transactional interaction — the AI should excel at being useful, accurate, and reliable rather than simulating deep emotional connection.
+
+**Key rules encoded:**
+- Always provide rationales for recommendations, especially counterintuitive ones
+- Offer at least one choice, even when options are constrained
+- Acknowledge feelings before correcting behavior
+- Never use controlling language as default ("You need to," "You should," "You have to")
+- Never count or track missed workouts verbally
+- Never compare to other runners normatively
+- Never claim to observe physical signs or pretend to have emotions
+- Never redistribute missed mileage
+- Never say "impossible" about long-term goals
+
+See `planning/coaching-persona.md` for full playbooks and vocabulary.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

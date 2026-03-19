@@ -12,6 +12,7 @@ planning/
   self-optimization.md       — How the system learns and adapts from real-world feedback
   memory-and-architecture.md — Agent memory model and context injection strategy
   safety-and-legal.md        — Legal landscape, regulatory requirements, staged legal stack, risk matrix
+  coaching-persona.md        — Coaching communication design, scenario playbooks, persona calibration
   poc-roadmap.md             — POC experiments that need to happen before building
 
 features/
