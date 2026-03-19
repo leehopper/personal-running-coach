@@ -102,7 +102,7 @@ Record of decisions made during planning. Each entry captures what was decided, 
 **Category:** Development workflow
 **Source:** R-008/R-009 research
 
-**Decision:** The project will be a monorepo. Current planning docs (running-app-org/) become the repo root. Planning docs live in `docs/` alongside application code in `src/`. No separate docs repo.
+**Decision:** The project will be a monorepo. Current planning docs (running-app-org/) become the repo root. Planning docs live in `docs/` alongside application code in `backend/` and `frontend/`. No separate docs repo.
 
 **Rationale:** Strong practitioner consensus that monorepo is significantly better for AI-assisted development. A single context window with access to planning docs, schema, API definitions, and components enables holistic reasoning. Plan files serve as session-handoff context that survives context resets. Version control captures plan evolution alongside code.
 
@@ -517,7 +517,7 @@ Add a three-tier sensitive disclosure escalation (green = coaching-scope, amber 
 
 ### Backend
 
-- **Runtime:** .NET 9 (C# 13). Upgrade path to .NET 10 LTS (Nov 2026).
+- **Runtime:** .NET 10 LTS (C# 14). Released Nov 2025, supported through Nov 2028.
 - **Web framework:** ASP.NET Core with traditional controllers. Clean controller → service → repository layering.
 - **ORM / Data access:** EF Core for relational data (users, workout history, structured activity data). Marten (v8.x) for event-sourced plan state on PostgreSQL JSONB (per DEC-013). Clear ownership boundaries: EF Core owns relational tables, Marten owns event streams and document projections.
 - **Background processing:** Wolverine for message-based job processing with outbox pattern and durable queues on PostgreSQL. Handles the wearable data pipeline (webhook ingestion → processing → computation → summarization) and background summarization jobs. Native integration with Marten event streams.
@@ -534,7 +534,7 @@ Add a three-tier sensitive disclosure escalation (green = coaching-scope, amber 
 - **Routing:** React Router v7.
 - **State management:** Redux Toolkit + RTK Query. RTK Query handles server state caching (data fetching, background refetching, optimistic updates). Redux slices kept minimal — only truly global client state (auth, UI preferences, active conversation). Avoid unnecessary global state; prefer local component state where appropriate.
 - **Styling:** Tailwind CSS + shadcn/ui (Radix primitives). Utility-first CSS with copy-paste component library.
-- **Code quality:** ESLint + Prettier + Biome lint rules. Integrated into Claude Code PostToolUse hooks.
+- **Code quality:** ESLint + Prettier. Integrated into Claude Code PostToolUse hooks.
 
 ### Testing
 
@@ -568,7 +568,7 @@ Add a three-tier sensitive disclosure escalation (green = coaching-scope, amber 
 - TanStack Query over RTK Query (lighter, but Redux provides unified state management story for a chat-heavy app)
 - Keycloak for auth (rejected — heavy for MVP, another service to maintain; ASP.NET Core Identity handles needs through MVP-1)
 - Serilog + Seq for logging (rejected in favor of OpenTelemetry + Aspire Dashboard — more future-proof, same effort)
-- .NET 8 LTS (rejected — .NET 9 is current, .NET 10 LTS arrives Nov 2026 before long-term support becomes a concern)
+- .NET 9 STS (rejected — EOL May 2026; .NET 10 LTS is current and provides long-term support through Nov 2028)
 
 ---
 

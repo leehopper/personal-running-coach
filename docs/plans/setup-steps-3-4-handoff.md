@@ -10,7 +10,7 @@ Handoff document for Claude Code. Complete these two steps to bring the repo fro
 
 ## Step 3: Project Scaffolding + Containerization
 
-### 3.1 Backend (.NET 9 API)
+### 3.1 Backend (.NET 10 API)
 
 Create the .NET solution inside `backend/`:
 
@@ -27,8 +27,8 @@ cd tests/RunCoach.Api.Tests && dotnet add reference ../../src/RunCoach.Api/RunCo
 After scaffolding, configure the project to match the conventions in `backend/CLAUDE.md`:
 
 **Directory.Build.props** (backend root):
-- TargetFramework: net9.0
-- LangVersion: 13
+- TargetFramework: net10.0
+- LangVersion: 14
 - Nullable: enable
 - ImplicitUsings: enable
 - TreatWarningsAsErrors: true
@@ -188,8 +188,8 @@ Create `docker-compose.yml` at the repo root:
 ### 3.4 Dockerfiles
 
 **backend/Dockerfile** (multi-stage):
-- Build stage: `mcr.microsoft.com/dotnet/sdk:9.0` — restore, build, publish
-- Runtime stage: `mcr.microsoft.com/dotnet/aspnet:9.0` — copy published output, expose 5000, health check
+- Build stage: `mcr.microsoft.com/dotnet/sdk:10.0` — restore, build, publish
+- Runtime stage: `mcr.microsoft.com/dotnet/aspnet:10.0` — copy published output, expose 5000, health check
 - ENTRYPOINT: `dotnet RunCoach.Api.dll`
 
 **frontend/Dockerfile.dev** (dev only, for Docker Compose):
@@ -282,7 +282,7 @@ reviews:
     drafts: false
   path_instructions:
     - path: "backend/**"
-      instructions: "Review for .NET 9 / C# 13 best practices, EF Core patterns, and adherence to the module-first architecture described in backend/CLAUDE.md."
+      instructions: "Review for .NET 10 / C# 14 best practices, EF Core patterns, and adherence to the module-first architecture described in backend/CLAUDE.md."
     - path: "frontend/**"
       instructions: "Review for React 19 / TypeScript strict patterns, RTK Query usage, and adherence to the module-first structure described in frontend/CLAUDE.md."
 ```

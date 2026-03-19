@@ -1,8 +1,8 @@
-# Backend — .NET 9 / ASP.NET Core
+# Backend — .NET 10 / ASP.NET Core
 
 ## Stack
 
-.NET 9 (C# 13), ASP.NET Core controllers, EF Core + Marten (event sourcing on PostgreSQL JSONB), Wolverine (background processing), ASP.NET Core Identity + JWT, Swashbuckle (OpenAPI).
+See root CLAUDE.md for full tech stack. Additionally: Swashbuckle (OpenAPI).
 
 ## Module-First Organization
 
@@ -58,10 +58,7 @@ When a module exceeds ~8 root files, create submodules (named folders within the
 ## Logging
 
 - All controllers, services, and repositories inject `ILogger<T>`
-- **Structured logging** with named placeholders:
-  ```csharp
-  _logger.LogInformation("Order status changed. orderId: {OrderId}, status: {Status}", orderId, status);
-  ```
+- **Structured logging** with named placeholders (e.g., `{WorkoutId}`, `{Status}`), not string interpolation
 
 ## EF Core
 
@@ -101,6 +98,4 @@ When a module exceeds ~8 root files, create submodules (named folders within the
 
 ## Post-Change
 
-- `dotnet build` after code changes
-- `dotnet test` after test changes
-- No secrets in staged files
+See root CLAUDE.md checklist.

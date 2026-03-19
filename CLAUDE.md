@@ -9,7 +9,7 @@ See ROADMAP.md for current status and next steps.
 
 ## Tech Stack
 
-- **Backend:** .NET 9 / C# 13, ASP.NET Core controllers, EF Core + Marten (event sourcing on PostgreSQL JSONB), Wolverine (background processing), ASP.NET Core Identity + JWT
+- **Backend:** .NET 10 / C# 14, ASP.NET Core controllers, EF Core + Marten (event sourcing on PostgreSQL JSONB), Wolverine (background processing), ASP.NET Core Identity + JWT
 - **Frontend:** React 19 + TypeScript (strict), Vite SPA, React Router v7, Redux Toolkit + RTK Query, Tailwind CSS + shadcn/ui, React Hook Form + Zod
 - **Testing:** xUnit + FluentAssertions + NSubstitute, Vitest + React Testing Library, Playwright E2E
 - **Infrastructure:** Docker Compose + Tilt (local dev), Colima, GitHub Actions CI/CD, PostgreSQL + Redis

@@ -7,7 +7,7 @@ An AI running coach that maintains a persistent adaptive coaching relationship. 
 ```
 CLAUDE.md              # AI assistant context (project overview, conventions)
 ROADMAP.md             # Living project state — current phase and next steps
-backend/               # .NET 9 API (ASP.NET Core, EF Core, Marten, Wolverine)
+backend/               # .NET 10 API (ASP.NET Core, EF Core, Marten, Wolverine)
 frontend/              # React 19 SPA (TypeScript, Vite, Redux Toolkit, Tailwind)
 docs/
   planning/            # Vision, architecture, safety, coaching persona
@@ -26,9 +26,9 @@ See ROADMAP.md for current project status and next steps. The project is in pre-
 
 ## Tech Stack
 
-- **Backend:** .NET 9 / C# 13, ASP.NET Core controllers, EF Core + Marten (event sourcing), Wolverine, JWT auth
+- **Backend:** .NET 10 / C# 14, ASP.NET Core controllers, EF Core + Marten (event sourcing), Wolverine, JWT auth
 - **Frontend:** React 19 + TypeScript, Vite, React Router v7, Redux Toolkit + RTK Query, Tailwind + shadcn/ui
-- **Testing:** xUnit + FluentAssertions, Vitest + React Testing Library, Playwright E2E
+- **Testing:** xUnit + FluentAssertions + NSubstitute, Vitest + React Testing Library, Playwright E2E
 - **Infrastructure:** Docker Compose + Tilt, PostgreSQL, Redis, GitHub Actions CI/CD
 - **Quality:** Lefthook, CodeRabbit, Claude Code GitHub Action, CodeQL, Trivy, Codecov, SonarCloud
 

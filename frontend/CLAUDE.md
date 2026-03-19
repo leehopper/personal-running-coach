@@ -2,7 +2,7 @@
 
 ## Stack
 
-React 19, TypeScript (strict), Vite SPA, React Router v7, Redux Toolkit + RTK Query, Tailwind CSS + shadcn/ui, React Hook Form + Zod, Vitest + React Testing Library.
+See root CLAUDE.md for full tech stack.
 
 ## Module-First Organization
 
@@ -158,6 +158,4 @@ Use `~/` path alias for cross-module imports. Avoid `../` to top-level directori
 
 ## Post-Change
 
-- `npm run build` after code changes
-- `npm run test` after test changes
-- No secrets in staged files
+See root CLAUDE.md checklist.

@@ -11,7 +11,7 @@ I'm a solo developer building an AI-powered running coach application. My primar
 
 ### About the project and tech stack
 
-- **Backend:** .NET 9 / ASP.NET Core / C# 13, EF Core, Marten (event sourcing), Wolverine (message processing), PostgreSQL
+- **Backend:** .NET 10 / ASP.NET Core / C# 14, EF Core, Marten (event sourcing), Wolverine (message processing), PostgreSQL
 - **Frontend:** React 19 + TypeScript (strict mode), Vite, Redux Toolkit + RTK Query, Tailwind CSS + shadcn/ui
 - **Testing:** xUnit + FluentAssertions + NSubstitute (backend), Vitest + React Testing Library (frontend), Playwright (E2E)
 - **Infra:** Docker Compose + Tilt (local dev), Colima (container runtime), GitHub Actions (CI/CD)
