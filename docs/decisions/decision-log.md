@@ -706,6 +706,64 @@ Human review is a significant portion of the development cycle — the right rat
 - Performance regression testing in CI (deferred — GitHub-hosted runners have 5–20% variance, makes detection unreliable; revisit with k6 smoke tests when specific hot paths exist)
 - Snyk (rejected initially — superior fix-PR automation but adds account friction and free-tier limits; reconsider if repo goes private)
 
+### Amendment: Private repo redesign (2026-03-19)
+
+The repo is private to protect coaching prompt IP and persona design. The original decision assumed open source where all tooling is free. Several tools require paid plans for private repos: CodeRabbit (paid), CodeQL (requires GitHub Team + Code Security), SonarCloud (paid), Claude Code GitHub Action (requires API key). This amendment redesigns the pipeline to maintain the research-backed layered defense using tools that are free regardless of repo visibility.
+
+**The core research finding is preserved:** IBM Research showed LLM-as-judge alone detects ~45% of errors, but supplemented with deterministic static analysis, coverage rises to ~94%. The redesigned pipeline maintains this by ensuring every layer has deterministic, uncorrelated analysis tools.
+
+**Layer 1 (Pre-commit) — refined:**
+- Lefthook with `stage_fixed: true` for auto-fix-and-restage workflow
+- `dotnet format --include {staged_files}` (fix mode, not verify-no-changes)
+- ESLint + Prettier on staged frontend files
+- commitlint on commit messages
+- Pre-push: unit tests + tsc --noEmit
+
+**Layer 2 (PR review) — replaced:**
+- CodeRabbit and Claude Code GitHub Action removed (cost barriers)
+- Replaced by local `/review-pr` via Claude Code Max subscription ($0 marginal cost)
+- Structured human review checklist in CLAUDE.md guides every review
+- Cross-model review benefit is partially lost but mitigated by strong deterministic tooling in Layers 1, 3, and 4
+
+**Layer 3 (CI) — CodeQL replaced with Trivy:**
+- **Trivy** (Apache 2.0, fully free) replaces CodeQL for security scanning:
+  - Filesystem vulnerability scan (NuGet + npm dependencies)
+  - Secrets detection in committed code
+  - IaC scanning (Dockerfiles, docker-compose.yml)
+  - CRITICAL/HIGH severity = build failure; MEDIUM/LOW = warn only
+- Path-filtered build/test via dorny/paths-filter (unchanged)
+- TreatWarningsAsErrors with Roslyn + StyleCop + SonarAnalyzer.CSharp (unchanged)
+- Codecov with coverage thresholds: 60% project target, 70% patch coverage
+- Dependabot for NuGet, npm, GitHub Actions, Docker (unchanged)
+- Branch protection: require `gate` status check + PR required (no direct push to main)
+
+**Layer 4 (Dashboard) — replaced with build-time analysis:**
+- SonarCloud deferred (paid for private repos)
+- Backend: SonarAnalyzer.CSharp already installed + TreatWarningsAsErrors = security hotspots, taint analysis, complexity scoring enforced at compile time
+- Frontend: `eslint-plugin-sonarjs` added to ESLint config = cognitive complexity, duplication detection, code smell rules enforced at build time and pre-commit
+- This is the "90% alternative" the original research recommended: same analysis rules, no platform overhead
+
+**Layer 5 (Human review) — unchanged:**
+- Structured checklist: business logic, architectural consistency, test quality, security threat modeling, scope creep, dependency verification
+
+**Revised pipeline cost:**
+
+| Layer | Monthly cost | Noise |
+|-------|-------------|-------|
+| Pre-commit (Lefthook) | $0 | Low |
+| PR review (local /review-pr via Max) | $0 | Low |
+| CI gates (Trivy + Dependabot + Codecov) | $0 | Low |
+| Build-time analysis (SonarAnalyzer + eslint-plugin-sonarjs) | $0 | Low |
+| Human review | Your time | N/A |
+
+**Total: $0/month** (vs. $2–8/month in original design). All five layers preserved with free tools.
+
+**Revisit triggers:**
+- If repo goes public → restore CodeRabbit, CodeQL, SonarCloud to match original design
+- If codebase grows large enough for trends/duplication dashboard → add SonarCloud
+- Container image scanning → add Trivy image scan when deploying Docker images
+- License compliance → add weekly scheduled workflow pre-public release
+
 ---
 
 ## DEC-035: Coding standards, rulesets, and project conventions

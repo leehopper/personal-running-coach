@@ -4,7 +4,7 @@
 
 A solo-developer project building an AI running coach that maintains a persistent adaptive coaching relationship. The AI is the coach — it builds training plans, consumes workout results, and continuously adapts. It does NOT do live workout tracking (that's Garmin/Strava/Apple Health territory).
 
-**Current Phase: Pre-development (planning complete, repo scaffolding in progress)**
+**Current Phase: Development-Ready (scaffolding complete, quality pipeline being finalized)**
 See ROADMAP.md for current status and next steps.
 
 ## Tech Stack
@@ -13,7 +13,7 @@ See ROADMAP.md for current status and next steps.
 - **Frontend:** React 19 + TypeScript (strict), Vite SPA, React Router v7, Redux Toolkit + RTK Query, Tailwind CSS + shadcn/ui, React Hook Form + Zod
 - **Testing:** xUnit + FluentAssertions + NSubstitute, Vitest + React Testing Library, Playwright E2E
 - **Infrastructure:** Docker Compose + Tilt (local dev), Colima, GitHub Actions CI/CD, PostgreSQL + Redis
-- **Quality:** Lefthook pre-commit, CodeRabbit + Claude Code GitHub Action (PR review), CodeQL + Trivy + Codecov (CI), SonarCloud
+- **Quality:** Lefthook pre-commit, local `/review-pr` via Max (PR review), Trivy + Codecov (CI), SonarAnalyzer.CSharp + eslint-plugin-sonarjs (build-time analysis), Dependabot
 - **LLM:** Claude Sonnet 4.5 via thin adapter interface. Prompts in versioned config files, not code.
 
 ## Architecture Principles
@@ -69,6 +69,16 @@ Never ad-hoc web search for planning decisions. Always: add topic to research qu
 - If secrets appear in a diff, STOP and warn immediately
 - Secrets go in environment variables or git-ignored files
 - Use .NET user-secrets for local dev
+
+## PR Review Protocol
+
+Before merging any PR, run `/review-pr` locally via Claude Code Max subscription. Focus human review on:
+1. Business logic correctness — does the code solve the right problem?
+2. Architectural consistency — does new code follow established patterns?
+3. Test quality — would tests fail if the feature broke?
+4. Security — any auth, user input, or secrets code gets mandatory manual review
+5. Scope creep — did the AI change things beyond what was asked?
+6. Dependency verification — do all referenced packages actually exist?
 
 ## Post-Change Checklist
 

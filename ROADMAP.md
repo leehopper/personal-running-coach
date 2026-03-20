@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: Handoff to Claude Code
+## Current Phase: Development-Ready
 
-Planning, research, and context infrastructure are complete. The repo is restructured as a monorepo with all conventions documented. Next: project scaffolding and tooling via Claude Code on the local machine.
+Repo is scaffolded and quality pipeline is complete. Ready for POC 1.
 
 ### Setup Steps
 
@@ -13,11 +13,11 @@ Planning, research, and context infrastructure are complete. The repo is restruc
 - [x] Quality pipeline design (DEC-034)
 - [x] Coding standards and conventions (DEC-035)
 - [x] Repo restructure + context infrastructure (Step 2)
-- [ ] Project scaffolding + containerization (Step 3) — **handoff to Claude Code**
-- [ ] Development workflow tooling (Step 4) — **handoff to Claude Code**
+- [x] Project scaffolding + containerization (Step 3)
+- [x] Development workflow tooling (Step 4)
 - [x] Open questions cleanup (Step 5)
 - [x] POC 1 plan file written (Step 6)
-- [ ] Verify setup end-to-end (Step 7) — after Steps 3-4
+- [x] Verify setup end-to-end (Step 7)
 
 ### What's Been Done
 
@@ -38,16 +38,30 @@ Planning, research, and context infrastructure are complete. The repo is restruc
 - Wrote POC 1 plan file with full data model, context injection template, 5 test profiles, BDD acceptance criteria
 - Wrote Steps 3-4 handoff document for Claude Code
 
+**Project scaffolding (Claude Code — 2026-03-19):**
+- Backend: .NET 10 solution with RunCoach.Api + RunCoach.Api.Tests, Directory.Build.props (TreatWarningsAsErrors, analyzers), Central Package Management, .editorconfig, smoke test (GET /health → 200 OK)
+- Frontend: React 19 + Vite + TypeScript strict, Tailwind CSS v4, Redux Toolkit, React Router v7, module-first structure, ESLint + Prettier, Vitest smoke test
+- Docker: docker-compose.yml (postgres, pgadmin, redis, aspire-dashboard, api, web), multi-stage Dockerfiles, Tiltfile
+- Tooling: Lefthook (pre-commit/commit-msg/pre-push), commitlint, CI pipeline (path-filtered, Codecov), Dependabot
+- Deviation: `Modules/Shared` → `Modules/Common` (CA1716 reserved keyword conflict with TreatWarningsAsErrors)
+
+**Quality pipeline implementation (Claude Code — 2026-03-19, complete):**
+- Replaced CodeQL with Trivy (filesystem, IaC, and secrets scanning) in CI
+- Added eslint-plugin-sonarjs to frontend ESLint config
+- Created codecov.yml with 60% project / 70% patch thresholds, backend/frontend flags with carryforward
+- Fixed Lefthook: formatters now auto-fix + restage, proper `root:` scoping
+- Enabled Dependabot vulnerability alerts
+- Branch protection deferred (requires GitHub Pro for private repos)
+
 ## Next Up
 
-**Hand off to Claude Code** for Steps 3-4. Follow `docs/plans/setup-steps-3-4-handoff.md`. This requires CLI tools (dotnet new, npm create vite, docker compose) that run on the local machine. After Steps 3-4, verify everything builds and tests pass (Step 7).
-
-**Then:** Implement POC 1 following `docs/plans/poc-1-context-injection-plan-quality.md`. This is the first real development work — a prompt engineering experiment to validate the coaching intelligence before building infrastructure.
+**Implement POC 1** following `docs/plans/poc-1-context-injection-plan-quality.md`. This is the first real development work — a prompt engineering experiment to validate the coaching intelligence before building infrastructure.
 
 ## Plan Files
 
-- `docs/plans/setup-steps-3-4-handoff.md` — project scaffolding and tooling setup
-- `docs/plans/poc-1-context-injection-plan-quality.md` — context injection and plan quality POC
+- `docs/plans/setup-steps-3-4-handoff.md` — project scaffolding and tooling setup (complete)
+- `docs/plans/quality-pipeline-private-repo.md` — quality pipeline redesign for private repo (complete)
+- `docs/plans/poc-1-context-injection-plan-quality.md` — context injection and plan quality POC (active)
 
 ## POC Roadmap
 
@@ -65,7 +79,22 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 
 ## Deferred Items
 
+**Infrastructure:**
 - Kubernetes (deferred to public beta per DEC-032)
 - Garmin integration (deferred to post-MVP-1, Apple Health prioritized per DEC-033)
 - Frontend visual design planning (flagged, not yet started)
-- Performance regression testing in CI (deferred per DEC-034)
+
+**Quality tooling (restore when repo goes public or upgrades to Pro):**
+- CodeRabbit PR review (free for OSS only; using local `/review-pr` via Max instead)
+- CodeQL security scanning (requires GitHub Team + Code Security; using Trivy instead)
+- SonarCloud dashboard (free for OSS only; using SonarAnalyzer.CSharp + eslint-plugin-sonarjs in-build instead)
+- Claude Code GitHub Action for PR review (requires API key; using local `/review-pr` via Max instead)
+- Branch protection rules or rulesets on `main` (both require GitHub Pro for private repos)
+
+**Quality tooling (add later regardless of visibility):**
+- Performance regression testing in CI (deferred per DEC-034 — GitHub runner variance makes detection unreliable)
+- Trivy container image scanning (add when deploying Docker images)
+- License compliance scheduled workflow (add pre-public release)
+
+**Strategic:**
+- Public repo visibility (keeping private to protect coaching prompt IP; revisit when/if free OSS tooling becomes worth it)
