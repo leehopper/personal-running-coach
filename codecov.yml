@@ -1,0 +1,22 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 60%
+    patch:
+      default:
+        target: 70%
+
+flags:
+  backend:
+    paths:
+      - backend/
+    carryforward: true
+  frontend:
+    paths:
+      - frontend/
+    carryforward: true
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default

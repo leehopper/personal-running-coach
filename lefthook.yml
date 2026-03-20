@@ -2,16 +2,20 @@ pre-commit:
   parallel: true
   commands:
     dotnet-format:
-      glob: "backend/**/*.cs"
-      run: cd backend && dotnet format RunCoach.slnx --verify-no-changes --no-restore
+      root: "backend/"
+      glob: "*.cs"
+      run: dotnet format RunCoach.slnx --include {staged_files} --no-restore
+      stage_fixed: true
     eslint:
       root: "frontend/"
-      glob: "src/**/*.{ts,tsx}"
-      run: npx eslint {staged_files}
+      glob: "*.{ts,tsx}"
+      run: npx eslint --fix {staged_files}
+      stage_fixed: true
     prettier:
       root: "frontend/"
-      glob: "src/**/*.{ts,tsx,css,json}"
-      run: npx prettier --check {staged_files}
+      glob: "*.{ts,tsx,css,json}"
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
 
 commit-msg:
   commands:
@@ -22,8 +26,10 @@ pre-push:
   parallel: true
   commands:
     dotnet-test:
-      glob: "backend/**/*.cs"
-      run: cd backend && dotnet test RunCoach.slnx --no-build --filter "Category\!=Integration"
+      root: "backend/"
+      glob: "*.cs"
+      run: dotnet test RunCoach.slnx --no-restore --filter "Category!=Integration"
     typescript-check:
-      glob: "frontend/src/**/*.{ts,tsx}"
-      run: cd frontend && npx tsc --noEmit
+      root: "frontend/"
+      glob: "*.{ts,tsx}"
+      run: npx tsc --noEmit

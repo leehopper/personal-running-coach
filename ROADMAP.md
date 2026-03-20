@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: Quality Pipeline Finalization
+## Current Phase: Development-Ready
 
-Repo is scaffolded. Quality pipeline is being revised for private repo constraints (DEC-034 amendment). Once complete, move to POC 1.
+Repo is scaffolded and quality pipeline is complete. Ready for POC 1.
 
 ### Setup Steps
 
@@ -45,22 +45,23 @@ Repo is scaffolded. Quality pipeline is being revised for private repo constrain
 - Tooling: Lefthook (pre-commit/commit-msg/pre-push), commitlint, CI pipeline (path-filtered, Codecov), Dependabot
 - Deviation: `Modules/Shared` → `Modules/Common` (CA1716 reserved keyword conflict with TreatWarningsAsErrors)
 
-**Quality pipeline revision (Claude Code — 2026-03-19, in progress):**
-- Private repo requires redesign — CodeRabbit, CodeQL, SonarCloud, Claude Action all need paid plans for private repos
-- Revised pipeline: Trivy (replaces CodeQL), eslint-plugin-sonarjs (frontend Sonar rules), Codecov thresholds, branch protection
-- See DEC-034 amendment and `docs/plans/quality-pipeline-private-repo.md` for full design
+**Quality pipeline implementation (Claude Code — 2026-03-19, complete):**
+- Replaced CodeQL with Trivy (filesystem, IaC, and secrets scanning) in CI
+- Added eslint-plugin-sonarjs to frontend ESLint config
+- Created codecov.yml with 60% project / 70% patch thresholds, backend/frontend flags with carryforward
+- Fixed Lefthook: formatters now auto-fix + restage, proper `root:` scoping
+- Enabled Dependabot vulnerability alerts
+- Branch protection deferred (requires GitHub Pro for private repos)
 
 ## Next Up
 
-**Finalize quality pipeline** following `docs/plans/quality-pipeline-private-repo.md`. This completes the development infrastructure setup.
-
-**Then:** Implement POC 1 following `docs/plans/poc-1-context-injection-plan-quality.md`. This is the first real development work — a prompt engineering experiment to validate the coaching intelligence before building infrastructure.
+**Implement POC 1** following `docs/plans/poc-1-context-injection-plan-quality.md`. This is the first real development work — a prompt engineering experiment to validate the coaching intelligence before building infrastructure.
 
 ## Plan Files
 
 - `docs/plans/setup-steps-3-4-handoff.md` — project scaffolding and tooling setup (complete)
-- `docs/plans/quality-pipeline-private-repo.md` — quality pipeline redesign for private repo (active)
-- `docs/plans/poc-1-context-injection-plan-quality.md` — context injection and plan quality POC (next)
+- `docs/plans/quality-pipeline-private-repo.md` — quality pipeline redesign for private repo (complete)
+- `docs/plans/poc-1-context-injection-plan-quality.md` — context injection and plan quality POC (active)
 
 ## POC Roadmap
 
@@ -83,11 +84,12 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 - Garmin integration (deferred to post-MVP-1, Apple Health prioritized per DEC-033)
 - Frontend visual design planning (flagged, not yet started)
 
-**Quality tooling (restore when repo goes public):**
+**Quality tooling (restore when repo goes public or upgrades to Pro):**
 - CodeRabbit PR review (free for OSS only; using local `/review-pr` via Max instead)
 - CodeQL security scanning (requires GitHub Team + Code Security; using Trivy instead)
 - SonarCloud dashboard (free for OSS only; using SonarAnalyzer.CSharp + eslint-plugin-sonarjs in-build instead)
 - Claude Code GitHub Action for PR review (requires API key; using local `/review-pr` via Max instead)
+- Branch protection rules on `main` (requires GitHub Pro for private repos)
 
 **Quality tooling (add later regardless of visibility):**
 - Performance regression testing in CI (deferred per DEC-034 — GitHub runner variance makes detection unreliable)
