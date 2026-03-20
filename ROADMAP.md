@@ -89,7 +89,7 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 - CodeQL security scanning (requires GitHub Team + Code Security; using Trivy instead)
 - SonarCloud dashboard (free for OSS only; using SonarAnalyzer.CSharp + eslint-plugin-sonarjs in-build instead)
 - Claude Code GitHub Action for PR review (requires API key; using local `/review-pr` via Max instead)
-- Branch protection rules on `main` (requires GitHub Pro for private repos)
+- Branch protection rules or rulesets on `main` (both require GitHub Pro for private repos)
 
 **Quality tooling (add later regardless of visibility):**
 - Performance regression testing in CI (deferred per DEC-034 — GitHub runner variance makes detection unreliable)
