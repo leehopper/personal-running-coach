@@ -27,7 +27,7 @@ POC 1 validates that a single well-structured prompt with injected user context 
 
 **Functional Requirements:**
 
-- The system shall compute VDOT from race times using Daniels' Running Formula (lookup table or regression approximation for the standard distances: 5K, 10K, half-marathon, marathon). For standard distances, the computed VDOT shall be within 0.5 of published Daniels' table values — if using lookup tables for these distances, exact or near-exact match is expected; the 0.5 tolerance accommodates interpolation between table entries.
+- The system shall compute VDOT from race times using Daniels' Running Formula (lookup table or regression approximation for the standard distances: 5K, 10K, half-marathon, marathon).
 - The system shall derive training pace zones from VDOT: easy, marathon, threshold, interval, and repetition paces — each as a `PaceRange` (min/max per km).
 - The system shall represent all 5 test user profiles as structured C# data: `UserProfile`, `GoalState`, `FitnessEstimate`, `TrainingPaces`, and `InjuryNote` types (records or classes matching the data model in the POC 1 plan).
 - The system shall include simulated training history (2-4 weeks of workout summaries) for profiles that are not brand-new runners (Lee, Maria, James, Priya).
