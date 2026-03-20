@@ -15,4 +15,5 @@ COPY --from=build /app/publish .
 EXPOSE 5000
 ENV ASPNETCORE_URLS=http://+:5000
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 CMD curl -f http://localhost:5000/health || exit 1
+USER $APP_UID
 ENTRYPOINT ["dotnet", "RunCoach.Api.dll"]
