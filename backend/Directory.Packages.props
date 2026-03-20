@@ -5,7 +5,7 @@
 
   <ItemGroup>
     <!-- API -->
-    <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.3.1" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.5" />
 
     <!-- Testing -->
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
