@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: Development-Ready
+## Current Phase: Quality Pipeline Finalization
 
-Planning and setup are complete. The repo is fully scaffolded with backend, frontend, Docker, and CI/CD tooling. Ready for POC 1 implementation.
+Repo is scaffolded. Quality pipeline is being revised for private repo constraints (DEC-034 amendment). Once complete, move to POC 1.
 
 ### Setup Steps
 
@@ -42,17 +42,25 @@ Planning and setup are complete. The repo is fully scaffolded with backend, fron
 - Backend: .NET 10 solution with RunCoach.Api + RunCoach.Api.Tests, Directory.Build.props (TreatWarningsAsErrors, analyzers), Central Package Management, .editorconfig, smoke test (GET /health → 200 OK)
 - Frontend: React 19 + Vite + TypeScript strict, Tailwind CSS v4, Redux Toolkit, React Router v7, module-first structure, ESLint + Prettier, Vitest smoke test
 - Docker: docker-compose.yml (postgres, pgadmin, redis, aspire-dashboard, api, web), multi-stage Dockerfiles, Tiltfile
-- Tooling: Lefthook (pre-commit/commit-msg/pre-push), commitlint, CI pipeline (path-filtered, CodeQL, Codecov), Dependabot
+- Tooling: Lefthook (pre-commit/commit-msg/pre-push), commitlint, CI pipeline (path-filtered, Codecov), Dependabot
 - Deviation: `Modules/Shared` → `Modules/Common` (CA1716 reserved keyword conflict with TreatWarningsAsErrors)
+
+**Quality pipeline revision (Claude Code — 2026-03-19, in progress):**
+- Private repo requires redesign — CodeRabbit, CodeQL, SonarCloud, Claude Action all need paid plans for private repos
+- Revised pipeline: Trivy (replaces CodeQL), eslint-plugin-sonarjs (frontend Sonar rules), Codecov thresholds, branch protection
+- See DEC-034 amendment and `docs/plans/quality-pipeline-private-repo.md` for full design
 
 ## Next Up
 
-**Implement POC 1** following `docs/plans/poc-1-context-injection-plan-quality.md`. This is the first real development work — a prompt engineering experiment to validate the coaching intelligence before building infrastructure.
+**Finalize quality pipeline** following `docs/plans/quality-pipeline-private-repo.md`. This completes the development infrastructure setup.
+
+**Then:** Implement POC 1 following `docs/plans/poc-1-context-injection-plan-quality.md`. This is the first real development work — a prompt engineering experiment to validate the coaching intelligence before building infrastructure.
 
 ## Plan Files
 
-- `docs/plans/setup-steps-3-4-handoff.md` — project scaffolding and tooling setup
-- `docs/plans/poc-1-context-injection-plan-quality.md` — context injection and plan quality POC
+- `docs/plans/setup-steps-3-4-handoff.md` — project scaffolding and tooling setup (complete)
+- `docs/plans/quality-pipeline-private-repo.md` — quality pipeline redesign for private repo (active)
+- `docs/plans/poc-1-context-injection-plan-quality.md` — context injection and plan quality POC (next)
 
 ## POC Roadmap
 
@@ -70,11 +78,21 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 
 ## Deferred Items
 
+**Infrastructure:**
 - Kubernetes (deferred to public beta per DEC-032)
 - Garmin integration (deferred to post-MVP-1, Apple Health prioritized per DEC-033)
 - Frontend visual design planning (flagged, not yet started)
-- Performance regression testing in CI (deferred per DEC-034)
-- SonarCloud dashboard (deferred — SonarAnalyzer.CSharp NuGet covers ~90% of value in-build; add dashboard when codebase grows)
-- CodeRabbit PR review (deferred — repo is private, CodeRabbit is free for OSS only; using local `/review-pr` via Max subscription instead)
-- Claude Code GitHub Action for PR review (deferred — requires paid API key; using local `/review-pr` via Max subscription instead)
-- Public repo visibility (deferred — keeping private to protect coaching prompt IP; revisit when/if free OSS tooling tier becomes worth it)
+
+**Quality tooling (restore when repo goes public):**
+- CodeRabbit PR review (free for OSS only; using local `/review-pr` via Max instead)
+- CodeQL security scanning (requires GitHub Team + Code Security; using Trivy instead)
+- SonarCloud dashboard (free for OSS only; using SonarAnalyzer.CSharp + eslint-plugin-sonarjs in-build instead)
+- Claude Code GitHub Action for PR review (requires API key; using local `/review-pr` via Max instead)
+
+**Quality tooling (add later regardless of visibility):**
+- Performance regression testing in CI (deferred per DEC-034 — GitHub runner variance makes detection unreliable)
+- Trivy container image scanning (add when deploying Docker images)
+- License compliance scheduled workflow (add pre-public release)
+
+**Strategic:**
+- Public repo visibility (keeping private to protect coaching prompt IP; revisit when/if free OSS tooling becomes worth it)
