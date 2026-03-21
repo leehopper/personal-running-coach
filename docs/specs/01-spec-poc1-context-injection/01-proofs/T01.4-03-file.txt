@@ -1,0 +1,35 @@
+Type: file
+Description: Verify all required profile files exist in correct locations
+Expected: TestProfiles.cs and TestProfile.cs in src, TestProfilesTests.cs in tests
+Timestamp: 2026-03-21T12:53:00Z
+
+=== Source Files (shared profiles accessible from console app and tests) ===
+[EXISTS] backend/src/RunCoach.Api/Modules/Training/Profiles/TestProfile.cs
+[EXISTS] backend/src/RunCoach.Api/Modules/Training/Profiles/TestProfiles.cs
+
+=== Test Files ===
+[EXISTS] backend/tests/RunCoach.Api.Tests/Modules/Training/Profiles/TestProfilesTests.cs
+
+=== Profile Coverage ===
+[COMPLETE] Sarah (Beginner) - 28F, 0.5yr exp, 15km/wk, no races, 5K goal, no history
+[COMPLETE] Lee (Intermediate) - 34M, 3yr exp, 40km/wk, 10K 48:00, HM goal, 3wk history
+[COMPLETE] Maria (Advanced) - 42F, 12yr exp, 55km/wk, 3 races, maintenance, 4wk history
+[COMPLETE] James (Injury) - 38M, 5yr exp, 10km/wk, plantar fasciitis active, 2wk history
+[COMPLETE] Priya (Constrained) - 30F, 7yr exp, 60km/wk, 2 races, marathon goal, 3wk history
+
+=== Data Completeness Per Profile ===
+Each profile includes:
+  - UserProfile: name, age, gender, weight, height, HR, experience, volume, races, injuries, preferences
+  - GoalState: goal type, target race (where applicable), fitness estimate
+  - FitnessEstimate: VDOT (computed or null), training paces, fitness level, assessment basis
+  - TrainingPaces: easy range + 4 pace zones (from PaceCalculator for race-history profiles)
+  - InjuryHistory: active for James, recovered for Lee/Maria, empty for Sarah/Priya
+  - UserPreferences: run days, long run day, max days, units, time, constraints
+  - WorkoutSummary[]: 0 (Sarah), 12 (Lee), 24 (Maria), 6 (James), 12 (Priya)
+
+Expected count: 3 files (2 source + 1 test)
+Actual count: 3 files
+Expected profiles: 5
+Actual profiles: 5
+
+Status: PASS
