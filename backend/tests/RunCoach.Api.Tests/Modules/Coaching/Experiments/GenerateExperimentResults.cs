@@ -19,7 +19,7 @@ public class GenerateExperimentResults
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
-    [Fact]
+    [Fact(Skip = "One-off artifact generator - run manually")]
     [Trait("Category", "ResultGeneration")]
     public async Task GenerateAllDryRunResults()
     {

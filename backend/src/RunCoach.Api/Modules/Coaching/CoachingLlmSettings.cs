@@ -18,10 +18,10 @@ public sealed record CoachingLlmSettings
     public string ApiKey { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the Claude model identifier (e.g., "claude-sonnet-4-5-20241022").
+    /// Gets the Claude model identifier (e.g., "claude-sonnet-4-5-20250514").
     /// Defaults to the value from coaching-v1.yaml but can be overridden.
     /// </summary>
-    public string ModelId { get; init; } = "claude-sonnet-4-5-20241022";
+    public string ModelId { get; init; } = "claude-sonnet-4-5-20250514";
 
     /// <summary>
     /// Gets temperature for generation. Lower values produce more deterministic output.

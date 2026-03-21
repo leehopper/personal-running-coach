@@ -15,7 +15,7 @@ public class ClaudeCoachingLlmTests
     private static readonly CoachingLlmSettings DefaultSettings = new()
     {
         ApiKey = "sk-test-key-for-unit-tests",
-        ModelId = "claude-sonnet-4-5-20241022",
+        ModelId = "claude-sonnet-4-5-20250514",
         Temperature = 0.3,
         MaxTokens = 4096,
         MaxRetries = 3,
@@ -190,7 +190,7 @@ public class ClaudeCoachingLlmTests
         var settingsWithNoKey = new CoachingLlmSettings
         {
             ApiKey = string.Empty,
-            ModelId = "claude-sonnet-4-5-20241022",
+            ModelId = "claude-sonnet-4-5-20250514",
         };
         var options = Options.Create(settingsWithNoKey);
 
@@ -240,7 +240,7 @@ public class ClaudeCoachingLlmTests
 
         // Assert
         settings.ApiKey.Should().BeEmpty();
-        settings.ModelId.Should().Be("claude-sonnet-4-5-20241022");
+        settings.ModelId.Should().Be("claude-sonnet-4-5-20250514");
         settings.Temperature.Should().BeApproximately(0.3, 0.001);
         settings.MaxTokens.Should().Be(4096);
         settings.MaxRetries.Should().Be(3);
@@ -379,7 +379,7 @@ public class ClaudeCoachingLlmTests
             ["id"] = ToJsonElement("msg_test_001"),
             ["type"] = ToJsonElement("message"),
             ["role"] = ToJsonElement("assistant"),
-            ["model"] = ToJsonElement("claude-sonnet-4-5-20241022"),
+            ["model"] = ToJsonElement("claude-sonnet-4-5-20250514"),
             ["stop_reason"] = ToJsonElement("end_turn"),
             ["content"] = ToJsonElement(new[]
             {
@@ -403,7 +403,7 @@ public class ClaudeCoachingLlmTests
             ["id"] = ToJsonElement("msg_test_002"),
             ["type"] = ToJsonElement("message"),
             ["role"] = ToJsonElement("assistant"),
-            ["model"] = ToJsonElement("claude-sonnet-4-5-20241022"),
+            ["model"] = ToJsonElement("claude-sonnet-4-5-20250514"),
             ["stop_reason"] = ToJsonElement("end_turn"),
             ["content"] = ToJsonElement(contentArray),
             ["usage"] = ToJsonElement(new { input_tokens = 100, output_tokens = 50 }),
@@ -422,7 +422,7 @@ public class ClaudeCoachingLlmTests
             ["id"] = ToJsonElement("msg_test_003"),
             ["type"] = ToJsonElement("message"),
             ["role"] = ToJsonElement("assistant"),
-            ["model"] = ToJsonElement("claude-sonnet-4-5-20241022"),
+            ["model"] = ToJsonElement("claude-sonnet-4-5-20250514"),
             ["stop_reason"] = ToJsonElement("end_turn"),
             ["content"] = ToJsonElement(Array.Empty<object>()),
             ["usage"] = ToJsonElement(new { input_tokens = 100, output_tokens = 0 }),

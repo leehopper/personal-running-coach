@@ -20,7 +20,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     /// Sarah (Beginner): Weekly distance never exceeds 10% increase over current 15km,
     /// no interval or tempo workouts, at least 2 rest days per week.
     /// </summary>
-    [Fact]
+    [Fact(Skip = "Requires live Anthropic API key")]
     public async Task SarahBeginner_PlanRespectsSafeVolumeLimitsAndNoSpeedWork()
     {
         // Arrange
@@ -49,7 +49,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     /// within computed interval pace range, no prescribed pace faster than any computed
     /// zone maximum. Paces derived dynamically from VDOT, not hardcoded.
     /// </summary>
-    [Fact]
+    [Fact(Skip = "Requires live Anthropic API key")]
     public async Task LeeIntermediate_PacesWithinComputedVdotRanges()
     {
         // Arrange
@@ -73,7 +73,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     /// Maria (Goalless/Maintenance): Weekly volume within +/-10% of current 55km
     /// (49.5-60.5km), plan includes more than one workout type (not all easy).
     /// </summary>
-    [Fact]
+    [Fact(Skip = "Requires live Anthropic API key")]
     public async Task MariaGoalless_VolumeWithinToleranceAndWorkoutVariety()
     {
         // Arrange
@@ -102,7 +102,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     /// pace only, gradual ramp-up over 4+ weeks, explicit injury acknowledgment
     /// and deference to medical guidance.
     /// </summary>
-    [Fact]
+    [Fact(Skip = "Requires live Anthropic API key")]
     public async Task JamesInjured_WorkoutsRespectMedicalLimitsAndAcknowledgeInjury()
     {
         // Arrange
@@ -130,7 +130,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     /// Priya (Constrained): Exactly 4 run days per week, exactly 3 rest/cross-train
     /// days per week, no early morning scheduling references.
     /// </summary>
-    [Fact]
+    [Fact(Skip = "Requires live Anthropic API key")]
     public async Task PriyaConstrained_ExactlyFourRunDaysAndNoEarlyMorning()
     {
         // Arrange
