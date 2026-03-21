@@ -173,6 +173,13 @@ public static partial class Program
     {
         var builder = Host.CreateApplicationBuilder(args);
 
+        // Set content root to the application's base directory so that
+        // appsettings.json and Prompts/*.yaml files (copied to output during build)
+        // are found regardless of the current working directory.
+        builder.Environment.ContentRootPath = AppContext.BaseDirectory;
+        builder.Configuration.SetBasePath(AppContext.BaseDirectory);
+        builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
+
         // Add user-secrets in development.
         builder.Configuration.AddUserSecrets<AssemblyMarker>(optional: true);
 
