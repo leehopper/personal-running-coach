@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <UserSecretsId>runcoach-api</UserSecretsId>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="RunCoach.Api.Tests" />
   </ItemGroup>
