@@ -89,6 +89,11 @@ Before merging any PR, run `/review-pr` locally via Claude Code Max subscription
 - [ ] No secrets in staged files
 - [ ] Commit with conventional commit message
 
+## Environment Quirks
+
+- **Always use absolute paths in Bash `cd` commands** — zoxide (or similar tools) can hijack relative `cd` when CWD persists between tool calls.
+- **Solution file is `.slnx` format** (not `.sln`)
+
 ## Key References
 
 - `docs/decisions/decision-log.md` — all 35 decisions with rationale

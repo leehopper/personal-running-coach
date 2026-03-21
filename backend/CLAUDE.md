@@ -96,6 +96,14 @@ When a module exceeds ~8 root files, create submodules (named folders within the
 - Integration tests validate the **full response contract** with deep equality (exclude audit fields)
 - Test file naming: `{ClassName}Tests.cs` (unit), `{ClassName}IntegrationTests.cs` (integration)
 
+## Build & Test Commands
+
+Run from `backend/`:
+
+- `dotnet build` — build all projects
+- `dotnet test` — run all tests
+- `dotnet restore --force` — force NuGet restore
+
 ## Post-Change
 
 See root CLAUDE.md checklist.
