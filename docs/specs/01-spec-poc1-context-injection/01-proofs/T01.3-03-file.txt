@@ -1,0 +1,26 @@
+Type: file
+Description: Verify IPaceCalculator interface and PaceCalculator implementation exist in correct locations
+Expected: Interface and implementation files exist in Modules/Training/Computations/
+Timestamp: 2026-03-21T12:17:00Z
+
+=== Source Files ===
+[EXISTS] backend/src/RunCoach.Api/Modules/Training/Computations/IPaceCalculator.cs
+[EXISTS] backend/src/RunCoach.Api/Modules/Training/Computations/PaceCalculator.cs
+
+=== Test Files ===
+[EXISTS] backend/tests/RunCoach.Api.Tests/Modules/Training/Computations/PaceCalculatorTests.cs
+
+=== Interface Methods ===
+- TrainingPaces CalculatePaces(decimal vdot)
+- int EstimateMaxHr(int age)
+
+=== Implementation Details ===
+- Daniels' Running Formula pace lookup table (VDOT 30-85)
+- Linear interpolation for fractional VDOT values
+- Returns TrainingPaces with PaceRange for easy pace and TimeSpan for other zones
+- 220-age formula for max HR estimation
+
+Expected count: 3 files (2 source + 1 test)
+Actual count: 3 files
+
+Status: PASS
