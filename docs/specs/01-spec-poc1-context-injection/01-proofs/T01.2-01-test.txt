@@ -1,0 +1,48 @@
+Type: test
+Command: dotnet test --filter "FullyQualifiedName~VdotCalculatorTests" --verbosity normal
+Expected: All VdotCalculatorTests pass, validating VDOT computation against Daniels' tables
+Timestamp: 2026-03-21T12:41:35Z
+Status: PASS
+
+Test Run Results:
+=================
+Total tests: 25
+Passed: 25
+Failed: 0
+Skipped: 0
+Duration: 0.2946 Seconds
+
+Individual Test Results:
+  [PASS] CalculateVdot_FromStandardDistance_MatchesDanielsTable(distance: "5K", timeStr: "00:19:56", expectedVdot: 50)
+  [PASS] CalculateVdot_FromStandardDistance_MatchesDanielsTable(distance: "10K", timeStr: "00:41:24", expectedVdot: 50)
+  [PASS] CalculateVdot_FromStandardDistance_MatchesDanielsTable(distance: "Half-Marathon", timeStr: "01:36:30", expectedVdot: 47)
+  [PASS] CalculateVdot_FromStandardDistance_MatchesDanielsTable(distance: "Marathon", timeStr: "03:24:35", expectedVdot: 46)
+  [PASS] CalculateVdot_LeesProfile10K48Minutes_ProducesExpectedVdot
+  [PASS] CalculateVdot_UnsupportedDistance_ReturnsNull
+  [PASS] CalculateVdot_ZeroTime_ReturnsNull
+  [PASS] CalculateVdot_EmptyCollection_ReturnsNull
+  [PASS] CalculateVdot_MultipleRaceTimes_ReturnsBestVdot
+  [PASS] CalculateVdot_CollectionWithOnlyUnsupportedDistances_ReturnsNull
+  [PASS] CalculateVdot_CrossDistanceConsistency_SameVdotFromEquivalentPerformances(distance: "5K", timeStr: "00:23:10", expectedVdot: 42)
+  [PASS] CalculateVdot_CrossDistanceConsistency_SameVdotFromEquivalentPerformances(distance: "10K", timeStr: "00:48:08", expectedVdot: 42)
+  [PASS] CalculateVdot_CrossDistanceConsistency_SameVdotFromEquivalentPerformances(distance: "5K", timeStr: "00:21:24", expectedVdot: 46)
+  [PASS] CalculateVdot_CrossDistanceConsistency_SameVdotFromEquivalentPerformances(distance: "10K", timeStr: "00:44:32", expectedVdot: 46)
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "5k")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "5K")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "10k")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "10K")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "half-marathon")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "Half-Marathon")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "HM")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "hm")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "marathon")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "Marathon")
+  [PASS] CalculateVdot_DistanceCaseVariations_AreSupported(distance: "halfmarathon")
+
+Test Coverage:
+  - VDOT from all 4 standard distances (5K, 10K, HM, Marathon) within +/-0.5
+  - Lee's profile 10K 48:00 -> VDOT ~42 (validated against Daniels' table: VDOT 42 = 10K 48:08)
+  - Cross-distance consistency (same VDOT from equivalent performances at different distances)
+  - Null handling: unsupported distances, zero time, empty collections
+  - Multiple race times selects best (highest) VDOT
+  - Case-insensitive distance matching for all supported formats
