@@ -1,0 +1,25 @@
+Type: file
+Description: Verify all required project files were created
+Expected: Console project with csproj, Program.cs, AssemblyMarker.cs and solution updated
+Timestamp: 2026-03-21T00:00:00Z
+Command: ls backend/src/RunCoach.Poc1.Console/ && cat backend/RunCoach.slnx
+
+--- OUTPUT ---
+AssemblyMarker.cs
+bin
+obj
+Program.cs
+RunCoach.Poc1.Console.csproj
+
+=== RunCoach.slnx ===
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RunCoach.Api/RunCoach.Api.csproj" />
+    <Project Path="src/RunCoach.Poc1.Console/RunCoach.Poc1.Console.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj" />
+  </Folder>
+</Solution>
+
+Status: PASS
