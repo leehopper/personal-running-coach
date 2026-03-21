@@ -71,7 +71,7 @@ The initial implementation hardcodes the system prompt in C#. The spec calls for
 
 ### Refactor 2: LLM Testing Strategy & Anthropic Integration
 
-Rethink the approach to LLM-dependent tests (eval suite) and the Anthropic SDK integration. Includes getting all tests passing. Details provided via cw-research at start. Will go through full research/spec/plan/PR workflow, targeting `feature/poc1-context-injection-v2` as base branch.
+Rethink the approach to LLM-dependent tests (eval suite) and the Anthropic SDK integration. Includes getting all tests passing. Research complete (R-013, R-014), decision recorded (DEC-036), planning doc written (`docs/plans/poc-1-llm-testing-architecture.md`). Three pillars: Anthropic structured outputs (eliminates JSON parsing), Microsoft.Extensions.AI.Evaluation (response caching + reporting), tiered assertions (deterministic → LLM-as-judge with Haiku). Ready for spec/plan/implementation workflow, targeting `feature/poc1-context-injection-v2` as base branch.
 
 ### Final Step: Full POC 1 PR Review
 
@@ -81,6 +81,7 @@ After both refactors are merged into `feature/poc1-context-injection-v2`, do a c
 
 - `docs/plans/setup-steps-3-4-handoff.md` — project scaffolding and tooling setup (complete)
 - `docs/plans/quality-pipeline-private-repo.md` — quality pipeline redesign for private repo (complete)
+- `docs/plans/poc-1-llm-testing-architecture.md` — LLM testing architecture refactor (research + decision complete, awaiting spec/implementation)
 - `docs/plans/poc-1-context-injection-plan-quality.md` — context injection and plan quality POC (active)
 
 ## POC Roadmap
