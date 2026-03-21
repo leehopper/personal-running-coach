@@ -1,0 +1,16 @@
+Type: cli
+Command: dotnet build --no-restore (full solution)
+Expected: Solution builds with 0 errors, 0 warnings after adding experiment infrastructure
+Timestamp: 2026-03-21T14:12:00Z
+Status: PASS
+
+Output:
+  RunCoach.Api -> backend/src/RunCoach.Api/bin/Debug/net10.0/RunCoach.Api.dll
+  RunCoach.Poc1.Console -> backend/src/RunCoach.Poc1.Console/bin/Debug/net10.0/RunCoach.Poc1.Console.dll
+  RunCoach.Api.Tests -> backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+All 251 tests pass (184 existing + 67 new experiment tests).
