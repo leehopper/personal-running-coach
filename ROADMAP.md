@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: Development-Ready
+## Current Phase: POC 1 — In Progress
 
-Repo is scaffolded and quality pipeline is complete. Ready for POC 1.
+POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR #17). Two refactoring streams in progress before final review and merge to main.
 
 ### Setup Steps
 
@@ -53,9 +53,29 @@ Repo is scaffolded and quality pipeline is complete. Ready for POC 1.
 - Enabled Dependabot vulnerability alerts
 - Branch protection deferred (requires GitHub Pro for private repos)
 
+**POC 1 initial implementation (Claude Code — 2026-03-21, PR #17):**
+- Unit 1: Deterministic training science layer — formula-based VDOT calculator, pace calculator with 5 zones, all 5 test profiles with simulated history, `WorkoutSummary`/`WeekSummary` models, comprehensive unit tests
+- Unit 2: Coaching prompt & context assembly — `ClaudeCoachingLlm` adapter (sealed, disposable, injectable), structured `AssembledPrompt` with positional sections, token estimation with overflow cascade, `ContextAssembler` with 15K budget enforcement, console app via `Host.CreateApplicationBuilder`
+- Unit 3: Eval suite — `PlanGenerationEvalTests` (5 profiles) + `SafetyBoundaryEvalTests` (5 safety scenarios), tagged `[Trait("Category", "Eval")]`, structured result output
+- Unit 4: Experiments framework — `ExperimentRunner`/`ExperimentExecutor` with 16+ variations across 4 experiment categories, dry-run mode, observation models, suite results
+- Architecture: sealed classes, immutable records, `ImmutableArray`/frozen collections, proper DI, structured logging
+- Known gaps: system prompt hardcoded in C# (spec calls for YAML), LLM testing strategy needs rework, eval tests not yet run against live API
+
 ## Next Up
 
-**Implement POC 1** following `docs/plans/poc-1-context-injection-plan-quality.md`. This is the first real development work — a prompt engineering experiment to validate the coaching intelligence before building infrastructure.
+**POC 1 refactoring and review** — two sub-PRs targeting `feature/poc1-context-injection-v2`, then a full review before merge to main.
+
+### Refactor 1: YAML Prompt Storage & Spec Gaps
+
+The initial implementation hardcodes the system prompt in C#. The spec calls for versioned YAML prompt files (`coaching-v1.yaml`, `context-injection-v1.yaml`). This refactor also addresses minor gaps identified in the v1/v2 comparison (dedicated `PlanResponseParser`, any missing spec deliverables). Will go through full research/spec/plan/PR workflow, targeting `feature/poc1-context-injection-v2` as base branch.
+
+### Refactor 2: LLM Testing Strategy & Anthropic Integration
+
+Rethink the approach to LLM-dependent tests (eval suite) and the Anthropic SDK integration. Includes getting all tests passing. Details provided via cw-research at start. Will go through full research/spec/plan/PR workflow, targeting `feature/poc1-context-injection-v2` as base branch.
+
+### Final Step: Full POC 1 PR Review
+
+After both refactors are merged into `feature/poc1-context-injection-v2`, do a comprehensive review of PR #17 (the entire POC 1 implementation) before merging to main.
 
 ## Plan Files
 
@@ -67,7 +87,7 @@ Repo is scaffolded and quality pipeline is complete. Ready for POC 1.
 
 Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for details.
 
-- **POC 1:** Context injection & plan quality → feeds MVP-0
+- **POC 1:** Context injection & plan quality → feeds MVP-0 **(in progress — PR #17, refactoring before final review)**
 - **POC 2:** Adaptive replanning → feeds MVP-1
 - **POC 3:** Tiered planning efficiency → validates architecture
 - **POC 4:** Interaction flow → validates UX
