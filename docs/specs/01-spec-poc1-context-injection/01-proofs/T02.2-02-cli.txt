@@ -1,0 +1,14 @@
+Type: cli
+Command: dotnet build --nologo -v q (backend/)
+Expected: Build succeeds with 0 warnings, 0 errors
+Timestamp: 2026-03-21T13:15:00Z
+Status: PASS
+
+Output:
+=======
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+All StyleCop (SA*) and Sonar (S*) analyzer rules satisfied.
+All files follow one-type-per-file, proper member ordering, and formatting conventions.

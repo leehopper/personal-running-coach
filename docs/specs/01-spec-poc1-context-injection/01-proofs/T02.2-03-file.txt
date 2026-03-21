@@ -1,0 +1,28 @@
+Type: file
+Description: Verify all implementation files exist with correct structure
+Expected: IContextAssembler, ContextAssembler, models, and test file present
+Timestamp: 2026-03-21T13:15:00Z
+Status: PASS
+
+Files Created:
+==============
+
+Source files (backend/src/RunCoach.Api/Modules/Coaching/):
+  - IContextAssembler.cs          (interface: Assemble, EstimateTokens)
+  - ContextAssembler.cs           (implementation: positional layout, token budget, overflow cascade)
+  - Models/ConversationTurn.cs    (record: UserMessage, CoachMessage)
+  - Models/ContextAssemblerInput.cs (record: all input data bundled)
+  - Models/AssembledPrompt.cs     (record: structured prompt output)
+  - Models/PromptSection.cs       (record: Key, Content, EstimatedTokens)
+
+Test files (backend/tests/RunCoach.Api.Tests/Modules/Coaching/):
+  - ContextAssemblerTests.cs      (36 tests covering all requirements)
+
+Key implementation details:
+  - Positional layout: START (user_profile, goal_state, fitness_estimate, training_paces)
+                       MIDDLE (training_history with Layer 1/Layer 2 summarization)
+                       END (conversation_history, current_user_message)
+  - Token estimation: characters / 4 with 10% safety margin (Math.Ceiling)
+  - Budget: 15,000 token limit enforced via 5-step overflow cascade
+  - System prompt: static constant with persona, safety rules, output format, guardrails
+  - All 5 test profiles verified to stay within budget with 10 conversation turns
