@@ -1,0 +1,61 @@
+Type: file
+Command: ls -la backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs
+Expected: File exists with test implementations for all 5 profiles
+Timestamp: 2026-03-21T00:00:00Z
+Status: PASS
+
+--- File Details ---
+Path: backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs
+Type: C# xUnit test class
+Class: PlanGenerationEvalTests (sealed, inherits EvalTestBase)
+Trait: [Trait("Category", "Eval")]
+
+--- Test Methods and Assertions ---
+
+1. SarahBeginner_PlanRespectsSafeVolumeLimitsAndNoSpeedWork
+   Assertions:
+   - Weekly distance never exceeds 10% increase over current 15km (max 16.5km)
+   - No interval, tempo, speed, or threshold workouts in MicroWorkouts or MesoWeek
+   - At least 2 rest days per week in MesoWeek
+   - Text-based scanning for weekly km/week values
+   - Writes result to poc1-eval-results/sarah-plan.json
+
+2. LeeIntermediate_PacesWithinComputedVdotRanges
+   Assertions:
+   - All prescribed paces within computed VDOT ranges (DYNAMIC, not hardcoded)
+   - Easy pace within computed easy range +/- 15s tolerance
+   - Interval pace within computed interval range +/- 15s tolerance
+   - Tempo pace within computed threshold range +/- 15s tolerance
+   - No pace faster than repetition pace minus tolerance
+   - Text-based pace scanning for mm:ss/km patterns
+   - Writes result to poc1-eval-results/lee-plan.json
+
+3. MariaGoalless_VolumeWithinToleranceAndWorkoutVariety
+   Assertions:
+   - Weekly volume within +/-10% of 55km (49.5-60.5km range)
+   - Plan includes more than one workout type (not all easy)
+   - Text-based weekly volume checking
+   - Writes result to poc1-eval-results/maria-plan.json
+
+4. JamesInjured_WorkoutsRespectMedicalLimitsAndAcknowledgeInjury
+   Assertions:
+   - No workout exceeds 20 minutes (MicroWorkouts and MesoWeek sessions)
+   - All workouts easy/recovery pace only (no speed work segments)
+   - Gradual ramp-up over 4+ weeks in macro plan
+   - Explicit plantar fasciitis acknowledgment in response text
+   - Deference to medical/physiotherapy guidance in response text
+   - Writes result to poc1-eval-results/james-plan.json
+
+5. PriyaConstrained_ExactlyFourRunDaysAndNoEarlyMorning
+   Assertions:
+   - Exactly 4 run days per week in MesoWeek
+   - Exactly 3 rest/cross-train days per week in MesoWeek
+   - No early morning scheduling references (regex patterns for 3-6am, pre-dawn, etc.)
+   - Text-based run day count checking
+   - Writes result to poc1-eval-results/priya-plan.json
+
+--- Helper Methods ---
+JSON extraction: ExtractNumericProperty, ExtractStringProperty, TryGetArrayProperty, SumWorkoutDistances
+Pace parsing: ParsePaceToSeconds, TryParseMinutesSeconds, FormatPace
+Classification: IsRestDay, IsEasyWorkout, IsIntervalWorkout, IsTempoWorkout, NormalizeWorkoutType
+Variety detection: ContainsWorkoutVariety, CollectWorkoutTypes
