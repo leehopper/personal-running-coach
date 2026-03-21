@@ -1,0 +1,177 @@
+# context-injection-v1.yaml
+# Version: 1.0.0
+# Description: Context injection layout definition for RunCoach coaching prompts.
+# Defines positional placement and token budgets per section.
+# Based on U-curve attention research: critical context at START and END,
+# variable/expandable content in MIDDLE.
+# Parseable by YamlDotNet.
+
+version: "1.0.0"
+
+total_token_budget: 15000
+
+# Positional layout: START -> MIDDLE -> END
+# START: Stable prefix with high attention — system identity, user context, computed data
+# MIDDLE: Variable content — training history, plan context (lower attention zone)
+# END: Conversational — recent messages and current request (high recency attention)
+
+sections:
+  - name: "start"
+    description: "Stable prefix — high attention zone. Contains system prompt, user profile, current plan state, and computed metrics. This content is consistent across turns and benefits from prompt caching."
+    position: "start"
+    token_budget: 6300
+    cacheable: true
+    components:
+      - key: "system_prompt"
+        source: "coaching-v1.yaml#persona+safety+output_format+deterministic_guardrails"
+        description: "Core coaching identity, safety rules, and output format instructions"
+        token_estimate: 2800
+        required: true
+
+      - key: "user_profile"
+        source: "UserProfile"
+        description: "Runner biographical data: name, age, gender, experience, current volume, race history, injury history, preferences"
+        token_estimate: 800
+        required: true
+        format: >
+          Name: {Name}
+          Age: {Age} | Gender: {Gender}
+          Experience: {RunningExperienceYears} years
+          Current weekly distance: {CurrentWeeklyDistanceKm} km
+          Current long run: {CurrentLongRunKm} km
+          Weight: {WeightKg} kg | Height: {HeightCm} cm
+          Resting HR: {RestingHeartRateAvg} bpm | Max HR: {MaxHeartRate} bpm
+          Recent races: {RecentRaceTimes}
+          Injury history: {InjuryHistory}
+          Preferences: {Preferences}
+
+      - key: "goal_state"
+        source: "GoalState"
+        description: "Current training goal and optional race target"
+        token_estimate: 300
+        required: true
+        format: >
+          Goal type: {GoalType}
+          Target race: {TargetRace.RaceName} — {TargetRace.Distance} on {TargetRace.RaceDate}
+          Target time: {TargetRace.TargetTime}
+          Priority: {TargetRace.Priority}
+
+      - key: "fitness_estimate"
+        source: "FitnessEstimate"
+        description: "Current fitness level assessment with VDOT and basis"
+        token_estimate: 300
+        required: true
+        format: >
+          VDOT: {EstimatedVdot}
+          Fitness level: {FitnessLevel}
+          Assessment basis: {AssessmentBasis}
+          Assessed on: {AssessedOn}
+
+      - key: "training_paces"
+        source: "TrainingPaces"
+        description: "Deterministically computed training pace zones from VDOT — authoritative, not to be overridden"
+        token_estimate: 400
+        required: true
+        format: >
+          Easy pace: {EasyPaceRange.MinPerKm} - {EasyPaceRange.MaxPerKm} /km
+          Marathon pace: {MarathonPace} /km
+          Threshold pace: {ThresholdPace} /km
+          Interval pace: {IntervalPace} /km
+          Repetition pace: {RepetitionPace} /km
+
+      - key: "current_plan_state"
+        source: "MacroPlan (if exists)"
+        description: "Current active plan summary — phases, current week, recent adherence"
+        token_estimate: 500
+        required: false
+        format: >
+          Plan phases: {Phases summary}
+          Current phase: {Current phase}
+          Current week: {Week number}
+          Recent adherence: {Adherence summary}
+
+      - key: "computed_metrics"
+        source: "Deterministic computation layer"
+        description: "ACWR, volume progression, recent load metrics — all computed by code, not LLM"
+        token_estimate: 200
+        required: false
+        format: >
+          ACWR (acute:chronic workload ratio): {ACWR value}
+          Weekly volume trend: {Recent 4-week volumes}
+          Volume change from last week: {Percentage}
+
+  - name: "middle"
+    description: "Variable content — lower attention zone. Expandable based on available budget. Training history and relevant plan context."
+    position: "middle"
+    token_budget: 4700
+    cacheable: false
+    components:
+      - key: "training_history"
+        source: "WorkoutSummary[] or WeekSummary[]"
+        description: "Recent training history. Layer 1 = per-workout detail, Layer 2 = weekly summaries. Use Layer 1 for recent 1-2 weeks, Layer 2 for older weeks."
+        token_estimate: 3500
+        required: false
+        summarization_layers:
+          layer_1:
+            name: "Per-workout detail"
+            description: "Individual workout records with date, type, distance, duration, pace, notes"
+            tokens_per_workout: 50
+            max_weeks: 2
+            format: >
+              {Date} | {WorkoutType} | {DistanceKm} km | {DurationMinutes} min | {AveragePacePerKm}/km | {Notes}
+          layer_2:
+            name: "Weekly summary"
+            description: "Aggregated weekly totals for older history"
+            tokens_per_week: 40
+            max_weeks: 4
+            format: >
+              Week of {WeekStartDate}: {TotalDistanceKm} km total | {NumberOfRuns} runs | Long run: {LongRunKm} km | {Notes}
+
+      - key: "relevant_plan_context"
+        source: "Plan events or recent adaptations"
+        description: "Recent plan changes, adaptation events, or phase transitions relevant to current coaching"
+        token_estimate: 1200
+        required: false
+
+  - name: "end"
+    description: "Conversational section — high recency attention zone. Recent conversation turns and the current user message."
+    position: "end"
+    token_budget: 4000
+    cacheable: false
+    components:
+      - key: "conversation_history"
+        source: "Recent conversation turns"
+        description: "Recent assistant/user message pairs. Most recent turns preserved first, older turns truncated if over budget."
+        token_estimate: 3200
+        required: false
+        max_turns: 10
+        truncation_strategy: "oldest_first"
+        format: >
+          [User]: {user_message}
+          [Coach]: {assistant_message}
+
+      - key: "current_user_message"
+        source: "Current request"
+        description: "The user's current message or request. Always included, never truncated."
+        token_estimate: 800
+        required: true
+
+token_estimation:
+  method: "character_ratio"
+  description: "Estimate tokens as characters / 4 (English text average). Conservative estimate for budget enforcement."
+  chars_per_token: 4
+  safety_margin_percent: 10
+
+overflow_strategy:
+  description: "When assembled content exceeds total_token_budget, apply these reductions in order."
+  steps:
+    - action: "Reduce training_history to Layer 2 only (weekly summaries)"
+      savings_estimate: 1500
+    - action: "Truncate oldest conversation turns"
+      savings_estimate: 800
+    - action: "Remove relevant_plan_context"
+      savings_estimate: 1200
+    - action: "Reduce training_history to most recent 2 weeks only"
+      savings_estimate: 500
+    - action: "Truncate conversation to most recent 3 turns"
+      savings_estimate: 600

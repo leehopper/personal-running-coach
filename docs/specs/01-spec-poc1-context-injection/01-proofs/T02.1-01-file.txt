@@ -1,0 +1,47 @@
+Type: file
+Description: coaching-v1.yaml exists with system prompt incorporating persona, safety rules, and output format
+Command: ls -la backend/src/RunCoach.Api/Prompts/coaching-v1.yaml && ruby -ryaml -e "data = YAML.safe_load(File.read('backend/src/RunCoach.Api/Prompts/coaching-v1.yaml')); puts data.keys.join(', ')"
+Expected: File exists and contains keys: version, model, persona, safety, output_format, context_injection
+Timestamp: 2026-03-21T00:00:00Z
+
+--- Output ---
+File: backend/src/RunCoach.Api/Prompts/coaching-v1.yaml
+Exists: YES
+Size: 334 lines
+
+Top-level YAML keys: version, model, persona, safety, output_format, context_injection
+
+Persona section includes:
+  - identity (coaching persona)
+  - communication_framework (OARS, E-P-E, GROW)
+  - always_rules (9 rules)
+  - never_rules (14 rules)
+  - reframing_vocabulary (8 patterns)
+  - directness_calibration (80/20)
+  - ai_specific_guidelines
+
+Safety section includes:
+  - medical_boundary
+  - injury_protocol
+  - crisis_response (988 Lifeline, 741741 Crisis Text Line)
+  - nutrition_boundary
+  - overtraining_detection
+  - keyword_trigger_categories (cardiac, persistent_injury, red_s, medical_conditions, crisis, pregnancy, mental_health)
+  - sensitive_disclosure_tiers (green, amber, red)
+
+Output format section includes:
+  - instruction (JSON + coaching notes)
+  - plan_schema (macro_plan, meso_week, micro_workout)
+  - json_example
+
+Context injection section includes:
+  - template_markers (11 placeholder tokens)
+  - system_prompt_template (positional layout)
+  - deterministic_guardrails
+
+Model configuration:
+  - id: claude-sonnet-4-5-20241022 (parameterized, not hardcoded in code)
+  - temperature: 0.3
+  - max_tokens: 4096
+
+Status: PASS
