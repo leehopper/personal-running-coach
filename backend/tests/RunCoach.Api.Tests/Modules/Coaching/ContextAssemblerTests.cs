@@ -1,7 +1,10 @@
 using System.Collections.Immutable;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
+using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Models;
 using RunCoach.Api.Modules.Training.Profiles;
 
@@ -537,6 +540,228 @@ public class ContextAssemblerTests
         pacesSection.Content.Should().NotContain("Threshold pace");
         pacesSection.Content.Should().NotContain("Interval pace");
         pacesSection.Content.Should().NotContain("Repetition pace");
+    }
+
+    // ================================================================
+    // YAML-based assembly tests (AssembleAsync with IPromptStore)
+    // ================================================================
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_UsesYamlSystemPrompt()
+    {
+        // Arrange
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store);
+        var input = BuildLeeInput();
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input);
+
+        // Assert — system prompt should come from YAML, not hardcoded constant
+        actualPrompt.SystemPrompt.Should().Contain("evidence-based running coach");
+        actualPrompt.SystemPrompt.Should().Contain("COMMUNICATION FRAMEWORK");
+        actualPrompt.SystemPrompt.Should().Contain("SAFETY RULES");
+        actualPrompt.SystemPrompt.Should().Contain("DETERMINISTIC GUARDRAILS");
+        actualPrompt.SystemPrompt.Should().Contain("SEMANTIC OUTPUT GUIDANCE");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_StaticPrefixContainsZeroAthleteData()
+    {
+        // Arrange
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store);
+        var input = BuildLeeInput();
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input);
+
+        // Assert — the system prompt (static prefix) must contain NO athlete-specific data
+        actualPrompt.SystemPrompt.Should().NotContain("Lee");
+        actualPrompt.SystemPrompt.Should().NotContain("34");
+        actualPrompt.SystemPrompt.Should().NotContain("Half-Marathon");
+        actualPrompt.SystemPrompt.Should().NotContain("VDOT");
+        actualPrompt.SystemPrompt.Should().NotContain("Easy pace:");
+        actualPrompt.SystemPrompt.Should().NotContain("40 km");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_DynamicSectionsContainAthleteData()
+    {
+        // Arrange
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store);
+        var input = BuildLeeInput();
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input);
+
+        // Assert — athlete data should be in the start/middle/end sections
+        var allSectionContent = string.Join(
+            "\n",
+            actualPrompt.StartSections.Select(s => s.Content)
+                .Concat(actualPrompt.MiddleSections.Select(s => s.Content))
+                .Concat(actualPrompt.EndSections.Select(s => s.Content)));
+
+        allSectionContent.Should().Contain("Lee");
+        allSectionContent.Should().Contain("40 km");
+        allSectionContent.Should().Contain("Easy pace");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_StaysUnder15KTokens()
+    {
+        // Arrange
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store);
+        var input = BuildMariaInput(conversationTurns: 10);
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input);
+
+        // Assert
+        actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
+            TokenBudget,
+            because: "the assembled prompt must stay within the 15K token budget with YAML prompts");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_AllProfilesStayUnderBudget()
+    {
+        // Arrange
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store);
+
+        // Act & Assert
+        foreach (var (name, profile) in TestProfiles.All)
+        {
+            var input = BuildInputFromProfile(profile, conversationTurns: 10);
+            var actualPrompt = await sut.AssembleAsync(input);
+
+            actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
+                TokenBudget,
+                because: $"profile '{name}' with YAML prompt and 10 conversation turns must stay within budget");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithoutPromptStore_FallsBackToHardcodedPrompt()
+    {
+        // Arrange — using parameterless constructor (no store)
+        var sut = new ContextAssembler();
+        var input = BuildLeeInput();
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input);
+
+        // Assert — should use the hardcoded SystemPromptText
+        actualPrompt.SystemPrompt.Should().Be(ContextAssembler.SystemPromptText);
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_HasFourStartSections()
+    {
+        // Arrange
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store);
+        var input = BuildLeeInput();
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input);
+
+        // Assert
+        actualPrompt.StartSections.Should().HaveCount(4);
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_TokenEstimateSumMatchesTotal()
+    {
+        // Arrange
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store);
+        var input = BuildLeeInput(conversationTurns: 2);
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input);
+
+        // Assert
+        var expectedTotal = sut.EstimateTokens(actualPrompt.SystemPrompt)
+            + actualPrompt.StartSections.Sum(s => s.EstimatedTokens)
+            + actualPrompt.MiddleSections.Sum(s => s.EstimatedTokens)
+            + actualPrompt.EndSections.Sum(s => s.EstimatedTokens);
+
+        actualPrompt.EstimatedTokenCount.Should().Be(
+            expectedTotal,
+            because: "the reported total should match the sum of all section estimates with YAML prompt");
+    }
+
+    // ================================================================
+    // Helper methods
+    // ================================================================
+    private static IPromptStore CreateMockPromptStore()
+    {
+        var store = Substitute.For<IPromptStore>();
+
+        var template = new PromptTemplate(
+            Id: "coaching-system",
+            Version: "v1",
+            StaticSystemPrompt: BuildYamlSystemPrompt(),
+            ContextTemplate: BuildYamlContextTemplate(),
+            Metadata: new PromptMetadata("Test prompt", "Test", "2026-01-01"));
+
+        store.GetActiveVersion("coaching-system").Returns("v1");
+        store.GetPromptAsync("coaching-system", "v1", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(template));
+
+        return store;
+    }
+
+    private static string BuildYamlSystemPrompt()
+    {
+        return """
+            You are an experienced, evidence-based running coach. You combine deep knowledge of exercise physiology with genuine care for the runner as a whole person. You are warm, direct, and knowledgeable.
+
+            COMMUNICATION FRAMEWORK:
+            Layer 1 - OARS (moment-to-moment): Every response contains at least one Open question, Affirmation, Reflection, or Summary.
+            Layer 2 - Elicit-Provide-Elicit (information delivery): When sharing training knowledge, always ask first, share, then check.
+            Layer 3 - Modified GROW (conversation structure): Goal, Reality, Options, Way Forward.
+
+            SAFETY RULES:
+            Medical Boundary: You are a running coach, not a medical professional.
+            Injury Protocol: When a runner reports an injury, recommend consulting a medical professional.
+            Crisis Response: If crisis language is used, STOP coaching, provide crisis resources (988, 741741).
+            Nutrition Boundary: General fueling timing only. Recommend a registered dietitian for specifics.
+            Overtraining Detection: Acknowledge, suggest reducing load, do not push through.
+
+            DETERMINISTIC GUARDRAILS:
+            The training paces provided are computed deterministically from the runner's race history using Daniels' Running Formula.
+            You MUST use these exact pace ranges. Volume progression MUST NOT exceed 10% per week.
+
+            SEMANTIC OUTPUT GUIDANCE:
+            When generating a training plan, explain your reasoning and include physiological rationale.
+            """;
+    }
+
+    private static string BuildYamlContextTemplate()
+    {
+        return """
+            === RUNNER PROFILE ===
+            {{profile}}
+
+            === CURRENT GOAL ===
+            {{goal}}
+
+            === FITNESS ASSESSMENT ===
+            {{fitness}}
+
+            === TRAINING PACES (computed from VDOT — use these exactly) ===
+            {{training_paces}}
+
+            === RECENT TRAINING HISTORY ===
+            {{training_history}}
+
+            === CONVERSATION HISTORY ===
+            {{conversation}}
+            """;
     }
 
     private static ContextAssemblerInput BuildLeeInput(int conversationTurns = 0)

@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 using RunCoach.Api.Modules.Coaching.Models;
+using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Models;
 
 namespace RunCoach.Api.Modules.Coaching;
@@ -17,6 +18,11 @@ namespace RunCoach.Api.Modules.Coaching;
 ///
 /// Token estimation uses character ratio: characters / 4 with 10% safety margin.
 /// Budget enforcement applies a 5-step overflow cascade when total exceeds 15K tokens.
+///
+/// When constructed with an <see cref="IPromptStore"/>, the system prompt is loaded
+/// from versioned YAML files and context templates are rendered using
+/// <see cref="PromptRenderer"/>. The hardcoded <see cref="SystemPromptText"/>
+/// constant is retained for backward compatibility with experiment infrastructure.
 /// </summary>
 public sealed class ContextAssembler : IContextAssembler
 {
@@ -56,9 +62,15 @@ public sealed class ContextAssembler : IContextAssembler
     internal const int MaxLayer2Weeks = 4;
 
     /// <summary>
+    /// The prompt ID used to look up the coaching system prompt in the store.
+    /// </summary>
+    internal const string CoachingPromptId = "coaching-system";
+
+    /// <summary>
     /// The coaching system prompt built from the persona, safety rules,
     /// and deterministic guardrails defined in coaching-v1.yaml.
-    /// For POC 1, this is a static string matching the YAML configuration.
+    /// Retained for backward compatibility with experiment infrastructure.
+    /// New code should use <see cref="AssembleAsync"/> which loads from YAML.
     /// </summary>
     internal const string SystemPromptText = """
         You are an experienced, evidence-based running coach. You combine deep knowledge of exercise physiology with genuine care for the runner as a whole person. You are warm, direct, and knowledgeable.
@@ -76,6 +88,73 @@ public sealed class ContextAssembler : IContextAssembler
         The training paces provided are computed deterministically from the runner's race history using Daniels' Running Formula. You MUST use these exact pace ranges. Do not derive or estimate different paces.
         Volume progression MUST NOT exceed 10% per week. Deload weeks must occur every 3-4 weeks.
         """;
+
+    private readonly IPromptStore? _promptStore;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ContextAssembler"/> class.
+    /// Initializes a new instance without a prompt store.
+    /// Uses the hardcoded <see cref="SystemPromptText"/> constant.
+    /// Provided for backward compatibility with experiment infrastructure.
+    /// </summary>
+    public ContextAssembler()
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ContextAssembler"/> class.
+    /// Initializes a new instance with an <see cref="IPromptStore"/> for
+    /// loading versioned system prompts from YAML files.
+    /// </summary>
+    /// <param name="promptStore">The prompt store for loading YAML templates.</param>
+    public ContextAssembler(IPromptStore promptStore)
+    {
+        ArgumentNullException.ThrowIfNull(promptStore);
+        _promptStore = promptStore;
+    }
+
+    /// <inheritdoc />
+    public async Task<AssembledPrompt> AssembleAsync(ContextAssemblerInput input, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        if (_promptStore is null)
+        {
+            return Assemble(input);
+        }
+
+        // Load system prompt from YAML.
+        var activeVersion = _promptStore.GetActiveVersion(CoachingPromptId);
+        var template = await _promptStore.GetPromptAsync(CoachingPromptId, activeVersion, ct).ConfigureAwait(false);
+
+        // Build section content for token replacement.
+        var startSections = BuildStartSections(input);
+        var middleSections = BuildMiddleSections(input.TrainingHistory);
+        var endSections = BuildEndSections(input.ConversationHistory, input.CurrentUserMessage);
+
+        // Use the static system prompt from YAML (contains zero athlete data).
+        var systemPrompt = template.StaticSystemPrompt.TrimEnd();
+
+        // Calculate total token estimate.
+        var totalTokens = EstimateTokens(systemPrompt)
+            + SumTokens(startSections)
+            + SumTokens(middleSections)
+            + SumTokens(endSections);
+
+        // Apply overflow cascade if over budget.
+        if (totalTokens > TotalTokenBudget)
+        {
+            (middleSections, endSections, totalTokens) = ApplyOverflowCascade(
+                input, startSections, middleSections, endSections, systemPrompt);
+        }
+
+        return new AssembledPrompt(
+            systemPrompt,
+            startSections.ToImmutableArray(),
+            middleSections.ToImmutableArray(),
+            endSections.ToImmutableArray(),
+            totalTokens);
+    }
 
     /// <inheritdoc />
     public AssembledPrompt Assemble(ContextAssemblerInput input)
@@ -285,10 +364,12 @@ public sealed class ContextAssembler : IContextAssembler
         ContextAssemblerInput input,
         List<PromptSection> startSections,
         List<PromptSection> middleSections,
-        List<PromptSection> endSections)
+        List<PromptSection> endSections,
+        string? systemPrompt = null)
     {
         var currentMiddle = middleSections;
         var currentEnd = endSections;
+        var sysPrompt = systemPrompt ?? SystemPromptText;
 
         // Step 1: Reduce training history to Layer 2 only (weekly summaries).
         if (input.TrainingHistory.Length > 0)
@@ -299,7 +380,7 @@ public sealed class ContextAssembler : IContextAssembler
             ];
         }
 
-        var total = CalculateTotal(startSections, currentMiddle, currentEnd);
+        var total = CalculateTotal(startSections, currentMiddle, currentEnd, sysPrompt);
         if (total <= TotalTokenBudget)
         {
             return (currentMiddle, currentEnd, total);
@@ -313,7 +394,7 @@ public sealed class ContextAssembler : IContextAssembler
             currentEnd = BuildEndSections(truncatedTurns, input.CurrentUserMessage);
         }
 
-        total = CalculateTotal(startSections, currentMiddle, currentEnd);
+        total = CalculateTotal(startSections, currentMiddle, currentEnd, sysPrompt);
         if (total <= TotalTokenBudget)
         {
             return (currentMiddle, currentEnd, total);
@@ -334,7 +415,7 @@ public sealed class ContextAssembler : IContextAssembler
                 : [];
         }
 
-        total = CalculateTotal(startSections, currentMiddle, currentEnd);
+        total = CalculateTotal(startSections, currentMiddle, currentEnd, sysPrompt);
         if (total <= TotalTokenBudget)
         {
             return (currentMiddle, currentEnd, total);
@@ -347,7 +428,7 @@ public sealed class ContextAssembler : IContextAssembler
             currentEnd = BuildEndSections(truncatedTurns, input.CurrentUserMessage);
         }
 
-        total = CalculateTotal(startSections, currentMiddle, currentEnd);
+        total = CalculateTotal(startSections, currentMiddle, currentEnd, sysPrompt);
 
         return (currentMiddle, currentEnd, total);
     }
@@ -355,9 +436,10 @@ public sealed class ContextAssembler : IContextAssembler
     private int CalculateTotal(
         List<PromptSection> start,
         List<PromptSection> middle,
-        List<PromptSection> end)
+        List<PromptSection> end,
+        string? systemPrompt = null)
     {
-        return EstimateTokens(SystemPromptText) + SumTokens(start) + SumTokens(middle) + SumTokens(end);
+        return EstimateTokens(systemPrompt ?? SystemPromptText) + SumTokens(start) + SumTokens(middle) + SumTokens(end);
     }
 
     private PromptSection BuildUserProfileSection(UserProfile profile)
