@@ -1,0 +1,15 @@
+Type: cli
+Command: dotnet build --verbosity quiet
+Expected: Build succeeds with 0 errors and 0 warnings
+Timestamp: 2026-03-21T18:13:00Z
+
+Result:
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Full test suite result:
+Passed\! - Failed: 0, Passed: 335, Skipped: 11, Total: 346
+(Baseline was 316 passed + 19 new = 335)
+
+Status: PASS
