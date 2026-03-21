@@ -7,6 +7,10 @@
     <!-- API -->
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.5" />
 
+    <!-- LLM / Prompt -->
+    <PackageVersion Include="Anthropic" Version="12.9.0" />
+    <PackageVersion Include="YamlDotNet" Version="16.3.0" />
+
     <!-- Testing -->
     <PackageVersion Include="coverlet.collector" Version="8.0.1" />
     <PackageVersion Include="FluentAssertions" Version="8.9.0" />

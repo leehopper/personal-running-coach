@@ -1,0 +1,45 @@
+Type: file
+Command: Verify file existence and structure
+Expected: All required files exist with correct structure
+Timestamp: 2026-03-21T00:00:00Z
+
+Files Created:
+  [OK] backend/src/RunCoach.Api/Modules/Coaching/ICoachingLlm.cs
+       - Interface with single method: Task<string> GenerateAsync(string systemPrompt, string userMessage, CancellationToken ct)
+       - Namespace: RunCoach.Api.Modules.Coaching
+
+  [OK] backend/src/RunCoach.Api/Modules/Coaching/ClaudeCoachingLlm.cs
+       - Implements ICoachingLlm, IDisposable
+       - Uses official Anthropic NuGet SDK (v12.9.0)
+       - Reads model ID from CoachingLlmSettings (parameterized, not hardcoded)
+       - API key from IOptions<CoachingLlmSettings> (mapped from user-secrets Anthropic:ApiKey)
+       - Low temperature (0.3) for deterministic-ish output
+       - Built-in retry + exponential backoff via SDK ClientOptions.MaxRetries
+       - Never logs the full API key
+       - Uses LoggerMessage source generators for high-performance logging
+       - Supports text extraction from multi-block responses
+       - Internal constructor for testability with mock client
+
+  [OK] backend/src/RunCoach.Api/Modules/Coaching/CoachingLlmSettings.cs
+       - Strongly-typed settings record
+       - SectionName = "Anthropic" for IConfiguration binding
+       - ApiKey, ModelId, Temperature, MaxTokens, MaxRetries, TimeoutSeconds
+       - Default values matching coaching-v1.yaml
+
+  [OK] backend/tests/RunCoach.Api.Tests/Modules/Coaching/ClaudeCoachingLlmTests.cs
+       - 20 unit tests covering all public API surface
+       - Tests: GenerateAsync behavior, parameter passing, text extraction, input validation
+       - Tests: settings validation, constructor behavior, cancellation support
+       - Uses NSubstitute for IAnthropicClient mock
+       - Uses FromRawUnchecked for constructing SDK response types in tests
+
+Files Modified:
+  [OK] backend/Directory.Packages.props
+       - Added: Anthropic v12.9.0
+       - Added: YamlDotNet v16.3.0
+
+  [OK] backend/src/RunCoach.Api/RunCoach.Api.csproj
+       - Added PackageReference: Anthropic, YamlDotNet
+       - Added InternalsVisibleTo: RunCoach.Api.Tests
+
+Status: PASS
