@@ -1,0 +1,25 @@
+Type: file
+Command: ls -la docs/specs/01-spec-poc1-context-injection/poc1-findings.md && wc -l docs/specs/01-spec-poc1-context-injection/poc1-findings.md
+Expected: poc1-findings.md exists with all 5 required sections (experiments, strategy, lessons, architecture, cost)
+Timestamp: 2026-03-21T19:50:00Z
+Status: PASS
+
+Output:
+File exists: docs/specs/01-spec-poc1-context-injection/poc1-findings.md
+Line count: 327 lines
+
+Required sections verified:
+  [PRESENT] Section 1: "Experiment 1: Token Budget" — methodology, quantitative results, observations, recommendation
+  [PRESENT] Section 2: "Experiment 2: Positional Placement" — methodology, quantitative results, observations, recommendation
+  [PRESENT] Section 3: "Experiment 3: Summarization Level" — methodology, quantitative results, observations, recommendation
+  [PRESENT] Section 4: "Experiment 4: Conversation History" — methodology, quantitative results, observations, recommendation
+  [PRESENT] Section: "Recommended Context Injection Strategy for MVP-0" — layout diagram, budget, key decisions
+  [PRESENT] Section: "Prompt Engineering Lessons Learned" — 6 lessons with actions
+  [PRESENT] Section: "Architecture Decisions to Revisit" — DEC-010 revision, caching boundary, overflow strategy
+  [PRESENT] Section: "Token Usage Observations and Cost Estimates" — measured usage, per-request cost, daily/monthly projections
+  [PRESENT] Section: "coaching-v2.yaml Changes" — 5 changes documented with rationale
+  [PRESENT] Section: "Cross-Validation: Lee vs Maria" — comparison table and analysis
+  [PRESENT] Section: "Next Steps" — 5 actionable follow-up items
+
+Quality observations sections marked as pending with template tables for live API data.
+All quantitative data sourced from the 05-analysis-summary.json experiment results.

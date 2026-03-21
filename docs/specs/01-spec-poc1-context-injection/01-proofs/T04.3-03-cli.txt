@@ -1,0 +1,22 @@
+Type: cli
+Command: cd backend && dotnet build --verbosity quiet && dotnet test --filter "Category!=Eval" --no-build --verbosity quiet
+Expected: Build succeeds with 0 warnings/errors; all 286 tests pass (no regressions from documentation/YAML-only changes)
+Timestamp: 2026-03-21T19:50:00Z
+Status: PASS
+
+Output:
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.84
+
+Test run for RunCoach.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   286, Skipped:     0, Total:   286, Duration: 138 ms - RunCoach.Api.Tests.dll (net10.0)
+
+Notes:
+  This task creates documentation files (poc1-findings.md) and a YAML prompt file (coaching-v2.yaml).
+  Neither file is loaded by existing tests. The build verification confirms no regressions.
+  The coaching-v2.yaml file is valid YAML (same structure as v1, which is loaded by ContextAssembler tests).
