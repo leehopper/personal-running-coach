@@ -1,0 +1,24 @@
+Type: file
+Description: Verify all structured output record and enum type files exist
+Expected: 12 files in Modules/Coaching/Models/Structured/
+Timestamp: 2026-03-21T22:54:56Z
+Command: ls -la backend/src/RunCoach.Api/Modules/Coaching/Models/Structured/
+
+Output:
+.rw-r--r--@  546 lee 21 Mar 17:45 DaySlotType.cs
+.rw-r--r--@  777 lee 21 Mar 17:45 IntensityProfile.cs
+.rw-r--r--@ 1.6k lee 21 Mar 17:50 MacroPlanOutput.cs
+.rw-r--r--@ 1.3k lee 21 Mar 17:50 MesoDayOutput.cs
+.rw-r--r--@ 1.7k lee 21 Mar 17:50 MesoWeekOutput.cs
+.rw-r--r--@  594 lee 21 Mar 17:50 MicroWorkoutListOutput.cs
+.rw-r--r--@  720 lee 21 Mar 17:45 PhaseType.cs
+.rw-r--r--@ 2.8k lee 21 Mar 17:49 PlanPhaseOutput.cs
+.rw-r--r--@  607 lee 21 Mar 17:45 SegmentType.cs
+.rw-r--r--@ 3.2k lee 21 Mar 17:50 WorkoutOutput.cs
+.rw-r--r--@ 1.8k lee 21 Mar 17:50 WorkoutSegmentOutput.cs
+.rw-r--r--@  930 lee 21 Mar 17:45 WorkoutType.cs
+
+File count:
+12 files
+
+Status: PASS
