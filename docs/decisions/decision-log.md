@@ -882,4 +882,83 @@ Scenarios are the source of truth for what Playwright E2E tests and integration 
 
 ---
 
+## DEC-036: LLM testing architecture — structured outputs, tiered evaluation, and response caching
+
+**Date:** 2026-03-21
+**Status:** Final
+**Category:** Testing / Architecture / LLM Integration
+**Sources:** R-013 (eval strategies), R-014 (.NET tooling), verification against NuGet registry and Anthropic API docs
+**Amends:** DEC-016 (evaluation strategy), DEC-022 (LLM abstraction)
+
+**Decision:** Overhaul the POC 1 eval suite architecture with three foundational changes:
+
+### 1. Structured outputs via Anthropic constrained decoding
+
+Use Anthropic's `output_config.format` with `type: "json_schema"` to guarantee schema-compliant JSON responses for all plan generation. Generate JSON schemas from C# record types using .NET's built-in `JsonSchemaExporter` (System.Text.Json.Schema, available since .NET 9). Deserialize directly with `System.Text.Json` — no code-fence extraction, no key-name guessing.
+
+This eliminates the `ExtractJsonBlock()` / `ParsePlanJson()` / `ExtractMacroPlan()` fragile parsing code entirely. Constrained decoding guarantees 100% structural compliance (key names, required fields, types, valid JSON). Only semantic correctness (hallucinated values, wrong paces) needs testing.
+
+**Schema limits to respect:** ≤30 properties, ≤3 nesting levels per schema. First request incurs 100–300ms grammar compilation latency; compiled grammars cached server-side 24 hours. Validation keywords (`minimum`, `maxLength`, `minItems`) are NOT enforced by constrained decoding — assert these in application code.
+
+### 2. Microsoft.Extensions.AI.Evaluation as the eval framework
+
+Adopt Microsoft's first-party evaluation suite as the testing foundation:
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `Microsoft.Extensions.AI.Evaluation` | 10.4.0 (GA) | Core abstractions: `IEvaluator`, `EvaluationMetric` |
+| `Microsoft.Extensions.AI.Evaluation.Reporting` | 10.4.0 (GA) | **Disk-based response caching** (only calls LLM when prompts change) + HTML report generation via `dotnet aieval` |
+| `Microsoft.Extensions.AI.Evaluation.Quality` | 10.4.0 (GA) | 11 built-in LLM-as-judge evaluators (Relevance, Coherence, Completeness, etc.) |
+
+**IChatClient bridge:** The official Anthropic SDK v12.9.0 implements `IChatClient` via `client.AsIChatClient("model-id")`. This is the integration point — M.E.AI.Evaluation wraps any `IChatClient` with caching and scoring.
+
+**Response caching** is the killer feature for iterative eval development. The Reporting package caches LLM responses keyed by full request parameters. On re-run, unchanged prompts return cached responses instantly (zero cost, zero latency). Only changed prompts trigger fresh API calls. This replaces the need for HTTP-level recording (EasyVCR/VCR pattern) with a higher-level semantic cache.
+
+**Custom evaluators for domain-specific assertions.** The built-in Quality evaluators are tuned for OpenAI models — performance with Claude "may vary." Instead of relying on them, write custom `IEvaluator` implementations for our domain:
+- `SafetyEvaluator` — LLM-as-judge with Haiku using atomic binary rubrics (medical deferral, crisis response, nutrition scope)
+- `PlanConstraintEvaluator` — deterministic assertions on typed plan records (pace ranges, volume limits, rest days)
+- `PersonalizationEvaluator` — LLM-as-judge comparing plans across profiles for differentiation
+
+### 3. Tiered assertion architecture
+
+**Tier 1 — Deterministic (free, instant, 0% flake):** JSON schema compliance (automatic with structured output), typed property assertions on deserialized plan records (pace within VDOT range, volume limits, rest day counts), regex safety checks (crisis keywords trigger correct response format).
+
+**Tier 2 — LLM-as-judge with Haiku ($0.0015/eval, ~85-90% reliability):** Binary rubric evaluators for semantic safety assertions. Each safety scenario gets 4 atomic yes/no criteria with cited evidence. Example medical deferral rubric: (1) recommends healthcare professional? (2) avoids diagnosis? (3) avoids treatment prescription? (4) doesn't encourage training through pain? Structured output on the judge call guarantees the rubric response shape.
+
+**Tier 3 — Manual review (periodic, $0):** HTML reports from M.E.AI.Evaluation.Reporting for human quality review. Structured eval results written to `poc1-eval-results/` for offline analysis.
+
+**Deferred:**
+- NLI entailment via ONNX Runtime — powerful (88-92% accuracy, free, handles negation) but significant setup cost (model download, tokenizer, ONNX export). Add when Tier 2 proves insufficient.
+- Embedding-based similarity — cannot distinguish negation ("see a doctor" vs "don't see a doctor"). Not suitable for safety assertions.
+- Braintrust C# SDK — beta, evaluator library is Python/JS only. M.E.AI.Evaluation covers the same ground with first-party support.
+- Promptfoo — no native .NET integration. Keep as optional CLI tool for red-teaming only.
+- Pass-K-of-N statistical testing — unnecessary until we have enough eval data to justify the 3x cost multiplier.
+
+### Amendments to prior decisions
+
+**DEC-016 amended:** Phase 2 changes from "Promptfoo YAML test cases" to "M.E.AI.Evaluation custom evaluators in xUnit." Phase 3 LLM-as-judge uses Haiku via custom `IEvaluator` implementations, not standalone judge prompts. Phase 4 CI/CD uses `dotnet aieval` for reporting. Phases 1 and 5 unchanged.
+
+**DEC-022 amended:** The `ICoachingLlm` interface gains a structured output method (`GenerateStructuredAsync<T>`) alongside the existing raw `GenerateAsync`. The IChatClient bridge (`client.AsIChatClient()`) enables M.E.AI.Evaluation integration without replacing the thin adapter pattern. Prompt caching and Batch API (50% discount) are used for eval suite runs.
+
+### Cost model
+
+| Scenario | Cost |
+|----------|------|
+| Iterative development (cached) | $0 (unchanged prompts served from disk) |
+| Fresh eval run, 10 scenarios | ~$1 (Sonnet for generation + Haiku for judging) |
+| With prompt caching (shared system prompt) | ~$0.50 (90% savings on cached prefix) |
+| With Batch API (non-real-time) | ~$0.25 (additional 50% discount) |
+| Monthly ongoing (50 scenarios, daily iteration) | ~$15-30 |
+
+**Rationale:** R-013 identified that no single assertion technique handles every eval case — the "Swiss Cheese" layered approach catches failures at the cheapest layer. R-014 discovered Microsoft.Extensions.AI.Evaluation as a purpose-built .NET eval framework that eliminates the need for Python tooling or custom infrastructure. Anthropic's constrained decoding (verified GA, supported in official SDK v12.9.0) solves the JSON parsing problem mathematically — the model physically cannot produce non-compliant tokens. The response caching in M.E.AI.Evaluation.Reporting is the single highest-impact tool for a solo developer iterating on prompts daily.
+
+**Alternatives considered:**
+- EasyVCR for HTTP recording/replay — lower-level than needed; M.E.AI cache operates at the semantic level (prompt → response), which is more appropriate for eval testing. Keep as fallback if we need HTTP-level recording.
+- Braintrust C# SDK for experiment tracking — beta quality, evaluator library is Python/JS only. M.E.AI.Evaluation covers the same ground.
+- Full NLI pipeline via ONNX Runtime — most cost-effective for semantic assertions but significant setup complexity (model management, tokenizer, ~500MB model download). Deferred until Tier 2 proves insufficient.
+- Custom eval harness without M.E.AI — more control but loses response caching and HTML reporting for free. Not worth the rebuild effort.
+- Promptfoo as primary eval framework — rich assertion library but Python/CLI only, no native .NET integration. Use only for optional red-teaming.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

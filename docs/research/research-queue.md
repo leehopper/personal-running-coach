@@ -50,9 +50,16 @@ Research is batched by dependency. Later batches depend on findings from earlier
 
 | R-012 | AI-powered PR review and code quality tooling for AI-assisted development | What are the current AI-powered PR review tools (CodeRabbit, Anthropic's Claude Code Review GitHub Action, Codacy, Qodo, etc.)? How do they compare for a solo developer whose code is primarily AI-generated? What pre-commit hook ecosystems, static analysis tools, and CI quality gates best complement AI code generation? How should the full quality pipeline be designed when the "author" is an AI agent? | The project uses Claude Code as the primary development tool. All code is AI-generated and needs deterministic quality enforcement at multiple layers (edit-time hooks, pre-commit, PR review, CI). AI-reviewing-AI is a different use case than AI-reviewing-human — the failure modes and value proposition differ. This directly feeds the quality gate pipeline design (DEC-034) and Claude Code hook configuration. | Integrated | batch-5-ai-pr-review-quality-tool.md |
 
+| R-013 | LLM eval test strategies for non-deterministic output assertion | How do teams structure eval suites for non-deterministic LLM outputs? What are the best practices for structured output enforcement, LLM-as-judge patterns, tiered assertion strategies (deterministic → NLI → judge), and statistical approaches to flaky eval tests? | POC 1 eval tests use brittle string matching and JSON key guessing. Need a principled testing architecture before building out the full eval suite. Directly informs the LLM testing refactor on PR #17. | Integrated | batch-6a-llm-eval-strategies.md |
+| R-014 | .NET libraries for LLM response caching, HTTP recording/replay, and eval tooling | What .NET libraries exist for HTTP recording/replay (VCR pattern), LLM-specific evaluation (Microsoft.Extensions.AI.Evaluation), structured output schema generation, snapshot testing, and test parallelization with rate limits? | Need concrete library choices for the .NET eval test infrastructure. Discovered Microsoft.Extensions.AI.Evaluation as the primary .NET eval framework. Directly informs DEC-036. | Integrated | batch-6b-dotnet-llm-testing-tooling.md |
+
 ### Batch 5 (Development infrastructure — feeds repo setup and CI/CD)
 
 - **Batch 5:** R-012 (AI PR review and code quality tooling) — needed before repo scaffolding so the quality pipeline is designed into the project from the start.
+
+### Batch 6 (LLM testing architecture — feeds POC 1 eval refactor)
+
+- **Batch 6:** R-013 + R-014 (LLM eval strategies and .NET tooling) — directly informs POC 1 eval suite refactor. R-013 covers eval strategies and assertion patterns. R-014 covers .NET library choices. Together they feed DEC-036.
 
 ### Status Key
 
