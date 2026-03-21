@@ -1,0 +1,33 @@
+Type: test
+Command: dotnet test --no-build --filter "FullyQualifiedName~EvalTestBaseTests" --verbosity normal
+Expected: All 20 EvalTestBase unit tests pass
+Timestamp: 2026-03-21T13:44:24Z
+
+Output:
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ParsePlanJson_ValidJsonBlock_ReturnsJsonElement [6 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractJsonBlock_UnclosedJsonBlock_ReturnsNull [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.LoadProfile_ValidName_ReturnsProfile [11 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ParsePlanJson_NoJsonBlock_ReturnsNull [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.LoadProfile_InvalidName_ThrowsArgumentException [3 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractJsonBlock_WithValidJsonBlock_ReturnsJson [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractMesoWeek_WithWeekTemplateKey_ReturnsElement [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractMacroPlan_MissingKey_ReturnsNull [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractMicroWorkouts_WithWorkoutsKey_ReturnsElement [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractJsonBlock_NoJsonBlock_ReturnsNull [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.WriteEvalResult_WithMetadata_WritesCompleteFile [7 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractMicroWorkouts_WithSnakeCaseKey_ReturnsElement [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.GetOutputDirectory_ReturnsPathContainingPoc1EvalResults [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractMacroPlan_WithMacroPlanKey_ReturnsElement [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.WriteEvalResult_WritesJsonFile [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.LoadProfile_AllFiveProfiles_LoadSuccessfully [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractMesoWeek_WithMesoWeekKey_ReturnsElement [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ParsePlanJson_InvalidJson_ReturnsNull [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.LoadProfile_CaseInsensitive_ReturnsProfile [< 1 ms]
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.EvalTestBaseTests.ExtractMacroPlan_WithSnakeCaseKey_ReturnsElement [< 1 ms]
+
+Test Run Successful.
+Total tests: 20
+     Passed: 20
+ Total time: 0.3157 Seconds
+
+Status: PASS
