@@ -148,10 +148,8 @@ public sealed class PlanConstraintEvaluator : IEvaluator
         var easyRange = paces.EasyPaceRange;
         if (workout.TargetPaceEasySecPerKm > 0 && easyRange.MinPerKm > TimeSpan.Zero)
         {
-            var minSec = (int)easyRange.MinPerKm.TotalSeconds;
-            var maxSec = (int)easyRange.MaxPerKm.TotalSeconds;
-            var minAllowed = (int)(minSec * 0.85);
-            var maxAllowed = (int)(maxSec * 1.15);
+            var minAllowed = (int)(easyRange.MinPerKm.TotalSeconds * 0.85);
+            var maxAllowed = (int)(easyRange.MaxPerKm.TotalSeconds * 1.15);
 
             if (workout.TargetPaceEasySecPerKm < minAllowed || workout.TargetPaceEasySecPerKm > maxAllowed)
             {
@@ -161,8 +159,7 @@ public sealed class PlanConstraintEvaluator : IEvaluator
 
         if (workout.TargetPaceFastSecPerKm > 0 && paces.RepetitionPace.HasValue)
         {
-            var repSec = (int)paces.RepetitionPace.Value.TotalSeconds;
-            var absoluteMin = (int)(repSec * 0.90);
+            var absoluteMin = (int)(paces.RepetitionPace.Value.TotalSeconds * 0.90);
 
             if (workout.TargetPaceFastSecPerKm < absoluteMin)
             {

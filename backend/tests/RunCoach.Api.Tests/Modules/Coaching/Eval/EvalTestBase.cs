@@ -320,6 +320,8 @@ public abstract class EvalTestBase : IAsyncDisposable
     /// </summary>
     protected virtual ValueTask DisposeAsyncCore()
     {
+        // ReportingConfiguration does not implement IDisposable/IAsyncDisposable.
+        // File handle cleanup is managed internally by the M.E.AI.Evaluation library.
         return ValueTask.CompletedTask;
     }
 

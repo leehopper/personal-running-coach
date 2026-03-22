@@ -80,9 +80,17 @@ public sealed partial class YamlPromptStore : IPromptStore
 
         var cacheKey = BuildCacheKey(id, version);
         var lazy = _cache.GetOrAdd(cacheKey, _ => new Lazy<Task<PromptTemplate>>(
-            () => LoadAsync(id, version, ct)));
+            () => LoadAsync(id, version, CancellationToken.None)));
 
-        return await lazy.Value.ConfigureAwait(false);
+        try
+        {
+            return await lazy.Value.WaitAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception) when (lazy.Value.IsFaulted || lazy.Value.IsCanceled)
+        {
+            _cache.TryRemove(cacheKey, out _);
+            throw;
+        }
     }
 
     /// <inheritdoc />
