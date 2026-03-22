@@ -10,20 +10,6 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 public sealed class EvalTestBaseCachingTests : EvalTestBase
 {
     [Fact]
-    public void IsApiKeyConfigured_WithKey_ReturnsTrue()
-    {
-        // The test project has user-secrets configured with the API key.
-        // If running without a key, this test silently passes.
-        if (!IsApiKeyConfigured)
-        {
-            return;
-        }
-
-        // Assert
-        IsApiKeyConfigured.Should().BeTrue();
-    }
-
-    [Fact]
     public async Task CreateSonnetScenarioRunAsync_ReturnsScenarioRun()
     {
         if (!CanRunEvals)

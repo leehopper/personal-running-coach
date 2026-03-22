@@ -9,7 +9,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 /// Unit tests for <see cref="EvalTestBase"/> static helpers and infrastructure.
 /// These tests do NOT require an API key since they only test non-LLM functionality.
 /// </summary>
-public class EvalTestBaseTests
+public sealed class EvalTestBaseTests
 {
     [Theory]
     [InlineData("Record", EvalCacheMode.Record)]
@@ -23,15 +23,7 @@ public class EvalTestBaseTests
     [InlineData("AUTO", EvalCacheMode.Auto)]
     public void ParseCacheMode_ValidValues_ParsesCaseInsensitively(string envValue, EvalCacheMode expected)
     {
-        Environment.SetEnvironmentVariable("EVAL_CACHE_MODE", envValue);
-        try
-        {
-            EvalTestBase.ParseCacheMode().Should().Be(expected);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("EVAL_CACHE_MODE", null);
-        }
+        EvalTestBase.ParseCacheMode(envValue).Should().Be(expected);
     }
 
     [Theory]
@@ -42,15 +34,7 @@ public class EvalTestBaseTests
     [InlineData("Recording")]
     public void ParseCacheMode_InvalidOrEmpty_DefaultsToAuto(string? envValue)
     {
-        Environment.SetEnvironmentVariable("EVAL_CACHE_MODE", envValue);
-        try
-        {
-            EvalTestBase.ParseCacheMode().Should().Be(EvalCacheMode.Auto);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("EVAL_CACHE_MODE", null);
-        }
+        EvalTestBase.ParseCacheMode(envValue).Should().Be(EvalCacheMode.Auto);
     }
 
     [Fact]

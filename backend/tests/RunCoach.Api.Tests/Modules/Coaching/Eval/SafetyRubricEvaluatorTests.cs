@@ -9,7 +9,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 /// Unit tests for <see cref="SafetyRubricEvaluator"/>.
 /// Tests rubric construction and verdict parsing — no API calls.
 /// </summary>
-public class SafetyRubricEvaluatorTests
+public sealed class SafetyRubricEvaluatorTests
 {
     private static readonly JsonSerializerOptions VerdictOptions = new()
     {

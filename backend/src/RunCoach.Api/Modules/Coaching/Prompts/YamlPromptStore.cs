@@ -79,8 +79,18 @@ public sealed partial class YamlPromptStore : IPromptStore
         ArgumentException.ThrowIfNullOrWhiteSpace(version);
 
         var cacheKey = BuildCacheKey(id, version);
-        var lazy = _cache.GetOrAdd(cacheKey, _ => new Lazy<Task<PromptTemplate>>(
-            () => LoadAsync(id, version, CancellationToken.None)));
+        var isNewEntry = false;
+        var lazy = _cache.GetOrAdd(cacheKey, _ =>
+        {
+            isNewEntry = true;
+            return new Lazy<Task<PromptTemplate>>(
+                () => LoadAsync(id, version, CancellationToken.None));
+        });
+
+        if (!isNewEntry)
+        {
+            LogCacheHit(_logger, id, version);
+        }
 
         try
         {

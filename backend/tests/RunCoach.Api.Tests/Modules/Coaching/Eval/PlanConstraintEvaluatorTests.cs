@@ -8,7 +8,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 /// Unit tests for <see cref="PlanConstraintEvaluator"/>.
 /// Deterministic — no API calls needed.
 /// </summary>
-public class PlanConstraintEvaluatorTests
+public sealed class PlanConstraintEvaluatorTests
 {
     [Fact]
     public void Evaluate_ValidPlan_ReturnsNoViolations()

@@ -201,11 +201,18 @@ public abstract class EvalTestBase : IAsyncDisposable
     }
 
     /// <summary>
-    /// Parses the EVAL_CACHE_MODE environment variable. Case-insensitive, defaults to Auto.
+    /// Parses a cache mode value. When <paramref name="envValue"/> is provided, it is used directly;
+    /// otherwise the method falls back to the EVAL_CACHE_MODE environment variable.
+    /// Case-insensitive, defaults to Auto.
     /// </summary>
-    internal static EvalCacheMode ParseCacheMode()
+    /// <param name="envValue">
+    /// Optional cache mode string to parse. Pass explicitly in tests to avoid mutating process state
+    /// via <see cref="Environment.SetEnvironmentVariable"/>. When <c>null</c>, the method reads
+    /// from the EVAL_CACHE_MODE environment variable (backward-compatible production code path).
+    /// </param>
+    internal static EvalCacheMode ParseCacheMode(string? envValue = null)
     {
-        var envValue = Environment.GetEnvironmentVariable("EVAL_CACHE_MODE");
+        envValue ??= Environment.GetEnvironmentVariable("EVAL_CACHE_MODE");
         if (string.IsNullOrWhiteSpace(envValue))
         {
             return EvalCacheMode.Auto;
