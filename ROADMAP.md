@@ -81,20 +81,13 @@ POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR
 
 ## Next Up
 
-### 1. Commit eval cache files for deterministic CI (separate branch into `feature/poc1-eval-refactor`)
+### 1. Eval cache CI + cleanup (spec: `03-spec-eval-cache-ci`, on `feature/poc1-eval-refactor`)
 
-The eval response cache (`poc1-eval-cache/`) should be committed as golden test fixtures. Without them, CI either needs an API key (expensive, flaky) or skips eval tests entirely (zero coverage). Pattern: VCR-style record/replay with committed caches. Change prompts → local re-record → commit updated cache alongside prompt changes. See R-015 research for the full rationale and `EVAL_CACHE_MODE=Replay` pattern for CI.
-
-Additional items for this session:
-- Install `dotnet aieval` CLI tool for HTML report generation (`dotnet tool install --local Microsoft.Extensions.AI.Evaluation.Console`)
-- Clean up `GenerateExperimentResults.cs` — permanently-skipped utility script (`[Fact(Skip = "...")]`). Delete, convert, or move outside test project.
-- `AnthropicStructuredOutputClient.SplitMessages` — concatenate or throw if >1 system message (currently silently drops all but last)
-- Add `CancellationToken` to `GetResponseAsync` calls in eval tests to prevent hanging CI builds
-- `AnthropicStructuredOutputClient.ConvertSchema` — replace `!` suppressor with explicit null-check throw
+Five units — xUnit v3 upgrade, `EVAL_CACHE_MODE` (Record/Replay/Auto), commit cache files as golden fixtures, code quality cleanup (SplitMessages, ConvertSchema, CancellationToken, delete dead code), install `dotnet aieval` for HTML reports. Also fixes CI `pull_request` trigger to run on all PRs (not just `main`-targeted).
 
 ### 2. Merge PR #18 into `feature/poc1-context-injection-v2`
 
-After cache strategy branch is merged into `feature/poc1-eval-refactor`, merge PR #18.
+After cache/cleanup work lands on `feature/poc1-eval-refactor`, merge PR #18.
 
 ### 3. Full POC 1 PR Review
 
