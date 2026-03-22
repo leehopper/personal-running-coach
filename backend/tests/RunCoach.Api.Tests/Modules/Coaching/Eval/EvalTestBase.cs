@@ -31,6 +31,20 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 ///   - Replay: Cache-only, throws descriptive error on cache miss (for CI)
 ///
 /// All derived test classes must use [Trait("Category", "Eval")].
+///
+/// <para><b>Re-recording workflow:</b></para>
+/// <para>
+/// Cache fixtures should be re-recorded when prompts, model IDs, or context assembly
+/// logic changes (any change that alters the cache key). To re-record:
+/// </para>
+/// <list type="number">
+///   <item>Set your API key: <c>dotnet user-secrets set "Anthropic:ApiKey" &lt;key&gt;</c></item>
+///   <item>Run with Record mode: <c>EVAL_CACHE_MODE=Record dotnet test --filter "Category=Eval"</c></item>
+///   <item>Extend TTL on new fixtures: run the TTL extension script (or use a one-liner):
+///     <c>find backend/poc1-eval-cache -name "entry.json" -exec python3 -c "..." {} \;</c>
+///     — set <c>"expiration": "9999-12-31T23:59:59Z"</c> in every entry.json</item>
+///   <item>Commit the updated cache directory: <c>git add backend/poc1-eval-cache/</c></item>
+/// </list>
 /// </summary>
 public abstract class EvalTestBase : IAsyncDisposable
 {

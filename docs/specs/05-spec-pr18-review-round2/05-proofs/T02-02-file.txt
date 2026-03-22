@@ -1,0 +1,10 @@
+Type: file
+File: .gitattributes
+Expected: Contains binary marker for .data files in poc1-eval-cache
+Timestamp: 2026-03-22T17:00:00Z
+
+Contents:
+# Eval cache response data files are binary (LLM response payloads)
+backend/poc1-eval-cache/**/*.data binary
+
+Status: PASS
