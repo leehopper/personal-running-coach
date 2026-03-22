@@ -87,6 +87,9 @@ public sealed class ContextAssembler : IContextAssembler
         var activeVersion = _promptStore.GetActiveVersion(CoachingPromptId);
         var template = await _promptStore.GetPromptAsync(CoachingPromptId, activeVersion, ct).ConfigureAwait(false);
 
+        // FUTURE: template.ContextTemplate is loaded but not yet used — wire into PromptRenderer
+        // when context injection goes production (currently sections are built programmatically).
+
         // Build section content for token replacement.
         var startSections = BuildStartSections(input);
         var middleSections = BuildMiddleSections(input.TrainingHistory);

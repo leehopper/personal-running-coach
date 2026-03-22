@@ -351,31 +351,6 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     }
 
     /// <summary>
-    /// Extracts JSON from a response that may be wrapped in markdown code fences.
-    /// The IChatClient bridge may return structured output wrapped in ```json ... ```.
-    /// </summary>
-    private static string ExtractJson(string text)
-    {
-        var trimmed = text.Trim();
-
-        if (trimmed.StartsWith("```", StringComparison.Ordinal))
-        {
-            var firstNewline = trimmed.IndexOf('\n');
-            if (firstNewline >= 0)
-            {
-                trimmed = trimmed[(firstNewline + 1)..];
-            }
-
-            if (trimmed.EndsWith("```", StringComparison.Ordinal))
-            {
-                trimmed = trimmed[..^3].TrimEnd();
-            }
-        }
-
-        return trimmed;
-    }
-
-    /// <summary>
     /// Sends the assembled prompt with JSON response format to get structured output
     /// via the cached IChatClient. The Anthropic IChatClient bridge maps
     /// ChatResponseFormatJson to native OutputConfig with JsonOutputFormat.
@@ -411,9 +386,8 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         var rawText = response.Text ?? throw new InvalidOperationException(
             $"Structured output call for {typeof(T).Name} returned null.");
 
-        var json = ExtractJson(rawText);
-
-        return JsonSerializer.Deserialize<T>(json, DeserializeOptions)
+        // Constrained decoding guarantees bare JSON — no markdown fences to strip.
+        return JsonSerializer.Deserialize<T>(rawText, DeserializeOptions)
             ?? throw new InvalidOperationException(
                 $"Failed to deserialize structured output to {typeof(T).Name}.");
     }

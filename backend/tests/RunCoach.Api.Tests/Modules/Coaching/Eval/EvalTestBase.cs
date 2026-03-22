@@ -59,8 +59,11 @@ public abstract class EvalTestBase : IAsyncDisposable
         Assembler = new ContextAssembler(CreatePromptStore());
 
         var effectiveMode = ResolveEffectiveMode(CacheMode, IsApiKeyConfigured);
-        System.Diagnostics.Trace.WriteLine(
-            $"[EvalTestBase] EVAL_CACHE_MODE={CacheMode}, Effective={effectiveMode}, ApiKeyConfigured={IsApiKeyConfigured}");
+        TestContext.Current.SendDiagnosticMessage(
+            "[EvalTestBase] EVAL_CACHE_MODE={0}, Effective={1}, ApiKeyConfigured={2}",
+            CacheMode,
+            effectiveMode,
+            IsApiKeyConfigured);
 
         if (effectiveMode == EvalCacheMode.Replay)
         {
