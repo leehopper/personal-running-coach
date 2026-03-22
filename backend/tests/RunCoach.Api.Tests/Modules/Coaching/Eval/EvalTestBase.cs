@@ -78,9 +78,12 @@ public abstract class EvalTestBase : IAsyncDisposable
             enableResponseCaching: true,
             executionName: "eval");
 
-        // Haiku client for LLM-as-judge calls (unstructured only, no wrapper needed)
-        IChatClient haikuClient = anthropicClient.AsIChatClient(
+        // Haiku client for LLM-as-judge calls — wrapped with AnthropicStructuredOutputClient
+        // so SafetyRubricEvaluator's ForJsonSchema requests use constrained decoding.
+        IChatClient haikuInner = anthropicClient.AsIChatClient(
             _settings.JudgeModelId, 1024);
+        IChatClient haikuClient = new AnthropicStructuredOutputClient(
+            haikuInner, anthropicClient, _settings.JudgeModelId, 1024);
         _haikuReportingConfig = DiskBasedReportingConfiguration.Create(
             storageRootPath: GetCacheStoragePath("haiku"),
             evaluators: [],
