@@ -1,0 +1,25 @@
+Type: test
+Command: dotnet test --filter "FullyQualifiedName~EvalTestBase" --logger "console;verbosity=detailed"
+Expected: All EvalTestBase tests pass including caching infrastructure initialization
+Timestamp: 2026-03-22T00:35:00Z
+
+Output:
+  Passed EvalTestBaseCachingTests.CreateHaikuScenarioRunAsync_ReturnsScenarioRun [13 ms]
+  Passed EvalTestBaseTests.LoadProfile_ValidName_ReturnsProfile [13 ms]
+  Passed EvalTestBaseCachingTests.CreateSonnetScenarioRunAsync_ReturnsScenarioRun [< 1 ms]
+  Passed EvalTestBaseCachingTests.Settings_HasCorrectDefaults [1 ms]
+  Passed EvalTestBaseCachingTests.IsApiKeyConfigured_WithKey_ReturnsTrue [< 1 ms]
+  Passed EvalTestBaseTests.LoadProfile_InvalidName_ThrowsArgumentException [3 ms]
+  Passed EvalTestBaseTests.GetOutputDirectory_ReturnsPathContainingPoc1EvalResults [< 1 ms]
+  Passed EvalTestBaseCachingTests.AssembleContext_WithProfile_ReturnsAssembledPrompt [6 ms]
+  Passed EvalTestBaseCachingTests.Assembler_IsAvailable [< 1 ms]
+  Passed EvalTestBaseTests.WriteEvalResult_WritesJsonFile [5 ms]
+  Passed EvalTestBaseTests.LoadProfile_AllFiveProfiles_LoadSuccessfully [< 1 ms]
+  Passed EvalTestBaseTests.LoadProfile_CaseInsensitive_ReturnsProfile [< 1 ms]
+
+Test Run Successful.
+Total tests: 12
+     Passed: 12
+ Total time: 0.3036 Seconds
+
+Status: PASS

@@ -47,4 +47,10 @@ public sealed record CoachingLlmSettings
     /// to accommodate longer plan generation responses.
     /// </summary>
     public int TimeoutSeconds { get; init; } = 120;
+
+    /// <summary>
+    /// Gets the model identifier for LLM-as-judge calls (e.g., safety rubric evaluation).
+    /// Defaults to Claude Haiku 4.5 for cost-effective judging.
+    /// </summary>
+    public string JudgeModelId { get; init; } = "claude-haiku-4-5-20251001";
 }
