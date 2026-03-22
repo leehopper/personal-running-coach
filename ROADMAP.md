@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: POC 1 — Eval Refactor Complete, Pending Cache Strategy + Review
+## Current Phase: POC 1 — PR #18 Review Fixes Complete, Ready to Merge
 
-POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR #17). Both refactoring streams complete on `feature/poc1-eval-refactor`. Remaining: commit eval cache files for deterministic CI, then merge into PR #17 and do final review.
+POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR #17). Eval refactor and review fixes complete on `feature/poc1-eval-refactor` (PR #18). All 9 review findings addressed, experiment infrastructure removed, validation passed. Ready to merge PR #18 → PR #17, then final review of PR #17 → main.
 
 ### Setup Steps
 
@@ -57,7 +57,7 @@ POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR
 - Unit 1: Deterministic training science layer — formula-based VDOT calculator, pace calculator with 5 zones, all 5 test profiles with simulated history, `WorkoutSummary`/`WeekSummary` models, comprehensive unit tests
 - Unit 2: Coaching prompt & context assembly — `ClaudeCoachingLlm` adapter (sealed, disposable, injectable), structured `AssembledPrompt` with positional sections, token estimation with overflow cascade, `ContextAssembler` with 15K budget enforcement, console app via `Host.CreateApplicationBuilder`
 - Unit 3: Eval suite — `PlanGenerationEvalTests` (5 profiles) + `SafetyBoundaryEvalTests` (5 safety scenarios), tagged `[Trait("Category", "Eval")]`, structured result output
-- Unit 4: Experiments framework — `ExperimentRunner`/`ExperimentExecutor` with 16+ variations across 4 experiment categories, dry-run mode, observation models, suite results
+- Unit 4: Experiments framework — `ExperimentRunner`/`ExperimentExecutor` with 16+ variations across 4 experiment categories, dry-run mode, observation models, suite results **(removed in PR #18 review fixes — superseded by eval suite)**
 - Architecture: sealed classes, immutable records, `ImmutableArray`/frozen collections, proper DI, structured logging
 
 **Refactor 1: YAML Prompt Storage (Claude Code — 2026-03-21, complete on `feature/poc1-eval-refactor`):**
@@ -86,13 +86,27 @@ POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR
 - Review fix: wired ReplayGuardChatClient as DelegatingChatClient, fail-fast on Record without API key
 - 391 tests passing, 0 warnings, 0 suppressions
 
-**Branch status:** `feature/poc1-eval-refactor` — PR #18 open against `feature/poc1-context-injection-v2`, all work complete, ready to merge.
+**PR #18 review fixes (spec: `04-spec-pr18-review-fixes`, 2026-03-22, complete on `feature/poc1-eval-refactor`):**
+- CI fix: `actions/setup-node@v6` → `@v4` (v6 doesn't exist), audited all action versions
+- Removed experiment infrastructure: 17 source + 5 test files deleted (~800 LOC), one-time POC exploration superseded by eval suite
+- Simplified `ContextAssembler`: removed parameterless constructor, `SystemPromptText` constant, sync `Assemble()` method; `IPromptStore` now required
+- Converted `ContextAssemblerTests` (28 methods) and `EvalTestBase` to async `AssembleAsync` with `IPromptStore`
+- `AnthropicStructuredOutputClient`: added `.ConfigureAwait(false)` on all 3 await calls
+- `YamlPromptStore`: fixed race condition with `GetOrAdd`/`Lazy<Task<T>>`, added cache key `::` separator validation
+- `PlanConstraintEvaluator`: added upper-bound check for fast pace tolerance (symmetric with easy pace)
+- Replaced `Trace.WriteLine` with `TestContext.Current.SendDiagnosticMessage` (xUnit v3 visible output)
+- Removed dead `ExtractJson` method from `PlanGenerationEvalTests`
+- Added `FUTURE:` comment on unused `ContextTemplate` (SonarAnalyzer S1135 compliant)
+- New eval cache fixtures committed (cache keys changed due to IPromptStore refactor)
+- 292 tests passing, 0 warnings, 0 suppressions, validation: PASS (all 6 gates)
+
+**Branch status:** `feature/poc1-eval-refactor` — PR #18 open against `feature/poc1-context-injection-v2`, all review fixes complete, ready to merge.
 
 ## Next Up
 
 ### 1. Merge PR #18 into `feature/poc1-context-injection-v2`
 
-All eval cache CI work complete and reviewed. Merge PR #18.
+All review fixes complete and validated. Merge PR #18.
 
 ### 2. Full POC 1 PR Review
 
@@ -109,7 +123,7 @@ Comprehensive review of PR #17 (the entire POC 1 implementation) before merging 
 
 Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for details.
 
-- **POC 1:** Context injection & plan quality → feeds MVP-0 **(complete — eval refactor done, pending cache commit + final review)**
+- **POC 1:** Context injection & plan quality → feeds MVP-0 **(complete — all review fixes done, ready to merge)**
 - **POC 2:** Adaptive replanning → feeds MVP-1
 - **POC 3:** Tiered planning efficiency → validates architecture
 - **POC 4:** Interaction flow → validates UX
