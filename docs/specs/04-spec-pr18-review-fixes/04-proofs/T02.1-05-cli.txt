@@ -1,0 +1,13 @@
+Type: cli
+Description: Verify no external references to Experiments namespace exist
+Command: grep -r "using RunCoach.Api.Modules.Coaching.Experiments" backend/
+Expected: No matches (all references were in deleted files)
+Timestamp: 2026-03-22T00:00:00Z
+
+Output:
+No matches found
+
+git diff --cached --stat summary:
+22 files changed, 3008 deletions(-)
+
+Status: PASS
