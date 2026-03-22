@@ -207,6 +207,32 @@ public class PlanConstraintEvaluatorTests
         violations.Should().Contain(v => v.Contains("fast pace"));
     }
 
+    [Fact]
+    public void Evaluate_FastPaceSlowerThanEasyMax_ReturnsViolation()
+    {
+        // Arrange — fast pace 400s/km but easy max is 360s/km: the "fast" pace is easier than easy
+        var paces = new TrainingPaces(
+            new PaceRange(TimeSpan.FromSeconds(300), TimeSpan.FromSeconds(360)),
+            MarathonPace: TimeSpan.FromSeconds(270),
+            ThresholdPace: TimeSpan.FromSeconds(240),
+            IntervalPace: TimeSpan.FromSeconds(210),
+            RepetitionPace: TimeSpan.FromSeconds(195));
+
+        var workouts = new[] { BuildWorkout(WorkoutType.Interval, "Slow Intervals") with { TargetPaceFastSecPerKm = 400 } };
+
+        var context = new PlanConstraintContext
+        {
+            Workouts = workouts,
+            TrainingPaces = paces,
+        };
+
+        // Act
+        var violations = PlanConstraintEvaluator.Evaluate(context);
+
+        // Assert
+        violations.Should().ContainSingle().Which.Should().Contain("slower than easy max");
+    }
+
     private static MacroPlanOutput BuildValidMacroPlan()
     {
         return new MacroPlanOutput

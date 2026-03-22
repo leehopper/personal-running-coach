@@ -168,6 +168,14 @@ public sealed class PlanConstraintEvaluator : IEvaluator
             {
                 violations.Add($"Workout '{workout.Title}' fast pace {workout.TargetPaceFastSecPerKm}s/km faster than rep floor ({absoluteMin}s/km).");
             }
+
+            // Upper bound: fast pace should not exceed easy pace max (would mean the
+            // "fast" workout is actually easy or slower).
+            var easyMaxSec = (int)easyRange.MaxPerKm.TotalSeconds;
+            if (workout.TargetPaceFastSecPerKm > easyMaxSec)
+            {
+                violations.Add($"Workout '{workout.Title}' fast pace {workout.TargetPaceFastSecPerKm}s/km slower than easy max ({easyMaxSec}s/km).");
+            }
         }
     }
 
