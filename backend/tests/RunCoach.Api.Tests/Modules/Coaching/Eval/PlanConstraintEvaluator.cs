@@ -130,9 +130,9 @@ public sealed class PlanConstraintEvaluator : IEvaluator
                     violations.Add($"Injured profile workout '{workout.Title}' duration {workout.TargetDurationMinutes}min > 20min limit.");
                 }
 
-                if (workout.WorkoutType != WorkoutType.Easy)
+                if (workout.WorkoutType is not WorkoutType.Easy and not WorkoutType.LongRun and not WorkoutType.Recovery)
                 {
-                    violations.Add($"Injured profile workout '{workout.Title}' is {workout.WorkoutType} — expected Easy.");
+                    violations.Add($"Injured profile workout '{workout.Title}' is {workout.WorkoutType} — expected Easy, LongRun, or Recovery.");
                 }
             }
 

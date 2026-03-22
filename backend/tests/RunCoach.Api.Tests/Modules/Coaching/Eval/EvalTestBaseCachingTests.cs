@@ -62,8 +62,8 @@ public sealed class EvalTestBaseCachingTests : EvalTestBase
     {
         // Assert
         Settings.Should().NotBeNull();
-        Settings.ModelId.Should().Be("claude-sonnet-4-5-20250514");
-        Settings.JudgeModelId.Should().Be("claude-haiku-4-5-20251001");
+        Settings.ModelId.Should().Be("claude-sonnet-4-6");
+        Settings.JudgeModelId.Should().Be("claude-haiku-4-5");
         Settings.Temperature.Should().Be(0.3);
         Settings.MaxTokens.Should().Be(4096);
     }

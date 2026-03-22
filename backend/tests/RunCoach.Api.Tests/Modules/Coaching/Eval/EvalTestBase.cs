@@ -63,9 +63,14 @@ public abstract class EvalTestBase : IAsyncDisposable
             Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds),
         });
 
-        // Sonnet client for plan generation and coaching narrative
-        IChatClient sonnetClient = anthropicClient.AsIChatClient(
+        // Sonnet client for plan generation and coaching narrative.
+        // AnthropicStructuredOutputClient intercepts ForJsonSchema requests and
+        // delegates to the native SDK's constrained decoding (OutputConfig.JsonOutputFormat).
+        // Unstructured calls pass through to the standard IChatClient bridge.
+        IChatClient sonnetInner = anthropicClient.AsIChatClient(
             _settings.ModelId, _settings.MaxTokens);
+        IChatClient sonnetClient = new AnthropicStructuredOutputClient(
+            sonnetInner, anthropicClient, _settings.ModelId, _settings.MaxTokens);
         _sonnetReportingConfig = DiskBasedReportingConfiguration.Create(
             storageRootPath: GetCacheStoragePath("sonnet"),
             evaluators: [],
@@ -73,7 +78,7 @@ public abstract class EvalTestBase : IAsyncDisposable
             enableResponseCaching: true,
             executionName: "eval");
 
-        // Haiku client for LLM-as-judge calls
+        // Haiku client for LLM-as-judge calls (unstructured only, no wrapper needed)
         IChatClient haikuClient = anthropicClient.AsIChatClient(
             _settings.JudgeModelId, 1024);
         _haikuReportingConfig = DiskBasedReportingConfiguration.Create(

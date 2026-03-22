@@ -32,8 +32,9 @@ pgdata/
 TestResults/
 coverage/
 
-# Eval results (LLM API responses, not source)
+# Eval results and cache (LLM API responses, not source)
 poc1-eval-results/
+poc1-eval-cache/
 
 # Worktrees
 .worktrees/
