@@ -84,6 +84,11 @@ The eval response cache (`poc1-eval-cache/`) should be committed as golden test 
 
 Also clean up `GenerateExperimentResults.cs` — a permanently-skipped utility script disguised as a test (`[Fact(Skip = "...")]`). Either delete (artifacts already generated), convert to a real conditional test, or move to a separate tool outside the test project. Currently the only skipped test in the suite.
 
+Code review cleanup (PR #18 review findings, non-blocking):
+- `AnthropicStructuredOutputClient.SplitMessages` silently drops all but last system message — concatenate or throw if >1
+- No `CancellationToken` passed to `GetResponseAsync` in eval tests — add to prevent hanging CI builds
+- `AnthropicStructuredOutputClient.ConvertSchema` uses `!` suppressor on nullable `Deserialize` return — replace with explicit null-check throw
+
 ### 2. Full POC 1 PR Review
 
 After cache strategy is merged into `feature/poc1-context-injection-v2`, do a comprehensive review of PR #17 (the entire POC 1 implementation) before merging to main.
