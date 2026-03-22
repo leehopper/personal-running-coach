@@ -82,6 +82,8 @@ POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR
 
 The eval response cache (`poc1-eval-cache/`) should be committed as golden test fixtures. Without them, CI either needs an API key (expensive, flaky) or skips eval tests entirely (zero coverage). Pattern: VCR-style record/replay with committed caches. Change prompts → local re-record → commit updated cache alongside prompt changes. Well-documented for handoff — see R-015 research for the full rationale and implementation pattern (`EVAL_CACHE_MODE=Replay` in CI).
 
+Also clean up `GenerateExperimentResults.cs` — a permanently-skipped utility script disguised as a test (`[Fact(Skip = "...")]`). Either delete (artifacts already generated), convert to a real conditional test, or move to a separate tool outside the test project. Currently the only skipped test in the suite.
+
 ### 2. Full POC 1 PR Review
 
 After cache strategy is merged into `feature/poc1-context-injection-v2`, do a comprehensive review of PR #17 (the entire POC 1 implementation) before merging to main.
