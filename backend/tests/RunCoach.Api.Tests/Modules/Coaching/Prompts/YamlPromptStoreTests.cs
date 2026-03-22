@@ -189,6 +189,56 @@ public sealed class YamlPromptStoreTests : IDisposable
         actual.StaticSystemPrompt.Should().Contain("Line two.");
     }
 
+    [Fact]
+    public async Task GetPromptAsync_IdContainsDoubleColon_ThrowsArgumentException()
+    {
+        // Arrange
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var act = () => sut.GetPromptAsync("bad::id", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*Prompt id must not contain*");
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_VersionContainsDoubleColon_ThrowsArgumentException()
+    {
+        // Arrange
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var act = () => sut.GetPromptAsync("coaching-system", "v::1", TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*Version must not contain*");
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_ConcurrentCalls_ReturnSameInstance()
+    {
+        // Arrange
+        var yaml = BuildMinimalYaml("You are a coach.");
+        WriteYamlFile("coaching-system.v1.yaml", yaml);
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act — fire multiple calls concurrently
+        var tasks = Enumerable.Range(0, 10)
+            .Select(_ => sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken))
+            .ToArray();
+        var results = await Task.WhenAll(tasks);
+
+        // Assert — all results are the same reference (loaded once, cached)
+        var expected = results[0];
+        foreach (var actual in results)
+        {
+            actual.Should().BeSameAs(expected);
+        }
+    }
+
     private static string BuildFullYaml()
     {
         return string.Join(

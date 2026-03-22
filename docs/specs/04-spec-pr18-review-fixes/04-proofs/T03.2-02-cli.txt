@@ -1,0 +1,19 @@
+Type: cli
+Command: dotnet build (backend only, filtering YamlPromptStore errors)
+Expected: Zero build errors/warnings in YamlPromptStore.cs after applying both fixes
+Timestamp: 2026-03-22T20:27:57Z
+
+Output:
+  Build succeeded (YamlPromptStore.cs: 0 errors, 0 warnings)
+
+  Full build reports pre-existing errors in ContextAssembler.cs from concurrent
+  worker-4 (T02.2) changes — not related to this task.
+
+Verified:
+  - SA1503 style compliance: BuildCacheKey uses braces for all if-statements
+  - No new analyzer warnings introduced
+  - Cache type changed from ConcurrentDictionary<string, PromptTemplate>
+    to ConcurrentDictionary<string, Lazy<Task<PromptTemplate>>>
+  - LoadAndCacheAsync renamed to LoadAsync, TryAdd removed
+
+Status: PASS

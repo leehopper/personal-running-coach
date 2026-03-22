@@ -22,7 +22,7 @@ namespace RunCoach.Api.Modules.Coaching.Prompts;
 /// </summary>
 public sealed partial class YamlPromptStore : IPromptStore
 {
-    private readonly ConcurrentDictionary<string, PromptTemplate> _cache = new();
+    private readonly ConcurrentDictionary<string, Lazy<Task<PromptTemplate>>> _cache = new();
     private readonly PromptStoreSettings _settings;
     private readonly string _basePath;
     private readonly ILogger<YamlPromptStore> _logger;
@@ -73,20 +73,16 @@ public sealed partial class YamlPromptStore : IPromptStore
     }
 
     /// <inheritdoc />
-    public Task<PromptTemplate> GetPromptAsync(string id, string version, CancellationToken ct = default)
+    public async Task<PromptTemplate> GetPromptAsync(string id, string version, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(version);
 
         var cacheKey = BuildCacheKey(id, version);
+        var lazy = _cache.GetOrAdd(cacheKey, _ => new Lazy<Task<PromptTemplate>>(
+            () => LoadAsync(id, version, ct)));
 
-        if (_cache.TryGetValue(cacheKey, out var cached))
-        {
-            LogCacheHit(_logger, id, version);
-            return Task.FromResult(cached);
-        }
-
-        return LoadAndCacheAsync(id, version, cacheKey, ct);
+        return await lazy.Value.ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -128,8 +124,20 @@ public sealed partial class YamlPromptStore : IPromptStore
         }
     }
 
-    private static string BuildCacheKey(string id, string version) =>
-        $"{id}::{version}";
+    private static string BuildCacheKey(string id, string version)
+    {
+        if (id.Contains("::", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Prompt id must not contain '::'.", nameof(id));
+        }
+
+        if (version.Contains("::", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Version must not contain '::'.", nameof(version));
+        }
+
+        return $"{id}::{version}";
+    }
 
     private static PromptMetadata? MapMetadata(YamlPromptMetadata? yamlMetadata)
     {
@@ -153,10 +161,9 @@ public sealed partial class YamlPromptStore : IPromptStore
     private string BuildFilePath(string id, string version) =>
         Path.Combine(_basePath, $"{id}.{version}.yaml");
 
-    private async Task<PromptTemplate> LoadAndCacheAsync(
+    private async Task<PromptTemplate> LoadAsync(
         string id,
         string version,
-        string cacheKey,
         CancellationToken ct)
     {
         var filePath = BuildFilePath(id, version);
@@ -180,8 +187,6 @@ public sealed partial class YamlPromptStore : IPromptStore
             StaticSystemPrompt: doc.StaticSystemPrompt ?? string.Empty,
             ContextTemplate: doc.ContextTemplate ?? string.Empty,
             Metadata: metadata);
-
-        _cache.TryAdd(cacheKey, template);
 
         LogLoadedTemplate(_logger, id, version);
 
