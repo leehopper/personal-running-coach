@@ -52,6 +52,8 @@ Research is batched by dependency. Later batches depend on findings from earlier
 
 | R-013 | LLM eval test strategies for non-deterministic output assertion | How do teams structure eval suites for non-deterministic LLM outputs? What are the best practices for structured output enforcement, LLM-as-judge patterns, tiered assertion strategies (deterministic → NLI → judge), and statistical approaches to flaky eval tests? | POC 1 eval tests use brittle string matching and JSON key guessing. Need a principled testing architecture before building out the full eval suite. Directly informs the LLM testing refactor on PR #17. | Integrated | batch-6a-llm-eval-strategies.md |
 | R-014 | .NET libraries for LLM response caching, HTTP recording/replay, and eval tooling | What .NET libraries exist for HTTP recording/replay (VCR pattern), LLM-specific evaluation (Microsoft.Extensions.AI.Evaluation), structured output schema generation, snapshot testing, and test parallelization with rate limits? | Need concrete library choices for the .NET eval test infrastructure. Discovered Microsoft.Extensions.AI.Evaluation as the primary .NET eval framework. Directly informs DEC-036. | Integrated | batch-6b-dotnet-llm-testing-tooling.md |
+| R-015 | IChatClient bridge gap for Anthropic structured outputs | The Anthropic SDK's IChatClient bridge silently drops ChatResponseFormat.ForJsonSchema(). How to bridge structured output through the M.E.AI pipeline? What's the DelegatingChatClient pattern? | Discovered during POC 1 eval implementation. Without the bridge, structured output calls return free-form JSON. Feeds DEC-037. | Integrated | batch-7a-ichatclient-structured-output-bridge.md |
+| R-016 | Anthropic model IDs, versioning strategy, and structured output compatibility | Which models support structured output? How do floating alias IDs work? What's the recommended config pattern to avoid hardcoded model IDs? | Model ID confusion blocked eval tests. Old Sonnet 4 doesn't support structured output. Feeds DEC-037 and DEC-038. | Integrated | batch-7b-anthropic-model-ids-versioning.md |
 
 ### Batch 5 (Development infrastructure — feeds repo setup and CI/CD)
 
@@ -60,6 +62,10 @@ Research is batched by dependency. Later batches depend on findings from earlier
 ### Batch 6 (LLM testing architecture — feeds POC 1 eval refactor)
 
 - **Batch 6:** R-013 + R-014 (LLM eval strategies and .NET tooling) — directly informs POC 1 eval suite refactor. R-013 covers eval strategies and assertion patterns. R-014 covers .NET library choices. Together they feed DEC-036.
+
+### Batch 7 (Implementation discoveries — feeds POC 1 eval debugging and model strategy)
+
+- **Batch 7:** R-015 + R-016 (IChatClient bridge gap and model ID versioning) — discovered during POC 1 eval implementation. R-015 identified that the Anthropic SDK's IChatClient bridge silently drops structured output schemas. R-016 resolved model ID confusion and established versioning strategy. Together they feed DEC-037 and DEC-038.
 
 ### Status Key
 

@@ -961,4 +961,63 @@ Adopt Microsoft's first-party evaluation suite as the testing foundation:
 
 ---
 
+## DEC-037: AnthropicStructuredOutputClient bridge and floating model aliases
+
+**Date:** 2026-03-22
+**Status:** Final
+**Category:** LLM Integration / Testing Infrastructure
+**Sources:** R-015 (IChatClient bridge gap), R-016 (model IDs and versioning)
+**Amends:** DEC-036 (eval architecture), DEC-022 (LLM abstraction)
+
+**Decision:** Two implementation decisions discovered during POC 1 eval suite execution:
+
+### 1. DelegatingChatClient wrapper for structured output
+
+The Anthropic SDK's `AsIChatClient()` bridge does NOT translate `ChatResponseFormat.ForJsonSchema()` to constrained decoding — it silently ignores the schema. This is confirmed unfiled behavior in the official SDK. Created `AnthropicStructuredOutputClient`, a `DelegatingChatClient` that intercepts structured output requests and delegates to the native Anthropic SDK's `OutputConfig.JsonOutputFormat`. Unstructured requests pass through unchanged.
+
+This keeps a single `IChatClient` pipeline for all calls. M.E.AI.Evaluation caching works transparently for both structured and unstructured calls. The cache key automatically includes the schema (via `ChatOptions` serialization), so structured vs unstructured calls to the same prompt get different cache entries.
+
+### 2. Floating model aliases as defaults
+
+Use undated floating alias model IDs as defaults: `claude-sonnet-4-6` for coaching, `claude-haiku-4-5` for judging. These auto-upgrade within the model family. Override with dated IDs (e.g., `claude-sonnet-4-5-20250929`) via config for pinned regression baselines. Old `claude-sonnet-4-20250514` (Sonnet 4.0) does not support structured output — it predates the feature entirely.
+
+**Alternatives considered:**
+- Dual-path (native SDK for structured, IChatClient for unstructured) — loses unified caching and reporting. More infrastructure to maintain.
+- Prompt-guided JSON (include schema in prompt text) — unreliable, no constrained decoding guarantee.
+- Filing an SDK issue and waiting — correct long-term but doesn't solve the immediate problem.
+- Pinned dated model IDs as defaults — requires code changes on every model release. Floating aliases with config-level override is more maintainable.
+
+---
+
+## DEC-038: Model routing strategy for cost optimization (future)
+
+**Date:** 2026-03-22
+**Status:** Planned (for post-MVP-0)
+**Category:** Architecture / Cost Optimization
+**Sources:** R-016 (model versioning research — pricing analysis)
+
+**Decision:** Design for a tiered model routing strategy instead of all-Sonnet:
+
+| Tier | Model | Use Case | Cost |
+|------|-------|----------|------|
+| **Light** | Haiku 4.5 | Workout acknowledgments, minor adjustments, simple Q&A | $1/$5 per M tokens |
+| **Standard** | Sonnet 4.6 | Plan re-optimization, open coaching conversation | $3/$15 per M tokens |
+| **Heavy** | Opus 4.6 | Full macro replans, complex multi-week adaptations | $15/$75 per M tokens |
+| **Judge** | Opus 4.6 | Eval suite LLM-as-judge (most capable for evaluation scoring) | $15/$75 per M tokens |
+
+**Projected savings:** ~60% cost reduction vs all-Sonnet with 70/20/10 Haiku/Sonnet/Opus routing. Batch API provides additional flat 50% discount for non-real-time workloads (eval runs, scheduled replanning).
+
+**Key findings:** Sonnet 4.0, 4.5, and 4.6 cost the same per token — zero reason to stay on older versions. Opus 4.1 costs 3x more than Opus 4.5/4.6 with lower benchmarks — upgrading saves money.
+
+**Implementation approach (deferred):**
+- Add a `ModelTier` enum and routing logic to `ICoachingLlm`
+- Route based on task complexity classification
+- Use Opus 4.6 as eval judge (replaces Haiku for judging — better reasoning justifies the cost for quality assurance)
+- Batch API for eval runs and scheduled background tasks
+- Track per-tier costs via structured logging
+
+**Not now:** This is a post-MVP-0 optimization. Current eval suite uses Haiku for judging (cost-effective at $0.0015/eval). Upgrade judge to Opus when eval quality thresholds need tightening.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
