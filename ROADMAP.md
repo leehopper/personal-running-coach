@@ -77,19 +77,24 @@ POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR
 - Pre-defined rubric configs for all 5 safety scenarios: Medical, Overtraining, Injury, Crisis, Nutrition
 - Code review fixes: constrained decoding for judge calls (SafetyRubricEvaluator now uses ForJsonSchema via AnthropicStructuredOutputClient), removed ambiguous IHostEnvironment DI constructor from YamlPromptStore
 
-**Branch status:** `feature/poc1-eval-refactor` — PR #18 open against `feature/poc1-context-injection-v2`, all tests pass, ready for merge after cache strategy work.
+**Eval cache CI + cleanup (spec: `03-spec-eval-cache-ci`, 2026-03-22, complete on `feature/poc1-eval-refactor`):**
+- xUnit v3 upgrade (v2.9.3 → 3.2.2, MTP runner, TestContext.Current.CancellationToken)
+- `EVAL_CACHE_MODE` (Record/Replay/Auto) with `ReplayGuardChatClient` for descriptive cache miss errors
+- 22 cache scenarios committed as golden fixtures, CI runs in Replay mode (zero API calls)
+- Code cleanup: SplitMessages `\n\n` concat, ConvertSchema null-check, ~75 CancellationToken sites, dead code deleted
+- CI: `pull_request` trigger runs on all PRs, coverage restored via `coverlet.msbuild`, `dotnet aieval` installed
+- Review fix: wired ReplayGuardChatClient as DelegatingChatClient, fail-fast on Record without API key
+- 391 tests passing, 0 warnings, 0 suppressions
+
+**Branch status:** `feature/poc1-eval-refactor` — PR #18 open against `feature/poc1-context-injection-v2`, all work complete, ready to merge.
 
 ## Next Up
 
-### 1. Eval cache CI + cleanup (spec: `03-spec-eval-cache-ci`, on `feature/poc1-eval-refactor`)
+### 1. Merge PR #18 into `feature/poc1-context-injection-v2`
 
-Five units — xUnit v3 upgrade, `EVAL_CACHE_MODE` (Record/Replay/Auto), commit cache files as golden fixtures, code quality cleanup (SplitMessages, ConvertSchema, CancellationToken, delete dead code), install `dotnet aieval` for HTML reports. Also fixes CI `pull_request` trigger to run on all PRs (not just `main`-targeted).
+All eval cache CI work complete and reviewed. Merge PR #18.
 
-### 2. Merge PR #18 into `feature/poc1-context-injection-v2`
-
-After cache/cleanup work lands on `feature/poc1-eval-refactor`, merge PR #18.
-
-### 3. Full POC 1 PR Review
+### 2. Full POC 1 PR Review
 
 Comprehensive review of PR #17 (the entire POC 1 implementation) before merging to main.
 
