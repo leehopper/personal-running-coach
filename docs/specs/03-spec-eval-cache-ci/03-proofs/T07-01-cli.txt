@@ -1,0 +1,10 @@
+Type: cli
+Command: EVAL_CACHE_MODE=Replay dotnet test backend/RunCoach.slnx 2>&1 | grep MTP0001
+Expected: No output (warning gone)
+Timestamp: 2026-03-22
+
+No MTP0001 warning in output. The warning was caused by coverlet.collector
+registering a VSTestTestAdapterPath. Switching to coverlet.msbuild in T06
+eliminated the source. No additional changes needed.
+
+Status: PASS — resolved by T06
