@@ -8,8 +8,10 @@ using Microsoft.Extensions.AI.Evaluation;
 using Microsoft.Extensions.AI.Evaluation.Reporting;
 using Microsoft.Extensions.AI.Evaluation.Reporting.Storage;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
+using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Models;
 using RunCoach.Api.Modules.Training.Profiles;
 
@@ -54,7 +56,7 @@ public abstract class EvalTestBase : IAsyncDisposable
     {
         _settings = LoadSettings();
         CacheMode = ParseCacheMode();
-        Assembler = new ContextAssembler();
+        Assembler = new ContextAssembler(CreatePromptStore());
 
         var effectiveMode = ResolveEffectiveMode(CacheMode, IsApiKeyConfigured);
         System.Diagnostics.Trace.WriteLine(
@@ -127,7 +129,7 @@ public abstract class EvalTestBase : IAsyncDisposable
     /// <summary>
     /// Gets the context assembler for building prompt payloads.
     /// </summary>
-    protected ContextAssembler Assembler { get; }
+    protected IContextAssembler Assembler { get; }
 
     /// <summary>
     /// Gets the coaching LLM settings (model IDs, temperature, etc.).
@@ -270,7 +272,10 @@ public abstract class EvalTestBase : IAsyncDisposable
     /// <summary>
     /// Assembles a full prompt payload from a test profile and optional user message.
     /// </summary>
-    protected AssembledPrompt AssembleContext(TestProfile profile, string? userMessage = null)
+    protected async Task<AssembledPrompt> AssembleContextAsync(
+        TestProfile profile,
+        string? userMessage = null,
+        CancellationToken ct = default)
     {
         var message = userMessage ?? BuildDefaultUserMessage(profile);
 
@@ -283,16 +288,17 @@ public abstract class EvalTestBase : IAsyncDisposable
             ImmutableArray<ConversationTurn>.Empty,
             message);
 
-        return Assembler.Assemble(input);
+        return await Assembler.AssembleAsync(input, ct).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Assembles context with conversation history for safety boundary tests.
     /// </summary>
-    protected AssembledPrompt AssembleContextWithConversation(
+    protected async Task<AssembledPrompt> AssembleContextWithConversationAsync(
         TestProfile profile,
         ImmutableArray<ConversationTurn> conversationHistory,
-        string currentMessage)
+        string currentMessage,
+        CancellationToken ct = default)
     {
         var input = new ContextAssemblerInput(
             profile.UserProfile,
@@ -303,7 +309,7 @@ public abstract class EvalTestBase : IAsyncDisposable
             conversationHistory,
             currentMessage);
 
-        return Assembler.Assemble(input);
+        return await Assembler.AssembleAsync(input, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -312,6 +318,23 @@ public abstract class EvalTestBase : IAsyncDisposable
     protected virtual ValueTask DisposeAsyncCore()
     {
         return ValueTask.CompletedTask;
+    }
+
+    private static YamlPromptStore CreatePromptStore()
+    {
+        var assemblyDir = Path.GetDirectoryName(typeof(EvalTestBase).Assembly.Location)!;
+        var backendDir = Path.GetFullPath(Path.Combine(assemblyDir, "..", "..", "..", "..", ".."));
+        var promptsDir = Path.Combine(backendDir, "src", "RunCoach.Api", "Prompts");
+
+        var settings = new PromptStoreSettings
+        {
+            ActiveVersions = new Dictionary<string, string>
+            {
+                ["coaching-system"] = "v1",
+            },
+        };
+
+        return new YamlPromptStore(settings, promptsDir, NullLogger<YamlPromptStore>.Instance);
     }
 
     private static string GetCacheStoragePath(string clientName)

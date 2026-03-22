@@ -76,13 +76,13 @@ public sealed class EvalTestBaseCachingTests : EvalTestBase
     }
 
     [Fact]
-    public void AssembleContext_WithProfile_ReturnsAssembledPrompt()
+    public async Task AssembleContextAsync_WithProfile_ReturnsAssembledPrompt()
     {
         // Arrange
         var profile = LoadProfile("lee");
 
         // Act
-        var assembled = AssembleContext(profile);
+        var assembled = await AssembleContextAsync(profile, ct: TestContext.Current.CancellationToken);
 
         // Assert
         assembled.Should().NotBeNull();

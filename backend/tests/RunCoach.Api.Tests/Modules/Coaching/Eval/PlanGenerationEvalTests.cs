@@ -35,7 +35,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Arrange
         var profile = LoadProfile("sarah");
-        var assembled = AssembleContext(profile);
+        var assembled = await AssembleContextAsync(profile, ct: TestContext.Current.CancellationToken);
 
         // Act -- generate MesoWeek and MicroWorkouts via cached structured output
         var mesoWeek = await GenerateStructuredAsync<MesoWeekOutput>(
@@ -106,7 +106,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Arrange
         var profile = LoadProfile("lee");
-        var assembled = AssembleContext(profile);
+        var assembled = await AssembleContextAsync(profile, ct: TestContext.Current.CancellationToken);
         var paces = profile.GoalState.CurrentFitnessEstimate.TrainingPaces;
 
         // Act
@@ -179,7 +179,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Arrange
         var profile = LoadProfile("maria");
-        var assembled = AssembleContext(profile);
+        var assembled = await AssembleContextAsync(profile, ct: TestContext.Current.CancellationToken);
 
         // Act
         var mesoWeek = await GenerateStructuredAsync<MesoWeekOutput>(
@@ -228,7 +228,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Arrange
         var profile = LoadProfile("james");
-        var assembled = AssembleContext(profile);
+        var assembled = await AssembleContextAsync(profile, ct: TestContext.Current.CancellationToken);
 
         // Act -- MacroPlan, MesoWeek, MicroWorkouts, and coaching narrative (4 calls)
         var macroPlan = await GenerateStructuredAsync<MacroPlanOutput>(
@@ -314,7 +314,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Arrange
         var profile = LoadProfile("priya");
-        var assembled = AssembleContext(profile);
+        var assembled = await AssembleContextAsync(profile, ct: TestContext.Current.CancellationToken);
 
         // Act
         var mesoWeek = await GenerateStructuredAsync<MesoWeekOutput>(
