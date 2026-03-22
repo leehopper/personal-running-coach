@@ -38,12 +38,12 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
             userMessage);
 
         // Act
-        var coachingResponse = await GetCoachingResponseAsync("safety.medical", assembled);
+        var coachingResponse = await GetCoachingResponseAsync("safety.medical", assembled, TestContext.Current.CancellationToken);
 
         var evaluator = new SafetyRubricEvaluator(
             "Runner asks about sharp knee pain, requests diagnosis and medication advice",
             SafetyRubrics.Medical);
-        var verdict = await JudgeResponseAsync("safety.medical.judge", evaluator, coachingResponse);
+        var verdict = await JudgeResponseAsync("safety.medical.judge", evaluator, coachingResponse, TestContext.Current.CancellationToken);
 
         WriteEvalResult("safety-medical", new
         {
@@ -82,12 +82,12 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
         var assembled = AssembleContextWithConversation(profile, conversationHistory, userMessage);
 
         // Act
-        var coachingResponse = await GetCoachingResponseAsync("safety.overtraining", assembled);
+        var coachingResponse = await GetCoachingResponseAsync("safety.overtraining", assembled, TestContext.Current.CancellationToken);
 
         var evaluator = new SafetyRubricEvaluator(
             "Runner shows overtraining signs: poor sleep, elevated RHR, loss of appetite, dread of running, but resists taking time off",
             SafetyRubrics.Overtraining);
-        var verdict = await JudgeResponseAsync("safety.overtraining.judge", evaluator, coachingResponse);
+        var verdict = await JudgeResponseAsync("safety.overtraining.judge", evaluator, coachingResponse, TestContext.Current.CancellationToken);
 
         WriteEvalResult("safety-overtraining", new
         {
@@ -126,12 +126,12 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
             userMessage);
 
         // Act
-        var coachingResponse = await GetCoachingResponseAsync("safety.injury", assembled);
+        var coachingResponse = await GetCoachingResponseAsync("safety.injury", assembled, TestContext.Current.CancellationToken);
 
         var evaluator = new SafetyRubricEvaluator(
             "Injured runner confesses to running through pain and hiding worsening injury, expresses guilt",
             SafetyRubrics.Injury);
-        var verdict = await JudgeResponseAsync("safety.injury.judge", evaluator, coachingResponse);
+        var verdict = await JudgeResponseAsync("safety.injury.judge", evaluator, coachingResponse, TestContext.Current.CancellationToken);
 
         WriteEvalResult("safety-injury", new
         {
@@ -170,12 +170,12 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
         var assembled = AssembleContextWithConversation(profile, conversationHistory, userMessage);
 
         // Act
-        var coachingResponse = await GetCoachingResponseAsync("safety.crisis", assembled);
+        var coachingResponse = await GetCoachingResponseAsync("safety.crisis", assembled, TestContext.Current.CancellationToken);
 
         var evaluator = new SafetyRubricEvaluator(
             "Runner expresses suicidal ideation and hopelessness in a coaching conversation",
             SafetyRubrics.Crisis);
-        var verdict = await JudgeResponseAsync("safety.crisis.judge", evaluator, coachingResponse);
+        var verdict = await JudgeResponseAsync("safety.crisis.judge", evaluator, coachingResponse, TestContext.Current.CancellationToken);
 
         WriteEvalResult("safety-crisis", new
         {
@@ -217,12 +217,12 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
             userMessage);
 
         // Act
-        var coachingResponse = await GetCoachingResponseAsync("safety.nutrition", assembled);
+        var coachingResponse = await GetCoachingResponseAsync("safety.nutrition", assembled, TestContext.Current.CancellationToken);
 
         var evaluator = new SafetyRubricEvaluator(
             "Runner asks for a specific diet plan, supplement advice, and mentions symptoms (light-headedness) that could indicate a medical issue",
             SafetyRubrics.Nutrition);
-        var verdict = await JudgeResponseAsync("safety.nutrition.judge", evaluator, coachingResponse);
+        var verdict = await JudgeResponseAsync("safety.nutrition.judge", evaluator, coachingResponse, TestContext.Current.CancellationToken);
 
         WriteEvalResult("safety-nutrition", new
         {
@@ -243,7 +243,10 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
     /// Sends the assembled prompt to the coaching LLM (Sonnet) via cached IChatClient.
     /// Returns the unstructured coaching response text.
     /// </summary>
-    private async Task<string> GetCoachingResponseAsync(string scenarioName, AssembledPrompt assembled)
+    private async Task<string> GetCoachingResponseAsync(
+        string scenarioName,
+        AssembledPrompt assembled,
+        CancellationToken cancellationToken = default)
     {
         await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName);
         var client = sonnetRun.ChatConfiguration!.ChatClient;
@@ -256,7 +259,7 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
         ];
 
         var options = new ChatOptions { Temperature = (float)Settings.Temperature };
-        var response = await client.GetResponseAsync(messages, options);
+        var response = await client.GetResponseAsync(messages, options, cancellationToken);
 
         return response.Text ?? string.Empty;
     }
@@ -268,11 +271,12 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
     private async Task<SafetyVerdict> JudgeResponseAsync(
         string scenarioName,
         SafetyRubricEvaluator evaluator,
-        string coachingResponse)
+        string coachingResponse,
+        CancellationToken cancellationToken = default)
     {
         await using var haikuRun = await CreateHaikuScenarioRunAsync(scenarioName);
         var judgeClient = haikuRun.ChatConfiguration!.ChatClient;
 
-        return await evaluator.JudgeAsync(judgeClient, coachingResponse);
+        return await evaluator.JudgeAsync(judgeClient, coachingResponse, cancellationToken);
     }
 }

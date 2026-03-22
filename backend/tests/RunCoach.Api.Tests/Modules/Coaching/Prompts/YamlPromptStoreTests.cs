@@ -33,7 +33,7 @@ public sealed class YamlPromptStoreTests : IDisposable
         var sut = CreateStore("coaching-system", "v1");
 
         // Act
-        var actual = await sut.GetPromptAsync("coaching-system", "v1");
+        var actual = await sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken);
 
         // Assert
         actual.Id.Should().Be("coaching-system");
@@ -52,7 +52,7 @@ public sealed class YamlPromptStoreTests : IDisposable
         var sut = CreateStore("coaching-system", "v1");
 
         // Act
-        var actual = await sut.GetPromptAsync("coaching-system", "v1");
+        var actual = await sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken);
         var metadata = actual.Metadata;
 
         // Assert
@@ -68,7 +68,7 @@ public sealed class YamlPromptStoreTests : IDisposable
         var sut = CreateStore("nonexistent", "v1");
 
         // Act
-        var act = () => sut.GetPromptAsync("nonexistent", "v1");
+        var act = () => sut.GetPromptAsync("nonexistent", "v1", TestContext.Current.CancellationToken);
 
         // Assert
         await act.Should().ThrowAsync<KeyNotFoundException>();
@@ -83,8 +83,8 @@ public sealed class YamlPromptStoreTests : IDisposable
         var sut = CreateStore("coaching-system", "v1");
 
         // Act
-        var first = await sut.GetPromptAsync("coaching-system", "v1");
-        var second = await sut.GetPromptAsync("coaching-system", "v1");
+        var first = await sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken);
+        var second = await sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken);
 
         // Assert
         second.Should().BeSameAs(first);
@@ -99,7 +99,7 @@ public sealed class YamlPromptStoreTests : IDisposable
         var sut = CreateStore("minimal", "v1");
 
         // Act
-        var actual = await sut.GetPromptAsync("minimal", "v1");
+        var actual = await sut.GetPromptAsync("minimal", "v1", TestContext.Current.CancellationToken);
 
         // Assert
         actual.Metadata.Should().BeNull();
@@ -167,7 +167,7 @@ public sealed class YamlPromptStoreTests : IDisposable
         var sut = CreateStore("coaching-system", "v1");
 
         // Act
-        var act = () => sut.GetPromptAsync(string.Empty, "v1");
+        var act = () => sut.GetPromptAsync(string.Empty, "v1", TestContext.Current.CancellationToken);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>();
@@ -182,7 +182,7 @@ public sealed class YamlPromptStoreTests : IDisposable
         var sut = CreateStore("multiline", "v1");
 
         // Act
-        var actual = await sut.GetPromptAsync("multiline", "v1");
+        var actual = await sut.GetPromptAsync("multiline", "v1", TestContext.Current.CancellationToken);
 
         // Assert
         actual.StaticSystemPrompt.Should().Contain("Line one.");

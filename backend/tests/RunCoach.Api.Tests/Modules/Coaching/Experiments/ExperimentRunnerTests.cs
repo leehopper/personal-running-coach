@@ -114,7 +114,8 @@ public class ExperimentRunnerTests : IDisposable
         var actual = await _sut.RunAllAsync(
             ExperimentVariations.TokenBudget,
             "lee",
-            live: false);
+            live: false,
+            ct: TestContext.Current.CancellationToken);
 
         // Assert
         actual.Should().HaveCount(ExperimentVariations.TokenBudget.Length);
@@ -128,7 +129,7 @@ public class ExperimentRunnerTests : IDisposable
         var config = ExperimentVariations.TokenBudget[0];
 
         // Act
-        var act = async () => await _sut.LiveRunAsync(config, "lee");
+        var act = async () => await _sut.LiveRunAsync(config, "lee", ct: TestContext.Current.CancellationToken);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()

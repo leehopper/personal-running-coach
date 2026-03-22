@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <NoWarn>CA1707;xUnit1051</NoWarn> <!-- xUnit1051: CancellationToken usage — suppressed during v3 migration, will be fixed in T04 -->
+    <NoWarn>CA1707</NoWarn>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <UserSecretsId>runcoach-api-tests</UserSecretsId>
   </PropertyGroup>

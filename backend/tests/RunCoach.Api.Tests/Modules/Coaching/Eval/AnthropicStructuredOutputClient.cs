@@ -66,14 +66,17 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
     private static (string? SystemPrompt, MessageParam[] Messages) SplitMessages(
         IEnumerable<ChatMessage> messages)
     {
-        string? systemPrompt = null;
+        var systemParts = new List<string>();
         var messageParams = new List<MessageParam>();
 
         foreach (var msg in messages)
         {
             if (msg.Role == ChatRole.System)
             {
-                systemPrompt = msg.Text;
+                if (!string.IsNullOrWhiteSpace(msg.Text))
+                {
+                    systemParts.Add(msg.Text);
+                }
             }
             else
             {
@@ -85,6 +88,7 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
             }
         }
 
+        var systemPrompt = systemParts.Count > 0 ? string.Join("\n\n", systemParts) : null;
         return (systemPrompt, messageParams.ToArray());
     }
 
@@ -95,7 +99,9 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
     private static Dictionary<string, JsonElement> ConvertSchema(JsonElement schemaElement)
     {
         return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-            schemaElement.GetRawText())!;
+            schemaElement.GetRawText())
+            ?? throw new InvalidOperationException(
+                "Schema deserialization returned null for the provided JSON schema element.");
     }
 
     /// <summary>

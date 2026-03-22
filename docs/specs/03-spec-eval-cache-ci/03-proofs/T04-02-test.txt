@@ -1,0 +1,8 @@
+Type: test
+Command: EVAL_CACHE_MODE=Replay dotnet test backend/RunCoach.slnx
+Expected: All tests pass
+Timestamp: 2026-03-22T00:00:00Z
+
+Passed\! - Failed: 0, Passed: 390, Skipped: 0, Total: 390
+
+Status: PASS

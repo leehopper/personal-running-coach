@@ -24,7 +24,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task RunAllExperiments_DryRun_Returns22Results()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert — 3 token + 3 positional + 3 summarization + 2 conversation = 11 variations x 2 profiles = 22
         actual.TotalRuns.Should().Be(22);
@@ -37,7 +37,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task RunAllExperiments_DryRun_AllResultsHaveNoLlmResponse()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         actual.Results.Should().OnlyContain(
@@ -49,7 +49,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task RunAllExperiments_DryRun_AllResultsHaveNoErrors()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         actual.Results.Should().OnlyContain(
@@ -61,7 +61,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task RunAllExperiments_DryRun_UsesBothProfiles()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var profiles = actual.Results.Select(r => r.ProfileName).Distinct().OrderBy(p => p).ToList();
@@ -73,7 +73,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task RunAllExperiments_DryRun_HasTimestamp()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         actual.Timestamp.Should().NotBeNullOrWhiteSpace();
@@ -83,7 +83,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task TokenBudget_DryRun_Returns6Results()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert — 3 variations x 2 profiles = 6 runs
         actual.TokenBudgetResults.Should().HaveCount(6);
@@ -93,7 +93,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task TokenBudget_DryRun_AllVariationsRespectBudget()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         foreach (var result in actual.TokenBudgetResults)
@@ -109,7 +109,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task TokenBudget_DryRun_8KUsesFewerTokensThan15K()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var lee8k = actual.TokenBudgetResults.First(r => r.VariationId == "token-8k" && r.ProfileName == "lee");
@@ -121,7 +121,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task TokenBudget_DryRun_12KIsBetween8KAnd15K()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var lee8k = actual.TokenBudgetResults.First(r => r.VariationId == "token-8k" && r.ProfileName == "lee");
@@ -136,7 +136,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task TokenBudget_CrossValidation_MariaAlsoRespectsBudgets()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var mariaResults = actual.TokenBudgetResults.Where(r => r.ProfileName == "maria").ToList();
@@ -153,7 +153,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task PositionalPlacement_DryRun_Returns6Results()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert — 3 variations x 2 profiles = 6 runs
         actual.PositionalPlacementResults.Should().HaveCount(6);
@@ -163,7 +163,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task PositionalPlacement_StartVariation_HasProfileInStartSections()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var startResults = actual.PositionalPlacementResults
@@ -178,7 +178,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task PositionalPlacement_MiddleVariation_HasProfileInMiddleSections()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var middleResults = actual.PositionalPlacementResults
@@ -193,7 +193,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task PositionalPlacement_EndVariation_HasProfileInEndSections()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var endResults = actual.PositionalPlacementResults
@@ -208,7 +208,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task PositionalPlacement_AllVariations_HaveAtLeastOneStartSection()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert — training_paces should always remain in start regardless of placement
         actual.PositionalPlacementResults.Should().OnlyContain(
@@ -220,7 +220,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task SummarizationLevel_DryRun_Returns6Results()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert — 3 variations x 2 profiles = 6 runs
         actual.SummarizationLevelResults.Should().HaveCount(6);
@@ -230,7 +230,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task SummarizationLevel_WeeklyUsesFewerTokensThanPerWorkout()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var leeWeekly = actual.SummarizationLevelResults
@@ -245,7 +245,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task SummarizationLevel_MixedDoesNotExceedPerWorkout()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var leeMixed = actual.SummarizationLevelResults
@@ -260,7 +260,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task SummarizationLevel_CrossValidation_MariaSamePattern()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var mariaWeekly = actual.SummarizationLevelResults
@@ -275,7 +275,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task ConversationHistory_DryRun_Returns4Results()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert — 2 variations x 2 profiles = 4 runs
         actual.ConversationHistoryResults.Should().HaveCount(4);
@@ -285,7 +285,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task ConversationHistory_5TurnsUsesMoreTokensThan0Turns()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var lee0 = actual.ConversationHistoryResults
@@ -300,7 +300,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task ConversationHistory_CrossValidation_MariaSamePattern()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         var maria0 = actual.ConversationHistoryResults
@@ -315,7 +315,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task Analyze_DryRun_ProducesValidAnalysis()
     {
         // Arrange
-        var suite = await _sut.RunAllExperimentsAsync(live: false);
+        var suite = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Act
         var actual = ExperimentExecutor.Analyze(suite);
@@ -332,7 +332,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task Analyze_TokenBudget_HasTokenAverages()
     {
         // Arrange
-        var suite = await _sut.RunAllExperimentsAsync(live: false);
+        var suite = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Act
         var actual = ExperimentExecutor.Analyze(suite);
@@ -350,7 +350,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task Analyze_SummarizationLevel_WeeklyUsesFewerTokens()
     {
         // Arrange
-        var suite = await _sut.RunAllExperimentsAsync(live: false);
+        var suite = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Act
         var actual = ExperimentExecutor.Analyze(suite);
@@ -364,7 +364,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task Analyze_ConversationHistory_AddsTokens()
     {
         // Arrange
-        var suite = await _sut.RunAllExperimentsAsync(live: false);
+        var suite = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Act
         var actual = ExperimentExecutor.Analyze(suite);
@@ -378,7 +378,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task Analyze_CrossValidation_BothProfilesHaveResults()
     {
         // Arrange
-        var suite = await _sut.RunAllExperimentsAsync(live: false);
+        var suite = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Act
         var actual = ExperimentExecutor.Analyze(suite);
@@ -395,7 +395,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task WriteResults_CreatesAllOutputFiles()
     {
         // Arrange
-        var suite = await _sut.RunAllExperimentsAsync(live: false);
+        var suite = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Act
         _sut.WriteResults(suite);
@@ -412,7 +412,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task WriteResults_CreatesIndividualResultFiles()
     {
         // Arrange
-        var suite = await _sut.RunAllExperimentsAsync(live: false);
+        var suite = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Act
         _sut.WriteResults(suite);
@@ -430,12 +430,13 @@ public class ExperimentExecutorTests : IDisposable
     public async Task WriteResults_SummaryFileContainsExpectedData()
     {
         // Arrange
-        var suite = await _sut.RunAllExperimentsAsync(live: false);
+        var suite = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
         _sut.WriteResults(suite);
 
         // Act
         var summaryContent = await File.ReadAllTextAsync(
-            Path.Combine(_testOutputDir, "00-experiment-suite-summary.json"));
+            Path.Combine(_testOutputDir, "00-experiment-suite-summary.json"),
+            TestContext.Current.CancellationToken);
 
         // Assert
         summaryContent.Should().Contain("totalRuns");
@@ -448,7 +449,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task AllResults_HaveTimestamps()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         actual.Results.Should().OnlyContain(r => !string.IsNullOrWhiteSpace(r.Timestamp));
@@ -458,7 +459,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task AllResults_HavePositiveSectionCounts()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         actual.Results.Should().OnlyContain(r => r.SectionCount > 0);
@@ -468,7 +469,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task AllResults_SectionCountsAreConsistent()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         foreach (var result in actual.Results)
@@ -484,7 +485,7 @@ public class ExperimentExecutorTests : IDisposable
     public async Task AllResults_HavePositiveTokenCounts()
     {
         // Act
-        var actual = await _sut.RunAllExperimentsAsync(live: false);
+        var actual = await _sut.RunAllExperimentsAsync(live: false, TestContext.Current.CancellationToken);
 
         // Assert
         actual.Results.Should().OnlyContain(r => r.EstimatedPromptTokens > 0);

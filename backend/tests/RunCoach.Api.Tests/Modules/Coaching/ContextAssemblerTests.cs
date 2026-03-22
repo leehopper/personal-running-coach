@@ -554,7 +554,7 @@ public class ContextAssemblerTests
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = await sut.AssembleAsync(input);
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert — system prompt should come from YAML, not hardcoded constant
         actualPrompt.SystemPrompt.Should().Contain("evidence-based running coach");
@@ -573,7 +573,7 @@ public class ContextAssemblerTests
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = await sut.AssembleAsync(input);
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert — the system prompt (static prefix) must contain NO athlete-specific data
         actualPrompt.SystemPrompt.Should().NotContain("Lee");
@@ -593,7 +593,7 @@ public class ContextAssemblerTests
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = await sut.AssembleAsync(input);
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert — athlete data should be in the start/middle/end sections
         var allSectionContent = string.Join(
@@ -616,7 +616,7 @@ public class ContextAssemblerTests
         var input = BuildMariaInput(conversationTurns: 10);
 
         // Act
-        var actualPrompt = await sut.AssembleAsync(input);
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
@@ -635,7 +635,7 @@ public class ContextAssemblerTests
         foreach (var (name, profile) in TestProfiles.All)
         {
             var input = BuildInputFromProfile(profile, conversationTurns: 10);
-            var actualPrompt = await sut.AssembleAsync(input);
+            var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
             actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
                 TokenBudget,
@@ -651,7 +651,7 @@ public class ContextAssemblerTests
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = await sut.AssembleAsync(input);
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert — should use the hardcoded SystemPromptText
         actualPrompt.SystemPrompt.Should().Be(ContextAssembler.SystemPromptText);
@@ -666,7 +666,7 @@ public class ContextAssemblerTests
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = await sut.AssembleAsync(input);
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.StartSections.Should().HaveCount(4);
@@ -681,7 +681,7 @@ public class ContextAssemblerTests
         var input = BuildLeeInput(conversationTurns: 2);
 
         // Act
-        var actualPrompt = await sut.AssembleAsync(input);
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var expectedTotal = sut.EstimateTokens(actualPrompt.SystemPrompt)

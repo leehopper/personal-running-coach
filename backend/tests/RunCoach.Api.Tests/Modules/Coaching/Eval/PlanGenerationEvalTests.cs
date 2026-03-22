@@ -40,10 +40,12 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Act -- generate MesoWeek and MicroWorkouts via cached structured output
         var mesoWeek = await GenerateStructuredAsync<MesoWeekOutput>(
             "plan.sarah.mesoweek",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
         var workoutList = await GenerateStructuredAsync<MicroWorkoutListOutput>(
             "plan.sarah.workouts",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
 
         WriteEvalResult("plan-sarah", new
         {
@@ -110,10 +112,12 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Act
         var mesoWeek = await GenerateStructuredAsync<MesoWeekOutput>(
             "plan.lee.mesoweek",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
         var workoutList = await GenerateStructuredAsync<MicroWorkoutListOutput>(
             "plan.lee.workouts",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
 
         WriteEvalResult("plan-lee", new
         {
@@ -180,10 +184,12 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Act
         var mesoWeek = await GenerateStructuredAsync<MesoWeekOutput>(
             "plan.maria.mesoweek",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
         var workoutList = await GenerateStructuredAsync<MicroWorkoutListOutput>(
             "plan.maria.workouts",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
 
         WriteEvalResult("plan-maria", new
         {
@@ -227,18 +233,22 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Act -- MacroPlan, MesoWeek, MicroWorkouts, and coaching narrative (4 calls)
         var macroPlan = await GenerateStructuredAsync<MacroPlanOutput>(
             "plan.james.macroplan",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
         var mesoWeek = await GenerateStructuredAsync<MesoWeekOutput>(
             "plan.james.mesoweek",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
         var workoutList = await GenerateStructuredAsync<MicroWorkoutListOutput>(
             "plan.james.workouts",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
 
         // Separate unstructured call for coaching narrative (distinct cache key)
         var narrative = await GetCoachingNarrativeAsync(
             "plan.james.narrative",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
 
         WriteEvalResult("plan-james", new
         {
@@ -309,10 +319,12 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Act
         var mesoWeek = await GenerateStructuredAsync<MesoWeekOutput>(
             "plan.priya.mesoweek",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
         var workoutList = await GenerateStructuredAsync<MicroWorkoutListOutput>(
             "plan.priya.workouts",
-            assembled);
+            assembled,
+            TestContext.Current.CancellationToken);
 
         WriteEvalResult("plan-priya", new
         {
@@ -370,7 +382,8 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     /// </summary>
     private async Task<T> GenerateStructuredAsync<T>(
         string scenarioName,
-        AssembledPrompt assembled)
+        AssembledPrompt assembled,
+        CancellationToken cancellationToken = default)
     {
         await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName);
         var client = sonnetRun.ChatConfiguration!.ChatClient;
@@ -394,7 +407,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
                 typeof(T).Name),
         };
 
-        var response = await client.GetResponseAsync(messages, options);
+        var response = await client.GetResponseAsync(messages, options, cancellationToken);
         var rawText = response.Text ?? throw new InvalidOperationException(
             $"Structured output call for {typeof(T).Name} returned null.");
 
@@ -411,7 +424,8 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     /// </summary>
     private async Task<string> GetCoachingNarrativeAsync(
         string scenarioName,
-        AssembledPrompt assembled)
+        AssembledPrompt assembled,
+        CancellationToken cancellationToken = default)
     {
         await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName);
         var client = sonnetRun.ChatConfiguration!.ChatClient;
@@ -424,7 +438,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         ];
 
         var options = new ChatOptions { Temperature = (float)Settings.Temperature };
-        var response = await client.GetResponseAsync(messages, options);
+        var response = await client.GetResponseAsync(messages, options, cancellationToken);
 
         return response.Text ?? string.Empty;
     }

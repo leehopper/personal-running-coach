@@ -1,0 +1,8 @@
+Type: cli
+Command: dotnet build backend/RunCoach.slnx (no xUnit1051 suppression)
+Expected: 0 warnings, 0 errors
+Timestamp: 2026-03-22T00:00:00Z
+
+Build succeeded. 0 Warning(s) 0 Error(s)
+
+Status: PASS — zero xUnit1051 suppression, all CancellationToken sites fixed
