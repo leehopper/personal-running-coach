@@ -1,3 +1,10 @@
+Type: file
+Description: appsettings.json contains no password values
+Expected: No "Password=" string in appsettings.json; placeholder comment present
+Timestamp: 2026-03-22T17:02:00Z
+Command: cat backend/src/RunCoach.Api/appsettings.json
+
+=== Output ===
 {
   "Logging": {
     "LogLevel": {
@@ -17,3 +24,7 @@
     }
   }
 }
+
+No password values found in appsettings.json
+Placeholder comment present
+Status: PASS
