@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
@@ -44,28 +43,6 @@ public sealed partial class YamlPromptStore : IPromptStore
     public YamlPromptStore(
         IOptions<PromptStoreSettings> settings,
         IWebHostEnvironment environment,
-        ILogger<YamlPromptStore> logger)
-    {
-        ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(environment);
-        ArgumentNullException.ThrowIfNull(logger);
-
-        _settings = settings.Value;
-        _logger = logger;
-        _basePath = Path.Combine(environment.ContentRootPath, _settings.BasePath);
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="YamlPromptStore"/> class
-    /// using <see cref="IHostEnvironment"/> for resolving the content root.
-    /// Used in generic hosting contexts (e.g., console apps).
-    /// </summary>
-    /// <param name="settings">Prompt store configuration.</param>
-    /// <param name="environment">Host environment for resolving content root.</param>
-    /// <param name="logger">Logger instance.</param>
-    public YamlPromptStore(
-        IOptions<PromptStoreSettings> settings,
-        IHostEnvironment environment,
         ILogger<YamlPromptStore> logger)
     {
         ArgumentNullException.ThrowIfNull(settings);
