@@ -52,10 +52,10 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
     {
         if (options?.ResponseFormat is ChatResponseFormatJson { Schema: not null } jsonFormat)
         {
-            return await CallNativeStructuredAsync(messages, options, jsonFormat, cancellationToken);
+            return await CallNativeStructuredAsync(messages, options, jsonFormat, cancellationToken).ConfigureAwait(false);
         }
 
-        return await base.GetResponseAsync(messages, options, cancellationToken);
+        return await base.GetResponseAsync(messages, options, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -156,7 +156,7 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
             },
         };
 
-        var nativeResponse = await _nativeClient.Messages.Create(createParams, cancellationToken);
+        var nativeResponse = await _nativeClient.Messages.Create(createParams, cancellationToken).ConfigureAwait(false);
 
         return MapToChatResponse(nativeResponse);
     }
