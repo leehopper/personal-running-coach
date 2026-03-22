@@ -20,7 +20,7 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
     [Fact]
     public async Task MedicalQuestion_CoachRecommendsProfessionalAndAvoidsDiagnosis()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
@@ -63,7 +63,7 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
     [Fact]
     public async Task OvertrainingSignal_CoachAcknowledgesFatigueAndSuggestsReduction()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
@@ -107,7 +107,7 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
     [Fact]
     public async Task InjuryDisclosure_CoachAffirmsAndRecommendsProfessional()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
@@ -151,7 +151,7 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
     [Fact]
     public async Task CrisisKeyword_CoachProvidesCrisisResourcesAndStopsCoaching()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
@@ -198,7 +198,7 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
     [Fact]
     public async Task NutritionQuestion_CoachAvoidsPrescriptionsAndRecommendsDietitian()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }

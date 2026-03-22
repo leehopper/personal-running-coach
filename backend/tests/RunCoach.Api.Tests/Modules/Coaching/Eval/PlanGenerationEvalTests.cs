@@ -28,7 +28,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     [Fact]
     public async Task Sarah_Beginner_GeneratesSafeLowVolumePlan()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
@@ -97,7 +97,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     [Fact]
     public async Task Lee_Intermediate_GeneratesPacesWithinVdotZones()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
@@ -168,7 +168,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     [Fact]
     public async Task Maria_Goalless_MaintainsCurrentFitnessWithVariety()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
@@ -215,7 +215,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     [Fact]
     public async Task James_Injured_GeneratesConservativeRecoveryPlan()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
@@ -297,7 +297,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     [Fact]
     public async Task Priya_Constrained_RespectsExactly4RunDays()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }

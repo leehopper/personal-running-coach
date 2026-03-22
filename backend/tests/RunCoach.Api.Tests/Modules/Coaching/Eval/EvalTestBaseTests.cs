@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 using RunCoach.Api.Modules.Training.Profiles;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
@@ -9,6 +10,89 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 /// </summary>
 public class EvalTestBaseTests
 {
+    [Theory]
+    [InlineData("Record", EvalCacheMode.Record)]
+    [InlineData("record", EvalCacheMode.Record)]
+    [InlineData("RECORD", EvalCacheMode.Record)]
+    [InlineData("Replay", EvalCacheMode.Replay)]
+    [InlineData("replay", EvalCacheMode.Replay)]
+    [InlineData("REPLAY", EvalCacheMode.Replay)]
+    [InlineData("Auto", EvalCacheMode.Auto)]
+    [InlineData("auto", EvalCacheMode.Auto)]
+    [InlineData("AUTO", EvalCacheMode.Auto)]
+    public void ParseCacheMode_ValidValues_ParsesCaseInsensitively(string envValue, EvalCacheMode expected)
+    {
+        Environment.SetEnvironmentVariable("EVAL_CACHE_MODE", envValue);
+        try
+        {
+            EvalTestBase.ParseCacheMode().Should().Be(expected);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("EVAL_CACHE_MODE", null);
+        }
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("invalid")]
+    [InlineData("Recording")]
+    public void ParseCacheMode_InvalidOrEmpty_DefaultsToAuto(string? envValue)
+    {
+        Environment.SetEnvironmentVariable("EVAL_CACHE_MODE", envValue);
+        try
+        {
+            EvalTestBase.ParseCacheMode().Should().Be(EvalCacheMode.Auto);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("EVAL_CACHE_MODE", null);
+        }
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_AutoWithApiKey_ReturnsRecord()
+    {
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Auto, hasApiKey: true)
+            .Should().Be(EvalCacheMode.Record);
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_AutoWithoutApiKey_ReturnsReplay()
+    {
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Auto, hasApiKey: false)
+            .Should().Be(EvalCacheMode.Replay);
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_ExplicitRecord_IgnoresApiKeyStatus()
+    {
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Record, hasApiKey: false)
+            .Should().Be(EvalCacheMode.Record);
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_ExplicitReplay_IgnoresApiKeyStatus()
+    {
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Replay, hasApiKey: true)
+            .Should().Be(EvalCacheMode.Replay);
+    }
+
+    [Fact]
+    public async Task ReplayGuardChatClient_ThrowsWithScenarioName()
+    {
+        var client = new ReplayGuardChatClient("plan.sarah.mesoweek");
+
+        var act = () => client.GetResponseAsync(
+            [new ChatMessage(ChatRole.User, "test")]);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Cache miss for scenario 'plan.sarah.mesoweek'*")
+            .WithMessage("*EVAL_CACHE_MODE=Record*");
+    }
+
     [Fact]
     public void LoadProfile_ValidName_ReturnsProfile()
     {

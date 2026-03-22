@@ -26,7 +26,7 @@ public sealed class EvalTestBaseCachingTests : EvalTestBase
     [Fact]
     public async Task CreateSonnetScenarioRunAsync_ReturnsScenarioRun()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
@@ -43,7 +43,7 @@ public sealed class EvalTestBaseCachingTests : EvalTestBase
     [Fact]
     public async Task CreateHaikuScenarioRunAsync_ReturnsScenarioRun()
     {
-        if (!IsApiKeyConfigured)
+        if (!CanRunEvals)
         {
             return;
         }
