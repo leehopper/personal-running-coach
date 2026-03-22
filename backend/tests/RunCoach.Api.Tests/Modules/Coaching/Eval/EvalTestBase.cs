@@ -62,10 +62,10 @@ public abstract class EvalTestBase : IAsyncDisposable
 
         if (effectiveMode == EvalCacheMode.Replay)
         {
-            // Replay mode: create the same client pipeline as Record but with a dummy API key.
-            // The caching layer needs identical client metadata (model IDs) to compute the same
-            // cache keys. On cache miss, ReplayGuardChatClient throws a descriptive error.
-            var replayClient = new AnthropicClient(new ClientOptions
+            // Replay mode: same client pipeline as Record (for matching cache keys) but with
+            // a ReplayGuardChatClient wrapper that throws descriptive errors on cache miss,
+            // preventing any outbound network I/O from CI.
+            var dummyClient = new AnthropicClient(new ClientOptions
             {
                 ApiKey = "replay-mode-no-key",
                 MaxRetries = 0,
@@ -73,9 +73,16 @@ public abstract class EvalTestBase : IAsyncDisposable
             });
 
             _sonnetReportingConfig = CreateReplayConfig(
-                "sonnet", replayClient, _settings.ModelId, _settings.MaxTokens);
+                "sonnet", dummyClient, _settings.ModelId, _settings.MaxTokens);
             _haikuReportingConfig = CreateReplayConfig(
-                "haiku", replayClient, _settings.JudgeModelId, 1024);
+                "haiku", dummyClient, _settings.JudgeModelId, 1024);
+        }
+        else if (effectiveMode == EvalCacheMode.Record && !IsApiKeyConfigured)
+        {
+            throw new InvalidOperationException(
+                "EVAL_CACHE_MODE=Record requires a valid Anthropic API key. " +
+                "Set the key via user-secrets ('dotnet user-secrets set Anthropic:ApiKey <key>') " +
+                "or the ANTHROPIC_API_KEY environment variable.");
         }
         else if (IsApiKeyConfigured)
         {
@@ -322,17 +329,20 @@ public abstract class EvalTestBase : IAsyncDisposable
     {
         // Replay mode: build the same client chain as Record mode so the caching layer
         // computes identical cache keys (the M.E.AI cache key includes client metadata).
-        // Use AnthropicStructuredOutputClient wrapping the dummy Anthropic client's
-        // IChatClient bridge — this ensures model ID metadata matches the original recordings.
-        // On cache miss, the dummy client would fail with an auth error, but we wrap the
-        // whole chain with a ReplayGuardChatClient to produce a descriptive error instead.
+        // AnthropicStructuredOutputClient wraps the dummy Anthropic client's IChatClient bridge
+        // to ensure model ID metadata matches the original recordings.
+        // ReplayGuardChatClient sits above the structured client to intercept cache misses
+        // with a descriptive error — preventing any outbound network I/O from CI.
+        //
+        // Pipeline: DiskBasedReportingConfig (caching) → ReplayGuard → StructuredOutput → dummy IChatClient
         IChatClient inner = dummyAnthropicClient.AsIChatClient(modelId, maxTokens);
         IChatClient structuredClient = new AnthropicStructuredOutputClient(
             inner, dummyAnthropicClient, modelId, maxTokens);
+        IChatClient guardClient = new ReplayGuardChatClient(structuredClient, clientName);
         return DiskBasedReportingConfiguration.Create(
             storageRootPath: GetCacheStoragePath(clientName),
             evaluators: [],
-            chatConfiguration: new ChatConfiguration(structuredClient),
+            chatConfiguration: new ChatConfiguration(guardClient),
             enableResponseCaching: true,
             executionName: "eval");
     }

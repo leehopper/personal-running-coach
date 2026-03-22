@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.AI;
+using NSubstitute;
 using RunCoach.Api.Modules.Training.Profiles;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
@@ -81,16 +82,27 @@ public class EvalTestBaseTests
     }
 
     [Fact]
-    public async Task ReplayGuardChatClient_ThrowsWithScenarioName()
+    public async Task ReplayGuardChatClient_ThrowsWithClientName()
     {
-        var client = new ReplayGuardChatClient("plan.sarah.mesoweek");
+        var innerStub = Substitute.For<IChatClient>();
+        using var client = new ReplayGuardChatClient(innerStub, "sonnet");
 
         var act = () => client.GetResponseAsync(
-            [new ChatMessage(ChatRole.User, "test")]);
+            [new ChatMessage(ChatRole.User, "test")],
+            cancellationToken: TestContext.Current.CancellationToken);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Cache miss for scenario 'plan.sarah.mesoweek'*")
+            .WithMessage("*Cache miss for 'sonnet' client*")
             .WithMessage("*EVAL_CACHE_MODE=Record*");
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_RecordWithoutKey_StillReturnsRecord()
+    {
+        // Record mode is explicit — ResolveEffectiveMode should return Record
+        // even without API key. The constructor handles the fail-fast.
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Record, hasApiKey: false)
+            .Should().Be(EvalCacheMode.Record);
     }
 
     [Fact]
