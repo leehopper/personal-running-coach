@@ -1,0 +1,17 @@
+Type: file
+Description: Verify sync Assemble method removed from IContextAssembler
+Expected: IContextAssembler.cs contains only AssembleAsync and EstimateTokens method declarations
+Timestamp: 2026-03-22T15:30:00Z
+
+Verification: grep for 'Assemble(' in IContextAssembler.cs
+Result: Only AssembleAsync found, no sync Assemble declaration
+
+Verification: grep for 'backward compat' in IContextAssembler.cs
+Result: No matches found — backward compat references removed from doc comments
+
+IContextAssembler.cs now contains:
+  - Task<AssembledPrompt> AssembleAsync(ContextAssemblerInput input, CancellationToken ct = default);
+  - int EstimateTokens(string text);
+  - No sync Assemble method
+
+Status: PASS

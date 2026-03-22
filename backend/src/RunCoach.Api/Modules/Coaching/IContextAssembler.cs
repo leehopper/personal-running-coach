@@ -4,9 +4,9 @@ namespace RunCoach.Api.Modules.Coaching;
 
 /// <summary>
 /// Assembles the full prompt payload from user data, enforcing positional
-/// layout and token budget. Supports loading system prompts from versioned
-/// YAML files via <see cref="Prompts.IPromptStore"/> and rendering context
-/// templates with <see cref="Prompts.PromptRenderer"/>.
+/// layout and token budget. Loads system prompts from versioned YAML files
+/// via <see cref="Prompts.IPromptStore"/> and renders context templates
+/// with <see cref="Prompts.PromptRenderer"/>.
 ///
 /// The assembled prompt is split into a static prefix (coaching persona,
 /// safety rules, semantic output guidance) suitable for Anthropic prompt
@@ -25,15 +25,6 @@ public interface IContextAssembler
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The assembled prompt with structured sections and token estimate.</returns>
     Task<AssembledPrompt> AssembleAsync(ContextAssemblerInput input, CancellationToken ct = default);
-
-    /// <summary>
-    /// Builds the full prompt payload using the hardcoded system prompt.
-    /// Provided for backward compatibility with experiment infrastructure.
-    /// New code should use <see cref="AssembleAsync"/> instead.
-    /// </summary>
-    /// <param name="input">All input data for prompt assembly.</param>
-    /// <returns>The assembled prompt with structured sections and token estimate.</returns>
-    AssembledPrompt Assemble(ContextAssemblerInput input);
 
     /// <summary>
     /// Estimates the token count for a given text using the character ratio method
