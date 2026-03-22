@@ -75,23 +75,30 @@ POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR
 - All 17 eval tests pass (5 plan generation + 5 safety + 6 infra + 1 spike). Cached re-run <1 second.
 - Safety verdict types: `SafetyVerdict`, `SafetyCriterionResult` with structured output for guaranteed parseable judge responses
 - Pre-defined rubric configs for all 5 safety scenarios: Medical, Overtraining, Injury, Crisis, Nutrition
+- Code review fixes: constrained decoding for judge calls (SafetyRubricEvaluator now uses ForJsonSchema via AnthropicStructuredOutputClient), removed ambiguous IHostEnvironment DI constructor from YamlPromptStore
+
+**Branch status:** `feature/poc1-eval-refactor` — PR #18 open against `feature/poc1-context-injection-v2`, all tests pass, ready for merge after cache strategy work.
 
 ## Next Up
 
-### 1. Commit eval cache files for deterministic CI (separate branch)
+### 1. Commit eval cache files for deterministic CI (separate branch into `feature/poc1-eval-refactor`)
 
-The eval response cache (`poc1-eval-cache/`) should be committed as golden test fixtures. Without them, CI either needs an API key (expensive, flaky) or skips eval tests entirely (zero coverage). Pattern: VCR-style record/replay with committed caches. Change prompts → local re-record → commit updated cache alongside prompt changes. Well-documented for handoff — see R-015 research for the full rationale and implementation pattern (`EVAL_CACHE_MODE=Replay` in CI).
+The eval response cache (`poc1-eval-cache/`) should be committed as golden test fixtures. Without them, CI either needs an API key (expensive, flaky) or skips eval tests entirely (zero coverage). Pattern: VCR-style record/replay with committed caches. Change prompts → local re-record → commit updated cache alongside prompt changes. See R-015 research for the full rationale and `EVAL_CACHE_MODE=Replay` pattern for CI.
 
-Also clean up `GenerateExperimentResults.cs` — a permanently-skipped utility script disguised as a test (`[Fact(Skip = "...")]`). Either delete (artifacts already generated), convert to a real conditional test, or move to a separate tool outside the test project. Currently the only skipped test in the suite.
+Additional items for this session:
+- Install `dotnet aieval` CLI tool for HTML report generation (`dotnet tool install --local Microsoft.Extensions.AI.Evaluation.Console`)
+- Clean up `GenerateExperimentResults.cs` — permanently-skipped utility script (`[Fact(Skip = "...")]`). Delete, convert, or move outside test project.
+- `AnthropicStructuredOutputClient.SplitMessages` — concatenate or throw if >1 system message (currently silently drops all but last)
+- Add `CancellationToken` to `GetResponseAsync` calls in eval tests to prevent hanging CI builds
+- `AnthropicStructuredOutputClient.ConvertSchema` — replace `!` suppressor with explicit null-check throw
 
-Code review cleanup (PR #18 review findings, non-blocking):
-- `AnthropicStructuredOutputClient.SplitMessages` silently drops all but last system message — concatenate or throw if >1
-- No `CancellationToken` passed to `GetResponseAsync` in eval tests — add to prevent hanging CI builds
-- `AnthropicStructuredOutputClient.ConvertSchema` uses `!` suppressor on nullable `Deserialize` return — replace with explicit null-check throw
+### 2. Merge PR #18 into `feature/poc1-context-injection-v2`
 
-### 2. Full POC 1 PR Review
+After cache strategy branch is merged into `feature/poc1-eval-refactor`, merge PR #18.
 
-After cache strategy is merged into `feature/poc1-context-injection-v2`, do a comprehensive review of PR #17 (the entire POC 1 implementation) before merging to main.
+### 3. Full POC 1 PR Review
+
+Comprehensive review of PR #17 (the entire POC 1 implementation) before merging to main.
 
 ## Plan Files
 
