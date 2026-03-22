@@ -56,11 +56,15 @@ jobs:
       - name: Build
         run: dotnet build backend/RunCoach.slnx --no-restore
       - name: Test
-        run: dotnet test backend/RunCoach.slnx --no-build
+        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=../../TestResults/
         env:
           EVAL_CACHE_MODE: Replay
-      # TODO: Re-add coverage collection — --collect:"XPlat Code Coverage" is VSTest-specific
-      # and incompatible with xUnit v3's Microsoft Testing Platform runner.
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          directory: backend/TestResults
+          flags: backend
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   frontend:
     name: Frontend (build + test)
