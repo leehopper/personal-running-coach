@@ -19,6 +19,11 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.5" />
 
+    <!-- AI Evaluation -->
+    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation" Version="10.4.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.4.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.4.0" />
+
     <!-- Testing -->
     <PackageVersion Include="coverlet.collector" Version="8.0.1" />
     <PackageVersion Include="FluentAssertions" Version="8.9.0" />

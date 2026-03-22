@@ -1,0 +1,19 @@
+Type: test
+Command: dotnet test --filter "FullyQualifiedName~IChatClientCachingSpikeTests" --logger "console;verbosity=detailed"
+Expected: Spike test passes — Anthropic IChatClient composes with M.E.AI.Evaluation caching decorator
+Timestamp: 2026-03-22T00:15:00Z
+
+Output:
+Test run for RunCoach.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+[xUnit.net] Discovering: RunCoach.Api.Tests
+[xUnit.net] Discovered:  RunCoach.Api.Tests
+[xUnit.net] Starting:    RunCoach.Api.Tests
+[xUnit.net] Finished:    RunCoach.Api.Tests
+  Passed RunCoach.Api.Tests.Modules.Coaching.Eval.IChatClientCachingSpikeTests.Anthropic_IChatClient_composes_with_MEAI_caching_decorator [1 s]
+
+Test Run Successful.
+Total tests: 1
+     Passed: 1
+ Total time: 1.4660 Seconds
+
+Status: PASS
