@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
@@ -18,7 +19,7 @@ public class ContextAssemblerTests
     public ContextAssemblerTests()
     {
         var store = CreateMockPromptStore();
-        _sut = new ContextAssembler(store);
+        _sut = new ContextAssembler(store, NullLogger<ContextAssembler>.Instance);
     }
 
     [Fact]

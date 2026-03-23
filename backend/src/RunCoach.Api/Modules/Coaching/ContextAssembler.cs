@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Models;
@@ -22,7 +23,7 @@ namespace RunCoach.Api.Modules.Coaching;
 /// The system prompt is loaded from versioned YAML files via <see cref="IPromptStore"/>
 /// and context templates are rendered using <see cref="PromptRenderer"/>.
 /// </summary>
-public sealed class ContextAssembler : IContextAssembler
+public sealed partial class ContextAssembler : IContextAssembler
 {
     /// <summary>
     /// Total token budget for the assembled prompt payload.
@@ -65,6 +66,7 @@ public sealed class ContextAssembler : IContextAssembler
     internal const string CoachingPromptId = "coaching-system";
 
     private readonly IPromptStore _promptStore;
+    private readonly ILogger<ContextAssembler> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ContextAssembler"/> class
@@ -72,10 +74,13 @@ public sealed class ContextAssembler : IContextAssembler
     /// from YAML files.
     /// </summary>
     /// <param name="promptStore">The prompt store for loading YAML templates.</param>
-    public ContextAssembler(IPromptStore promptStore)
+    /// <param name="logger">Logger instance.</param>
+    public ContextAssembler(IPromptStore promptStore, ILogger<ContextAssembler> logger)
     {
         ArgumentNullException.ThrowIfNull(promptStore);
+        ArgumentNullException.ThrowIfNull(logger);
         _promptStore = promptStore;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -107,6 +112,7 @@ public sealed class ContextAssembler : IContextAssembler
         // Apply overflow cascade if over budget.
         if (totalTokens > TotalTokenBudget)
         {
+            LogOverflowCascadeTriggered(_logger, totalTokens, TotalTokenBudget);
             (middleSections, endSections, totalTokens) = ApplyOverflowCascade(
                 input, startSections, middleSections, endSections, systemPrompt);
         }
@@ -161,6 +167,9 @@ public sealed class ContextAssembler : IContextAssembler
     {
         return sections.Sum(s => s.EstimatedTokens);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Token budget exceeded ({TokenEstimate} > {Budget}), applying overflow cascade")]
+    private static partial void LogOverflowCascadeTriggered(ILogger logger, int tokenEstimate, int budget);
 
     private static string FormatWorkoutDetail(WorkoutSummary workout)
     {

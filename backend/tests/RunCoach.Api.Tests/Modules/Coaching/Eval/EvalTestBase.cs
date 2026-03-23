@@ -70,7 +70,7 @@ public abstract class EvalTestBase : IAsyncDisposable
     {
         _settings = LoadSettings();
         CacheMode = ParseCacheMode();
-        Assembler = new ContextAssembler(CreatePromptStore());
+        Assembler = new ContextAssembler(CreatePromptStore(), NullLogger<ContextAssembler>.Instance);
 
         var effectiveMode = ResolveEffectiveMode(CacheMode, IsApiKeyConfigured);
         TestContext.Current.SendDiagnosticMessage(
