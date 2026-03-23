@@ -16,17 +16,21 @@ public static class TestProfiles
     private static readonly VdotCalculator VdotCalc = new();
     private static readonly PaceCalculator PaceCalc = new();
 
+    private static readonly Lazy<IReadOnlyDictionary<string, TestProfile>> LazyAll = new(() =>
+        new Dictionary<string, TestProfile>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["sarah"] = Sarah(),
+            ["lee"] = Lee(),
+            ["maria"] = Maria(),
+            ["james"] = James(),
+            ["priya"] = Priya(),
+        });
+
     /// <summary>
     /// Gets all 5 test profiles keyed by lowercase name.
+    /// Cached on first access to avoid re-creating profiles (including VDOT/pace calculations) on every call.
     /// </summary>
-    public static IReadOnlyDictionary<string, TestProfile> All => new Dictionary<string, TestProfile>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["sarah"] = Sarah(),
-        ["lee"] = Lee(),
-        ["maria"] = Maria(),
-        ["james"] = James(),
-        ["priya"] = Priya(),
-    };
+    public static IReadOnlyDictionary<string, TestProfile> All => LazyAll.Value;
 
     /// <summary>
     /// Beginner: 28F, 6 months experience, 15km/week, no race history,
