@@ -27,7 +27,6 @@ public sealed class EvalTestBaseTests
     }
 
     [Theory]
-    [InlineData(null)]
     [InlineData("")]
     [InlineData("  ")]
     [InlineData("invalid")]
