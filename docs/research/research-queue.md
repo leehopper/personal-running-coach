@@ -55,6 +55,8 @@ Research is batched by dependency. Later batches depend on findings from earlier
 | R-015 | IChatClient bridge gap for Anthropic structured outputs | The Anthropic SDK's IChatClient bridge silently drops ChatResponseFormat.ForJsonSchema(). How to bridge structured output through the M.E.AI pipeline? What's the DelegatingChatClient pattern? | Discovered during POC 1 eval implementation. Without the bridge, structured output calls return free-form JSON. Feeds DEC-037. | Integrated | batch-7a-ichatclient-structured-output-bridge.md |
 | R-016 | Anthropic model IDs, versioning strategy, and structured output compatibility | Which models support structured output? How do floating alias IDs work? What's the recommended config pattern to avoid hardcoded model IDs? | Model ID confusion blocked eval tests. Old Sonnet 4 doesn't support structured output. Feeds DEC-037 and DEC-038. | Integrated | batch-7b-anthropic-model-ids-versioning.md |
 | R-017 | LLM eval cache management for CI — TTL strategy and best practices | M.E.AI's DiskBasedCacheOptions hardcodes 14-day TTL. How do teams manage committed LLM eval fixtures for CI replay? What are the M.E.AI configuration options, industry patterns, and workarounds? | Committed cache fixtures expire silently, breaking CI. Need a TTL strategy for golden fixtures. Feeds DEC-039. | Integrated | batch-8a-eval-cache-ttl-ci.md |
+| R-019 | Daniels' Running Formula pace table verification and edition consistency | Verify VDOT 50 pace data (anomalous 2-3x jump at 49→50 boundary), check edition consistency (VdotCalculator uses 3rd ed, PaceCalculator uses 4th ed), validate per-mile to per-km conversion methodology, cross-reference against online calculators and known errata. | Code review found a data anomaly that produces incorrect training paces for runners at VDOT 49-50. Also discovered edition mismatch between the two calculators. Directly blocks PR #17 merge. | Done | batch-9a-daniels-pace-table-verification.md |
+| R-020 | Unit system design for metric/imperial/mixed contexts | How should a running app handle metric vs imperial vs mixed units (track meters, road miles/km, race names always metric)? Internal storage strategy, conversion architecture, LLM interaction, wearable data ingestion, user preference design, phased implementation. | Current codebase is metric-only with no conversion layer. PreferredUnits is a pass-through string. Need a clean foundation before MVP-1 adds imperial users. Feeds future DEC on unit architecture. | Done | batch-9b-unit-system-design.md |
 
 ### Batch 5 (Development infrastructure — feeds repo setup and CI/CD)
 
@@ -71,6 +73,10 @@ Research is batched by dependency. Later batches depend on findings from earlier
 ### Batch 8 (CI infrastructure — feeds PR #18 review fixes)
 
 - **Batch 8:** R-017 (eval cache TTL strategy) — discovered during PR #18 code review. M.E.AI's 14-day TTL breaks committed CI fixtures. Research identified four workarounds; DEC-039 chose post-process approach.
+
+### Batch 9 (POC 1 review findings — feeds PR #17 fixes and unit architecture)
+
+- **Batch 9:** R-019 + R-020 (Daniels data verification and unit system design). R-019 is blocking PR #17 merge — pace table data must be verified. R-020 is forward-looking — informs how to build unit handling cleanly before MVP-1 introduces imperial users. R-019 feeds immediate code fixes. R-020 feeds a future DEC on unit architecture.
 
 ### Status Key
 

@@ -120,13 +120,21 @@ POC 1 complete on `feature/poc1-context-injection-v2` (PR #17). Eval refactor br
 
 ## Next Up
 
-### 1. Final Review of PR #17
+### 1. Merge PR #17 to main
 
-Comprehensive review of PR #17 (the entire POC 1 implementation) before merging to main.
+PR #17 reviewed (3 review workflows completed). Minor code fixes applied on this branch (password removal, comment fixes, ILogger, formatting, caching). Known data issue (DEC-040: pace table off-by-one from VDOT 50-85) deferred to follow-up PR — does not block merge since the POC is a validation exercise, not production coaching.
 
-### 2. Merge PR #17 to main
+### 2. Post-merge: Daniels pace table fix (DEC-040)
 
-After review passes, merge POC 1 to main. POC 1 complete.
+Recompute the entire VDOT 30-85 pace table from Daniels-Gilbert equations. Current table has an off-by-one row shift from VDOT 50 onward (R-019 confirmed). Separate PR on a new branch.
+
+### 3. Post-merge: Unit system value objects (DEC-041)
+
+Replace raw `decimal DistanceKm` / `TimeSpan AveragePacePerKm` with typed value objects (`Distance`, `Pace`, `PaceRange`). Foundation for imperial support in MVP-1. Separate PR, see `docs/planning/unit-system-design.md`.
+
+### 4. POC 2: Adaptive replanning
+
+Next POC in the roadmap. Plan file needed.
 
 ## Plan Files
 
@@ -134,6 +142,7 @@ After review passes, merge POC 1 to main. POC 1 complete.
 - `docs/plans/quality-pipeline-private-repo.md` — quality pipeline redesign for private repo (complete)
 - `docs/plans/poc-1-llm-testing-architecture.md` — LLM testing architecture refactor (complete)
 - `docs/plans/poc-1-context-injection-plan-quality.md` — context injection and plan quality POC (complete)
+- `docs/planning/unit-system-design.md` — unit system architecture (planned, DEC-041)
 
 ## POC Roadmap
 
@@ -150,6 +159,27 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 - **MVP-1 (Friends/testers):** Adds adaptation + Apple Health integration. The differentiator becomes visible.
 
 ## Deferred Items
+
+**Daniels pace table fix (immediate post-merge, DEC-040):**
+- Off-by-one row shift from VDOT 50-85 — every entry contains the next VDOT level's paces
+- Recompute entire table from Daniels-Gilbert equations, cross-reference against 4th edition book tables
+- Standardize both calculators on 4th edition references
+- See R-019 research artifact for full analysis
+
+**Unit system refactor (pre-MVP-0, DEC-041):**
+- Replace raw `decimal DistanceKm` / `TimeSpan AveragePacePerKm` with `Distance`, `Pace`, `PaceRange` value objects
+- Internal canonical storage in meters and seconds-per-km
+- `StandardRace` enum, `UnitPreference` enum, EF Core `ValueConverter` mappings
+- `PaceRange` naming: `Fast`/`Slow` instead of `Min`/`Max`
+- See `docs/planning/unit-system-design.md` for full design
+
+**POC 1 cleanup (before promoting patterns to production):**
+- `TestProfiles` in `src/RunCoach.Api/` — move to shared project or test infrastructure
+- `ContextAssembler` uses `DateTime.UtcNow` directly — inject `TimeProvider` for testability
+- `EvalTestBase` relative path navigation (`"../../../../../"`) — fragile if structure changes
+- `AsIChatClient()` not on `ICoachingLlm` interface — add to interface or mark internal
+- `WeekGroup` nested record uses mutable `List<WorkoutSummary>` — use `IReadOnlyList`
+- Nested types in `PaceCalculator` and `YamlPromptStore` — extract to own files or document as intentional
 
 **Infrastructure:**
 - Kubernetes (deferred to public beta per DEC-032)

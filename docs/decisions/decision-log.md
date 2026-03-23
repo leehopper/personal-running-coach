@@ -1047,4 +1047,57 @@ Use undated floating alias model IDs as defaults: `claude-sonnet-4-6` for coachi
 
 ---
 
+## DEC-040: Daniels pace table — equation-computed values and edition standardization
+
+**Date:** 2026-03-23
+**Status:** Planned (for post-PR #17 refactor)
+**Category:** Domain / Data Integrity
+**Informed by:** R-019 (batch-9a-daniels-pace-table-verification.md)
+
+**Decision:** The static pace lookup table in `PaceCalculator.cs` contains a confirmed off-by-one row shift from VDOT 50 through VDOT 85. Every entry at VDOT N in that range contains the correct paces for VDOT N+1. The corrected VDOT 50 values are: EasyMin≈306, EasyMax≈339, Marathon=271, Threshold=255, Interval=235, Repetition≈218 (verified by published book tables and independent equation computation).
+
+**Fix approach:** Recompute the entire VDOT 30-85 table from the Daniels-Gilbert equations using known %VO2max intensity zones, then cross-reference against the published 4th edition book tables. This eliminates the transcription error class entirely and makes the table self-verifying. The equations are already implemented in `VdotCalculator.cs`.
+
+**Edition standardization:** Both `VdotCalculator` and `PaceCalculator` will reference the 4th edition (2021). The underlying Daniels-Gilbert equations are unchanged since 1979 across all four editions. The only edition difference relevant to our code is that the 3rd edition onward defines Easy pace as a range (EasyMin/EasyMax) rather than a single value.
+
+**Key research findings:**
+- The anomalous 2-3x step size at VDOT 49→50 spans two real VDOT levels (49→51 in the actual data)
+- Every online calculator and open-source implementation (vdoto2.com, fellrnr.com, GoldenCheetah, tlgs/vdot) confirms the error
+- Per-km values in the book are independently computed from equations (not converted from per-mile), so conversion methodology is not the cause
+- No published errata from Human Kinetics addresses this range; the error is in our transcription, not the source
+
+**Scope:** This is a data-only fix with potential test updates. No architectural changes. Will be done as a separate PR after PR #17 merges.
+
+---
+
+## DEC-041: Unit system architecture — canonical metric storage with boundary conversion
+
+**Date:** 2026-03-23
+**Status:** Planned (for pre-MVP-0 refactor)
+**Category:** Architecture / Domain Model
+**Informed by:** R-020 (batch-9b-unit-system-design.md)
+
+**Decision:** Adopt canonical metric storage with typed value objects and display-boundary conversion. This matches the industry standard (Strava, Garmin, TrainingPeaks all store metric internally). The current approach of raw `decimal DistanceKm` / `TimeSpan AveragePacePerKm` will be replaced with proper value objects.
+
+**Type system:**
+- `Distance` — `readonly record struct` storing meters internally. Factory methods for meters, kilometers, miles.
+- `Pace` — `readonly record struct` storing seconds-per-km. `IsFasterThan()`/`IsSlowerThan()` instead of comparison operators (faster pace = lower number is counterintuitive for operators).
+- `PaceRange` — `Fast`/`Slow` naming instead of `Min`/`Max`.
+- `StandardRace` — enum mapping 5K/10K/Half/Marathon to exact meter distances. Race names are proper nouns ("5K" not "5.00 km").
+- `UnitPreference` — enum (Metric/Imperial) on user profile. Binary toggle, auto-detected from locale.
+- `double` not `decimal` — GPS has ±3-10m imprecision, `double` provides adequate precision, better performance for VDOT math.
+
+**Architecture:** Conversions happen exclusively at: (1) API boundary (DTOs require explicit unit fields), (2) context assembly layer (pre-converts all values for LLM prompts in user's preferred units), (3) EF Core ValueConverters (domain objects ↔ raw doubles in DB). The application/domain layer works only with typed value objects, never raw unit-specific doubles.
+
+**LLM integration:** The LLM never does unit math. Context assembly pre-converts everything. Prompt template states unit preference three times. Post-processing regex validates LLM output doesn't contain wrong-unit mentions.
+
+**Phased implementation:**
+- MVP-0: Build value objects, `UnitPreference` enum, EF Core converters, formatting interface (metric-only implementation)
+- MVP-1: Imperial formatter, context assembly reads preference, prompt unit rules, post-processing validator
+- Deferred: Per-context preferences, multi-sport, UnitsNet dependency
+
+See `docs/planning/unit-system-design.md` for full design.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
