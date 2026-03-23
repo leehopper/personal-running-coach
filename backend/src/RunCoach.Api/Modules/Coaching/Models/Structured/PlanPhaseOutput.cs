@@ -40,6 +40,7 @@ public sealed record PlanPhaseOutput
 
     /// <summary>
     /// Gets the list of workout types allowed in this phase.
+    /// Array used instead of ImmutableArray for System.Text.Json deserialization compatibility.
     /// </summary>
     [Description("The workout types allowed during this phase.")]
     public required WorkoutType[] AllowedWorkoutTypes { get; init; }
@@ -63,7 +64,7 @@ public sealed record PlanPhaseOutput
     public required string Notes { get; init; }
 
     /// <summary>
-    /// Gets a flag indicating whether this phase includes a deload week.
+    /// Gets a value indicating whether gets a flag indicating whether this phase includes a deload week.
     /// </summary>
     [Description("Whether this phase includes a deload week for recovery.")]
     public required bool IncludesDeload { get; init; }

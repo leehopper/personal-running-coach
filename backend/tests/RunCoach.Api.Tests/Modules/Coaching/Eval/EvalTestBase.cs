@@ -175,12 +175,12 @@ public abstract class EvalTestBase : IAsyncDisposable
     /// Writes the full eval result (LLM response and metadata) to a JSON file
     /// in the poc1-eval-results/ directory.
     /// </summary>
-    public static void WriteEvalResult(string scenarioName, object result)
+    public static async Task WriteEvalResultAsync(string scenarioName, object result)
     {
         EnsureOutputDirectory();
         var outputPath = GetOutputPath(scenarioName);
         var json = JsonSerializer.Serialize(result, WriteOptions);
-        File.WriteAllText(outputPath, json);
+        await File.WriteAllTextAsync(outputPath, json).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -63,6 +63,11 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
     /// and user/assistant MessageParam array. Anthropic's API requires system messages
     /// to be passed via the System parameter, not inline.
     /// </summary>
+    /// <remarks>
+    /// Non-text content parts (images, etc.) are dropped -- only <c>msg.Text</c> is extracted.
+    /// This is intentional: coaching eval prompts are text-only, and the Anthropic native
+    /// <see cref="MessageParam.Content"/> field expects a plain string.
+    /// </remarks>
     private static (string? SystemPrompt, MessageParam[] Messages) SplitMessages(
         IEnumerable<ChatMessage> messages)
     {

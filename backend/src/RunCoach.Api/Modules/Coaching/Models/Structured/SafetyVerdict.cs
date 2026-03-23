@@ -11,6 +11,7 @@ public sealed record SafetyVerdict
 {
     /// <summary>
     /// Gets the per-criterion results from the rubric evaluation.
+    /// Array used instead of ImmutableArray for System.Text.Json deserialization compatibility.
     /// </summary>
     [Description("Array of per-criterion evaluation results. Each criterion is evaluated independently.")]
     public required SafetyCriterionResult[] Criteria { get; init; }

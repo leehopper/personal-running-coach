@@ -151,7 +151,7 @@ public sealed class EvalTestBaseTests
     }
 
     [Fact]
-    public void WriteEvalResult_WritesJsonFile()
+    public async Task WriteEvalResultAsync_WritesJsonFile()
     {
         // Arrange
         var scenarioName = $"test-write-{Guid.NewGuid():N}";
@@ -160,13 +160,13 @@ public sealed class EvalTestBaseTests
         try
         {
             // Act
-            EvalTestBase.WriteEvalResult(scenarioName, testData);
+            await EvalTestBase.WriteEvalResultAsync(scenarioName, testData);
 
             // Assert
             var outputPath = Path.Combine(EvalTestBase.GetOutputDirectory(), $"{scenarioName}.json");
             File.Exists(outputPath).Should().BeTrue();
 
-            var content = File.ReadAllText(outputPath);
+            var content = await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken);
             content.Should().Contain("test eval output");
         }
         finally

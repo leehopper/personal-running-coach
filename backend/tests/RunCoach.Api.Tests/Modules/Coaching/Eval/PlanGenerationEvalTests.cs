@@ -47,7 +47,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        WriteEvalResult("plan-sarah", new
+        await WriteEvalResultAsync("plan-sarah", new
         {
             Profile = "Sarah (beginner)",
             MesoWeek = mesoWeek,
@@ -119,7 +119,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        WriteEvalResult("plan-lee", new
+        await WriteEvalResultAsync("plan-lee", new
         {
             Profile = "Lee (intermediate)",
             MesoWeek = mesoWeek,
@@ -191,7 +191,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        WriteEvalResult("plan-maria", new
+        await WriteEvalResultAsync("plan-maria", new
         {
             Profile = "Maria (goalless / maintenance)",
             MesoWeek = mesoWeek,
@@ -250,7 +250,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        WriteEvalResult("plan-james", new
+        await WriteEvalResultAsync("plan-james", new
         {
             Profile = "James (injured / return from injury)",
             MacroPlan = macroPlan,
@@ -326,7 +326,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        WriteEvalResult("plan-priya", new
+        await WriteEvalResultAsync("plan-priya", new
         {
             Profile = "Priya (constrained / 4 days max)",
             MesoWeek = mesoWeek,

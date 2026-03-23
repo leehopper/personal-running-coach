@@ -1,0 +1,15 @@
+Type: file
+Command: grep -A5 'SplitMessages' backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/AnthropicStructuredOutputClient.cs | head -10
+Expected: Text-only limitation comment present
+Timestamp: 2026-03-23T00:09:41Z
+Status: PASS
+
+--- Output ---
+65-    /// </summary>
+66-    /// <remarks>
+67:    /// Non-text content parts (images, etc.) are dropped -- only <c>msg.Text</c> is extracted.
+68-    /// This is intentional: coaching eval prompts are text-only, and the Anthropic native
+69-    /// <see cref="MessageParam.Content"/> field expects a plain string.
+70-    /// </remarks>
+71-    private static (string? SystemPrompt, MessageParam[] Messages) SplitMessages(
+72-        IEnumerable<ChatMessage> messages)

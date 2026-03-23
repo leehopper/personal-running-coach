@@ -13,6 +13,13 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 /// </summary>
 public sealed class PlanConstraintEvaluator : IEvaluator
 {
+    /// <summary>
+    /// Tolerance percentage applied to VDOT-derived pace ranges.
+    /// Allows a 15% margin above/below the strict VDOT zone boundaries to account for
+    /// LLM rounding and minor variations in pace prescription.
+    /// </summary>
+    public const double PaceTolerancePercent = 0.15;
+
     /// <summary>Metric name for plan constraint violations.</summary>
     public const string ViolationsMetricName = "PlanConstraintViolations";
 
@@ -148,8 +155,8 @@ public sealed class PlanConstraintEvaluator : IEvaluator
         var easyRange = paces.EasyPaceRange;
         if (workout.TargetPaceEasySecPerKm > 0 && easyRange.MinPerKm > TimeSpan.Zero)
         {
-            var minAllowed = (int)(easyRange.MinPerKm.TotalSeconds * 0.85);
-            var maxAllowed = (int)(easyRange.MaxPerKm.TotalSeconds * 1.15);
+            var minAllowed = (int)(easyRange.MinPerKm.TotalSeconds * (1.0 - PaceTolerancePercent));
+            var maxAllowed = (int)(easyRange.MaxPerKm.TotalSeconds * (1.0 + PaceTolerancePercent));
 
             if (workout.TargetPaceEasySecPerKm < minAllowed || workout.TargetPaceEasySecPerKm > maxAllowed)
             {

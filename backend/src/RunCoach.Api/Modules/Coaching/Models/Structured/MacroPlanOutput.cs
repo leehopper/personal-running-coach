@@ -22,6 +22,7 @@ public sealed record MacroPlanOutput
 
     /// <summary>
     /// Gets the periodized phases that make up the plan.
+    /// Array used instead of ImmutableArray for System.Text.Json deserialization compatibility.
     /// </summary>
     [Description("The periodized training phases that make up this plan.")]
     public required PlanPhaseOutput[] Phases { get; init; }
