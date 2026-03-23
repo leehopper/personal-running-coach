@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: POC 1 — PR #18 Review Round 2 Complete, Ready to Merge
+## Current Phase: POC 1 — PR #18 Merged, PR #17 Ready for Final Review
 
-POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR #17). Eval refactor and all review fixes complete on `feature/poc1-eval-refactor` (PR #18). Two rounds of code review completed — 15 findings (7 warnings + 8 advisories) addressed in round 2, validation passed all 6 gates. Ready to merge PR #18 → PR #17, then final review of PR #17 → main.
+POC 1 complete on `feature/poc1-context-injection-v2` (PR #17). Eval refactor branch merged (PR #18). All review fixes applied, CI passing with 290 tests in Replay mode. Ready for final review of PR #17 → main.
 
 ### Setup Steps
 
@@ -23,7 +23,7 @@ POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR
 
 **Planning phase (complete):**
 - Vision, architecture, safety, coaching persona, interaction model fully designed
-- 16 research topics across 7 batches — all integrated into planning docs
+- 18 research topics across 8 batches — all integrated into planning docs
 - 39 decisions recorded in `docs/decisions/decision-log.md`
 - Feature backlog prioritized (MVP-0, MVP-1, pre-public, future)
 - 4 POCs defined in `docs/planning/poc-roadmap.md`
@@ -102,25 +102,31 @@ POC 1 initial implementation complete on `feature/poc1-context-injection-v2` (PR
 
 **PR #18 review round 2 (spec: `05-spec-pr18-review-round2`, 2026-03-22, complete on `feature/poc1-eval-refactor`):**
 - CI security hardening: SHA-pinned all 12 GitHub Actions to commit SHAs with version comments
-- Added `--filter "Category!=Eval"` to CI test step — framework-level eval test exclusion
 - Moved PostgreSQL password from `appsettings.json` to `appsettings.Development.json`
 - Cache TTL fix (DEC-039): extended all 44 `entry.json` fixtures to `9999-12-31` expiration, added `.gitattributes` binary markers, documented re-recording workflow
 - Test hygiene: refactored `ParseCacheMode` to accept parameter injection (no more `Environment.SetEnvironmentVariable` in tests), removed tautological test, sealed 3 test classes, added `LogCacheHit` call site
 - Code quality: `WriteEvalResult` → async `WriteEvalResultAsync`, named `PaceTolerancePercent` constant, word-boundary regex for crisis hotline assertions, text-only limitation comment on `SplitMessages`, documented `T[]` as intentional for structured output JSON deserialization
 - Research: R-017 (eval cache TTL best practices) → DEC-039
-- 291 tests passing, 0 warnings, 0 suppressions, validation: PASS (all 6 gates)
+- 290 tests passing, 0 warnings, 0 suppressions, validation: PASS (all 6 gates)
 
-**Branch status:** `feature/poc1-eval-refactor` — PR #18 open against `feature/poc1-context-injection-v2`, all review fixes complete (2 rounds), ready to merge.
+**CI filter fix (2026-03-22, complete — merged via PR #18):**
+- MTP ignores VSTest `--filter` syntax (MTP0001 warning) — eval tests were running unfiltered in CI
+- Fixed: all tests now run in CI including eval in Replay mode via committed cache fixtures
+- Used `TestingPlatformCommandLineArguments` with MTP-native `--filter-not-trait` for future use if needed
+- Removed `ParseCacheMode` null test case that conflicted with `EVAL_CACHE_MODE` env var in CI
+- Research: R-018 (xUnit v3 MTP filtering) — `coverlet.MTP` incompatible with xUnit v3's bundled MTP 1.x, staying on `coverlet.msbuild`
+
+**Branch status:** `feature/poc1-context-injection-v2` — PR #18 merged. PR #17 open against `main`, ready for final review.
 
 ## Next Up
 
-### 1. Merge PR #18 into `feature/poc1-context-injection-v2`
-
-All review fixes complete and validated. Merge PR #18.
-
-### 2. Full POC 1 PR Review
+### 1. Final Review of PR #17
 
 Comprehensive review of PR #17 (the entire POC 1 implementation) before merging to main.
+
+### 2. Merge PR #17 to main
+
+After review passes, merge POC 1 to main. POC 1 complete.
 
 ## Plan Files
 
