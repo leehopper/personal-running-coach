@@ -56,7 +56,7 @@ jobs:
       - name: Build
         run: dotnet build backend/RunCoach.slnx --no-restore
       - name: Test
-        run: dotnet test backend/RunCoach.slnx --no-build --filter "Category!=Eval" /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=../../TestResults/
+        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=../../TestResults/
         env:
           EVAL_CACHE_MODE: Replay
       - name: Upload coverage

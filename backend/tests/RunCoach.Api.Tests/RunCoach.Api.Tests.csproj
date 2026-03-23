@@ -6,6 +6,8 @@
     <IsTestProject>true</IsTestProject>
     <NoWarn>CA1707</NoWarn>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <!-- Exclude eval tests in CI; GitHub Actions sets CI=true automatically -->
+    <TestingPlatformCommandLineArguments Condition="'$(CI)' == 'true'">$(TestingPlatformCommandLineArguments) --filter-not-trait Category=Eval --ignore-exit-code 8</TestingPlatformCommandLineArguments>
     <UserSecretsId>runcoach-api-tests</UserSecretsId>
   </PropertyGroup>
 
