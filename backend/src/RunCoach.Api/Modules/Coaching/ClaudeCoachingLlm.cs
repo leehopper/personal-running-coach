@@ -184,7 +184,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
         return JsonSerializer.Deserialize<T>(json, StructuredOutputSerializerOptions)
             ?? throw new InvalidOperationException(
-                $"Failed to deserialize structured output to {typeof(T).Name}. Response was empty or null.");
+                $"Failed to deserialize structured output to {typeof(T).Name}. JSON was a null literal.");
     }
 
     /// <summary>

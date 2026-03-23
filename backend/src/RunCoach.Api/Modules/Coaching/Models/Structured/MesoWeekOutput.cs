@@ -27,13 +27,14 @@ public sealed record MesoWeekOutput
     public required int WeeklyTargetKm { get; init; }
 
     /// <summary>
-    /// Gets whether this is a deload (recovery) week.
+    /// Gets a value indicating whether this is a deload (recovery) week.
     /// </summary>
     [Description("Whether this is a deload week with reduced volume for recovery.")]
     public required bool IsDeloadWeek { get; init; }
 
     /// <summary>
     /// Gets the seven day slots for the week.
+    /// Array used instead of ImmutableArray for JSON deserialization compatibility with constrained decoding.
     /// </summary>
     [Description("The seven day slots for this week, one per day from Sunday to Saturday.")]
     public required MesoDayOutput[] Days { get; init; }

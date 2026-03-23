@@ -64,7 +64,7 @@ public sealed record PlanPhaseOutput
     public required string Notes { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether gets a flag indicating whether this phase includes a deload week.
+    /// Gets a value indicating whether this phase includes a deload week.
     /// </summary>
     [Description("Whether this phase includes a deload week for recovery.")]
     public required bool IncludesDeload { get; init; }

@@ -6,6 +6,11 @@ namespace RunCoach.Api.Modules.Coaching.Prompts;
 /// No template engine dependency — conditional logic for which sections
 /// to include stays in the ContextAssembler C# code.
 /// </summary>
+/// <remarks>
+/// FUTURE: When user-generated input flows through the context template,
+/// sanitize for <c>{{</c> and <c>}}</c> patterns to prevent token interference.
+/// Current usage is safe — all token values are programmatically assembled.
+/// </remarks>
 public static class PromptRenderer
 {
     /// <summary>

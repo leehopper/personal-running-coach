@@ -52,6 +52,7 @@ public sealed record WorkoutOutput
 
     /// <summary>
     /// Gets the structured segments of the workout.
+    /// Array used instead of ImmutableArray for JSON deserialization compatibility with constrained decoding.
     /// </summary>
     [Description("The structured segments that make up this workout (warmup, work intervals, cooldown, etc.).")]
     public required WorkoutSegmentOutput[] Segments { get; init; }
