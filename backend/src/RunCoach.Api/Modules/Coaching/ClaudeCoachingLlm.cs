@@ -20,8 +20,7 @@ namespace RunCoach.Api.Modules.Coaching;
 /// which reads model ID, temperature, and max tokens from the
 /// IOptions pattern (overridable via appsettings or user-secrets).
 ///
-/// The API key is never logged. Only the first 8 characters are
-/// included in diagnostic messages (masked).
+/// The API key is never logged.
 /// </summary>
 public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 {
