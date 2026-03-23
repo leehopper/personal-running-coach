@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":10,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Elevate and ice the right foot if any residual soreness from the week prior.\"},{\"day_of_week\":1,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20-min easy run at 5:58/km. Walk for 60–90 seconds at the halfway point or immediately if any foot pain arises. This is your check-in run for the week — tune in to how the foot feels.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest and recovery. Gentle calf stretching and foot rolling (frozen water bottle) are encouraged.\"},{\"day_of_week\":3,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"20–25 min low-impact cross-training: pool walking, swimming, or stationary cycling at easy effort. Zero foot impact — protect the plantar fascia while maintaining aerobic base.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Prioritise sleep and hydration. Continue any physiotherapist-prescribed foot exercises.\"},{\"day_of_week\":5,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest before your long run day. Keep the foot elevated if possible.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"20-min easy long run at 5:45–5:58/km. This is your longest effort of the week — walk breaks every 8–10 min or on demand if foot discomfort appears. No heroics: finish feeling like you could do another 10 minutes easily.\"}],\"week_summary\":\"Welcome back, James. Week 1 is about re-establishing a safe, consistent rhythm after your plantar fasciitis layoff. Your physiotherapist has cleared you for 20-minute easy runs only, and that ceiling is firm this week. We are running 3 days maximum (Monday, optional cross-train Wednesday, Saturday long run), keeping all paces at the easy end of your range (5:45–5:58/km), and building the habit of listening to your foot before, during, and after every session. Walking breaks are not a sign of weakness — they are a clinical tool. Total target volume is approximately 10 km across the week including cross-training equivalent. No speed work, no tempo, no intervals until your physio gives the green light.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 1671,
+    "outputTokenCount": 619,
+    "totalTokenCount": 2290
+  }
+}

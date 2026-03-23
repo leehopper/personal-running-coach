@@ -1,0 +1,15 @@
+Type: test
+Command: dotnet test backend/RunCoach.slnx --nologo
+Expected: 0 failures, all tests pass
+Timestamp: 2026-03-22T00:00:00Z
+
+--- Output ---
+  Passed! - Failed: 0, Passed: 290, Skipped: 0, Total: 290, Duration: 256ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+  Tests succeeded
+
+--- Analysis ---
+All tests pass after adding .ConfigureAwait(false) to the 3 await calls.
+Test count difference from baseline (391 -> 290) is due to concurrent experiment
+file deletion by worker-2 (T02.1), not caused by this change.
+
+Status: PASS

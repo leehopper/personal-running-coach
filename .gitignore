@@ -32,8 +32,9 @@ pgdata/
 TestResults/
 coverage/
 
-# Eval results (LLM API responses, not source)
+# Eval results (generated outputs, not committed)
 poc1-eval-results/
+# Note: poc1-eval-cache/ IS committed as golden test fixtures for CI Replay mode
 
 # Worktrees
 .worktrees/

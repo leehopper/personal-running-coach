@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":40,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Easy long run at 6:10-6:27/km. Keep effort conversational. Target 14 km. Focus on time on feet and aerobic base building.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Prioritize sleep and hydration. Light stretching or foam rolling welcome, especially for IT band.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run at 6:00-6:27/km. 7 km. Keep HR low and effort relaxed. This supports aerobic adaptation without adding stress.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Tempo run: 2 km warm-up at easy pace, 4 km at 4:50/km threshold pace, 2 km cool-down. Total 8 km. Builds lactate threshold critical for half marathon pace.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or very light cross-training (yoga, walking). Let the tempo work absorb. Monitor IT band — if any tightness, do gentle hip and glute activation work.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run at 5:50-6:27/km. 7 km. Comfortable effort, building weekly volume foundation.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run at 6:00-6:27/km. 4 km. Short and relaxed to round out the week. Prep legs for Sunday long run.\"}],\"week_summary\":\"Week 1 of your Base phase re-establishes your current 40 km weekly volume with a familiar structure. The tempo session maintains your lactate threshold fitness while the long run anchors aerobic development. Priority this week is consistency and keeping easy runs truly easy — resist the urge to push pace on recovery days.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 1734,
+    "outputTokenCount": 540,
+    "totalTokenCount": 2274
+  }
+}

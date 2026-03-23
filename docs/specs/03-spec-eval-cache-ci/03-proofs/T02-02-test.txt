@@ -1,0 +1,8 @@
+Type: test
+Command: dotnet test backend/RunCoach.slnx (with EVAL_CACHE_MODE=Replay)
+Expected: Full test suite passes in Replay mode
+Timestamp: 2026-03-22T00:00:00Z
+
+Passed\! - Failed: 0, Passed: 391, Skipped: 1, Total: 392, Duration: 1s 331ms
+
+Status: PASS — Full suite passes in Replay mode

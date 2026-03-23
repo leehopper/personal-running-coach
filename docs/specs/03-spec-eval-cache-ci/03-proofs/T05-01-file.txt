@@ -1,0 +1,19 @@
+Type: file
+Command: cat dotnet-tools.json
+Expected: Microsoft.Extensions.AI.Evaluation.Console entry exists
+Timestamp: 2026-03-22T00:00:00Z
+
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "microsoft.extensions.ai.evaluation.console": {
+      "version": "10.4.0",
+      "commands": [
+        "aieval"
+      ],
+      "rollForward": false
+    }
+  }
+}
+Status: PASS — aieval 10.4.0 installed as local tool

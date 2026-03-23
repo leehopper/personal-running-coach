@@ -1,9 +1,13 @@
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Anthropic;
 using Anthropic.Core;
 using Anthropic.Models.Messages;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RunCoach.Api.Modules.Coaching.Models.Structured;
 
 namespace RunCoach.Api.Modules.Coaching;
 
@@ -21,6 +25,16 @@ namespace RunCoach.Api.Modules.Coaching;
 /// </summary>
 public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 {
+    /// <summary>
+    /// JSON serializer options matching the schema generation options used by
+    /// <see cref="JsonSchemaHelper"/> — snake_case naming, string enums.
+    /// </summary>
+    internal static readonly JsonSerializerOptions StructuredOutputSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        Converters = { new JsonStringEnumConverter() },
+    };
+
     private readonly IAnthropicClient _client;
     private readonly CoachingLlmSettings _settings;
     private readonly ILogger<ClaudeCoachingLlm> _logger;
@@ -114,6 +128,73 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             response.Usage.OutputTokens);
 
         return text;
+    }
+
+    /// <inheritdoc />
+    public async Task<T> GenerateStructuredAsync<T>(
+        string systemPrompt,
+        string userMessage,
+        CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(userMessage);
+
+        LogSendingRequest(_logger, _settings.ModelId, _settings.Temperature, _settings.MaxTokens);
+
+        var schemaNode = JsonSchemaHelper.GenerateSchema<T>();
+        var schemaDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+            schemaNode.ToJsonString())!;
+
+        var createParams = new MessageCreateParams
+        {
+            Model = _settings.ModelId,
+            MaxTokens = _settings.MaxTokens,
+            System = systemPrompt,
+            Messages =
+            [
+                new MessageParam
+                {
+                    Role = "user",
+                    Content = userMessage,
+                },
+            ],
+            Temperature = _settings.Temperature,
+            OutputConfig = new OutputConfig
+            {
+                Format = new JsonOutputFormat
+                {
+                    Schema = schemaDict,
+                },
+            },
+        };
+
+        var response = await _client.Messages.Create(createParams, ct).ConfigureAwait(false);
+
+        var json = ExtractTextContent(response);
+
+        var responseModel = response.Model.ToString();
+        var stopReason = response.StopReason?.ToString() ?? "unknown";
+        LogReceivedResponse(
+            _logger,
+            responseModel,
+            json.Length,
+            stopReason,
+            response.Usage.InputTokens,
+            response.Usage.OutputTokens);
+
+        return JsonSerializer.Deserialize<T>(json, StructuredOutputSerializerOptions)
+            ?? throw new InvalidOperationException(
+                $"Failed to deserialize structured output to {typeof(T).Name}. JSON was a null literal.");
+    }
+
+    /// <summary>
+    /// Gets an <see cref="IChatClient"/> bridge for use with M.E.AI.Evaluation
+    /// caching and reporting infrastructure.
+    /// </summary>
+    /// <returns>An IChatClient wrapping this adapter's Anthropic client.</returns>
+    public IChatClient AsIChatClient()
+    {
+        return _client.AsIChatClient(_settings.ModelId, _settings.MaxTokens);
     }
 
     /// <inheritdoc />

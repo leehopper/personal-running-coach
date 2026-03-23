@@ -1,0 +1,13 @@
+Type: cli
+Command: dotnet test --filter "Category!=Eval" --logger "console;verbosity=normal"
+Expected: All existing tests still pass (no regressions from new packages)
+Timestamp: 2026-03-22T00:16:00Z
+
+Output:
+Test Run Successful.
+Total tests: 350
+     Passed: 349
+    Skipped: 1
+ Total time: 0.4693 Seconds
+
+Status: PASS

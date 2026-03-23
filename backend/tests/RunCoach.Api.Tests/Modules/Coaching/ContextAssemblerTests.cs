@@ -1,7 +1,10 @@
 using System.Collections.Immutable;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
+using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Models;
 using RunCoach.Api.Modules.Training.Profiles;
 
@@ -10,7 +13,13 @@ namespace RunCoach.Api.Tests.Modules.Coaching;
 public class ContextAssemblerTests
 {
     private const int TokenBudget = 15_000;
-    private readonly ContextAssembler _sut = new();
+    private readonly ContextAssembler _sut;
+
+    public ContextAssemblerTests()
+    {
+        var store = CreateMockPromptStore();
+        _sut = new ContextAssembler(store);
+    }
 
     [Fact]
     public void EstimateTokens_EmptyString_ReturnsZero()
@@ -89,13 +98,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_CompleteProfileWithHistory_ContainsUserProfileInStartSection()
+    public async Task AssembleAsync_CompleteProfileWithHistory_ContainsUserProfileInStartSection()
     {
         // Arrange
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.StartSections.Should().Contain(s => s.Key == "user_profile");
@@ -108,13 +117,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_CompleteProfileWithHistory_ContainsGoalStateInStartSection()
+    public async Task AssembleAsync_CompleteProfileWithHistory_ContainsGoalStateInStartSection()
     {
         // Arrange
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.StartSections.Should().Contain(s => s.Key == "goal_state");
@@ -124,13 +133,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_CompleteProfileWithHistory_ContainsFitnessEstimateInStartSection()
+    public async Task AssembleAsync_CompleteProfileWithHistory_ContainsFitnessEstimateInStartSection()
     {
         // Arrange
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.StartSections.Should().Contain(s => s.Key == "fitness_estimate");
@@ -140,13 +149,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_CompleteProfileWithHistory_ContainsTrainingPacesInStartSection()
+    public async Task AssembleAsync_CompleteProfileWithHistory_ContainsTrainingPacesInStartSection()
     {
         // Arrange
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.StartSections.Should().Contain(s => s.Key == "training_paces");
@@ -156,39 +165,39 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_CompleteProfileWithHistory_HasFourStartSections()
+    public async Task AssembleAsync_CompleteProfileWithHistory_HasFourStartSections()
     {
         // Arrange
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert — user_profile, goal_state, fitness_estimate, training_paces
         actualPrompt.StartSections.Should().HaveCount(4);
     }
 
     [Fact]
-    public void Assemble_WithHistoryAndConversation_TrainingHistoryInMiddleSection()
+    public async Task AssembleAsync_WithHistoryAndConversation_TrainingHistoryInMiddleSection()
     {
         // Arrange
         var input = BuildLeeInput(conversationTurns: 2);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.MiddleSections.Should().Contain(s => s.Key == "training_history");
     }
 
     [Fact]
-    public void Assemble_WithConversation_ConversationHistoryInEndSection()
+    public async Task AssembleAsync_WithConversation_ConversationHistoryInEndSection()
     {
         // Arrange
         var input = BuildLeeInput(conversationTurns: 2);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.EndSections.Should().Contain(s => s.Key == "conversation_history");
@@ -196,13 +205,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_WithConversation_CurrentUserMessageAlwaysInEndSection()
+    public async Task AssembleAsync_WithConversation_CurrentUserMessageAlwaysInEndSection()
     {
         // Arrange
         var input = BuildLeeInput(conversationTurns: 0);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.EndSections.Should().Contain(s => s.Key == "current_user_message");
@@ -211,13 +220,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_CompleteProfile_NoPlaceholderValues()
+    public async Task AssembleAsync_CompleteProfile_NoPlaceholderValues()
     {
         // Arrange
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert — no template markers or placeholder patterns should remain
         var allContent = string.Join("\n", actualPrompt.StartSections.Select(s => s.Content));
@@ -230,13 +239,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_CompleteProfile_SystemPromptNotEmpty()
+    public async Task AssembleAsync_CompleteProfile_SystemPromptNotEmpty()
     {
         // Arrange
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.SystemPrompt.Should().NotBeNullOrWhiteSpace();
@@ -246,14 +255,14 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_MaxContent_StaysUnder15KTokens()
+    public async Task AssembleAsync_MaxContent_StaysUnder15KTokens()
     {
         // Arrange — full profile with 4 weeks of per-workout history and 10 conversation turns
         // Maria has 4 weeks of history (24 workouts), the most of any profile.
         var input = BuildMariaInput(conversationTurns: 10);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
@@ -262,13 +271,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_LeeProfileWith3WeeksAnd2Turns_StaysUnder15KTokens()
+    public async Task AssembleAsync_LeeProfileWith3WeeksAnd2Turns_StaysUnder15KTokens()
     {
         // Arrange
         var input = BuildLeeInput(conversationTurns: 2);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
@@ -277,13 +286,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_AllProfilesWithMaxConversation_StayUnder15KTokens()
+    public async Task AssembleAsync_AllProfilesWithMaxConversation_StayUnder15KTokens()
     {
         // Arrange & Act & Assert — every test profile should stay within budget
         foreach (var (name, profile) in TestProfiles.All)
         {
             var input = BuildInputFromProfile(profile, conversationTurns: 10);
-            var actualPrompt = _sut.Assemble(input);
+            var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
             actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
                 TokenBudget,
@@ -292,13 +301,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_BeginnerProfileNoHistory_TrainingHistorySectionEmpty()
+    public async Task AssembleAsync_BeginnerProfileNoHistory_TrainingHistorySectionEmpty()
     {
         // Arrange — Sarah is a beginner with no training history
         var input = BuildSarahInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.MiddleSections.Should().BeEmpty(
@@ -306,13 +315,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_BeginnerProfileNoHistory_PayloadIsValid()
+    public async Task AssembleAsync_BeginnerProfileNoHistory_PayloadIsValid()
     {
         // Arrange
         var input = BuildSarahInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert — should still have all start sections
         actualPrompt.StartSections.Should().HaveCount(4);
@@ -322,13 +331,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_BeginnerProfile_FitnessEstimateShowsNoVdot()
+    public async Task AssembleAsync_BeginnerProfile_FitnessEstimateShowsNoVdot()
     {
         // Arrange
         var input = BuildSarahInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var fitnessSection = actualPrompt.StartSections.First(s => s.Key == "fitness_estimate");
@@ -337,13 +346,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_BeginnerProfile_ProfileShowsNoRaces()
+    public async Task AssembleAsync_BeginnerProfile_ProfileShowsNoRaces()
     {
         // Arrange
         var input = BuildSarahInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var profileSection = actualPrompt.StartSections.First(s => s.Key == "user_profile");
@@ -351,13 +360,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_InjuryProfile_IncludesInjuryHistory()
+    public async Task AssembleAsync_InjuryProfile_IncludesInjuryHistory()
     {
         // Arrange
         var input = BuildJamesInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var profileSection = actualPrompt.StartSections.First(s => s.Key == "user_profile");
@@ -366,13 +375,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_InjuryProfile_IncludesConstraints()
+    public async Task AssembleAsync_InjuryProfile_IncludesConstraints()
     {
         // Arrange
         var input = BuildJamesInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var profileSection = actualPrompt.StartSections.First(s => s.Key == "user_profile");
@@ -380,13 +389,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_MaintenanceGoal_GoalTypeIsMaintenance()
+    public async Task AssembleAsync_MaintenanceGoal_GoalTypeIsMaintenance()
     {
         // Arrange
         var input = BuildMariaInput(conversationTurns: 0);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var goalSection = actualPrompt.StartSections.First(s => s.Key == "goal_state");
@@ -395,13 +404,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_TokenEstimates_AllSectionsHavePositiveTokenCounts()
+    public async Task AssembleAsync_TokenEstimates_AllSectionsHavePositiveTokenCounts()
     {
         // Arrange
         var input = BuildLeeInput(conversationTurns: 2);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         foreach (var section in actualPrompt.StartSections)
@@ -427,13 +436,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_TokenEstimateSum_MatchesReportedTotal()
+    public async Task AssembleAsync_TokenEstimateSum_MatchesReportedTotal()
     {
         // Arrange
         var input = BuildLeeInput(conversationTurns: 2);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var expectedTotal = _sut.EstimateTokens(actualPrompt.SystemPrompt)
@@ -447,14 +456,14 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_ConstrainedProfile_IncludesScheduleConstraints()
+    public async Task AssembleAsync_ConstrainedProfile_IncludesScheduleConstraints()
     {
         // Arrange
         var priya = TestProfiles.Priya();
         var input = BuildInputFromProfile(priya, conversationTurns: 0);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var profileSection = actualPrompt.StartSections.First(s => s.Key == "user_profile");
@@ -463,13 +472,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_NoConversationHistory_NoConversationSection()
+    public async Task AssembleAsync_NoConversationHistory_NoConversationSection()
     {
         // Arrange
         var input = BuildLeeInput(conversationTurns: 0);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         actualPrompt.EndSections.Should().NotContain(s => s.Key == "conversation_history");
@@ -477,13 +486,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_ConversationHistory_ContainsUserAndCoachMessages()
+    public async Task AssembleAsync_ConversationHistory_ContainsUserAndCoachMessages()
     {
         // Arrange
         var input = BuildLeeInput(conversationTurns: 2);
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var convSection = actualPrompt.EndSections.First(s => s.Key == "conversation_history");
@@ -492,13 +501,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_ProfileWithRaceHistory_FormatsRaceTimes()
+    public async Task AssembleAsync_ProfileWithRaceHistory_FormatsRaceTimes()
     {
         // Arrange
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var profileSection = actualPrompt.StartSections.First(s => s.Key == "user_profile");
@@ -507,13 +516,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_ProfileWithAllPaces_FormatsAllPaceZones()
+    public async Task AssembleAsync_ProfileWithAllPaces_FormatsAllPaceZones()
     {
         // Arrange
         var input = BuildLeeInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var pacesSection = actualPrompt.StartSections.First(s => s.Key == "training_paces");
@@ -522,13 +531,13 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public void Assemble_BeginnerWithOnlyEasyPace_OnlyShowsEasyPace()
+    public async Task AssembleAsync_BeginnerWithOnlyEasyPace_OnlyShowsEasyPace()
     {
         // Arrange
         var input = BuildSarahInput();
 
         // Act
-        var actualPrompt = _sut.Assemble(input);
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
 
         // Assert
         var pacesSection = actualPrompt.StartSections.First(s => s.Key == "training_paces");
@@ -537,6 +546,185 @@ public class ContextAssemblerTests
         pacesSection.Content.Should().NotContain("Threshold pace");
         pacesSection.Content.Should().NotContain("Interval pace");
         pacesSection.Content.Should().NotContain("Repetition pace");
+    }
+
+    // ================================================================
+    // YAML-based assembly tests (verify YAML system prompt behavior)
+    // ================================================================
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_UsesYamlSystemPrompt()
+    {
+        // Arrange
+        var input = BuildLeeInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — system prompt should come from YAML, not hardcoded constant
+        actualPrompt.SystemPrompt.Should().Contain("evidence-based running coach");
+        actualPrompt.SystemPrompt.Should().Contain("COMMUNICATION FRAMEWORK");
+        actualPrompt.SystemPrompt.Should().Contain("SAFETY RULES");
+        actualPrompt.SystemPrompt.Should().Contain("DETERMINISTIC GUARDRAILS");
+        actualPrompt.SystemPrompt.Should().Contain("SEMANTIC OUTPUT GUIDANCE");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_StaticPrefixContainsZeroAthleteData()
+    {
+        // Arrange
+        var input = BuildLeeInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — the system prompt (static prefix) must contain NO athlete-specific data
+        actualPrompt.SystemPrompt.Should().NotContain("Lee");
+        actualPrompt.SystemPrompt.Should().NotContain("34");
+        actualPrompt.SystemPrompt.Should().NotContain("Half-Marathon");
+        actualPrompt.SystemPrompt.Should().NotContain("VDOT");
+        actualPrompt.SystemPrompt.Should().NotContain("Easy pace:");
+        actualPrompt.SystemPrompt.Should().NotContain("40 km");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_DynamicSectionsContainAthleteData()
+    {
+        // Arrange
+        var input = BuildLeeInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — athlete data should be in the start/middle/end sections
+        var allSectionContent = string.Join(
+            "\n",
+            actualPrompt.StartSections.Select(s => s.Content)
+                .Concat(actualPrompt.MiddleSections.Select(s => s.Content))
+                .Concat(actualPrompt.EndSections.Select(s => s.Content)));
+
+        allSectionContent.Should().Contain("Lee");
+        allSectionContent.Should().Contain("40 km");
+        allSectionContent.Should().Contain("Easy pace");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_StaysUnder15KTokens()
+    {
+        // Arrange
+        var input = BuildMariaInput(conversationTurns: 10);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
+            TokenBudget,
+            because: "the assembled prompt must stay within the 15K token budget with YAML prompts");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_AllProfilesStayUnderBudget()
+    {
+        // Act & Assert
+        foreach (var (name, profile) in TestProfiles.All)
+        {
+            var input = BuildInputFromProfile(profile, conversationTurns: 10);
+            var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+            actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
+                TokenBudget,
+                because: $"profile '{name}' with YAML prompt and 10 conversation turns must stay within budget");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_WithPromptStore_TokenEstimateSumMatchesTotal()
+    {
+        // Arrange
+        var input = BuildLeeInput(conversationTurns: 2);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        var expectedTotal = _sut.EstimateTokens(actualPrompt.SystemPrompt)
+            + actualPrompt.StartSections.Sum(s => s.EstimatedTokens)
+            + actualPrompt.MiddleSections.Sum(s => s.EstimatedTokens)
+            + actualPrompt.EndSections.Sum(s => s.EstimatedTokens);
+
+        actualPrompt.EstimatedTokenCount.Should().Be(
+            expectedTotal,
+            because: "the reported total should match the sum of all section estimates with YAML prompt");
+    }
+
+    // ================================================================
+    // Helper methods
+    // ================================================================
+    private static IPromptStore CreateMockPromptStore()
+    {
+        var store = Substitute.For<IPromptStore>();
+
+        var template = new PromptTemplate(
+            Id: "coaching-system",
+            Version: "v1",
+            StaticSystemPrompt: BuildYamlSystemPrompt(),
+            ContextTemplate: BuildYamlContextTemplate(),
+            Metadata: new PromptMetadata("Test prompt", "Test", "2026-01-01"));
+
+        store.GetActiveVersion("coaching-system").Returns("v1");
+        store.GetPromptAsync("coaching-system", "v1", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(template));
+
+        return store;
+    }
+
+    private static string BuildYamlSystemPrompt()
+    {
+        return """
+            You are an experienced, evidence-based running coach. You combine deep knowledge of exercise physiology with genuine care for the runner as a whole person. You are warm, direct, and knowledgeable.
+
+            COMMUNICATION FRAMEWORK:
+            Layer 1 - OARS (moment-to-moment): Every response contains at least one Open question, Affirmation, Reflection, or Summary.
+            Layer 2 - Elicit-Provide-Elicit (information delivery): When sharing training knowledge, always ask first, share, then check.
+            Layer 3 - Modified GROW (conversation structure): Goal, Reality, Options, Way Forward.
+
+            SAFETY RULES:
+            Medical Boundary: You are a running coach, not a medical professional.
+            Injury Protocol: When a runner reports an injury, recommend consulting a medical professional.
+            Crisis Response: If crisis language is used, STOP coaching, provide crisis resources (988, 741741).
+            Nutrition Boundary: General fueling timing only. Recommend a registered dietitian for specifics.
+            Overtraining Detection: Acknowledge, suggest reducing load, do not push through.
+
+            DETERMINISTIC GUARDRAILS:
+            The training paces provided are computed deterministically from the runner's race history using Daniels' Running Formula.
+            You MUST use these exact pace ranges. Volume progression MUST NOT exceed 10% per week.
+
+            SEMANTIC OUTPUT GUIDANCE:
+            When generating a training plan, explain your reasoning and include physiological rationale.
+            """;
+    }
+
+    private static string BuildYamlContextTemplate()
+    {
+        return """
+            === RUNNER PROFILE ===
+            {{profile}}
+
+            === CURRENT GOAL ===
+            {{goal}}
+
+            === FITNESS ASSESSMENT ===
+            {{fitness}}
+
+            === TRAINING PACES (computed from VDOT — use these exactly) ===
+            {{training_paces}}
+
+            === RECENT TRAINING HISTORY ===
+            {{training_history}}
+
+            === CONVERSATION HISTORY ===
+            {{conversation}}
+            """;
     }
 
     private static ContextAssemblerInput BuildLeeInput(int conversationTurns = 0)

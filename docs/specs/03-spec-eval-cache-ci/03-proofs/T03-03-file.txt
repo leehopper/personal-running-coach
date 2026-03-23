@@ -1,0 +1,12 @@
+Type: file
+Command: grep -A2 pull_request ci.yml; grep EVAL_CACHE_MODE ci.yml
+Expected: No branches filter on pull_request; EVAL_CACHE_MODE: Replay in backend test
+Timestamp: 2026-03-22T00:00:00Z
+
+  pull_request:
+
+jobs:
+
+          EVAL_CACHE_MODE: Replay
+
+Status: PASS — pull_request has no branches filter; EVAL_CACHE_MODE: Replay set

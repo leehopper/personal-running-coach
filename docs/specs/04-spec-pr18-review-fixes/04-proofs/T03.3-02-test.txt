@@ -1,0 +1,8 @@
+Type: test
+Command: dotnet test --nologo (from backend/)
+Expected: All 292 tests pass (no regressions from Trace.WriteLine, ExtractJson, or comment changes)
+Timestamp: 2026-03-22T00:00:00Z
+
+Passed! - Failed: 0, Passed: 292, Skipped: 0, Total: 292, Duration: 263ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+
+Status: PASS

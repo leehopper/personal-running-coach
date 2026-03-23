@@ -61,6 +61,7 @@ Required before the product is available to anyone beyond the founder and truste
 | Voice interface | Log workouts mid-run or post-run via voice. |
 | Coach personalities | Named AI personalities with different coaching styles (e.g., encouraging vs. data-driven vs. tough love). Differentiator that reinforces the "relationship" feel. |
 | AI-managed notification cadence | The coach learns when and how to reach out. Respects context ("I'm traveling"), optimizes over time based on user response patterns. Not a dumb cron job. |
+| `TimeProvider` injection in `ContextAssembler` | Replace `DateTime.UtcNow` calls (lines 339, 547) with injected `TimeProvider` for deterministic testing of date-dependent overflow cascade and training history cutoffs. |
 
 ## Exploring
 

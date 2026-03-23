@@ -1,0 +1,21 @@
+Type: file
+Command: git diff --stat -- backend/tests/RunCoach.Api.Tests/Modules/Coaching/ContextAssemblerTests.cs
+Expected: Test file modified with async conversions and mock IPromptStore
+Timestamp: 2026-03-22T00:00:00Z
+
+Output:
+  .../Modules/Coaching/ContextAssemblerTests.cs | 179 ++++++++-------------
+  1 file changed, 71 insertions(+), 108 deletions(-)
+
+Changes summary:
+1. Replaced `private readonly ContextAssembler _sut = new();` with constructor-based
+   initialization using `CreateMockPromptStore()` -> `new ContextAssembler(store)`
+2. Converted all 28 sync `Assemble_*` test methods to `async Task AssembleAsync_*`
+3. Replaced all `_sut.Assemble(input)` calls with `await _sut.AssembleAsync(input, TestContext.Current.CancellationToken)`
+4. Removed `AssembleAsync_WithoutPromptStore_FallsBackToHardcodedPrompt` test (fallback path removed)
+5. Consolidated duplicate `AssembleAsync_WithPromptStore_HasFourStartSections` (now covered by converted test)
+6. Existing async YAML tests now use class-level `_sut` instead of creating their own
+7. EstimateTokens sync tests unchanged (method is still synchronous)
+8. Total: 39 test methods (5 sync EstimateTokens + 34 async AssembleAsync)
+
+Status: PASS

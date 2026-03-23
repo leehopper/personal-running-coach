@@ -1,0 +1,23 @@
+Type: file
+Description: Verify JsonSchemaHelper.cs exists with expected structure
+Expected: File exists with GenerateSchema<T> and GenerateSchemaString<T> methods
+Timestamp: 2026-03-21T18:13:00Z
+
+File: backend/src/RunCoach.Api/Modules/Coaching/Models/Structured/JsonSchemaHelper.cs
+Exists: true
+Lines: 103
+
+Key features verified:
+  - Uses System.Text.Json.Schema.JsonSchemaExporter via GetJsonSchemaAsNode
+  - TransformSchemaNode callback injects additionalProperties: false
+  - TransformSchemaNode callback injects description from DescriptionAttribute
+  - JsonSerializerOptions configured with SnakeCaseLower and JsonStringEnumConverter
+  - TypeInfoResolver set to DefaultJsonTypeInfoResolver for .NET 10 compatibility
+  - TreatNullObliviousAsNonNullable = true
+  - Static class with two public methods: GenerateSchema<T>() and GenerateSchemaString<T>()
+
+Test file: backend/tests/RunCoach.Api.Tests/Modules/Coaching/Models/Structured/JsonSchemaHelperTests.cs
+Exists: true
+Test count: 19 (15 distinct test methods, 4 Theory parameterized)
+
+Status: PASS

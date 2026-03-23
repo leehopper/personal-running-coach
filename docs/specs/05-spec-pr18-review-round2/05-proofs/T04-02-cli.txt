@@ -1,0 +1,9 @@
+Type: cli
+Command: dotnet test backend/RunCoach.slnx --filter Category\!=Eval
+Expected: All tests pass
+Timestamp: 2026-03-23T00:09:16Z
+Status: PASS
+
+--- Output ---
+Passed\! - Failed: 0, Passed: 291, Skipped: 0, Total: 291, Duration: 1m 39s 930ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+Tests succeeded

@@ -1,0 +1,24 @@
+Type: file
+Description: Verify ContextAssembler simplification — removed sync path, hardcoded prompt, nullable store
+Expected: No SystemPromptText, no parameterless constructor, no sync Assemble, no nullable _promptStore
+Timestamp: 2026-03-22T15:30:00Z
+
+Verification: grep for 'SystemPromptText' in ContextAssembler.cs
+Result: No matches — hardcoded constant removed
+
+Verification: grep for 'public ContextAssembler()' in ContextAssembler.cs
+Result: No matches — parameterless constructor removed
+
+Verification: grep for 'public AssembledPrompt Assemble(' in ContextAssembler.cs
+Result: No matches — sync method removed
+
+Verification: grep for 'IPromptStore?' in ContextAssembler.cs
+Result: No matches — field is now non-nullable 'IPromptStore _promptStore'
+
+Verification: grep for '_promptStore is null' in ContextAssembler.cs
+Result: No matches — null-check branch removed from AssembleAsync
+
+Verification: grep for 'string? systemPrompt = null' in ContextAssembler.cs
+Result: No matches — ApplyOverflowCascade and CalculateTotal now take required string
+
+Status: PASS

@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":62,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long run at easy effort 5:04–5:34/km. Target 26 km. Focus on time on feet and aerobic base. Stay relaxed and conversational throughout.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Prioritise sleep and nutrition recovery after Sunday's long run.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or very light walking. Let Sunday's long run absorb fully.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run 10 km at 5:04–5:34/km. Shake out the legs, keep HR low. No pressure on pace.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Recovery is where fitness is built — protect this day.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"12 km total: 3 km warm-up at easy pace, 6 km at threshold 4:12/km, 3 km cool-down. Controlled discomfort — comfortably hard, not a race effort.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy 14 km at 5:04–5:34/km. This brings weekly volume to ~62 km. Keep it genuinely easy — this is aerobic glue, not a workout.\"}],\"week_summary\":\"Week 1 of Base phase. Priya is coming off a strong training block (~60 km/week) so we hold volume steady at 62 km to consolidate fitness before building. Four run days respect her work and childcare schedule. The week is anchored by Sunday's long run and a Thursday tempo, with easy running filling the remaining days. No intensity spikes — the goal this week is consistency and aerobic reinforcement.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 1848,
+    "outputTokenCount": 524,
+    "totalTokenCount": 2372
+  }
+}

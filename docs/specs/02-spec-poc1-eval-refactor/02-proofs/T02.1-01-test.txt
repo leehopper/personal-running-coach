@@ -1,0 +1,32 @@
+Type: test
+Command: dotnet test --filter "FullyQualifiedName~Prompts"
+Expected: All YamlPromptStoreTests and PromptRendererTests pass
+Timestamp: 2026-03-21T17:57:00Z
+Status: PASS
+
+Test Results:
+  Passed PromptRendererTests.Render_EmptyReplacementValue_ReplacesWithEmptyString
+  Passed PromptRendererTests.Render_NullTokens_ThrowsArgumentNullException
+  Passed PromptRendererTests.Render_UnmatchedTokens_LeavesThemInPlace
+  Passed PromptRendererTests.Render_EmptyTokens_ReturnsTemplateUnchanged
+  Passed PromptRendererTests.Render_MultipleTokens_ReplacesAllCorrectly
+  Passed PromptRendererTests.Render_NullTemplate_ThrowsArgumentNullException
+  Passed PromptRendererTests.Render_DuplicateTokenInTemplate_ReplacesBothOccurrences
+  Passed PromptRendererTests.Render_ContextTemplate_ReplacesAllSections
+  Passed PromptRendererTests.Render_SingleToken_ReplacesCorrectly
+  Passed YamlPromptStoreTests.GetPromptAsync_NoMetadata_ReturnsNull
+  Passed YamlPromptStoreTests.GetPromptAsync_MissingFile_Throws
+  Passed YamlPromptStoreTests.GetActiveVersion_Configured_ReturnsVersion
+  Passed YamlPromptStoreTests.GetPromptAsync_ValidYaml_ReturnsTemplate
+  Passed YamlPromptStoreTests.ValidateConfiguredVersions_FilesExist_NoThrow
+  Passed YamlPromptStoreTests.GetPromptAsync_ValidYaml_DeserializesMetadata
+  Passed YamlPromptStoreTests.GetActiveVersion_Unconfigured_Throws
+  Passed YamlPromptStoreTests.GetPromptAsync_PreservesNewlines
+  Passed YamlPromptStoreTests.GetPromptAsync_EmptyId_Throws
+  Passed YamlPromptStoreTests.GetPromptAsync_SecondCall_ReturnsCached
+  Passed YamlPromptStoreTests.ValidateConfiguredVersions_MissingFile_Throws
+
+Total tests: 20
+     Passed: 20
+     Failed: 0
+    Skipped: 0

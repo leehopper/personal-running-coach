@@ -1,0 +1,10 @@
+Type: test
+Description: Existing non-eval tests pass (no regressions from PlanGenerationEvalTests)
+Command: dotnet test --nologo -v q --filter Category\!=Eval
+Expected: 355 tests pass, 0 failures
+Timestamp: 2026-03-22T01:30:39Z
+
+--- Output ---
+Passed\! - Failed: 0, Passed: 355, Skipped: 1, Total: 356, Duration: 182 ms (verified earlier in session)
+
+Status: PASS

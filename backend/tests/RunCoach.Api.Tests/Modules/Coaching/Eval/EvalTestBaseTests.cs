@@ -1,14 +1,93 @@
-using System.Text.Json;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
+using NSubstitute;
+using RunCoach.Api.Modules.Training.Profiles;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 
 /// <summary>
-/// Unit tests for the static helper methods on <see cref="EvalTestBase"/>.
-/// These tests do NOT require an API key since they only test parsing/extraction logic.
+/// Unit tests for <see cref="EvalTestBase"/> static helpers and infrastructure.
+/// These tests do NOT require an API key since they only test non-LLM functionality.
 /// </summary>
-public class EvalTestBaseTests
+public sealed class EvalTestBaseTests
 {
+    [Theory]
+    [InlineData("Record", EvalCacheMode.Record)]
+    [InlineData("record", EvalCacheMode.Record)]
+    [InlineData("RECORD", EvalCacheMode.Record)]
+    [InlineData("Replay", EvalCacheMode.Replay)]
+    [InlineData("replay", EvalCacheMode.Replay)]
+    [InlineData("REPLAY", EvalCacheMode.Replay)]
+    [InlineData("Auto", EvalCacheMode.Auto)]
+    [InlineData("auto", EvalCacheMode.Auto)]
+    [InlineData("AUTO", EvalCacheMode.Auto)]
+    public void ParseCacheMode_ValidValues_ParsesCaseInsensitively(string envValue, EvalCacheMode expected)
+    {
+        EvalTestBase.ParseCacheMode(envValue).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("invalid")]
+    [InlineData("Recording")]
+    public void ParseCacheMode_InvalidOrEmpty_DefaultsToAuto(string? envValue)
+    {
+        EvalTestBase.ParseCacheMode(envValue).Should().Be(EvalCacheMode.Auto);
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_AutoWithApiKey_ReturnsRecord()
+    {
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Auto, hasApiKey: true)
+            .Should().Be(EvalCacheMode.Record);
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_AutoWithoutApiKey_ReturnsReplay()
+    {
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Auto, hasApiKey: false)
+            .Should().Be(EvalCacheMode.Replay);
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_ExplicitRecord_IgnoresApiKeyStatus()
+    {
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Record, hasApiKey: false)
+            .Should().Be(EvalCacheMode.Record);
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_ExplicitReplay_IgnoresApiKeyStatus()
+    {
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Replay, hasApiKey: true)
+            .Should().Be(EvalCacheMode.Replay);
+    }
+
+    [Fact]
+    public async Task ReplayGuardChatClient_ThrowsWithClientName()
+    {
+        var innerStub = Substitute.For<IChatClient>();
+        using var client = new ReplayGuardChatClient(innerStub, "sonnet");
+
+        var act = () => client.GetResponseAsync(
+            [new ChatMessage(ChatRole.User, "test")],
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Cache miss for 'sonnet' client*")
+            .WithMessage("*EVAL_CACHE_MODE=Record*");
+    }
+
+    [Fact]
+    public void ResolveEffectiveMode_RecordWithoutKey_StillReturnsRecord()
+    {
+        // Record mode is explicit — ResolveEffectiveMode should return Record
+        // even without API key. The constructor handles the fail-fast.
+        EvalTestBase.ResolveEffectiveMode(EvalCacheMode.Record, hasApiKey: false)
+            .Should().Be(EvalCacheMode.Record);
+    }
+
     [Fact]
     public void LoadProfile_ValidName_ReturnsProfile()
     {
@@ -44,249 +123,6 @@ public class EvalTestBaseTests
     }
 
     [Fact]
-    public void ExtractJsonBlock_WithValidJsonBlock_ReturnsJson()
-    {
-        // Arrange
-        var response = """
-            Here is your training plan:
-
-            ```json
-            {
-              "macroPlan": {
-                "phases": ["base", "build"]
-              }
-            }
-            ```
-
-            These phases will help you build fitness gradually.
-            """;
-
-        // Act
-        var actualJson = EvalTestBase.ExtractJsonBlock(response);
-
-        // Assert
-        actualJson.Should().NotBeNull();
-        actualJson.Should().Contain("macroPlan");
-        actualJson.Should().Contain("phases");
-    }
-
-    [Fact]
-    public void ExtractJsonBlock_NoJsonBlock_ReturnsNull()
-    {
-        // Arrange
-        var response = "Here is your training plan in plain text format.";
-
-        // Act
-        var actualJson = EvalTestBase.ExtractJsonBlock(response);
-
-        // Assert
-        actualJson.Should().BeNull();
-    }
-
-    [Fact]
-    public void ExtractJsonBlock_UnclosedJsonBlock_ReturnsNull()
-    {
-        // Arrange
-        var response = """
-            ```json
-            { "incomplete": true
-            """;
-
-        // Act
-        var actualJson = EvalTestBase.ExtractJsonBlock(response);
-
-        // Assert
-        actualJson.Should().BeNull();
-    }
-
-    [Fact]
-    public void ParsePlanJson_ValidJsonBlock_ReturnsJsonElement()
-    {
-        // Arrange
-        var response = """
-            ```json
-            {
-              "macroPlan": { "phases": ["base"] },
-              "mesoWeek": { "weekNumber": 1 }
-            }
-            ```
-            """;
-
-        // Act
-        var actualJson = EvalTestBase.ParsePlanJson(response);
-
-        // Assert
-        actualJson.Should().NotBeNull();
-        actualJson!.Value.ValueKind.Should().Be(JsonValueKind.Object);
-    }
-
-    [Fact]
-    public void ParsePlanJson_InvalidJson_ReturnsNull()
-    {
-        // Arrange
-        var response = """
-            ```json
-            { not valid json at all
-            ```
-            """;
-
-        // Act
-        var actualJson = EvalTestBase.ParsePlanJson(response);
-
-        // Assert
-        actualJson.Should().BeNull();
-    }
-
-    [Fact]
-    public void ParsePlanJson_NoJsonBlock_ReturnsNull()
-    {
-        // Arrange
-        var response = "No JSON here.";
-
-        // Act
-        var actualJson = EvalTestBase.ParsePlanJson(response);
-
-        // Assert
-        actualJson.Should().BeNull();
-    }
-
-    [Fact]
-    public void ExtractMacroPlan_WithMacroPlanKey_ReturnsElement()
-    {
-        // Arrange
-        var json = JsonDocument.Parse("""
-            {
-              "macroPlan": { "phases": ["base", "build", "peak"] }
-            }
-            """).RootElement;
-
-        // Act
-        var actualPlan = EvalTestBase.ExtractMacroPlan(json);
-
-        // Assert
-        actualPlan.Should().NotBeNull();
-        actualPlan!.Value.GetProperty("phases").GetArrayLength().Should().Be(3);
-    }
-
-    [Fact]
-    public void ExtractMacroPlan_WithSnakeCaseKey_ReturnsElement()
-    {
-        // Arrange
-        var json = JsonDocument.Parse("""
-            {
-              "macro_plan": { "phases": ["base"] }
-            }
-            """).RootElement;
-
-        // Act
-        var actualPlan = EvalTestBase.ExtractMacroPlan(json);
-
-        // Assert
-        actualPlan.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void ExtractMacroPlan_MissingKey_ReturnsNull()
-    {
-        // Arrange
-        var json = JsonDocument.Parse("""
-            {
-              "otherData": { "value": 1 }
-            }
-            """).RootElement;
-
-        // Act
-        var actualPlan = EvalTestBase.ExtractMacroPlan(json);
-
-        // Assert
-        actualPlan.Should().BeNull();
-    }
-
-    [Fact]
-    public void ExtractMesoWeek_WithMesoWeekKey_ReturnsElement()
-    {
-        // Arrange
-        var json = JsonDocument.Parse("""
-            {
-              "mesoWeek": { "weekNumber": 1 }
-            }
-            """).RootElement;
-
-        // Act
-        var actualWeek = EvalTestBase.ExtractMesoWeek(json);
-
-        // Assert
-        actualWeek.Should().NotBeNull();
-        actualWeek!.Value.GetProperty("weekNumber").GetInt32().Should().Be(1);
-    }
-
-    [Fact]
-    public void ExtractMesoWeek_WithWeekTemplateKey_ReturnsElement()
-    {
-        // Arrange
-        var json = JsonDocument.Parse("""
-            {
-              "weekTemplate": { "weekNumber": 2 }
-            }
-            """).RootElement;
-
-        // Act
-        var actualWeek = EvalTestBase.ExtractMesoWeek(json);
-
-        // Assert
-        actualWeek.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void ExtractMicroWorkouts_WithWorkoutsKey_ReturnsElement()
-    {
-        // Arrange
-        var json = JsonDocument.Parse("""
-            {
-              "microWorkouts": [
-                { "date": "2026-03-22", "type": "easy" },
-                { "date": "2026-03-24", "type": "tempo" }
-              ]
-            }
-            """).RootElement;
-
-        // Act
-        var actualWorkouts = EvalTestBase.ExtractMicroWorkouts(json);
-
-        // Assert
-        actualWorkouts.Should().NotBeNull();
-        actualWorkouts!.Value.GetArrayLength().Should().Be(2);
-    }
-
-    [Fact]
-    public void ExtractMicroWorkouts_WithSnakeCaseKey_ReturnsElement()
-    {
-        // Arrange
-        var json = JsonDocument.Parse("""
-            {
-              "micro_workouts": [{ "date": "2026-03-22" }]
-            }
-            """).RootElement;
-
-        // Act
-        var actualWorkouts = EvalTestBase.ExtractMicroWorkouts(json);
-
-        // Assert
-        actualWorkouts.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void GetOutputDirectory_ReturnsPathContainingPoc1EvalResults()
-    {
-        // Arrange & Act
-        var actualDir = EvalTestBase.GetOutputDirectory();
-
-        // Assert
-        actualDir.Should().EndWith("poc1-eval-results");
-        actualDir.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Fact]
     public void LoadProfile_AllFiveProfiles_LoadSuccessfully()
     {
         // Arrange
@@ -303,7 +139,18 @@ public class EvalTestBaseTests
     }
 
     [Fact]
-    public void WriteEvalResult_WritesJsonFile()
+    public void GetOutputDirectory_ReturnsPathContainingPoc1EvalResults()
+    {
+        // Arrange & Act
+        var actualDir = EvalTestBase.GetOutputDirectory();
+
+        // Assert
+        actualDir.Should().EndWith("poc1-eval-results");
+        actualDir.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task WriteEvalResultAsync_WritesJsonFile()
     {
         // Arrange
         var scenarioName = $"test-write-{Guid.NewGuid():N}";
@@ -312,45 +159,14 @@ public class EvalTestBaseTests
         try
         {
             // Act
-            EvalTestBase.WriteEvalResult(scenarioName, testData);
+            await EvalTestBase.WriteEvalResultAsync(scenarioName, testData);
 
             // Assert
             var outputPath = Path.Combine(EvalTestBase.GetOutputDirectory(), $"{scenarioName}.json");
             File.Exists(outputPath).Should().BeTrue();
 
-            var content = File.ReadAllText(outputPath);
+            var content = await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken);
             content.Should().Contain("test eval output");
-        }
-        finally
-        {
-            // Cleanup
-            var outputPath = Path.Combine(EvalTestBase.GetOutputDirectory(), $"{scenarioName}.json");
-            if (File.Exists(outputPath))
-            {
-                File.Delete(outputPath);
-            }
-        }
-    }
-
-    [Fact]
-    public void WriteEvalResult_WithMetadata_WritesCompleteFile()
-    {
-        // Arrange
-        var scenarioName = $"test-metadata-{Guid.NewGuid():N}";
-
-        try
-        {
-            // Act
-            EvalTestBase.WriteEvalResult(scenarioName, "lee", "Sample LLM response text", 5000);
-
-            // Assert
-            var outputPath = Path.Combine(EvalTestBase.GetOutputDirectory(), $"{scenarioName}.json");
-            File.Exists(outputPath).Should().BeTrue();
-
-            var content = File.ReadAllText(outputPath);
-            content.Should().Contain("lee");
-            content.Should().Contain("Sample LLM response text");
-            content.Should().Contain("5000");
         }
         finally
         {

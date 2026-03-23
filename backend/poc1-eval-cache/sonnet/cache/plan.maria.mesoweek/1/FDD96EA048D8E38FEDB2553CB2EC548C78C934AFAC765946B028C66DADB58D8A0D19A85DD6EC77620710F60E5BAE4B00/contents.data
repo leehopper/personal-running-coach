@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long easy run at 5:22–5:56/km. Keep effort conversational throughout. This is your aerobic anchor for the week — no heroics, just steady time on feet up to 120 min.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. You've earned it after the long run. Sleep, hydrate, and let the adaptation begin.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run, 8 km at 5:39–5:56/km. Legs may feel heavy from Sunday — that's normal. Keep it genuinely easy; this run exists to flush fatigue, not add fitness.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Interval\",\"notes\":\"Interval session: 2 km warm-up, 5×1 km at 4:11/km with 400 m jog recovery, ~1.6 km cool-down (~10 km total). Your sharpest session of the week — controlled effort, not a race. If a rep feels off, back off rather than push through.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 6 km at 5:39–5:56/km. This is a recovery buffer between your hard day and tomorrow's tempo. Keep it easy and short — purpose is active recovery, not fitness.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Tempo run: 2 km warm-up, 8 km at threshold pace 4:28/km, 2 km cool-down (~12 km total). Comfortably hard — you should be able to speak in short phrases but not hold a conversation. Consistent effort matters more than hitting splits perfectly.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 8 km at 5:22–5:56/km. Finish the week on your feet without digging a hole. Relaxed, conversational effort — a good chance to reflect on how the week felt.\"}],\"week_summary\":\"Welcome to your maintenance plan, Maria. This first week mirrors what your recent training history shows you're already handling well — around 55 km with a long run, one interval session, one tempo, and easy volume filling the rest. The goal here isn't to build anything new; it's to preserve the excellent aerobic base and race-sharpened fitness you've built over the past year. Your VDOT of 46.7 reflects a genuinely strong fitness level, and the paces here — easy at 5:22–5:56/km, threshold at 4:28/km, intervals at 4:11/km — are calibrated precisely to keep you in that zone without pushing you into a build cycle you haven't asked for. One thing worth noting: your Achilles history means we'll keep a close eye on total load and never redistribute missed mileage onto other days. If anything feels off in that left Achilles, that's always worth flagging before we continue. How does this structure feel compared to what you've been doing?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 2690,
+    "outputTokenCount": 809,
+    "totalTokenCount": 3499
+  }
+}

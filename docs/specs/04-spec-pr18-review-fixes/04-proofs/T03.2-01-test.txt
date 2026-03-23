@@ -1,0 +1,27 @@
+Type: test
+Command: dotnet test --filter "FullyQualifiedName~YamlPromptStoreTests"
+Expected: All YamlPromptStore tests pass including new race condition and cache key validation tests
+Timestamp: 2026-03-22T20:27:57Z
+
+Output:
+  Passed! - Failed: 0, Passed: 293, Skipped: 0, Total: 293, Duration: 267ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+
+New tests added:
+  - GetPromptAsync_IdContainsDoubleColon_ThrowsArgumentException
+  - GetPromptAsync_VersionContainsDoubleColon_ThrowsArgumentException
+  - GetPromptAsync_ConcurrentCalls_ReturnSameInstance
+
+Existing tests still passing:
+  - GetPromptAsync_ValidYaml_ReturnsTemplate
+  - GetPromptAsync_ValidYaml_DeserializesMetadata
+  - GetPromptAsync_MissingFile_Throws
+  - GetPromptAsync_SecondCall_ReturnsCached
+  - GetPromptAsync_NoMetadata_ReturnsNull
+  - GetActiveVersion_Configured_ReturnsVersion
+  - GetActiveVersion_Unconfigured_Throws
+  - ValidateConfiguredVersions_FilesExist_NoThrow
+  - ValidateConfiguredVersions_MissingFile_Throws
+  - GetPromptAsync_EmptyId_Throws
+  - GetPromptAsync_PreservesNewlines
+
+Status: PASS

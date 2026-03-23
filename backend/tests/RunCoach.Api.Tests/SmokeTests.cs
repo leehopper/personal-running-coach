@@ -12,7 +12,7 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
         var client = factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync("/health");
+        var response = await client.GetAsync("/health", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

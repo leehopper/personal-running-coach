@@ -1,0 +1,22 @@
+Type: test
+Description: StructuredOutputTests.cs round-trip serialization tests pass for all record types
+Expected: All 11 tests pass (MacroPlanOutput, MesoWeekOutput, MicroWorkoutListOutput round-trips)
+Timestamp: 2026-03-21T22:55:45Z
+Command: dotnet test --no-build --filter FullyQualifiedName~StructuredOutputTests
+
+Tests:
+  MacroPlanOutput_RoundTrips_ThroughJsonSerialization - PASS
+  MacroPlanOutput_SerializesEnums_AsStrings - PASS
+  MacroPlanOutput_PreservesPhases_AfterRoundTrip - PASS
+  MacroPlanOutput_PreservesPaceValues_AsIntegers - PASS
+  MesoWeekOutput_RoundTrips_WithAllSevenDaySlots - PASS
+  MesoWeekOutput_PreservesDaySlotTypes_AfterRoundTrip - PASS
+  MesoWeekOutput_SerializesEnums_AsStrings - PASS
+  MicroWorkoutListOutput_RoundTrips_WithNestedSegments - PASS
+  MicroWorkoutListOutput_PreservesSegmentTypes_AfterRoundTrip - PASS
+  MicroWorkoutListOutput_PreservesIntensityProfiles_AfterRoundTrip - PASS
+  MicroWorkoutListOutput_SerializesEnums_AsStrings - PASS
+
+Result: Passed - Failed: 0, Passed: 11, Skipped: 0, Total: 11, Duration: 59 ms
+
+Status: PASS

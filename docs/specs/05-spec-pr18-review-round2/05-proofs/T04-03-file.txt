@@ -1,0 +1,10 @@
+Type: file
+Command: grep 'PaceTolerancePercent' backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanConstraintEvaluator.cs
+Expected: Named constant present
+Timestamp: 2026-03-23T00:09:28Z
+Status: PASS
+
+--- Output ---
+21:    public const double PaceTolerancePercent = 0.15;
+158:            var minAllowed = (int)(easyRange.MinPerKm.TotalSeconds * (1.0 - PaceTolerancePercent));
+159:            var maxAllowed = (int)(easyRange.MaxPerKm.TotalSeconds * (1.0 + PaceTolerancePercent));

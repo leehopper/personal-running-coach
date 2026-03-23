@@ -1,0 +1,10 @@
+Type: file
+Command: ls backend/poc1-eval-cache/{sonnet,haiku}/cache/ | wc
+Expected: 17 sonnet + 5 haiku scenario directories with cache entries
+Timestamp: 2026-03-22T00:00:00Z
+
+Sonnet: 17 scenario directories
+Haiku: 5 scenario directories
+Total: 22 cached scenarios
+
+Status: PASS

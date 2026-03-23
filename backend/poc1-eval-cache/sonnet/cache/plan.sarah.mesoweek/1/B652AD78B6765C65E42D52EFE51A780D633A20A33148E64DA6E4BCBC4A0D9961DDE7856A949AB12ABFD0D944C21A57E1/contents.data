@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":15,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week ahead. Gentle walking or stretching is fine if you feel like moving.\"},{\"day_of_week\":1,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 20–25 min at 7:00–8:00 /km. This is your aerobic foundation day — keep it conversational. If you can't hold a sentence, slow down.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or light activity like yoga or walking. Recovery is where adaptation happens — this day is doing real work.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 20–25 min at 7:00–8:00 /km. Same effort as Monday — relaxed, steady, and in control. Notice how your body feels compared to earlier in the week.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. You've done two runs this week — your muscles are quietly rebuilding. Trust the process.\"},{\"day_of_week\":5,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest before your long run tomorrow. A short walk is fine, but save your legs for Saturday.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long run, 30–35 min at 7:00–8:00 /km (approx. 4–5 km). This is your most important run of the week. Go slow, stay easy, and finish feeling like you could have kept going.\"}],\"week_summary\":\"Welcome to Week 1, Sarah! This first week is all about establishing your rhythm with three easy runs that match your current fitness — no heroics needed. The goal is simply to run consistently at a comfortable, conversational effort. All three runs stay in your easy pace zone (7:00–8:00 /km), which builds your aerobic base without overloading your body. At 15 km total, this mirrors what you're already doing, so it should feel manageable. The most important thing this week isn't pace or distance — it's showing up and finishing each run feeling good. What does your schedule look like for fitting these in?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 2083,
+    "outputTokenCount": 594,
+    "totalTokenCount": 2677
+  }
+}

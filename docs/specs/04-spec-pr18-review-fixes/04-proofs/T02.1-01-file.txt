@@ -1,0 +1,30 @@
+Type: file
+Description: Verify all 17 experiment source files deleted
+Timestamp: 2026-03-22T00:00:00Z
+
+Command: ls backend/src/RunCoach.Api/Modules/Coaching/Experiments/ 2>&1
+Expected: Directory should not exist
+
+Output:
+"backend/src/RunCoach.Api/Modules/Coaching/Experiments/": No such file or directory (os error 2)
+
+Deleted files (17):
+  ConversationHistoryObservations.cs
+  CrossValidationObservations.cs
+  ExperimentAnalysis.cs
+  ExperimentCategory.cs
+  ExperimentConfig.cs
+  ExperimentContextAssembler.cs
+  ExperimentExecutor.cs
+  ExperimentResult.cs
+  ExperimentRunner.cs
+  ExperimentSuiteResult.cs
+  ExperimentVariations.cs
+  PositionalPlacementObservations.cs
+  ProfilePlacement.cs
+  SampleConversations.cs
+  SummarizationLevelObservations.cs
+  SummarizationMode.cs
+  TokenBudgetObservations.cs
+
+Status: PASS

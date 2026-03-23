@@ -1,0 +1,22 @@
+Type: file
+Command: git diff backend/src/RunCoach.Api/Modules/Coaching/Prompts/YamlPromptStore.cs
+Expected: Race condition fix (Lazy<Task<T>> pattern) and cache key validation present
+Timestamp: 2026-03-22T20:27:57Z
+
+Changes verified in YamlPromptStore.cs:
+
+Fix 1 — Race condition (review finding #2):
+  - Line 25: Cache type changed from ConcurrentDictionary<string, PromptTemplate>
+    to ConcurrentDictionary<string, Lazy<Task<PromptTemplate>>>
+  - Lines 76-86: GetPromptAsync now uses _cache.GetOrAdd with Lazy<Task<>> factory
+    instead of TryGetValue + LoadAndCacheAsync + TryAdd
+  - Line 164: LoadAndCacheAsync renamed to LoadAsync (no cacheKey param, no TryAdd)
+  - ConfigureAwait(false) on lazy.Value await
+
+Fix 2 — Cache key validation (review finding #7):
+  - Lines 127-140: BuildCacheKey now validates that neither id nor version
+    contain "::" separator, throwing ArgumentException with descriptive message
+  - Uses StringComparison.Ordinal for correctness
+  - SA1503-compliant with braces on all if-statements
+
+Status: PASS

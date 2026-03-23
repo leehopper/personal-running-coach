@@ -1,0 +1,12 @@
+Type: file
+File: backend/src/RunCoach.Api/Modules/Coaching/Prompts/YamlPromptStore.cs
+Expected: YamlPromptStore.GetPromptAsync contains LogCacheHit call site
+Timestamp: 2026-03-22T19:00:00Z
+
+Grep result (line 92):
+    LogCacheHit(_logger, id, version);
+
+The LogCacheHit call is made when GetOrAdd returns an existing entry (isNewEntry == false),
+indicating a cache hit for an already-loaded prompt template.
+
+Status: PASS

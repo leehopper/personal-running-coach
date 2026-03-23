@@ -18,10 +18,11 @@ public sealed record CoachingLlmSettings
     public string ApiKey { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the Claude model identifier (e.g., "claude-sonnet-4-5-20250514").
-    /// Defaults to the value from coaching-v1.yaml but can be overridden.
+    /// Gets the Claude model identifier for coaching tasks.
+    /// Uses a floating alias by default for automatic upgrades within the family.
+    /// Override with a dated ID (e.g., "claude-sonnet-4-6-20260101") for pinned evals.
     /// </summary>
-    public string ModelId { get; init; } = "claude-sonnet-4-5-20250514";
+    public string ModelId { get; init; } = "claude-sonnet-4-6";
 
     /// <summary>
     /// Gets temperature for generation. Lower values produce more deterministic output.
@@ -47,4 +48,10 @@ public sealed record CoachingLlmSettings
     /// to accommodate longer plan generation responses.
     /// </summary>
     public int TimeoutSeconds { get; init; } = 120;
+
+    /// <summary>
+    /// Gets the model identifier for LLM-as-judge calls (safety rubric evaluation).
+    /// Uses Haiku 4.5 floating alias for cost-effective judging (~$0.0015/eval).
+    /// </summary>
+    public string JudgeModelId { get; init; } = "claude-haiku-4-5";
 }

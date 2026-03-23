@@ -1,0 +1,14 @@
+Type: cli
+Description: Verify dotnet build passes after deletion (no dangling references)
+Command: dotnet build backend/RunCoach.slnx --verbosity quiet
+Expected: Build succeeded with 0 warnings and 0 errors
+Timestamp: 2026-03-22T00:00:00Z
+
+Output:
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.37
+
+Status: PASS

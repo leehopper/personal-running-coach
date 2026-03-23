@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
+using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Profiles;
 
 namespace RunCoach.Poc1.Console;
@@ -56,7 +57,7 @@ public static partial class Program
 
         LogGeneratingPlan(logger, profileName!, promptVersion!);
 
-        // Assemble context.
+        // Assemble context using YAML-loaded prompts.
         var assembler = host.Services.GetRequiredService<IContextAssembler>();
 
         var input = new ContextAssemblerInput(
@@ -68,7 +69,7 @@ public static partial class Program
             ImmutableArray<ConversationTurn>.Empty,
             BuildUserMessage(profile, promptVersion!));
 
-        var assembled = assembler.Assemble(input);
+        var assembled = await assembler.AssembleAsync(input).ConfigureAwait(false);
 
         var sectionCount = assembled.StartSections.Length
             + assembled.MiddleSections.Length
@@ -172,6 +173,13 @@ public static partial class Program
     {
         var builder = Host.CreateApplicationBuilder(args);
 
+        // Set content root to the application's base directory so that
+        // appsettings.json and Prompts/*.yaml files (copied to output during build)
+        // are found regardless of the current working directory.
+        builder.Environment.ContentRootPath = AppContext.BaseDirectory;
+        builder.Configuration.SetBasePath(AppContext.BaseDirectory);
+        builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
+
         // Add user-secrets in development.
         builder.Configuration.AddUserSecrets<AssemblyMarker>(optional: true);
 
@@ -179,7 +187,12 @@ public static partial class Program
         builder.Services.Configure<CoachingLlmSettings>(
             builder.Configuration.GetSection(CoachingLlmSettings.SectionName));
 
-        // Register services.
+        // Bind prompt store settings.
+        builder.Services.Configure<PromptStoreSettings>(
+            builder.Configuration.GetSection(PromptStoreSettings.SectionName));
+
+        // Register prompt store and context assembler with YAML support.
+        builder.Services.AddSingleton<IPromptStore, YamlPromptStore>();
         builder.Services.AddSingleton<IContextAssembler, ContextAssembler>();
         builder.Services.AddSingleton<ICoachingLlm, ClaudeCoachingLlm>();
 
