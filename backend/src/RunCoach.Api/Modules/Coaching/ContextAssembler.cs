@@ -386,32 +386,30 @@ public sealed class ContextAssembler : IContextAssembler
             sb.AppendLine(CultureInfo.InvariantCulture, $"Current long run: {profile.CurrentLongRunKm.Value} km");
         }
 
-        if (profile.WeightKg.HasValue)
+        if (profile.WeightKg.HasValue && profile.HeightCm.HasValue)
         {
-            sb.Append(CultureInfo.InvariantCulture, $"Weight: {profile.WeightKg.Value} kg");
-        }
-
-        if (profile.HeightCm.HasValue)
-        {
-            sb.AppendLine(CultureInfo.InvariantCulture, $" | Height: {profile.HeightCm.Value} cm");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Weight: {profile.WeightKg.Value} kg | Height: {profile.HeightCm.Value} cm");
         }
         else if (profile.WeightKg.HasValue)
         {
-            sb.AppendLine();
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Weight: {profile.WeightKg.Value} kg");
+        }
+        else if (profile.HeightCm.HasValue)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Height: {profile.HeightCm.Value} cm");
         }
 
-        if (profile.RestingHeartRateAvg.HasValue)
+        if (profile.RestingHeartRateAvg.HasValue && profile.MaxHeartRate.HasValue)
         {
-            sb.Append(CultureInfo.InvariantCulture, $"Resting HR: {profile.RestingHeartRateAvg.Value} bpm");
-        }
-
-        if (profile.MaxHeartRate.HasValue)
-        {
-            sb.AppendLine(CultureInfo.InvariantCulture, $" | Max HR: {profile.MaxHeartRate.Value} bpm");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Resting HR: {profile.RestingHeartRateAvg.Value} bpm | Max HR: {profile.MaxHeartRate.Value} bpm");
         }
         else if (profile.RestingHeartRateAvg.HasValue)
         {
-            sb.AppendLine();
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Resting HR: {profile.RestingHeartRateAvg.Value} bpm");
+        }
+        else if (profile.MaxHeartRate.HasValue)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Max HR: {profile.MaxHeartRate.Value} bpm");
         }
 
         if (profile.RecentRaceTimes.Length > 0)
