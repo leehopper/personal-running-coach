@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":9,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the work from the week prior. Gentle foot mobility or calf stretching is fine if it feels good.\"},{\"day_of_week\":1,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20-min easy run at 5:58/km. This is your re-entry run for the week — keep it conversational and listen to your foot. If stiffness appears in the first 5 min, walk until it resolves, then resume easy running.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Your plantar fascia recovers overnight and between sessions — this gap between Monday and Wednesday is intentional and important.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20-min easy run at 5:58/km. Mid-week check-in run. Same approach as Monday — walk breaks are a tool, not a setback. Notice how your foot feels compared to Monday.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Two days before your long run — keep your foot fresh and avoid prolonged standing if possible.\"},{\"day_of_week\":5,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Optional light cross-training: swimming, cycling, or pool running for 20–30 min if you feel good. Zero impact on the foot. Skip entirely if you feel any foot fatigue — this is bonus, not required.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Saturday long run — 20 min easy at 5:58/km. Same cap as your other runs this week. The 'long run' label here is about consistency and routine-building, not distance. Walk breaks welcome. Celebrate finishing three runs this week.\"}],\"week_summary\":\"Welcome back, James. This first week is about re-establishing a consistent 3-day rhythm at the easy pace your physio has cleared you for — 20 minutes at 5:58/km. Your recent training shows you've been handling this load well, with only minor foot stiffness that resolves mid-run, which is a genuinely encouraging sign. The total target of around 9 km keeps you close to your recent volume without pushing beyond it. Every run this week has a walk-break permission built in — not as a fallback, but as a smart tool for managing plantar fascia load. No speed work, no progression pressure. The goal this week is simple: three comfortable runs, foot feeling good, body feeling confident. How does this structure feel for your week?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 2399,
+    "outputTokenCount": 675,
+    "totalTokenCount": 3074
+  }
+}

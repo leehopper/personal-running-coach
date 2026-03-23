@@ -1020,4 +1020,31 @@ Use undated floating alias model IDs as defaults: `claude-sonnet-4-6` for coachi
 
 ---
 
+## DEC-039: Eval cache TTL strategy — post-process entry.json for committed fixtures
+
+**Date:** 2026-03-22
+**Status:** Final
+**Category:** Testing / CI Infrastructure
+**Informed by:** R-017 (eval cache TTL research — batch-8a-eval-cache-ttl-ci.md)
+
+**Decision:** Post-process `entry.json` files to set a far-future expiration (9999-12-31) before committing eval cache fixtures to git. M.E.AI's `DiskBasedReportingConfiguration` hardcodes a 14-day absolute TTL with no public API to change it. Committed fixtures need indefinite validity for CI replay.
+
+**Implementation:**
+1. After recording eval cache scenarios locally, run a script that rewrites all `entry.json` files in `poc1-eval-cache/` to set `"expiration": "9999-12-31T23:59:59Z"`
+2. CI runs in `EVAL_CACHE_MODE=Replay` with `ReplayGuardChatClient` — any cache miss throws immediately (fail-fast, never silent)
+3. Cache keys are deterministic (hash of messages + options + model ID) — prompt changes automatically produce clean misses, never stale hits
+4. Re-record fixtures when: prompts change, model version changes, or quarterly as a drift check
+
+**Rationale:** The research identified four approaches: (1) `IDistributedCache` decorator that strips expiration, (2) post-process `entry.json` before committing, (3) CI-side timestamp refresh script, (4) custom fixture-serving `IChatClient`. Approach 2 was chosen for pragmatism — it's the simplest solution, requires no changes to the M.E.AI pipeline, and the internal file format (`entry.json` with `creation`/`expiration` fields) is stable and well-understood. The 14-day TTL remains correct for local development (where expired entries transparently refresh from the LLM). Only committed fixtures need the far-future expiration.
+
+**Why not Approach 1 (IDistributedCache decorator):** Architecturally cleaner but requires either reflection or building a custom `ReportingConfiguration` from lower-level APIs since `DiskBasedReportingConfiguration.Create()` constructs the cache internally. Disproportionate effort for the problem. Can upgrade to this approach if M.E.AI exposes a `cacheEntryLifetime` parameter in a future version.
+
+**Why not Approach 3 (CI-side refresh):** Modifies cache files at runtime in CI, creating divergence between committed files and what tests see. Makes debugging harder.
+
+**Why not Approach 4 (custom fixture client):** Loses integration with M.E.AI's reporting and evaluation pipeline. Too much custom infrastructure for a problem with a simple fix.
+
+**Future:** File a feature request on dotnet/extensions asking for a `TimeSpan? cacheEntryLifetime` parameter on `DiskBasedReportingConfiguration.Create()` or a `Timeout.InfiniteTimeSpan` sentinel to disable expiration.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

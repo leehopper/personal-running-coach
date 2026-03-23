@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":60,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"24 km easy long run at 5:04–5:34/km. Keep effort conversational throughout — this is your aerobic foundation day. No need to push; consistency at easy pace builds the engine.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Recovery is where adaptation happens — treat this as active investment in Sunday's effort.\"},{\"day_of_week\":2,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Optional light cross-training (yoga, swimming, cycling) for 30–45 min if energy allows. Keep it easy and enjoyable.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"12 km total: 3 km warm-up at easy pace, 6 km at threshold pace (4:12/km), 3 km cool-down. Threshold work builds your lactate ceiling — the physiological key to marathon pace sustainability.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Let Thursday's tempo effort absorb before your quality session on Friday.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Interval\",\"notes\":\"14 km total: 3 km warm-up, 6×1 km at interval pace (3:54/km) with 400 m jog recovery, 2 km cool-down. VO2max intervals raise your aerobic ceiling and make marathon pace feel more manageable over time.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"10 km easy at 5:04–5:34/km. A relaxed aerobic run to accumulate volume without adding stress. If legs feel heavy from Friday, dial back to the slower end of the range.\"}],\"week_summary\":\"Welcome to Week 1, Priya — and what a foundation you're bringing into this block. Your recent training shows you're already handling 60 km weeks with quality work woven in, which means we can build purposefully rather than cautiously. This first week mirrors your current load to establish a reliable rhythm across your 4-day schedule before we start layering in marathon-specific stimulus. The structure is: long run Sunday, tempo Thursday, intervals Friday, easy Saturday. Every week will follow this skeleton, with the workouts evolving as your fitness does. The goal right now is consistency and confidence — you're 24 weeks out from race day, and there's plenty of time to build something special.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 2563,
+    "outputTokenCount": 651,
+    "totalTokenCount": 3214
+  }
+}
