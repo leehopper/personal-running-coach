@@ -191,8 +191,14 @@ public static partial class Program
         builder.Services.Configure<PromptStoreSettings>(
             builder.Configuration.GetSection(PromptStoreSettings.SectionName));
 
-        // Register prompt store and context assembler with YAML support.
-        builder.Services.AddSingleton<IPromptStore, YamlPromptStore>();
+        // Register prompt store with explicit base path (console app has no IWebHostEnvironment).
+        builder.Services.AddSingleton<IPromptStore>(sp =>
+        {
+            var settings = sp.GetRequiredService<IOptions<PromptStoreSettings>>().Value;
+            var basePath = Path.Combine(AppContext.BaseDirectory, settings.BasePath);
+            var logger = sp.GetRequiredService<ILogger<YamlPromptStore>>();
+            return new YamlPromptStore(settings, basePath, logger);
+        });
         builder.Services.AddSingleton<IContextAssembler, ContextAssembler>();
         builder.Services.AddSingleton<ICoachingLlm, ClaudeCoachingLlm>();
 
