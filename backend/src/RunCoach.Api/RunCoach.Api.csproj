@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="RunCoach.Api.Tests" />
+    <InternalsVisibleTo Include="RunCoach.Poc1.Console" />
   </ItemGroup>
 
   <ItemGroup>

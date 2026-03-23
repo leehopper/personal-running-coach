@@ -194,10 +194,12 @@ public static partial class Program
         // Register prompt store with explicit base path (console app has no IWebHostEnvironment).
         builder.Services.AddSingleton<IPromptStore>(sp =>
         {
-            var settings = sp.GetRequiredService<IOptions<PromptStoreSettings>>().Value;
-            var basePath = Path.Combine(AppContext.BaseDirectory, settings.BasePath);
+            var storeSettings = sp.GetRequiredService<IOptions<PromptStoreSettings>>().Value;
+            var basePath = Path.Combine(AppContext.BaseDirectory, storeSettings.BasePath);
             var logger = sp.GetRequiredService<ILogger<YamlPromptStore>>();
-            return new YamlPromptStore(settings, basePath, logger);
+            var store = new YamlPromptStore(storeSettings, basePath, logger);
+            store.ValidateConfiguredVersions();
+            return store;
         });
         builder.Services.AddSingleton<IContextAssembler, ContextAssembler>();
         builder.Services.AddSingleton<ICoachingLlm, ClaudeCoachingLlm>();
