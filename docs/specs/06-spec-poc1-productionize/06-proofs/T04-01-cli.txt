@@ -1,0 +1,93 @@
+Type: cli
+Command: grep -r 'Poc1.Console' backend/
+Expected: no matches
+Timestamp: 2026-03-24T04:18:59Z
+---
+CLAUDE.md:Poc1.Console               # .NET API (has its own CLAUDE.md)
+lefthook.yml:      root: "Poc1.Console"
+lefthook.yml:      root: "Poc1.Console"
+README.md:Poc1.Console               # .NET 10 API (ASP.NET Core, EF Core, Marten, Wolverine)
+ROADMAP.md:- Restructured repo from planning-only to monorepo layout (docs/ + Poc1.Console + frontend/)
+ROADMAP.md:- Created context infrastructure: CLAUDE.md (root, 87 lines), ROADMAP.md, Poc1.ConsoleCLAUDE.md, frontend/CLAUDE.md
+ROADMAP.md:- Created codecov.yml with 60% project / 70% patch thresholds, Poc1.Consolefrontend flags with carryforward
+backend/CLAUDE.md:Poc1.Console
+backend/CLAUDE.md:Run from `Poc1.Console`:
+codecov.yml:      - Poc1.Console
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    Given the file "Poc1.Consolesrc/RunCoach.Api/Modules/Training/Profiles/TestProfiles.cs" exists in production source
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    When the developer moves TestProfiles.cs to "Poc1.Consoletests/RunCoach.Api.Tests/Modules/Training/Profiles/TestProfiles.cs"
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    Then the file "Poc1.Consoletests/RunCoach.Api.Tests/Modules/Training/Profiles/TestProfiles.cs" contains "namespace RunCoach.Api.Tests.Modules.Training.Profiles"
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    And the file "Poc1.Consolesrc/RunCoach.Api/Modules/Training/Profiles/TestProfiles.cs" no longer exists
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    Given the file "Poc1.Consolesrc/RunCoach.Api/Modules/Training/Profiles/TestProfile.cs" exists in production source
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    When the developer moves TestProfile.cs to "Poc1.Consoletests/RunCoach.Api.Tests/Modules/Training/Profiles/TestProfile.cs"
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    Then the file "Poc1.Consoletests/RunCoach.Api.Tests/Modules/Training/Profiles/TestProfile.cs" contains "namespace RunCoach.Api.Tests.Modules.Training.Profiles"
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    And the file "Poc1.Consolesrc/RunCoach.Api/Modules/Training/Profiles/TestProfile.cs" no longer exists
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    When the developer searches for "TestProfiles" or "TestProfile" under "Poc1.Consolesrc/"
+docs/specs/06-spec-poc1-productionize/relocate-testprofiles-to-test-project.feature:    When the developer runs "dotnet test Poc1.ConsoleRunCoach.slnx"
+docs/decisions/decision-log.md:**Decision:** The project will be a monorepo. Current planning docs (running-app-org/) become the repo root. Planning docs live in `docs/` alongside application code in `Poc1.Console` and `frontend/`. No separate docs repo.
+docs/decisions/decision-log.md:- `dotnet format` on staged .cs files (Poc1.Console, --no-restore)
+docs/decisions/decision-log.md:| .NET coding standards, EF Core patterns, module structure, testing | `Poc1.ConsoleCLAUDE.md` | Read when working in Poc1.Console |
+docs/specs/06-spec-poc1-productionize/06-proofs/T02-proofs.md:| 2 | CLI | `grep TestProfiles Poc1.Consolesrc/` → no matches | PASS |
+docs/specs/06-spec-poc1-productionize/06-proofs/T02-02-cli.txt:Command: grep -r 'TestProfiles|TestProfile' Poc1.Consolesrc/
+docs/specs/06-spec-poc1-productionize/06-proofs/T02-03-cli.txt:Command: dotnet test Poc1.ConsoleRunCoach.slnx
+docs/specs/06-spec-poc1-productionize/06-proofs/T02-01-file.txt:Command: head -3 Poc1.Consoletests/RunCoach.Api.Tests/Modules/Training/Profiles/TestProfiles.cs
+docs/specs/06-spec-poc1-productionize/06-proofs/T03-03-cli.txt:Command: dotnet build Poc1.ConsoleRunCoach.slnx
+backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/EvalTestBase.cs:///     <c>find Poc1.Consolepoc1-eval-cache -name "entry.json" -exec python3 -c "..." {} \;</c>
+backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/EvalTestBase.cs:///   <item>Commit the updated cache directory: <c>git add Poc1.Consolepoc1-eval-cache/</c></item>
+docs/specs/06-spec-poc1-productionize/06-proofs/T01-03-cli.txt:Command: dotnet build Poc1.ConsoleRunCoach.slnx
+docs/specs/06-spec-poc1-productionize/06-proofs/T01-proofs.md:| 2 | CLI | `ls Poc1.Consolesrc/RunCoach.Poc1.Console/` → No such file or directory | PASS |
+docs/specs/06-spec-poc1-productionize/06-proofs/T01-proofs.md:| 3 | CLI | `dotnet build Poc1.ConsoleRunCoach.slnx` → Build succeeded, 0 warnings | PASS |
+docs/specs/06-spec-poc1-productionize/06-proofs/T03-01-cli.txt:Command: ls Poc1.Consolesrc/RunCoach.Api/Prompts/
+docs/specs/06-spec-poc1-productionize/06-proofs/T01-02-cli.txt:Command: ls Poc1.Consolesrc/RunCoach.Poc1.Console/
+docs/specs/06-spec-poc1-productionize/tag-and-remove-poc-console-app.feature:    When the developer deletes the "Poc1.Consolesrc/RunCoach.Poc1.Console/" directory
+docs/specs/06-spec-poc1-productionize/tag-and-remove-poc-console-app.feature:    Then listing "Poc1.Consolesrc/RunCoach.Poc1.Console/" returns "No such file or directory"
+docs/specs/06-spec-poc1-productionize/tag-and-remove-poc-console-app.feature:    When the developer removes the RunCoach.Poc1.Console project entry from "Poc1.ConsoleRunCoach.slnx"
+docs/specs/06-spec-poc1-productionize/tag-and-remove-poc-console-app.feature:    Then the contents of "Poc1.ConsoleRunCoach.slnx" contain no reference to "RunCoach.Poc1.Console"
+docs/specs/06-spec-poc1-productionize/tag-and-remove-poc-console-app.feature:    When the developer removes the InternalsVisibleTo Include for RunCoach.Poc1.Console from "Poc1.Consolesrc/RunCoach.Api/RunCoach.Api.csproj"
+docs/specs/06-spec-poc1-productionize/tag-and-remove-poc-console-app.feature:    Then the contents of "Poc1.Consolesrc/RunCoach.Api/RunCoach.Api.csproj" contain no reference to "RunCoach.Poc1.Console"
+docs/specs/06-spec-poc1-productionize/tag-and-remove-poc-console-app.feature:    When the developer runs "dotnet build Poc1.ConsoleRunCoach.slnx"
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- The system shall delete the entire `Poc1.Consolesrc/RunCoach.Poc1.Console/` directory (4 files: `Program.cs`, `AssemblyMarker.cs`, `RunCoach.Poc1.Console.csproj`, `appsettings.json`)
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- The system shall remove the `RunCoach.Poc1.Console` project entry from `Poc1.ConsoleRunCoach.slnx`
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- The system shall remove the `<InternalsVisibleTo Include="RunCoach.Poc1.Console" />` line from `Poc1.Consolesrc/RunCoach.Api/RunCoach.Api.csproj`
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- CLI: `ls Poc1.Consolesrc/RunCoach.Poc1.Console/` returns "No such file or directory" — demonstrates deletion
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- CLI: `dotnet build Poc1.ConsoleRunCoach.slnx` returns success with 0 warnings — demonstrates clean build
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- The system shall move `Poc1.Consolesrc/RunCoach.Api/Modules/Training/Profiles/TestProfiles.cs` to `Poc1.Consoletests/RunCoach.Api.Tests/Modules/Training/Profiles/TestProfiles.cs`
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- The system shall move `Poc1.Consolesrc/RunCoach.Api/Modules/Training/Profiles/TestProfile.cs` to `Poc1.Consoletests/RunCoach.Api.Tests/Modules/Training/Profiles/TestProfile.cs`
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- The system shall verify no source files under `Poc1.Consolesrc/` reference the `TestProfiles` or `TestProfile` types
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- File: `Poc1.Consoletests/RunCoach.Api.Tests/Modules/Training/Profiles/TestProfiles.cs` exists with namespace `RunCoach.Api.Tests.Modules.Training.Profiles`
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- CLI: `grep -r "TestProfiles\|TestProfile" Poc1.Consolesrc/` returns no matches — demonstrates no production references remain
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- CLI: `dotnet test Poc1.ConsoleRunCoach.slnx` passes all tests — demonstrates no regressions
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- The system shall delete the following experiment prompt YAML files from `Poc1.Consolesrc/RunCoach.Api/Prompts/`:
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- CLI: `ls Poc1.Consolesrc/RunCoach.Api/Prompts/` shows exactly 5 production prompt files
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- CLI: `dotnet build Poc1.ConsoleRunCoach.slnx` returns success — demonstrates no broken references
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- The system shall verify no source files under `Poc1.Consolesrc/` contain `TestProfiles` or `TestProfile` references
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- CLI: `dotnet test Poc1.ConsoleRunCoach.slnx` passes all tests with 0 failures
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- CLI: `grep -r "Poc1.Console" Poc1.Console` returns no matches — demonstrates complete removal
+docs/specs/06-spec-poc1-productionize/06-spec-poc1-productionize.md:- Zero references to `TestProfiles` remain under `Poc1.Consolesrc/`
+docs/plans/setup-steps-3-4-handoff.md:**Prerequisites:** Steps 1-2 are complete. The repo has CLAUDE.md, ROADMAP.md, Poc1.ConsoleCLAUDE.md, frontend/CLAUDE.md, .claude/rules/, .claude/commands/, and .claude/settings.json. Planning docs are under docs/.
+docs/plans/setup-steps-3-4-handoff.md:Create the .NET solution inside `Poc1.Console`:
+docs/plans/setup-steps-3-4-handoff.md:After scaffolding, configure the project to match the conventions in `Poc1.ConsoleCLAUDE.md`:
+docs/plans/setup-steps-3-4-handoff.md:**Verify:** `dotnet build Poc1.ConsoleRunCoach.sln` succeeds with zero warnings. `dotnet test Poc1.ConsoleRunCoach.sln` passes.
+docs/plans/setup-steps-3-4-handoff.md:5. **api** — .NET API (build from Poc1.ConsoleDockerfile)
+docs/plans/setup-steps-3-4-handoff.md:**Poc1.ConsoleDockerfile** (multi-stage):
+docs/plans/setup-steps-3-4-handoff.md:- [ ] `dotnet build Poc1.ConsoleRunCoach.sln` — zero warnings
+docs/plans/setup-steps-3-4-handoff.md:- [ ] `dotnet test Poc1.ConsoleRunCoach.sln` — smoke test passes
+docs/plans/setup-steps-3-4-handoff.md:    - path: "Poc1.Console**"
+docs/plans/setup-steps-3-4-handoff.md:      instructions: "Review for .NET 10 / C# 14 best practices, EF Core patterns, and adherence to the module-first architecture described in Poc1.ConsoleCLAUDE.md."
+docs/plans/setup-steps-3-4-handoff.md:**Backend job (runs when Poc1.Console changes):**
+docs/specs/06-spec-poc1-productionize/remove-poc-experiment-artifacts.feature:    Given the following files exist under "Poc1.Consolesrc/RunCoach.Api/Prompts/":
+docs/specs/06-spec-poc1-productionize/remove-poc-experiment-artifacts.feature:    Then listing "Poc1.Consolesrc/RunCoach.Api/Prompts/" does not include any of those four filenames
+docs/specs/06-spec-poc1-productionize/remove-poc-experiment-artifacts.feature:    When the developer lists files in "Poc1.Consolesrc/RunCoach.Api/Prompts/"
+docs/specs/06-spec-poc1-productionize/remove-poc-experiment-artifacts.feature:    When the developer runs "dotnet build Poc1.ConsoleRunCoach.slnx"
+docs/specs/06-spec-poc1-productionize/final-verification-and-roadmap-update.feature:    When the developer runs "dotnet test Poc1.ConsoleRunCoach.slnx"
+docs/specs/06-spec-poc1-productionize/final-verification-and-roadmap-update.feature:    When the developer searches the entire "Poc1.Console" directory for "RunCoach.Poc1.Console"
+docs/specs/06-spec-poc1-productionize/final-verification-and-roadmap-update.feature:    When the developer searches "Poc1.Consolesrc/" for "TestProfiles" or "TestProfile"
+docs/plans/quality-pipeline-private-repo.md:      root: "Poc1.Console"
+docs/plans/quality-pipeline-private-repo.md:      root: "Poc1.Console"
+docs/plans/quality-pipeline-private-repo.md:      - Poc1.Console
+docs/plans/quality-pipeline-private-repo.md:1. `dotnet build Poc1.ConsoleRunCoach.slnx` — zero warnings
+docs/research/artifacts/batch-1-claude-code-workflow.md:│   └── Poc1.Console
+docs/research/artifacts/batch-5-ai-pr-review-quality-tool.md:      root: "Poc1.Console"
+docs/research/artifacts/batch-5-ai-pr-review-quality-tool.md:      run: dotnet format Poc1.ConsoleRunCoach.sln --include {staged_files} --no-restore
+docs/research/artifacts/batch-5-ai-pr-review-quality-tool.md:      root: "Poc1.Console"
+---
+Status: PASS

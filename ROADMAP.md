@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: POC 1 — PR #18 Merged, PR #17 Ready for Final Review
+## Current Phase: POC 1 Productionized — Ready to Merge
 
-POC 1 complete on `feature/poc1-context-injection-v2` (PR #17). Eval refactor branch merged (PR #18). All review fixes applied, CI passing with 290 tests in Replay mode. Ready for final review of PR #17 → main.
+POC 1 productionized on `feature/poc1-context-injection-v2`. POC scaffolding removed (console app, experiment prompts, spec artifacts). TestProfiles relocated to test project. Production code ready to merge to `main`. Tag `poc1-complete` preserves full POC history.
 
 ### Setup Steps
 
@@ -116,13 +116,13 @@ POC 1 complete on `feature/poc1-context-injection-v2` (PR #17). Eval refactor br
 - Removed `ParseCacheMode` null test case that conflicted with `EVAL_CACHE_MODE` env var in CI
 - Research: R-018 (xUnit v3 MTP filtering) — `coverlet.MTP` incompatible with xUnit v3's bundled MTP 1.x, staying on `coverlet.msbuild`
 
-**Branch status:** `feature/poc1-context-injection-v2` — PR #18 merged. PR #17 open against `main`, ready for final review.
+**Branch status:** `feature/poc1-context-injection-v2` — productionized, POC scaffolding removed, ready to merge to `main`.
 
 ## Next Up
 
-### 1. Merge PR #17 to main
+### 1. Merge to main
 
-PR #17 reviewed (3 review workflows completed). Minor code fixes applied on this branch (password removal, comment fixes, ILogger, formatting, caching). Known data issue (DEC-040: pace table off-by-one from VDOT 50-85) deferred to follow-up PR — does not block merge since the POC is a validation exercise, not production coaching.
+Branch productionized: console app removed, TestProfiles moved to tests, experiment prompts and POC spec artifacts deleted. Tag `poc1-complete` preserves full POC history. 1 pre-existing eval test failure (Lee pace constraint, DEC-040) — does not block merge since the cached LLM response has a marginal pace value that will be resolved by the pace table fix.
 
 ### 2. Post-merge: Daniels pace table fix (DEC-040)
 
@@ -148,7 +148,7 @@ Next POC in the roadmap. Plan file needed.
 
 Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for details.
 
-- **POC 1:** Context injection & plan quality → feeds MVP-0 **(complete — all review fixes done, ready to merge)**
+- **POC 1:** Context injection & plan quality → feeds MVP-0 **(productionized, merging to main)**
 - **POC 2:** Adaptive replanning → feeds MVP-1
 - **POC 3:** Tiered planning efficiency → validates architecture
 - **POC 4:** Interaction flow → validates UX
@@ -173,8 +173,7 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 - `PaceRange` naming: `Fast`/`Slow` instead of `Min`/`Max`
 - See `docs/planning/unit-system-design.md` for full design
 
-**POC 1 cleanup (before promoting patterns to production):**
-- `TestProfiles` in `src/RunCoach.Api/` — move to shared project or test infrastructure
+**POC 1 cleanup (remaining items):**
 - `ContextAssembler` uses `DateTime.UtcNow` directly — inject `TimeProvider` for testability
 - `EvalTestBase` relative path navigation (`"../../../../../"`) — fragile if structure changes
 - `AsIChatClient()` not on `ICoachingLlm` interface — add to interface or mark internal

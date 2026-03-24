@@ -4,7 +4,7 @@ An AI running coach that maintains a persistent adaptive coaching relationship. 
 
 ## Current Status
 
-**Phase: POC 1 complete.** Context injection, plan generation, eval suite with safety assertions, and structured outputs are implemented. See ROADMAP.md for details.
+**Phase: POC 1 productionized.** Context injection, plan generation, eval suite with safety assertions, and structured outputs are implemented and ready for MVP-0 development. See ROADMAP.md for details.
 
 ## Prerequisites
 
@@ -23,19 +23,6 @@ docker compose up -d postgres redis
 # Run the API
 cd backend
 dotnet run --project src/RunCoach.Api
-```
-
-### Run the POC 1 console app
-
-The console app demonstrates context assembly and plan generation via Claude API.
-
-```bash
-# Set your API key (one-time)
-cd backend/src/RunCoach.Poc1.Console
-dotnet user-secrets set "Anthropic:ApiKey" "<your-key>"
-
-# Run
-dotnet run --project backend/src/RunCoach.Poc1.Console
 ```
 
 ### Run tests
@@ -73,7 +60,7 @@ docs/
   decisions/           # Decision log (DEC-001 through DEC-041)
   features/            # Feature backlog by priority
   research/            # Research queue, prompts, and full artifacts
-  specs/               # Spec-driven development artifacts and proofs
+  specs/               # Spec-driven development artifacts
 ```
 
 ## Tech Stack
