@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":42,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Easy long run at 6:27/km. Target 14 km. Focus on time on feet, not pace. This is your aerobic foundation — keep it conversational.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Sleep, hydrate, and let Sunday's work absorb. Recovery is where adaptation happens.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy 8 km at 5:50–6:27/km. Shake out the legs from Sunday. If you feel flat, stay at the slower end — that's still great work.\"},{\"day_of_week\":3,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Low-impact cross-training: cycling, swimming, or yoga. 30–45 min. Keeps aerobic stimulus without pounding. Great day to do some hip and glute activation work given your IT band history.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Tempo run: 2 km warm-up at easy pace, 4 km at 4:50/km threshold pace, 2 km cool-down. Total ~8 km. This is comfortably hard — you should be able to speak in short phrases, not full sentences.\"},{\"day_of_week\":5,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. You've put in solid work this week. Let the body consolidate the gains.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy 12 km at 5:50–6:27/km. Relaxed effort. This mid-week medium run builds aerobic volume without taxing your system. Stay easy — this is not a tempo day in disguise.\"}],\"week_summary\":\"Welcome to Week 1, Lee. This opening Base week picks up right where your recent training left off — you've been running consistently around 40 km and your tempo work looks solid. We're nudging volume up slightly to 42 km to begin building the aerobic base your half-marathon goal demands. The 1:45:00 target (roughly 4:59/km race pace) means we need to make your easy pace feel genuinely easy, and your threshold pace feel sustainable for longer and longer stretches. This week establishes the rhythm: long run Sunday, tempo Thursday, easy running filling the gaps, and real rest on Monday and Friday. Your IT band history is on my radar — the cross-training Wednesday is partly aerobic maintenance and partly a chance to do hip and glute work that keeps that area happy as mileage climbs.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 2449,
+    "outputTokenCount": 685,
+    "totalTokenCount": 3134
+  }
+}

@@ -139,13 +139,13 @@ public sealed class EvalTestBaseTests
     }
 
     [Fact]
-    public void GetOutputDirectory_ReturnsPathContainingPoc1EvalResults()
+    public void GetOutputDirectory_ReturnsPathContainingEvalResults()
     {
         // Arrange & Act
         var actualDir = EvalTestBase.GetOutputDirectory();
 
         // Assert
-        actualDir.Should().EndWith("poc1-eval-results");
+        actualDir.Should().EndWith("eval-results");
         actualDir.Should().NotBeNullOrWhiteSpace();
     }
 

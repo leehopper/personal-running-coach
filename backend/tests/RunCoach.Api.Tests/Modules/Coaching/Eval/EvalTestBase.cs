@@ -41,14 +41,14 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 ///   <item>Set your API key: <c>dotnet user-secrets set "Anthropic:ApiKey" &lt;key&gt;</c></item>
 ///   <item>Run with Record mode: <c>EVAL_CACHE_MODE=Record dotnet test --filter "Category=Eval"</c></item>
 ///   <item>Extend TTL on new fixtures: run the TTL extension script (or use a one-liner):
-///     <c>find backend/poc1-eval-cache -name "entry.json" -exec python3 -c "..." {} \;</c>
+///     <c>find backend/tests/eval-cache -name "entry.json" -exec python3 -c "..." {} \;</c>
 ///     — set <c>"expiration": "9999-12-31T23:59:59Z"</c> in every entry.json</item>
-///   <item>Commit the updated cache directory: <c>git add backend/poc1-eval-cache/</c></item>
+///   <item>Commit the updated cache directory: <c>git add backend/tests/eval-cache/</c></item>
 /// </list>
 /// </summary>
 public abstract class EvalTestBase : IAsyncDisposable
 {
-    private const string EvalResultsDir = "poc1-eval-results";
+    private const string EvalResultsDir = "eval-results";
 
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
@@ -173,7 +173,7 @@ public abstract class EvalTestBase : IAsyncDisposable
 
     /// <summary>
     /// Writes the full eval result (LLM response and metadata) to a JSON file
-    /// in the poc1-eval-results/ directory.
+    /// in the eval-results/ directory.
     /// </summary>
     public static async Task WriteEvalResultAsync(string scenarioName, object result)
     {
@@ -190,7 +190,7 @@ public abstract class EvalTestBase : IAsyncDisposable
     {
         var assemblyDir = Path.GetDirectoryName(typeof(EvalTestBase).Assembly.Location)!;
         var backendDir = Path.GetFullPath(Path.Combine(assemblyDir, "..", "..", "..", "..", ".."));
-        return Path.Combine(backendDir, EvalResultsDir);
+        return Path.Combine(backendDir, "tests", EvalResultsDir);
     }
 
     /// <inheritdoc />
@@ -367,7 +367,7 @@ public abstract class EvalTestBase : IAsyncDisposable
     {
         var assemblyDir = Path.GetDirectoryName(typeof(EvalTestBase).Assembly.Location)!;
         var backendDir = Path.GetFullPath(Path.Combine(assemblyDir, "..", "..", "..", "..", ".."));
-        return Path.Combine(backendDir, "poc1-eval-cache", clientName);
+        return Path.Combine(backendDir, "tests", "eval-cache", clientName);
     }
 
     private static ReportingConfiguration CreateReplayConfig(

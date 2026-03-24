@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: POC 1 Productionized — Ready to Merge
+## Current Phase: POC 1 Complete — Merging to Main
 
-POC 1 productionized on `feature/poc1-context-injection-v2`. POC scaffolding removed (console app, experiment prompts, spec artifacts). TestProfiles relocated to test project. Production code ready to merge to `main`. Tag `poc1-complete` preserves full POC history.
+POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding removed (console app, experiment prompts, spec artifacts, poc1 naming). TestProfiles relocated to test project. Eval cache moved from `backend/poc1-eval-cache/` to `backend/tests/eval-cache/`. 290 tests passing in Replay mode (0 failures). Tag `poc1-complete` preserves full POC history.
 
 ### Setup Steps
 
@@ -122,7 +122,7 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. POC scaffolding rem
 
 ### 1. Merge to main
 
-Branch productionized: console app removed, TestProfiles moved to tests, experiment prompts and POC spec artifacts deleted. Tag `poc1-complete` preserves full POC history. 1 pre-existing eval test failure (Lee pace constraint, DEC-040) — does not block merge since the cached LLM response has a marginal pace value that will be resolved by the pace table fix.
+Branch productionized and CI green (290/290 tests passing). All POC naming removed from code and paths. Eval cache relocated to `backend/tests/eval-cache/`.
 
 ### 2. Post-merge: Daniels pace table fix (DEC-040)
 

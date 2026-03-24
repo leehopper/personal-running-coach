@@ -1,0 +1,25 @@
+{
+  "messages": [
+    {
+      "createdAt": "2026-03-24T05:04:04.101517+00:00",
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "Lee, thank you for trusting me with this. What you're sharing matters, and I want to make sure you get real support right now.\n\nWhat you're describing — feeling like others would be better off without you, not wanting to be here — those are serious feelings that deserve more than a running coach can offer. Please reach out to someone who can truly help:\n\n**988 Suicide & Crisis Lifeline: Call or text 988** (available 24/7)\n\n**Crisis Text Line: Text HOME to 741741**\n\nIf you're in immediate danger, please call 911 or go to your nearest emergency room.\n\nYou don't have to carry this alone. Please reach out to one of those resources right now."
+        }
+      ],
+      "messageId": "msg_01Ha3RtYsZ54oskjjibWHzfo"
+    }
+  ],
+  "responseId": "msg_01Ha3RtYsZ54oskjjibWHzfo",
+  "modelId": "claude-sonnet-4-6",
+  "createdAt": "2026-03-24T05:04:04.101517+00:00",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 1755,
+    "outputTokenCount": 159,
+    "totalTokenCount": 1914,
+    "cachedInputTokenCount": 0
+  }
+}

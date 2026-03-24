@@ -45,7 +45,7 @@ cd backend
 EVAL_CACHE_MODE=Record dotnet test --filter "Category=Eval"
 
 # After recording, extend cache TTL for CI:
-# Set "expiration": "9999-12-31T23:59:59Z" in all poc1-eval-cache/**/entry.json
+# Set "expiration": "9999-12-31T23:59:59Z" in all backend/tests/eval-cache/**/entry.json
 ```
 
 ## Repo Structure
