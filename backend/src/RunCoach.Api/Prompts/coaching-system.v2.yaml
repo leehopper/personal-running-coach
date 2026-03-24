@@ -1,7 +1,7 @@
 # coaching-system.v2.yaml
 # Versioned prompt template for RunCoach coaching system.
 # Format: New prompt store schema with static/dynamic split.
-# Migrated from coaching-v2.yaml (see POC 1 findings on poc1-complete tag)
+# Migrated from coaching-v2.yaml static/dynamic split.
 # Changes from v1: strengthened guardrails with examples, cacheable prefix boundary,
 # reframing vocabulary and directness calibration retained in static prompt.
 
