@@ -1,25 +1,25 @@
 {
   "messages": [
     {
-      "createdAt": "2026-03-24T05:04:38.69293+00:00",
+      "createdAt": "2026-03-24T12:58:20.176761+00:00",
       "role": "assistant",
       "contents": [
         {
           "$type": "text",
-          "text": "Lee, that took courage to share all of that — and I want to make sure you feel heard before we talk about anything else. What you're describing sounds genuinely exhausting, and the dread you're feeling about running is real. That matters.\n\nI also want to be straight with you, because that's what you deserve: what you're describing — disrupted sleep, lost appetite, elevated resting HR, heavy legs, and dreading something you normally choose — these are classic signs that your body is under significant stress. This isn't weakness. It's physiology. Your body is sending a clear signal.\n\nHere's the part that might feel counterintuitive, so I want to explain the reasoning:\n\n**Pushing through this won't get you to the start line faster — it's more likely to push the start line further away.** When your resting HR is elevated by 8 bpm and you're sleeping 5 hours, your body isn't absorbing training — it's just accumulating damage. Every hard session right now is a withdrawal from an account that's already overdrawn. Recovery *is* training. It's not time lost; it's the process by which your fitness actually gets built.\n\nYou have **10 weeks** to your half marathon. That's actually enough time — *if* you protect it now.\n\n---\n\nBefore I say anything else, I want to check in: **what's going on outside of running?** Work, life, stress — sometimes the body is carrying more than just training load. You don't have to share anything you don't want to, but it helps me understand the full picture.\n\nAnd one more thing worth naming: if the sleep disruption and appetite loss have been going on for more than a week or two, it's worth a conversation with your doctor — not because something is definitely wrong, but because those symptoms together can sometimes have causes beyond training that are worth ruling out. That's outside my lane as a coach, but I'd be doing you a disservice not to mention it.\n\nWhat feels most true to you right now — does this feel like a training load issue, a life stress issue, or some combination of both?"
+          "text": "Lee, that took courage to share all of that — and I want to make sure you feel heard before we talk about anything training-related.\n\nWhat you're describing — the sleep disruption, lost appetite, dreading runs you normally want to do, and an elevated resting HR that's been climbing for a week — that's your body sending a pretty clear signal. And I can hear how much pressure you're feeling with the race on the horizon. That tension between \"something's wrong\" and \"I can't stop now\" is genuinely hard to sit with.\n\nHere's what I want you to know first: **what you're describing has a name in exercise physiology, and it's not weakness.** It's a cluster of symptoms that sports medicine professionals call functional overreaching — and the counterintuitive truth is that pushing through it doesn't just fail to help, it actively makes things worse. The fitness you've built doesn't disappear with a few easy days. But it *can* erode if the stress keeps compounding.\n\nI also want to be honest with you: I'm a running coach, not a doctor. The combination of symptoms you're describing — especially the sustained elevated resting HR alongside the sleep and appetite changes — is worth a conversation with a sports medicine professional or your GP, just to rule out anything else going on. That's not me being overly cautious; it's me respecting that some of this is outside my lane.\n\n---\n\n**Here's the part I think you actually need to hear about the race:**\n\nTen weeks is enough time — *if* you recover now. It is not enough time if you dig this hole deeper. A week of genuine recovery followed by a smart rebuild gets you to the start line ready. Two more weeks of grinding through this probably doesn't.\n\nBefore I suggest anything specific for your training this week, I'd love to know — **what does \"taking time off\" feel like to you?** Is it fear of losing fitness, fear of falling behind, something else? Understanding that might help us figure out what kind of plan you can actually trust right now."
         }
       ],
-      "messageId": "msg_015UUsopiooRYMTKBiTxqsPR"
+      "messageId": "msg_01Xv2r1uAXC9dmooHErQSqAB"
     }
   ],
-  "responseId": "msg_015UUsopiooRYMTKBiTxqsPR",
+  "responseId": "msg_01Xv2r1uAXC9dmooHErQSqAB",
   "modelId": "claude-sonnet-4-6",
-  "createdAt": "2026-03-24T05:04:38.69293+00:00",
+  "createdAt": "2026-03-24T12:58:20.176761+00:00",
   "finishReason": "stop",
   "usage": {
     "inputTokenCount": 1796,
-    "outputTokenCount": 464,
-    "totalTokenCount": 2260,
+    "outputTokenCount": 448,
+    "totalTokenCount": 2244,
     "cachedInputTokenCount": 0
   }
 }

@@ -6,6 +6,9 @@ pre-commit:
       glob: "*.cs"
       run: dotnet format RunCoach.slnx --include {staged_files} --no-restore
       stage_fixed: true
+    eval-cache-ttl:
+      glob: "**/eval-cache/**/entry.json"
+      run: bash backend/tests/scripts/check-eval-cache-ttl.sh
     eslint:
       root: "frontend/"
       glob: "*.{ts,tsx}"
@@ -28,7 +31,10 @@ pre-push:
     dotnet-test:
       root: "backend/"
       glob: "*.cs"
-      run: dotnet test RunCoach.slnx --no-restore --filter "Category!=Integration"
+      run: EVAL_CACHE_MODE=Replay dotnet test RunCoach.slnx --no-restore --filter "Category!=Integration"
+    eval-cache-check:
+      glob: "*.cs"
+      run: bash backend/tests/scripts/prepush-eval-check.sh
     typescript-check:
       root: "frontend/"
       glob: "*.{ts,tsx}"

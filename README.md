@@ -37,15 +37,15 @@ cd frontend
 npm test
 ```
 
-### Run eval tests with live API
+### Re-record eval cache (when prompts change)
 
 ```bash
-# Record fresh eval responses (costs ~$1 per full run)
-cd backend
-EVAL_CACHE_MODE=Record dotnet test --filter "Category=Eval"
+# Full re-record: deletes stale entries, records fresh, extends TTL, verifies Replay
+./backend/tests/scripts/rerecord-eval-cache.sh
 
-# After recording, extend cache TTL for CI:
-# Set "expiration": "9999-12-31T23:59:59Z" in all backend/tests/eval-cache/**/entry.json
+# Then commit the updated cache
+git add backend/tests/eval-cache/
+git commit -m "chore: re-record eval cache fixtures"
 ```
 
 ## Repo Structure
