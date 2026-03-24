@@ -1,0 +1,12 @@
+Type: cli
+Command: ls backend/src/RunCoach.Api/Prompts/
+Expected: exactly 5 YAML files
+Timestamp: 2026-03-24T04:16:59Z
+---
+coaching-system.v1.yaml
+coaching-system.v2.yaml
+coaching-v1.yaml
+coaching-v2.yaml
+context-injection-v1.yaml
+---
+Status: PASS

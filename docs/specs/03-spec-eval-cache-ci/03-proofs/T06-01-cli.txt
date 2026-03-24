@@ -1,9 +1,0 @@
-Type: cli
-Command: dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
-Expected: Coverage report generated with coverlet.msbuild
-Timestamp: 2026-03-22
-
-88.12% line | 73.07% branch | 85.09% method
-Coverage file: backend/TestResults/coverage.cobertura.xml
-
-Status: PASS

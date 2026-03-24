@@ -1,9 +1,0 @@
-Type: cli
-Command: dotnet test --filter "Category!=Eval"
-Expected: All non-eval tests pass (no regressions)
-Timestamp: 2026-03-22T00:50:00Z
-
-Output:
-Passed! - Failed: 0, Passed: 355, Skipped: 1, Total: 356, Duration: 177 ms
-
-Status: PASS

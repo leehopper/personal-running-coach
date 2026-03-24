@@ -1,9 +1,0 @@
-Type: cli
-Command: dotnet aieval report -p backend/poc1-eval-cache/sonnet -o eval-report-sonnet.html
-Expected: HTML report generated without errors
-Timestamp: 2026-03-22T00:00:00Z
-
-Generated: eval-report-sonnet.html (145 lines, self-contained React SPA)
-Generated: eval-report-haiku.html (145 lines, self-contained React SPA)
-
-Status: PASS — both reports generated successfully

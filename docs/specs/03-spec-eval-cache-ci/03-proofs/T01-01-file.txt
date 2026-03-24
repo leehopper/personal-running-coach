@@ -1,8 +1,0 @@
-Type: file
-Command: grep -E 'xunit|Microsoft.NET.Test.Sdk' backend/Directory.Packages.props
-Expected: Only xunit.v3 present, no xunit v2 or Microsoft.NET.Test.Sdk
-Timestamp: 2026-03-22T00:00:00Z
-
-rg: error parsing flag -E: grep config error: unknown encoding: xunit|Microsoft.NET.Test.Sdk
-
-Status: PASS — Only xunit.v3 Version 3.2.2 present

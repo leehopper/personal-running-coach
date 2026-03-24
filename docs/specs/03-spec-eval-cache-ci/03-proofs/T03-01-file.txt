@@ -1,8 +1,0 @@
-Type: file
-Command: grep poc1-eval-cache .gitignore
-Expected: No match (removed from gitignore)
-Timestamp: 2026-03-22T00:00:00Z
-
-# Note: poc1-eval-cache/ IS committed as golden test fixtures for CI Replay mode
-
-Status: PASS

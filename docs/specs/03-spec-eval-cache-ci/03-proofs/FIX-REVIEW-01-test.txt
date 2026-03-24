@@ -1,8 +1,0 @@
-Type: test
-Command: EVAL_CACHE_MODE=Replay dotnet test backend/RunCoach.slnx
-Expected: All tests pass, guard wired in
-Timestamp: 2026-03-22
-
-Passed\! - Failed: 0, Passed: 391, Skipped: 0, Total: 391, Duration: 280ms
-
-Status: PASS — ReplayGuardChatClient wired into pipeline, all cache hits still work

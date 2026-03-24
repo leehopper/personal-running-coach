@@ -1,9 +1,0 @@
-Type: file
-Command: test -f GenerateExperimentResults.cs; test -f IChatClientCachingSpikeTests.cs
-Expected: Neither file exists
-Timestamp: 2026-03-22T00:00:00Z
-
-GenerateExperimentResults.cs: deleted
-IChatClientCachingSpikeTests.cs: deleted (per user request — spike no longer needed)
-
-Status: PASS
