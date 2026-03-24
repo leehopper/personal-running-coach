@@ -1,7 +1,7 @@
 using FluentAssertions;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Models;
-using RunCoach.Api.Modules.Training.Profiles;
+using RunCoach.Api.Tests.Modules.Training.Profiles;
 
 namespace RunCoach.Api.Tests.Modules.Training.Profiles;
 

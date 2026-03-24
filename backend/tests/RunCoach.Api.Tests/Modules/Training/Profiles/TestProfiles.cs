@@ -3,11 +3,11 @@ using System.Globalization;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Models;
 
-namespace RunCoach.Api.Modules.Training.Profiles;
+namespace RunCoach.Api.Tests.Modules.Training.Profiles;
 
 /// <summary>
 /// All 5 test user profiles for POC 1. These are structured fixtures used by
-/// the context assembler, eval suite, and console app. Each profile includes
+/// the context assembler and eval suite. Each profile includes
 /// a UserProfile, GoalState (with FitnessEstimate and TrainingPaces computed
 /// from the deterministic calculators), and simulated training history.
 /// </summary>

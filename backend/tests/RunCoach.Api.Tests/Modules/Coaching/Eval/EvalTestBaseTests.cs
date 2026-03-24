@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using NSubstitute;
-using RunCoach.Api.Modules.Training.Profiles;
+using RunCoach.Api.Tests.Modules.Training.Profiles;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 
