@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/RunCoach.Api/RunCoach.Api.csproj" />
-    <Project Path="src/RunCoach.Poc1.Console/RunCoach.Poc1.Console.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj" />
