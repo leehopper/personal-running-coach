@@ -2,7 +2,19 @@
 
 ## Stack
 
-See root CLAUDE.md for full tech stack.
+See root CLAUDE.md for full tech stack. Additionally: eslint-plugin-sonarjs (build-time analysis), Zod v4.
+
+## Build & Dev Commands
+
+Run from `frontend/`:
+
+- `npm run dev` — start Vite dev server (port 5173)
+- `npm run build` — TypeScript check + production build
+- `npm run test` — run Vitest suite
+- `npm run test:watch` — Vitest in watch mode
+- `npm run test:coverage` — Vitest with coverage report
+- `npm run lint` — ESLint check
+- `npm run format` — Prettier auto-format
 
 ## Module-First Organization
 
