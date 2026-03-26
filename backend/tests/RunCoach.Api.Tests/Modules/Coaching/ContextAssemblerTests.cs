@@ -585,6 +585,20 @@ public class ContextAssemblerTests
         pacesSection.Content.Should().NotContain("Repetition pace");
     }
 
+    [Fact]
+    public async Task AssembleAsync_NullInput_ThrowsArgumentNullException()
+    {
+        // Arrange
+        ContextAssemblerInput input = null!;
+
+        // Act
+        var act = () => _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentNullException>()
+            .WithParameterName("input");
+    }
+
     // ================================================================
     // YAML-based assembly tests (verify YAML system prompt behavior)
     // ================================================================
