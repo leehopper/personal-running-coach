@@ -123,6 +123,11 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
             ModelId = msg.Model.ToString(),
         };
 
+        if (msg.StopReason is { } sr)
+        {
+            response.FinishReason = MapFinishReason(sr);
+        }
+
         if (msg.Usage is { } usage)
         {
             response.Usage = new UsageDetails
@@ -134,6 +139,31 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
         }
 
         return response;
+    }
+
+    /// <summary>
+    /// Maps an Anthropic <see cref="StopReason"/> to the corresponding M.E.AI
+    /// <see cref="ChatFinishReason"/>. Returns <c>null</c> when the stop reason
+    /// is not recognized or not set.
+    /// </summary>
+    private static ChatFinishReason? MapFinishReason(StopReason stopReason)
+    {
+        if (stopReason == StopReason.EndTurn || stopReason == StopReason.StopSequence)
+        {
+            return ChatFinishReason.Stop;
+        }
+
+        if (stopReason == StopReason.MaxTokens)
+        {
+            return ChatFinishReason.Length;
+        }
+
+        if (stopReason == StopReason.ToolUse)
+        {
+            return ChatFinishReason.ToolCalls;
+        }
+
+        return null;
     }
 
     private async Task<ChatResponse> CallNativeStructuredAsync(
@@ -162,6 +192,13 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
         };
 
         var nativeResponse = await _nativeClient.Messages.Create(createParams, cancellationToken).ConfigureAwait(false);
+
+        if (nativeResponse.StopReason is { } sr && sr == StopReason.MaxTokens)
+        {
+            throw new InvalidOperationException(
+                "LLM response was truncated (stop_reason=max_tokens). " +
+                "Increase MaxTokens or reduce prompt size.");
+        }
 
         return MapToChatResponse(nativeResponse);
     }
