@@ -54,7 +54,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act
-        await sut.GenerateAsync(expectedSystemPrompt, expectedUserMessage, CancellationToken.None);
+        await sut.GenerateAsync(expectedSystemPrompt, expectedUserMessage, TestContext.Current.CancellationToken);
 
         // Assert
         capturedParams.Should().NotBeNull();
@@ -74,7 +74,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act
-        var actualText = await sut.GenerateAsync("system", "user message", CancellationToken.None);
+        var actualText = await sut.GenerateAsync("system", "user message", TestContext.Current.CancellationToken);
 
         // Assert
         actualText.Should().Be(expectedText);
@@ -92,7 +92,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act
-        var actualText = await sut.GenerateAsync("system", "user message", CancellationToken.None);
+        var actualText = await sut.GenerateAsync("system", "user message", TestContext.Current.CancellationToken);
 
         // Assert
         actualText.Should().Be("Part 1. Part 2.");
@@ -110,7 +110,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act
-        var actualText = await sut.GenerateAsync("system", "user message", CancellationToken.None);
+        var actualText = await sut.GenerateAsync("system", "user message", TestContext.Current.CancellationToken);
 
         // Assert
         actualText.Should().BeEmpty();
@@ -145,7 +145,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act & Assert
-        await sut.Invoking(s => s.GenerateAsync(string.Empty, "user message", CancellationToken.None))
+        await sut.Invoking(s => s.GenerateAsync(string.Empty, "user message", TestContext.Current.CancellationToken))
             .Should().ThrowAsync<ArgumentException>()
             .WithParameterName("systemPrompt");
     }
@@ -157,7 +157,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act & Assert
-        await sut.Invoking(s => s.GenerateAsync("   ", "user message", CancellationToken.None))
+        await sut.Invoking(s => s.GenerateAsync("   ", "user message", TestContext.Current.CancellationToken))
             .Should().ThrowAsync<ArgumentException>()
             .WithParameterName("systemPrompt");
     }
@@ -169,7 +169,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act & Assert
-        await sut.Invoking(s => s.GenerateAsync("system", string.Empty, CancellationToken.None))
+        await sut.Invoking(s => s.GenerateAsync("system", string.Empty, TestContext.Current.CancellationToken))
             .Should().ThrowAsync<ArgumentException>()
             .WithParameterName("userMessage");
     }
@@ -181,7 +181,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act & Assert
-        await sut.Invoking(s => s.GenerateAsync("system", null!, CancellationToken.None))
+        await sut.Invoking(s => s.GenerateAsync("system", null!, TestContext.Current.CancellationToken))
             .Should().ThrowAsync<ArgumentException>()
             .WithParameterName("userMessage");
     }
@@ -274,7 +274,7 @@ public class ClaudeCoachingLlmTests
         var sut = new ClaudeCoachingLlm(_mockClient, customSettings, _logger);
 
         // Act
-        await sut.GenerateAsync("system", "user", CancellationToken.None);
+        await sut.GenerateAsync("system", "user", TestContext.Current.CancellationToken);
 
         // Assert
         capturedParams.Should().NotBeNull();
@@ -298,7 +298,7 @@ public class ClaudeCoachingLlmTests
         var sut = new ClaudeCoachingLlm(_mockClient, customSettings, _logger);
 
         // Act
-        await sut.GenerateAsync("system", "user", CancellationToken.None);
+        await sut.GenerateAsync("system", "user", TestContext.Current.CancellationToken);
 
         // Assert
         capturedParams.Should().NotBeNull();
@@ -323,7 +323,7 @@ public class ClaudeCoachingLlmTests
         var sut = new ClaudeCoachingLlm(_mockClient, customSettings, _logger);
 
         // Act
-        await sut.GenerateAsync("system", "user", CancellationToken.None);
+        await sut.GenerateAsync("system", "user", TestContext.Current.CancellationToken);
 
         // Assert
         capturedParams.Should().NotBeNull();
@@ -398,7 +398,7 @@ public class ClaudeCoachingLlmTests
 
         // Act
         var result = await sut.GenerateStructuredAsync<MacroPlanOutput>(
-            "system", "user message", CancellationToken.None);
+            "system", "user message", TestContext.Current.CancellationToken);
 
         // Assert
         capturedParams.Should().NotBeNull();
@@ -448,7 +448,7 @@ public class ClaudeCoachingLlmTests
 
         // Act
         var actual = await sut.GenerateStructuredAsync<MacroPlanOutput>(
-            "system", "user message", CancellationToken.None);
+            "system", "user message", TestContext.Current.CancellationToken);
 
         // Assert
         actual.GoalDescription.Should().Be("Sub-2 hour half marathon");
@@ -466,7 +466,7 @@ public class ClaudeCoachingLlmTests
 
         // Act & Assert
         await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
-                string.Empty, "user message", CancellationToken.None))
+                string.Empty, "user message", TestContext.Current.CancellationToken))
             .Should().ThrowAsync<ArgumentException>()
             .WithParameterName("systemPrompt");
     }
@@ -479,7 +479,7 @@ public class ClaudeCoachingLlmTests
 
         // Act & Assert
         await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
-                "system", string.Empty, CancellationToken.None))
+                "system", string.Empty, TestContext.Current.CancellationToken))
             .Should().ThrowAsync<ArgumentException>()
             .WithParameterName("userMessage");
     }
@@ -522,7 +522,7 @@ public class ClaudeCoachingLlmTests
 
         // Act & Assert
         await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
-                "system", "user message", CancellationToken.None))
+                "system", "user message", TestContext.Current.CancellationToken))
             .Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*null literal*");
     }
@@ -552,7 +552,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act & Assert
-        await sut.Invoking(s => s.GenerateAsync("system", "user message", CancellationToken.None))
+        await sut.Invoking(s => s.GenerateAsync("system", "user message", TestContext.Current.CancellationToken))
             .Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*truncated*max_tokens*");
     }
@@ -580,7 +580,7 @@ public class ClaudeCoachingLlmTests
 
         // Act & Assert
         await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
-                "system", "user message", CancellationToken.None))
+                "system", "user message", TestContext.Current.CancellationToken))
             .Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*truncated*max_tokens*");
     }
@@ -596,7 +596,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act
-        var actualText = await sut.GenerateAsync("system", "user message", CancellationToken.None);
+        var actualText = await sut.GenerateAsync("system", "user message", TestContext.Current.CancellationToken);
 
         // Assert
         actualText.Should().Be("complete content");
