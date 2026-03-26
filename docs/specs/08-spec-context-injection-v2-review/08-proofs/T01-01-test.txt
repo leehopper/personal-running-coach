@@ -1,0 +1,23 @@
+Type: test
+Command: dotnet test (from backend/)
+Expected: New test AssembleAsync_WeeklySummaryWeekStart_UsesIsoMondayNotFirstWorkoutDate passes; all non-eval tests pass
+Timestamp: 2026-03-25T00:00:00Z
+
+Test Run Results:
+  Total:   353
+  Passed:  339
+  Failed:  14 (all in Eval namespace — pre-existing cache misses + other worker in-progress tests)
+  Skipped: 0
+
+New test added:
+  AssembleAsync_WeeklySummaryWeekStart_UsesIsoMondayNotFirstWorkoutDate — PASSED
+  Verifies that "Week of" labels use ISO Monday dates, not the first workout date in the week.
+  Specifically: ISO 2025-W52 shows 2025-12-22 (Monday), not 2025-12-28 (Sunday workout date).
+
+All 14 failures are in Eval/ namespace (eval cache misses or other worker's in-progress tests):
+  - 9 pre-existing eval cache replay failures (PlanGenerationEvalTests, SafetyBoundaryEvalTests)
+  - 5 AnthropicStructuredOutputClientTests failures (worker #4 in-progress)
+
+No failures in ContextAssemblerTests or any non-Eval test class.
+
+Status: PASS

@@ -1,0 +1,24 @@
+Type: file
+Command: git diff -- backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs
+Expected: Line 174 changed from weekWorkouts[0].Date to ISOWeek.ToDateTime-based Monday computation
+Timestamp: 2026-03-25T00:00:00Z
+
+Diff (ContextAssembler.cs, GroupByWeek method):
+
+Before:
+    var weekWorkouts = g.OrderBy(w => w.Date).ToList();
+    var weekStart = weekWorkouts[0].Date;
+
+After:
+    var weekWorkouts = g.OrderBy(w => w.Date).ToList();
+    var isoYear = g.Key / 100;
+    var isoWeek = g.Key % 100;
+    var weekStart = DateOnly.FromDateTime(ISOWeek.ToDateTime(isoYear, isoWeek, DayOfWeek.Monday));
+
+Explanation:
+  The group key is (isoYear * 100 + isoWeek), computed by ISOWeek.GetYear and ISOWeek.GetWeekOfYear.
+  We extract year and week from this key, then use ISOWeek.ToDateTime to compute the actual Monday.
+  This ensures "Week of YYYY-MM-DD" labels always show the ISO Monday, regardless of which day
+  the first workout in that week falls on.
+
+Status: PASS

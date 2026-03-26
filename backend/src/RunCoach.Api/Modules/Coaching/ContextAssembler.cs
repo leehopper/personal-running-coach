@@ -171,7 +171,9 @@ public sealed partial class ContextAssembler : IContextAssembler
             .Select(g =>
             {
                 var weekWorkouts = g.OrderBy(w => w.Date).ToList();
-                var weekStart = weekWorkouts[0].Date;
+                var isoYear = g.Key / 100;
+                var isoWeek = g.Key % 100;
+                var weekStart = DateOnly.FromDateTime(ISOWeek.ToDateTime(isoYear, isoWeek, DayOfWeek.Monday));
 
                 return new WeekGroup(
                     weekStart,

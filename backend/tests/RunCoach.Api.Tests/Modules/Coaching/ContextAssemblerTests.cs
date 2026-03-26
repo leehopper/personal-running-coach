@@ -1206,6 +1206,35 @@ public class ContextAssemblerTests
             because: "Dec 28 (Sunday) belongs to ISO week 2025-W52, separate from the others");
     }
 
+    [Fact]
+    public async Task AssembleAsync_WeeklySummaryWeekStart_UsesIsoMondayNotFirstWorkoutDate()
+    {
+        // Arrange — Dec 28, 2025 is a Sunday (ISO week 2025-W52 whose Monday is Dec 22).
+        // The first workout in that week is on Sunday, so the "Week of" label must still
+        // show the ISO Monday (2025-12-22), not the workout date (2025-12-28).
+        var input = BuildIsoWeekBoundaryInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        var historySection = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        var weekSummaryLines = historySection.Content
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Where(l => l.StartsWith("Week of", StringComparison.Ordinal))
+            .ToList();
+
+        // ISO 2025-W52 Monday is Dec 22, 2025 (not Dec 28 which is the workout date)
+        weekSummaryLines.Should().Contain(
+            l => l.Contains("2025-12-22"),
+            because: "WeekStart must be the ISO Monday (Dec 22), not the first workout date (Dec 28)");
+
+        // ISO 2026-W01 Monday is Dec 29, 2025
+        weekSummaryLines.Should().Contain(
+            l => l.Contains("2025-12-29"),
+            because: "WeekStart for ISO 2026-W01 must be Monday Dec 29, 2025");
+    }
+
     // ================================================================
     // Helper methods
     // ================================================================
