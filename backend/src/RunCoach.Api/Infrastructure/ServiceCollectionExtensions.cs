@@ -1,3 +1,7 @@
+using RunCoach.Api.Modules.Coaching;
+using RunCoach.Api.Modules.Coaching.Prompts;
+using RunCoach.Api.Modules.Training.Computations;
+
 namespace RunCoach.Api.Infrastructure;
 
 /// <summary>
@@ -6,10 +10,35 @@ namespace RunCoach.Api.Infrastructure;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers all application module services. Add module registrations here as modules are created.
+    /// Registers all application module services. Call from Program.cs during startup.
     /// </summary>
-    public static IServiceCollection AddApplicationModules(this IServiceCollection services)
+    /// <param name="services">The service collection to configure.</param>
+    /// <param name="configuration">The application configuration for binding settings sections.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddApplicationModules(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        // Bind strongly-typed settings from configuration sections.
+        services.Configure<CoachingLlmSettings>(
+            configuration.GetSection(CoachingLlmSettings.SectionName));
+        services.Configure<PromptStoreSettings>(
+            configuration.GetSection(PromptStoreSettings.SectionName));
+
+        // System services — TimeProvider for deterministic date/time operations.
+        services.AddSingleton(TimeProvider.System);
+
+        // Training module — stateless computation services (singleton).
+        services.AddSingleton<IPaceCalculator, PaceCalculator>();
+        services.AddSingleton<IVdotCalculator, VdotCalculator>();
+
+        // Coaching module — prompt store is singleton (caches templates for app lifetime).
+        services.AddSingleton<IPromptStore, YamlPromptStore>();
+
+        // Coaching module — scoped services (per-request lifetime).
+        services.AddScoped<ICoachingLlm, ClaudeCoachingLlm>();
+        services.AddScoped<IContextAssembler, ContextAssembler>();
+
         return services;
     }
 }

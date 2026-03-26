@@ -2,7 +2,7 @@
 
 ## Stack
 
-See root CLAUDE.md for full tech stack. Additionally: Swashbuckle (OpenAPI).
+See root CLAUDE.md for full tech stack. Additionally: Swashbuckle (OpenAPI), Anthropic SDK, YamlDotNet, M.E.AI.Evaluation (test project).
 
 ## Module-First Organization
 
@@ -11,49 +11,58 @@ backend/
   src/
     RunCoach.Api/
       Program.cs
+      Prompts/                     # Versioned YAML prompt files (coaching-v1.yaml, etc.)
       Modules/
-        {Domain}/                  # e.g., Workouts, Plans, Coaching, Users
-          {Domain}Controller.cs
-          {Domain}Service.cs
-          I{Domain}Service.cs
-          {Domain}Repository.cs
-          I{Domain}Repository.cs
-          Models/                  # DTOs, request/response types
-          Entities/                # EF Core entities
-          Extensions/              # Module-specific extension methods
-        Shared/                    # Cross-cutting services
-      Infrastructure/              # EF Core DbContext, Marten config, middleware
+        Coaching/                  # LLM adapter, context assembly, prompt storage
+          ClaudeCoachingLlm.cs     # ICoachingLlm implementation (sealed, disposable)
+          ContextAssembler.cs      # Builds AssembledPrompt with token budget enforcement
+          ICoachingLlm.cs
+          IContextAssembler.cs
+          Models/                  # AssembledPrompt, ConversationTurn, plan models
+            Structured/            # JSON schema types for constrained decoding
+          Prompts/                 # IPromptStore, YamlPromptStore, PromptRenderer
+        Training/                  # Deterministic training science
+          Computations/            # VdotCalculator, PaceCalculator (formula-based)
+          Models/                  # UserProfile, TrainingPaces, WorkoutSummary, etc.
+        Common/                    # Cross-cutting (BaseController)
+      Infrastructure/              # ServiceCollectionExtensions (DI registration hub)
   tests/
     RunCoach.Api.Tests/
       Modules/                     # Mirrors src structure
+        Coaching/
+          Eval/                    # M.E.AI.Evaluation infrastructure (see Testing section)
+        Training/
+          Profiles/                # TestProfiles — 5 simulated runner profiles with history
+    eval-cache/                    # Committed LLM response fixtures for CI replay
+    scripts/                       # Eval cache maintenance scripts
 ```
 
-When a module exceeds ~8 root files, create submodules (named folders within the module). Not all files need to be in a submodule — keep root files that don't fit a submodule at the root.
+**Convention for new modules:** follow the `{Domain}/` pattern with `Models/`, `Entities/`, `Extensions/` subfolders as needed. Controllers, services, and repositories at module root. When a module exceeds ~8 root files, create named subfolders.
 
 ## Coding Standards
 
 - **Primary constructors** when applicable: `public class MyService(IMyRepo repo) : IMyService { }`
 - **Private fields** prefixed with `_` (e.g., `_memberVariable`)
 - **Properties** initialized with default non-null values: `public string Name { get; set; } = string.Empty;`
-- **One type per file** — classes, interfaces, enums, records, structs
+- **One type per file** — classes, interfaces, enums, records, structs. Exception: `internal` nested types used solely as serialization/deserialization models for their enclosing class may remain nested (e.g., `YamlPromptStore.YamlPromptDocument`).
 - **Record types for DTOs** with `Dto` suffix (e.g., `WorkoutDto`, `CreatePlanRequestDto`)
 - **Ternary operators** over if-else for simple conditional assignments
 - **Async throughout** for all EF Core and I/O operations
 
 ## Dependency Injection
 
-- Each module registers its own services via `Add{Module}Services()` extension method
-- Program.cs calls each registration explicitly
+- `Infrastructure/ServiceCollectionExtensions.cs` has `AddApplicationModules()` — add per-module registrations here as modules gain injectable services
 - **Scoped lifetime** by default for services and repositories (anything in the request pipeline)
 - **Singleton** only for stateless infrastructure (configuration wrappers, HTTP client factories)
 - Controllers registered via `builder.Services.AddControllers()`
+- `InternalsVisibleTo` grants test project access to `internal` types
 
 ## Architecture Layers
 
-- **Controllers** inherit from a shared base controller. Entry point only — delegate to services.
+- **Controllers** inherit from `BaseController` (`Common/`). Entry point only — delegate to services.
 - **Services** contain business logic, injected into controllers. All services have interfaces.
 - **Repositories** handle data access, injected into services. All repositories have interfaces.
-- Shared base controller provides common error handling and response formatting.
+- **Computation classes** are pure/deterministic (no I/O) — `VdotCalculator`, `PaceCalculator`. Interfaces for testability.
 
 ## Logging
 
@@ -86,7 +95,10 @@ When a module exceeds ~8 root files, create submodules (named folders within the
 
 ## Testing
 
-- **xUnit + FluentAssertions + NSubstitute**
+- **xUnit v3** (MTP runner) + **FluentAssertions** + **NSubstitute**
+- `TestingPlatformDotnetTestSupport` enabled — uses Microsoft.Testing.Platform, not VSTest
+- Use `TestContext.Current.CancellationToken` for async test cancellation
+- Use `TestContext.Current.SendDiagnosticMessage()` for test output (not `Trace.WriteLine`)
 - Test projects **mirror source directory structure**
 - **Arrange / Act / Assert** with comment markers
 - Prefix expected values with `expected`, actual with `actual`
@@ -95,6 +107,18 @@ When a module exceeds ~8 root files, create submodules (named folders within the
 - **Integration tests** via `WebApplicationFactory` + **Testcontainers** (real PostgreSQL, not in-memory)
 - Integration tests validate the **full response contract** with deep equality (exclude audit fields)
 - Test file naming: `{ClassName}Tests.cs` (unit), `{ClassName}IntegrationTests.cs` (integration)
+
+### Eval Infrastructure
+
+LLM evaluation tests live in `tests/RunCoach.Api.Tests/Modules/Coaching/Eval/`:
+
+- **`EvalTestBase`** — base class providing cached Sonnet (coaching) + Haiku (judging) clients via `DiskBasedReportingConfiguration`
+- **`EVAL_CACHE_MODE`** env var: `Record` (call API, save responses), `Replay` (use committed fixtures, fail on miss), `Auto` (default — replay if fixture exists, record otherwise)
+- **`ReplayGuardChatClient`** — `DelegatingChatClient` that throws descriptive errors on cache miss in Replay mode
+- **`AnthropicStructuredOutputClient`** — bridges `ForJsonSchema()` to native Anthropic constrained decoding (SDK's IChatClient bridge silently drops schemas)
+- **Evaluators:** `PlanConstraintEvaluator` (deterministic checks) + `SafetyRubricEvaluator` (LLM-as-judge with structured verdict output)
+- **CI runs in Replay mode** — zero API calls, uses committed fixtures in `tests/eval-cache/`
+- To re-record fixtures: `ANTHROPIC_API_KEY=... EVAL_CACHE_MODE=Record dotnet test` (or use `tests/scripts/rerecord-eval-cache.sh`)
 
 ## Build & Test Commands
 

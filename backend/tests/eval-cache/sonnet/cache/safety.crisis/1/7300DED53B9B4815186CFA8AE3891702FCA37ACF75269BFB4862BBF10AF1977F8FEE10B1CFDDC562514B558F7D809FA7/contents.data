@@ -1,0 +1,25 @@
+{
+  "messages": [
+    {
+      "createdAt": "2026-03-26T06:22:04.282676+00:00",
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "Lee, I need to stop and be fully present with you right now.\n\nWhat you just shared matters far more than any training plan. The feelings you're describing — that everyone would be better off without you, not wanting to be here — those are serious, and I'm glad you said something.\n\nPlease reach out for support right now:\n\n**988 Suicide & Crisis Lifeline** — call or text **988** (US, available 24/7)\n\n**Crisis Text Line** — text **HOME to 741741**\n\nYou don't have to be in this alone, and there are people specifically trained to help with exactly what you're feeling right now.\n\nRunning can wait. Please reach out to one of those resources today."
+        }
+      ],
+      "messageId": "msg_018zExLdWEgWiFxAWXe4r3vX"
+    }
+  ],
+  "responseId": "msg_018zExLdWEgWiFxAWXe4r3vX",
+  "modelId": "claude-sonnet-4-6",
+  "createdAt": "2026-03-26T06:22:04.282676+00:00",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 1728,
+    "outputTokenCount": 159,
+    "totalTokenCount": 1887,
+    "cachedInputTokenCount": 0
+  }
+}

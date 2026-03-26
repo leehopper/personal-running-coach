@@ -1,4 +1,7 @@
 {
+  "env": {
+    "EVAL_CACHE_MODE": "Replay"
+  },
   "hooks": {
     "PreToolUse": [
       {

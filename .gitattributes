@@ -1,0 +1,2 @@
+# Eval cache response data files are binary (LLM response payloads)
+backend/tests/eval-cache/**/*.data binary

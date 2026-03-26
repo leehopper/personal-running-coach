@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":15,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week ahead. Gentle walking or stretching is fine if you feel like moving.\"},{\"day_of_week\":1,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run at 7:00–8:00 /km. This is your aerobic foundation day — keep it conversational. If you can't hold a sentence, slow down. Aim for 25–30 min.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or light activity like yoga or walking. Recovery is where adaptation happens — this day is doing real work.\"},{\"day_of_week\":3,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Three run days per week means your off days are part of the plan, not gaps in it.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Second easy run of the week. Same pace range: 7:00–8:00 /km. Focus on relaxed breathing and easy effort. Aim for 25–30 min.\"},{\"day_of_week\":5,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest before your long run tomorrow. Keep it easy — a short walk is fine but save your legs for Saturday.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Your long run! Aim for 5–6 km at a fully conversational easy pace (7:00–8:00 /km). This is your most important run of the week — slow is right. No time pressure at all.\"}],\"week_summary\":\"Welcome to Week 1, Sarah! This first week is all about establishing your rhythm and getting comfortable with three runs per week. Your current long run of 5 km is a great starting point, and we're matching your existing weekly volume of around 15 km so nothing feels like a shock to the system. Every run this week is easy — and that's intentional. At this stage of training, aerobic base-building is the highest-value work you can do. Think of these runs as laying the foundation that everything else will be built on. The goal isn't to feel tired at the end of the week — it's to feel like you could do it again.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2083,
+    "outputTokenCount": 592,
+    "totalTokenCount": 2675
+  }
+}

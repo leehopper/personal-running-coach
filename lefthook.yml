@@ -1,11 +1,24 @@
 pre-commit:
   parallel: true
   commands:
+    reject-docs-specs:
+      glob: "docs/specs/**"
+      run: |
+        echo "ERROR: docs/specs/ is gitignored — do not stage these files."
+        echo "Offending files: {staged_files}"
+        exit 1
     dotnet-format:
       root: "backend/"
       glob: "*.cs"
       run: dotnet format RunCoach.slnx --include {staged_files} --no-restore
       stage_fixed: true
+    eval-cache-ttl-fix:
+      glob: "**/eval-cache/**/entry.json"
+      run: bash backend/tests/scripts/fix-eval-cache-ttl.sh
+      stage_fixed: true
+    eval-cache-dedup:
+      glob: "**/eval-cache/**"
+      run: bash backend/tests/scripts/clean-eval-cache-duplicates.sh
     eslint:
       root: "frontend/"
       glob: "*.{ts,tsx}"
@@ -28,7 +41,13 @@ pre-push:
     dotnet-test:
       root: "backend/"
       glob: "*.cs"
-      run: dotnet test RunCoach.slnx --no-restore --filter "Category!=Integration"
+      run: EVAL_CACHE_MODE=Replay dotnet test RunCoach.slnx --no-restore --filter "Category!=Integration"
+    eval-cache-replay:
+      glob: "*.cs"
+      run: bash backend/tests/scripts/prepush-eval-check.sh
+    eval-cache-ttl-check:
+      glob: "**/eval-cache/**/entry.json"
+      run: bash backend/tests/scripts/check-eval-cache-ttl.sh
     typescript-check:
       root: "frontend/"
       glob: "*.{ts,tsx}"

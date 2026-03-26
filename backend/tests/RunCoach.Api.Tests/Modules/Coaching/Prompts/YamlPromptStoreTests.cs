@@ -1,0 +1,445 @@
+using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+using RunCoach.Api.Modules.Coaching.Prompts;
+using YamlDotNet.Core;
+
+namespace RunCoach.Api.Tests.Modules.Coaching.Prompts;
+
+public sealed class YamlPromptStoreTests : IDisposable
+{
+    private readonly string _tempDir;
+    private readonly ILogger<YamlPromptStore> _logger = Substitute.For<ILogger<YamlPromptStore>>();
+
+    public YamlPromptStoreTests()
+    {
+        _tempDir = Path.Combine(Path.GetTempPath(), $"prompt-store-tests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_tempDir);
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_tempDir))
+        {
+            Directory.Delete(_tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_ValidYaml_ReturnsTemplate()
+    {
+        // Arrange
+        var yaml = BuildFullYaml();
+        WriteYamlFile("coaching-system.v1.yaml", yaml);
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var actual = await sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        actual.Id.Should().Be("coaching-system");
+        actual.Version.Should().Be("v1");
+        actual.StaticSystemPrompt.Should().Contain("running coach");
+        actual.ContextTemplate.Should().Contain("{{profile}}");
+        actual.Metadata.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_ValidYaml_DeserializesMetadata()
+    {
+        // Arrange
+        var yaml = BuildFullYaml();
+        WriteYamlFile("coaching-system.v1.yaml", yaml);
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var actual = await sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken);
+        var metadata = actual.Metadata;
+
+        // Assert
+        metadata.Should().NotBeNull();
+        metadata!.Description.Should().Be("Test prompt");
+        metadata!.Author.Should().Be("Test");
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_MissingFile_Throws()
+    {
+        // Arrange
+        var sut = CreateStore("nonexistent", "v1");
+
+        // Act
+        var act = () => sut.GetPromptAsync("nonexistent", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_SecondCall_ReturnsCached()
+    {
+        // Arrange
+        var yaml = BuildMinimalYaml("You are a coach.");
+        WriteYamlFile("coaching-system.v1.yaml", yaml);
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var first = await sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken);
+        var second = await sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        second.Should().BeSameAs(first);
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_NoMetadata_ReturnsNull()
+    {
+        // Arrange
+        var yaml = BuildMinimalYaml("Minimal prompt.");
+        WriteYamlFile("minimal.v1.yaml", yaml);
+        var sut = CreateStore("minimal", "v1");
+
+        // Act
+        var actual = await sut.GetPromptAsync("minimal", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        actual.Metadata.Should().BeNull();
+        actual.StaticSystemPrompt.Should().Contain("Minimal prompt");
+    }
+
+    [Fact]
+    public void GetActiveVersion_Configured_ReturnsVersion()
+    {
+        // Arrange
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var actual = sut.GetActiveVersion("coaching-system");
+
+        // Assert
+        actual.Should().Be("v1");
+    }
+
+    [Fact]
+    public void GetActiveVersion_Unconfigured_Throws()
+    {
+        // Arrange
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var act = () => sut.GetActiveVersion("unknown-prompt");
+
+        // Assert
+        act.Should().Throw<KeyNotFoundException>();
+    }
+
+    [Fact]
+    public void ValidateConfiguredVersions_FilesExist_NoThrow()
+    {
+        // Arrange
+        var yaml = BuildMinimalYaml("Coach prompt.");
+        WriteYamlFile("coaching-system.v1.yaml", yaml);
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var act = () => sut.ValidateConfiguredVersions();
+
+        // Assert
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void ValidateConfiguredVersions_MissingFile_Throws()
+    {
+        // Arrange
+        var sut = CreateStore("coaching-system", "v2");
+
+        // Act
+        var act = () => sut.ValidateConfiguredVersions();
+
+        // Assert
+        act.Should().Throw<FileNotFoundException>();
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_EmptyId_Throws()
+    {
+        // Arrange
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var act = () => sut.GetPromptAsync(string.Empty, "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_PreservesNewlines()
+    {
+        // Arrange
+        var yaml = BuildMultilineYaml();
+        WriteYamlFile("multiline.v1.yaml", yaml);
+        var sut = CreateStore("multiline", "v1");
+
+        // Act
+        var actual = await sut.GetPromptAsync("multiline", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        actual.StaticSystemPrompt.Should().Contain("Line one.");
+        actual.StaticSystemPrompt.Should().Contain("Line two.");
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_IdContainsDoubleColon_ThrowsArgumentException()
+    {
+        // Arrange
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var act = () => sut.GetPromptAsync("bad::id", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*Prompt id must not contain*");
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_VersionContainsDoubleColon_ThrowsArgumentException()
+    {
+        // Arrange
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act
+        var act = () => sut.GetPromptAsync("coaching-system", "v::1", TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*Version must not contain*");
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_FailThenSucceed_EvictsCacheAndRetries()
+    {
+        // Arrange — no file on disk yet
+        var sut = CreateStore("late-prompt", "v1");
+
+        // Act — first call fails (file missing)
+        var firstAct = () => sut.GetPromptAsync("late-prompt", "v1", TestContext.Current.CancellationToken);
+        await firstAct.Should().ThrowAsync<KeyNotFoundException>();
+
+        // Arrange — now create the file so the retry can succeed
+        WriteYamlFile("late-prompt.v1.yaml", BuildMinimalYaml("Now I exist."));
+
+        // Act — second call should succeed because the faulted entry was evicted
+        var actual = await sut.GetPromptAsync("late-prompt", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        actual.Id.Should().Be("late-prompt");
+        actual.Version.Should().Be("v1");
+        actual.StaticSystemPrompt.Should().Contain("Now I exist.");
+    }
+
+    [Theory]
+    [InlineData("../etc/passwd", "v1")]
+    [InlineData("coaching-system", "../../../v1")]
+    [InlineData("../../secret", "v1")]
+    public async Task GetPromptAsync_PathTraversal_ThrowsInvalidOperationException(string id, string version)
+    {
+        // Arrange
+        var settings = new PromptStoreSettings
+        {
+            ActiveVersions = new Dictionary<string, string> { [id] = version },
+        };
+        var sut = new YamlPromptStore(settings, _tempDir, _logger);
+
+        // Act
+        var act = () => sut.GetPromptAsync(id, version, TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*escapes the configured base directory*");
+    }
+
+    [Fact]
+    public void ValidateConfiguredVersions_PathTraversal_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var settings = new PromptStoreSettings
+        {
+            ActiveVersions = new Dictionary<string, string> { ["../etc/passwd"] = "v1" },
+        };
+        var sut = new YamlPromptStore(settings, _tempDir, _logger);
+
+        // Act
+        var act = () => sut.ValidateConfiguredVersions();
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*escapes the configured base directory*");
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_MalformedYaml_ThrowsYamlException()
+    {
+        // Arrange — syntactically invalid YAML (unbalanced braces, bad indentation)
+        const string malformedYaml = "static_system_prompt: [\ninvalid: {{\n  broken";
+        WriteYamlFile("malformed.v1.yaml", malformedYaml);
+        var sut = CreateStore("malformed", "v1");
+
+        // Act
+        var act = () => sut.GetPromptAsync("malformed", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<YamlException>();
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_WrongStructureYaml_ReturnsEmptyTemplate()
+    {
+        // Arrange — valid YAML but wrong structure (flat string, not expected mapping)
+        const string wrongStructure = "just_a_random_key: some value\nanother_key: 42\n";
+        WriteYamlFile("wrong-structure.v1.yaml", wrongStructure);
+        var sut = CreateStore("wrong-structure", "v1");
+
+        // Act
+        var actual = await sut.GetPromptAsync("wrong-structure", "v1", TestContext.Current.CancellationToken);
+
+        // Assert — unmatched properties are ignored; mapped fields default to null/empty
+        actual.Id.Should().Be("wrong-structure");
+        actual.Version.Should().Be("v1");
+        actual.StaticSystemPrompt.Should().BeEmpty();
+        actual.ContextTemplate.Should().BeEmpty();
+        actual.Metadata.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_MalformedYamlThenFixed_EvictsCacheAndReloads()
+    {
+        // Arrange — start with malformed YAML
+        const string malformedYaml = "static_system_prompt: [\nunbalanced";
+        WriteYamlFile("fixable.v1.yaml", malformedYaml);
+        var sut = CreateStore("fixable", "v1");
+
+        // Act — first call fails with YamlException
+        var firstAct = () => sut.GetPromptAsync("fixable", "v1", TestContext.Current.CancellationToken);
+        await firstAct.Should().ThrowAsync<YamlException>();
+
+        // Arrange — overwrite with valid YAML
+        WriteYamlFile("fixable.v1.yaml", BuildMinimalYaml("Now I'm valid."));
+
+        // Act — second call should succeed because the faulted entry was evicted
+        var actual = await sut.GetPromptAsync("fixable", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        actual.Id.Should().Be("fixable");
+        actual.Version.Should().Be("v1");
+        actual.StaticSystemPrompt.Should().Contain("Now I'm valid.");
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_ConcurrentCalls_ReturnSameInstance()
+    {
+        // Arrange
+        var yaml = BuildMinimalYaml("You are a coach.");
+        WriteYamlFile("coaching-system.v1.yaml", yaml);
+        var sut = CreateStore("coaching-system", "v1");
+
+        // Act — fire multiple calls concurrently
+        var tasks = Enumerable.Range(0, 10)
+            .Select(_ => sut.GetPromptAsync("coaching-system", "v1", TestContext.Current.CancellationToken))
+            .ToArray();
+        var results = await Task.WhenAll(tasks);
+
+        // Assert — all results are the same reference (loaded once, cached)
+        var expected = results[0];
+        foreach (var actual in results)
+        {
+            actual.Should().BeSameAs(expected);
+        }
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_CallerTokenCancelled_CacheEntryNotCorrupted()
+    {
+        // Arrange — file exists so the underlying load will succeed
+        var yaml = BuildMinimalYaml("Cached despite cancellation.");
+        WriteYamlFile("cancel-test.v1.yaml", yaml);
+        var sut = CreateStore("cancel-test", "v1");
+
+        // Act — first caller cancels immediately; underlying Lazy uses CancellationToken.None
+        // so the load completes, but the caller sees OperationCanceledException from WaitAsync
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        var firstAct = () => sut.GetPromptAsync("cancel-test", "v1", cts.Token);
+        await firstAct.Should().ThrowAsync<OperationCanceledException>();
+
+        // Act — second caller uses a valid token; the cached Lazy should still be intact
+        var actual = await sut.GetPromptAsync("cancel-test", "v1", CancellationToken.None);
+
+        // Assert — cache entry was not corrupted by the first caller's cancellation
+        actual.Id.Should().Be("cancel-test");
+        actual.Version.Should().Be("v1");
+        actual.StaticSystemPrompt.Should().Contain("Cached despite cancellation.");
+    }
+
+    private static string BuildFullYaml()
+    {
+        return string.Join(
+            "\n",
+            "metadata:",
+            "  description: \"Test prompt\"",
+            "  author: \"Test\"",
+            "  created_at: \"2026-01-01\"",
+            "static_system_prompt: |",
+            "  You are a running coach.",
+            "context_template: |",
+            "  === PROFILE ===",
+            "  {{profile}}",
+            string.Empty);
+    }
+
+    private static string BuildMinimalYaml(string prompt)
+    {
+        return string.Join(
+            "\n",
+            "static_system_prompt: |",
+            $"  {prompt}",
+            "context_template: |",
+            "  {{profile}}",
+            string.Empty);
+    }
+
+    private static string BuildMultilineYaml()
+    {
+        return string.Join(
+            "\n",
+            "static_system_prompt: |",
+            "  Line one.",
+            "  Line two.",
+            "  Line three.",
+            "context_template: |",
+            "  {{profile}}",
+            string.Empty);
+    }
+
+    private YamlPromptStore CreateStore(string promptId, string activeVersion)
+    {
+        var settings = new PromptStoreSettings
+        {
+            ActiveVersions = new Dictionary<string, string>
+            {
+                [promptId] = activeVersion,
+            },
+        };
+
+        return new YamlPromptStore(settings, _tempDir, _logger);
+    }
+
+    private void WriteYamlFile(string fileName, string content)
+    {
+        var filePath = Path.Combine(_tempDir, fileName);
+        File.WriteAllText(filePath, content);
+    }
+}

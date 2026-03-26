@@ -1,9 +1,13 @@
+using RunCoach.Api.Infrastructure;
+using RunCoach.Api.Modules.Coaching.Prompts;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
+builder.Services.AddApplicationModules(builder.Configuration);
 
 builder.Services.AddCors(options =>
 {
@@ -16,6 +20,13 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Fail fast at startup if any configured prompt YAML files are missing on disk.
+var promptStore = app.Services.GetRequiredService<IPromptStore>();
+if (promptStore is YamlPromptStore yamlStore)
+{
+    yamlStore.ValidateConfiguredVersions();
+}
 
 if (app.Environment.IsDevelopment())
 {

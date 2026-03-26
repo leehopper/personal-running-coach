@@ -4,17 +4,17 @@
 
 A solo-developer project building an AI running coach that maintains a persistent adaptive coaching relationship. The AI is the coach — it builds training plans, consumes workout results, and continuously adapts. It does NOT do live workout tracking (that's Garmin/Strava/Apple Health territory).
 
-**Current Phase: Development-Ready (scaffolding complete, quality pipeline being finalized)**
+**Current Phase: POC 1 Complete — Merging to Main**
 See ROADMAP.md for current status and next steps.
 
 ## Tech Stack
 
 - **Backend:** .NET 10 / C# 14, ASP.NET Core controllers, EF Core + Marten (event sourcing on PostgreSQL JSONB), Wolverine (background processing), ASP.NET Core Identity + JWT
 - **Frontend:** React 19 + TypeScript (strict), Vite SPA, React Router v7, Redux Toolkit + RTK Query, Tailwind CSS + shadcn/ui, React Hook Form + Zod
-- **Testing:** xUnit + FluentAssertions + NSubstitute, Vitest + React Testing Library, Playwright E2E
+- **Testing:** xUnit v3 (MTP runner) + FluentAssertions + NSubstitute + M.E.AI.Evaluation, Vitest + React Testing Library, Playwright E2E
 - **Infrastructure:** Docker Compose + Tilt (local dev), Colima, GitHub Actions CI/CD, PostgreSQL + Redis
 - **Quality:** Lefthook pre-commit, local `/review-pr` via Max (PR review), Trivy + Codecov (CI), SonarAnalyzer.CSharp + eslint-plugin-sonarjs (build-time analysis), Dependabot
-- **LLM:** Claude Sonnet 4.5 via thin adapter interface. Prompts in versioned config files, not code.
+- **LLM:** Claude Sonnet 4.6 via thin adapter interface (`ICoachingLlm`). Prompts in versioned YAML files (`Prompts/`), not code.
 
 ## Architecture Principles
 
@@ -28,14 +28,29 @@ See ROADMAP.md for current status and next steps.
 ```
 CLAUDE.md              # You are here (always loaded)
 ROADMAP.md             # Living project state — read every session
+dotnet-tools.json      # Local tool manifest (dotnet aieval)
 backend/               # .NET API (has its own CLAUDE.md)
 frontend/              # React SPA (has its own CLAUDE.md)
 docs/
   planning/            # Vision, architecture, safety, coaching persona
-  decisions/           # Decision log (DEC-001 through DEC-035)
+  decisions/           # Decision log (DEC-001 through DEC-039)
   features/            # Feature backlog
   research/            # Research queue, prompts, and artifacts
 ```
+
+## Quick Start Commands
+
+**Backend** (run from `backend/`):
+- `dotnet build` — build all projects
+- `dotnet test` — run all tests (evals run in Replay mode from committed cache fixtures)
+- `dotnet tool restore` — restore local tools (aieval)
+
+**Frontend** (run from `frontend/`):
+- `npm run dev` — start dev server on port 5173
+- `npm run build` — type-check + production build
+- `npm run test` — run Vitest suite
+- `npm run lint` — ESLint check
+- `npm run format` — Prettier auto-format
 
 ## Development Workflow
 
@@ -96,7 +111,7 @@ Before merging any PR, run `/review-pr` locally via Claude Code Max subscription
 
 ## Key References
 
-- `docs/decisions/decision-log.md` — all 35 decisions with rationale
+- `docs/decisions/decision-log.md` — all 39 decisions with rationale
 - `docs/planning/vision-and-principles.md` — why this exists, design principles
 - `docs/planning/safety-and-legal.md` — legal landscape, safety guardrails
 - `docs/research/artifacts/` — full research outputs (11 integrated topics)

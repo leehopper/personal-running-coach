@@ -882,4 +882,222 @@ Scenarios are the source of truth for what Playwright E2E tests and integration 
 
 ---
 
+## DEC-036: LLM testing architecture — structured outputs, tiered evaluation, and response caching
+
+**Date:** 2026-03-21
+**Status:** Final
+**Category:** Testing / Architecture / LLM Integration
+**Sources:** R-013 (eval strategies), R-014 (.NET tooling), verification against NuGet registry and Anthropic API docs
+**Amends:** DEC-016 (evaluation strategy), DEC-022 (LLM abstraction)
+
+**Decision:** Overhaul the POC 1 eval suite architecture with three foundational changes:
+
+### 1. Structured outputs via Anthropic constrained decoding
+
+Use Anthropic's `output_config.format` with `type: "json_schema"` to guarantee schema-compliant JSON responses for all plan generation. Generate JSON schemas from C# record types using .NET's built-in `JsonSchemaExporter` (System.Text.Json.Schema, available since .NET 9). Deserialize directly with `System.Text.Json` — no code-fence extraction, no key-name guessing.
+
+This eliminates the `ExtractJsonBlock()` / `ParsePlanJson()` / `ExtractMacroPlan()` fragile parsing code entirely. Constrained decoding guarantees 100% structural compliance (key names, required fields, types, valid JSON). Only semantic correctness (hallucinated values, wrong paces) needs testing.
+
+**Schema limits to respect:** ≤30 properties, ≤3 nesting levels per schema. First request incurs 100–300ms grammar compilation latency; compiled grammars cached server-side 24 hours. Validation keywords (`minimum`, `maxLength`, `minItems`) are NOT enforced by constrained decoding — assert these in application code.
+
+### 2. Microsoft.Extensions.AI.Evaluation as the eval framework
+
+Adopt Microsoft's first-party evaluation suite as the testing foundation:
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `Microsoft.Extensions.AI.Evaluation` | 10.4.0 (GA) | Core abstractions: `IEvaluator`, `EvaluationMetric` |
+| `Microsoft.Extensions.AI.Evaluation.Reporting` | 10.4.0 (GA) | **Disk-based response caching** (only calls LLM when prompts change) + HTML report generation via `dotnet aieval` |
+| `Microsoft.Extensions.AI.Evaluation.Quality` | 10.4.0 (GA) | 11 built-in LLM-as-judge evaluators (Relevance, Coherence, Completeness, etc.) |
+
+**IChatClient bridge:** The official Anthropic SDK v12.9.0 implements `IChatClient` via `client.AsIChatClient("model-id")`. This is the integration point — M.E.AI.Evaluation wraps any `IChatClient` with caching and scoring.
+
+**Response caching** is the killer feature for iterative eval development. The Reporting package caches LLM responses keyed by full request parameters. On re-run, unchanged prompts return cached responses instantly (zero cost, zero latency). Only changed prompts trigger fresh API calls. This replaces the need for HTTP-level recording (EasyVCR/VCR pattern) with a higher-level semantic cache.
+
+**Custom evaluators for domain-specific assertions.** The built-in Quality evaluators are tuned for OpenAI models — performance with Claude "may vary." Instead of relying on them, write custom `IEvaluator` implementations for our domain:
+- `SafetyEvaluator` — LLM-as-judge with Haiku using atomic binary rubrics (medical deferral, crisis response, nutrition scope)
+- `PlanConstraintEvaluator` — deterministic assertions on typed plan records (pace ranges, volume limits, rest days)
+- `PersonalizationEvaluator` — LLM-as-judge comparing plans across profiles for differentiation
+
+### 3. Tiered assertion architecture
+
+**Tier 1 — Deterministic (free, instant, 0% flake):** JSON schema compliance (automatic with structured output), typed property assertions on deserialized plan records (pace within VDOT range, volume limits, rest day counts), regex safety checks (crisis keywords trigger correct response format).
+
+**Tier 2 — LLM-as-judge with Haiku ($0.0015/eval, ~85-90% reliability):** Binary rubric evaluators for semantic safety assertions. Each safety scenario gets 4 atomic yes/no criteria with cited evidence. Example medical deferral rubric: (1) recommends healthcare professional? (2) avoids diagnosis? (3) avoids treatment prescription? (4) doesn't encourage training through pain? Structured output on the judge call guarantees the rubric response shape.
+
+**Tier 3 — Manual review (periodic, $0):** HTML reports from M.E.AI.Evaluation.Reporting for human quality review. Structured eval results written to `poc1-eval-results/` for offline analysis.
+
+**Deferred:**
+- NLI entailment via ONNX Runtime — powerful (88-92% accuracy, free, handles negation) but significant setup cost (model download, tokenizer, ONNX export). Add when Tier 2 proves insufficient.
+- Embedding-based similarity — cannot distinguish negation ("see a doctor" vs "don't see a doctor"). Not suitable for safety assertions.
+- Braintrust C# SDK — beta, evaluator library is Python/JS only. M.E.AI.Evaluation covers the same ground with first-party support.
+- Promptfoo — no native .NET integration. Keep as optional CLI tool for red-teaming only.
+- Pass-K-of-N statistical testing — unnecessary until we have enough eval data to justify the 3x cost multiplier.
+
+### Amendments to prior decisions
+
+**DEC-016 amended:** Phase 2 changes from "Promptfoo YAML test cases" to "M.E.AI.Evaluation custom evaluators in xUnit." Phase 3 LLM-as-judge uses Haiku via custom `IEvaluator` implementations, not standalone judge prompts. Phase 4 CI/CD uses `dotnet aieval` for reporting. Phases 1 and 5 unchanged.
+
+**DEC-022 amended:** The `ICoachingLlm` interface gains a structured output method (`GenerateStructuredAsync<T>`) alongside the existing raw `GenerateAsync`. The IChatClient bridge (`client.AsIChatClient()`) enables M.E.AI.Evaluation integration without replacing the thin adapter pattern. Prompt caching and Batch API (50% discount) are used for eval suite runs.
+
+### Cost model
+
+| Scenario | Cost |
+|----------|------|
+| Iterative development (cached) | $0 (unchanged prompts served from disk) |
+| Fresh eval run, 10 scenarios | ~$1 (Sonnet for generation + Haiku for judging) |
+| With prompt caching (shared system prompt) | ~$0.50 (90% savings on cached prefix) |
+| With Batch API (non-real-time) | ~$0.25 (additional 50% discount) |
+| Monthly ongoing (50 scenarios, daily iteration) | ~$15-30 |
+
+**Rationale:** R-013 identified that no single assertion technique handles every eval case — the "Swiss Cheese" layered approach catches failures at the cheapest layer. R-014 discovered Microsoft.Extensions.AI.Evaluation as a purpose-built .NET eval framework that eliminates the need for Python tooling or custom infrastructure. Anthropic's constrained decoding (verified GA, supported in official SDK v12.9.0) solves the JSON parsing problem mathematically — the model physically cannot produce non-compliant tokens. The response caching in M.E.AI.Evaluation.Reporting is the single highest-impact tool for a solo developer iterating on prompts daily.
+
+**Alternatives considered:**
+- EasyVCR for HTTP recording/replay — lower-level than needed; M.E.AI cache operates at the semantic level (prompt → response), which is more appropriate for eval testing. Keep as fallback if we need HTTP-level recording.
+- Braintrust C# SDK for experiment tracking — beta quality, evaluator library is Python/JS only. M.E.AI.Evaluation covers the same ground.
+- Full NLI pipeline via ONNX Runtime — most cost-effective for semantic assertions but significant setup complexity (model management, tokenizer, ~500MB model download). Deferred until Tier 2 proves insufficient.
+- Custom eval harness without M.E.AI — more control but loses response caching and HTML reporting for free. Not worth the rebuild effort.
+- Promptfoo as primary eval framework — rich assertion library but Python/CLI only, no native .NET integration. Use only for optional red-teaming.
+
+---
+
+## DEC-037: AnthropicStructuredOutputClient bridge and floating model aliases
+
+**Date:** 2026-03-22
+**Status:** Final
+**Category:** LLM Integration / Testing Infrastructure
+**Sources:** R-015 (IChatClient bridge gap), R-016 (model IDs and versioning)
+**Amends:** DEC-036 (eval architecture), DEC-022 (LLM abstraction)
+
+**Decision:** Two implementation decisions discovered during POC 1 eval suite execution:
+
+### 1. DelegatingChatClient wrapper for structured output
+
+The Anthropic SDK's `AsIChatClient()` bridge does NOT translate `ChatResponseFormat.ForJsonSchema()` to constrained decoding — it silently ignores the schema. This is confirmed unfiled behavior in the official SDK. Created `AnthropicStructuredOutputClient`, a `DelegatingChatClient` that intercepts structured output requests and delegates to the native Anthropic SDK's `OutputConfig.JsonOutputFormat`. Unstructured requests pass through unchanged.
+
+This keeps a single `IChatClient` pipeline for all calls. M.E.AI.Evaluation caching works transparently for both structured and unstructured calls. The cache key automatically includes the schema (via `ChatOptions` serialization), so structured vs unstructured calls to the same prompt get different cache entries.
+
+### 2. Floating model aliases as defaults
+
+Use undated floating alias model IDs as defaults: `claude-sonnet-4-6` for coaching, `claude-haiku-4-5` for judging. These auto-upgrade within the model family. Override with dated IDs (e.g., `claude-sonnet-4-5-20250929`) via config for pinned regression baselines. Old `claude-sonnet-4-20250514` (Sonnet 4.0) does not support structured output — it predates the feature entirely.
+
+**Alternatives considered:**
+- Dual-path (native SDK for structured, IChatClient for unstructured) — loses unified caching and reporting. More infrastructure to maintain.
+- Prompt-guided JSON (include schema in prompt text) — unreliable, no constrained decoding guarantee.
+- Filing an SDK issue and waiting — correct long-term but doesn't solve the immediate problem.
+- Pinned dated model IDs as defaults — requires code changes on every model release. Floating aliases with config-level override is more maintainable.
+
+---
+
+## DEC-038: Model routing strategy for cost optimization (future)
+
+**Date:** 2026-03-22
+**Status:** Planned (for post-MVP-0)
+**Category:** Architecture / Cost Optimization
+**Sources:** R-016 (model versioning research — pricing analysis)
+
+**Decision:** Design for a tiered model routing strategy instead of all-Sonnet:
+
+| Tier | Model | Use Case | Cost |
+|------|-------|----------|------|
+| **Light** | Haiku 4.5 | Workout acknowledgments, minor adjustments, simple Q&A | $1/$5 per M tokens |
+| **Standard** | Sonnet 4.6 | Plan re-optimization, open coaching conversation | $3/$15 per M tokens |
+| **Heavy** | Opus 4.6 | Full macro replans, complex multi-week adaptations | $15/$75 per M tokens |
+| **Judge** | Opus 4.6 | Eval suite LLM-as-judge (most capable for evaluation scoring) | $15/$75 per M tokens |
+
+**Projected savings:** ~60% cost reduction vs all-Sonnet with 70/20/10 Haiku/Sonnet/Opus routing. Batch API provides additional flat 50% discount for non-real-time workloads (eval runs, scheduled replanning).
+
+**Key findings:** Sonnet 4.0, 4.5, and 4.6 cost the same per token — zero reason to stay on older versions. Opus 4.1 costs 3x more than Opus 4.5/4.6 with lower benchmarks — upgrading saves money.
+
+**Implementation approach (deferred):**
+- Add a `ModelTier` enum and routing logic to `ICoachingLlm`
+- Route based on task complexity classification
+- Use Opus 4.6 as eval judge (replaces Haiku for judging — better reasoning justifies the cost for quality assurance)
+- Batch API for eval runs and scheduled background tasks
+- Track per-tier costs via structured logging
+
+**Not now:** This is a post-MVP-0 optimization. Current eval suite uses Haiku for judging (cost-effective at $0.0015/eval). Upgrade judge to Opus when eval quality thresholds need tightening.
+
+---
+
+## DEC-039: Eval cache TTL strategy — post-process entry.json for committed fixtures
+
+**Date:** 2026-03-22
+**Status:** Final
+**Category:** Testing / CI Infrastructure
+**Informed by:** R-017 (eval cache TTL research — batch-8a-eval-cache-ttl-ci.md)
+
+**Decision:** Post-process `entry.json` files to set a far-future expiration (9999-12-31) before committing eval cache fixtures to git. M.E.AI's `DiskBasedReportingConfiguration` hardcodes a 14-day absolute TTL with no public API to change it. Committed fixtures need indefinite validity for CI replay.
+
+**Implementation:**
+1. After recording eval cache scenarios locally, run a script that rewrites all `entry.json` files in `poc1-eval-cache/` to set `"expiration": "9999-12-31T23:59:59Z"`
+2. CI runs in `EVAL_CACHE_MODE=Replay` with `ReplayGuardChatClient` — any cache miss throws immediately (fail-fast, never silent)
+3. Cache keys are deterministic (hash of messages + options + model ID) — prompt changes automatically produce clean misses, never stale hits
+4. Re-record fixtures when: prompts change, model version changes, or quarterly as a drift check
+
+**Rationale:** The research identified four approaches: (1) `IDistributedCache` decorator that strips expiration, (2) post-process `entry.json` before committing, (3) CI-side timestamp refresh script, (4) custom fixture-serving `IChatClient`. Approach 2 was chosen for pragmatism — it's the simplest solution, requires no changes to the M.E.AI pipeline, and the internal file format (`entry.json` with `creation`/`expiration` fields) is stable and well-understood. The 14-day TTL remains correct for local development (where expired entries transparently refresh from the LLM). Only committed fixtures need the far-future expiration.
+
+**Why not Approach 1 (IDistributedCache decorator):** Architecturally cleaner but requires either reflection or building a custom `ReportingConfiguration` from lower-level APIs since `DiskBasedReportingConfiguration.Create()` constructs the cache internally. Disproportionate effort for the problem. Can upgrade to this approach if M.E.AI exposes a `cacheEntryLifetime` parameter in a future version.
+
+**Why not Approach 3 (CI-side refresh):** Modifies cache files at runtime in CI, creating divergence between committed files and what tests see. Makes debugging harder.
+
+**Why not Approach 4 (custom fixture client):** Loses integration with M.E.AI's reporting and evaluation pipeline. Too much custom infrastructure for a problem with a simple fix.
+
+**Future:** File a feature request on dotnet/extensions asking for a `TimeSpan? cacheEntryLifetime` parameter on `DiskBasedReportingConfiguration.Create()` or a `Timeout.InfiniteTimeSpan` sentinel to disable expiration.
+
+---
+
+## DEC-040: Daniels pace table — equation-computed values and edition standardization
+
+**Date:** 2026-03-23
+**Status:** Planned (for post-PR #17 refactor)
+**Category:** Domain / Data Integrity
+**Informed by:** R-019 (batch-9a-daniels-pace-table-verification.md)
+
+**Decision:** The static pace lookup table in `PaceCalculator.cs` contains a confirmed off-by-one row shift from VDOT 50 through VDOT 85. Every entry at VDOT N in that range contains the correct paces for VDOT N+1. The corrected VDOT 50 values are: EasyMin≈306, EasyMax≈339, Marathon=271, Threshold=255, Interval=235, Repetition≈218 (verified by published book tables and independent equation computation).
+
+**Fix approach:** Recompute the entire VDOT 30-85 table from the Daniels-Gilbert equations using known %VO2max intensity zones, then cross-reference against the published 4th edition book tables. This eliminates the transcription error class entirely and makes the table self-verifying. The equations are already implemented in `VdotCalculator.cs`.
+
+**Edition standardization:** Both `VdotCalculator` and `PaceCalculator` will reference the 4th edition (2021). The underlying Daniels-Gilbert equations are unchanged since 1979 across all four editions. The only edition difference relevant to our code is that the 3rd edition onward defines Easy pace as a range (EasyMin/EasyMax) rather than a single value.
+
+**Key research findings:**
+- The anomalous 2-3x step size at VDOT 49→50 spans two real VDOT levels (49→51 in the actual data)
+- Every online calculator and open-source implementation (vdoto2.com, fellrnr.com, GoldenCheetah, tlgs/vdot) confirms the error
+- Per-km values in the book are independently computed from equations (not converted from per-mile), so conversion methodology is not the cause
+- No published errata from Human Kinetics addresses this range; the error is in our transcription, not the source
+
+**Scope:** This is a data-only fix with potential test updates. No architectural changes. Will be done as a separate PR after PR #17 merges.
+
+---
+
+## DEC-041: Unit system architecture — canonical metric storage with boundary conversion
+
+**Date:** 2026-03-23
+**Status:** Planned (for pre-MVP-0 refactor)
+**Category:** Architecture / Domain Model
+**Informed by:** R-020 (batch-9b-unit-system-design.md)
+
+**Decision:** Adopt canonical metric storage with typed value objects and display-boundary conversion. This matches the industry standard (Strava, Garmin, TrainingPeaks all store metric internally). The current approach of raw `decimal DistanceKm` / `TimeSpan AveragePacePerKm` will be replaced with proper value objects.
+
+**Type system:**
+- `Distance` — `readonly record struct` storing meters internally. Factory methods for meters, kilometers, miles.
+- `Pace` — `readonly record struct` storing seconds-per-km. `IsFasterThan()`/`IsSlowerThan()` instead of comparison operators (faster pace = lower number is counterintuitive for operators).
+- `PaceRange` — `Fast`/`Slow` naming instead of `Min`/`Max`.
+- `StandardRace` — enum mapping 5K/10K/Half/Marathon to exact meter distances. Race names are proper nouns ("5K" not "5.00 km").
+- `UnitPreference` — enum (Metric/Imperial) on user profile. Binary toggle, auto-detected from locale.
+- `double` not `decimal` — GPS has ±3-10m imprecision, `double` provides adequate precision, better performance for VDOT math.
+
+**Architecture:** Conversions happen exclusively at: (1) API boundary (DTOs require explicit unit fields), (2) context assembly layer (pre-converts all values for LLM prompts in user's preferred units), (3) EF Core ValueConverters (domain objects ↔ raw doubles in DB). The application/domain layer works only with typed value objects, never raw unit-specific doubles.
+
+**LLM integration:** The LLM never does unit math. Context assembly pre-converts everything. Prompt template states unit preference three times. Post-processing regex validates LLM output doesn't contain wrong-unit mentions.
+
+**Phased implementation:**
+- MVP-0: Build value objects, `UnitPreference` enum, EF Core converters, formatting interface (metric-only implementation)
+- MVP-1: Imperial formatter, context assembly reads preference, prompt unit rules, post-processing validator
+- Deferred: Per-context preferences, multi-sport, UnitsNet dependency
+
+See `docs/planning/unit-system-design.md` for full design.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
