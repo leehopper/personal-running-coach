@@ -1088,6 +1088,57 @@ public class ContextAssemblerTests
     }
 
     [Fact]
+    public async Task AssembleAsync_StartSectionsAloneExceedBudget_ReturnsOverBudgetWithoutError()
+    {
+        // Arrange — pathologically large UserProfile where the start sections alone
+        // exceed the 15K token budget. The overflow cascade only reduces middle/end
+        // sections (training history + conversation), so it cannot bring the total
+        // under budget. This test documents the current behavior: the assembler
+        // returns the result without error even when over budget.
+        var input = BuildPathologicallyLargeProfileInput();
+
+        // Pre-check: verify start sections alone exceed the budget (validates test setup).
+        var startInput = new ContextAssemblerInput(
+            input.UserProfile,
+            input.GoalState,
+            input.FitnessEstimate,
+            input.TrainingPaces,
+            ImmutableArray<WorkoutSummary>.Empty,
+            ImmutableArray<ConversationTurn>.Empty,
+            "Hi");
+        var startOnly = await _sut.AssembleAsync(startInput, TestContext.Current.CancellationToken);
+        startOnly.EstimatedTokenCount.Should().BeGreaterThan(
+            TokenBudget,
+            because: "test setup requires start sections + system prompt to exceed the 15K budget");
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — the cascade exhausts all 5 steps but cannot reduce start sections,
+        // so the result exceeds the budget. This is a known limitation: start sections
+        // (user profile, goal, fitness, paces) are never truncated.
+        var overBudgetReason = "the overflow cascade cannot reduce start sections, "
+            + "so pathologically large profiles produce over-budget results";
+        actualPrompt.EstimatedTokenCount.Should().BeGreaterThan(
+            TokenBudget,
+            because: overBudgetReason);
+
+        // The cascade still removes middle and end sections as much as possible.
+        actualPrompt.MiddleSections.Should().BeEmpty(
+            because: "the cascade removes all training history when start sections exceed budget");
+
+        // Start sections are preserved intact — the cascade never touches them.
+        actualPrompt.StartSections.Should().HaveCount(
+            4,
+            because: "start sections are never removed by the overflow cascade");
+
+        // Current user message is always preserved.
+        actualPrompt.EndSections.Should().Contain(
+            s => s.Key == "current_user_message",
+            because: "the current user message is never removed by the overflow cascade");
+    }
+
+    [Fact]
     public async Task AssembleAsync_JustUnderBudget_NoCascadeTriggered()
     {
         // Arrange — use a real profile with moderate conversation that stays under budget
@@ -1368,5 +1419,104 @@ public class ContextAssemblerTests
             workouts.ToImmutable(),
             conversation.ToImmutable(),
             "Create a training plan for my half marathon.");
+    }
+
+    /// <summary>
+    /// Builds a <see cref="ContextAssemblerInput"/> with a pathologically large UserProfile
+    /// whose start sections alone exceed the 15K token budget. Uses many injury notes
+    /// and race times with long descriptions to inflate the user_profile section beyond
+    /// what the overflow cascade can recover from (since start sections are never reduced).
+    /// </summary>
+    private static ContextAssemblerInput BuildPathologicallyLargeProfileInput()
+    {
+        // Generate enough injury notes and race times to push user_profile well over budget.
+        // Each injury note renders as ~100-150 chars; each race time as ~80-120 chars.
+        // We need roughly 60K+ chars in the profile section to exceed 15K tokens
+        // (15K tokens * 4 chars/token / 1.1 margin = ~54K chars).
+        var injuries = ImmutableArray.CreateBuilder<InjuryNote>();
+        for (var i = 0; i < 250; i++)
+        {
+            injuries.Add(new InjuryNote(
+                $"Chronic overuse injury in region {i}: detailed description of the biomechanical "
+                    + $"factors contributing to this recurring condition number {i}",
+                DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-i),
+                i % 2 == 0 ? "Active" : "Resolved"));
+        }
+
+        var races = ImmutableArray.CreateBuilder<RaceTime>();
+        for (var i = 0; i < 130; i++)
+        {
+            races.Add(new RaceTime(
+                $"Ultra-Marathon-{i}-with-a-very-long-race-name",
+                TimeSpan.FromHours(4) + TimeSpan.FromMinutes(i),
+                DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-30 * i),
+                $"Hot and humid conditions at altitude with strong headwinds, event {i}"));
+        }
+
+        var constraints = ImmutableArray.CreateBuilder<string>();
+        for (var i = 0; i < 50; i++)
+        {
+            constraints.Add(
+                $"Never run before {6 + (i % 4)}:00 AM on {(DayOfWeek)(i % 7)} due to scheduling constraint {i}");
+        }
+
+        var preferences = new UserPreferences(
+            ImmutableArray.Create(DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Saturday),
+            DayOfWeek.Saturday,
+            3,
+            "metric",
+            60,
+            constraints.ToImmutable());
+
+        var profile = new UserProfile(
+            Guid.NewGuid(),
+            "TestRunner",
+            30,
+            "Male",
+            75m,
+            180m,
+            55,
+            185,
+            5m,
+            50m,
+            20m,
+            races.ToImmutable(),
+            injuries.ToImmutable(),
+            preferences,
+            DateTime.UtcNow,
+            DateTime.UtcNow);
+
+        var paces = new TrainingPaces(
+            new PaceRange(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(6)),
+            TimeSpan.FromMinutes(4.5),
+            TimeSpan.FromMinutes(4.2),
+            TimeSpan.FromMinutes(3.8),
+            TimeSpan.FromMinutes(3.5));
+
+        var fitness = new FitnessEstimate(
+            50m,
+            paces,
+            "Intermediate",
+            "Race history",
+            DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var goal = new GoalState(
+            "RaceGoal",
+            new RaceGoal(
+                "Test Marathon",
+                "Marathon",
+                DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(3),
+                TimeSpan.FromHours(3.5),
+                "A"),
+            fitness);
+
+        return new ContextAssemblerInput(
+            profile,
+            goal,
+            fitness,
+            paces,
+            ImmutableArray<WorkoutSummary>.Empty,
+            ImmutableArray<ConversationTurn>.Empty,
+            "Create a training plan for my marathon.");
     }
 }
