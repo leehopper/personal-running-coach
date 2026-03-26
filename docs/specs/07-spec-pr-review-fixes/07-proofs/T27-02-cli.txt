@@ -1,0 +1,12 @@
+Type: cli
+Command: grep -c "Initializes a new instance of the" backend/src/RunCoach.Api/Modules/Coaching/ClaudeCoachingLlm.cs
+Expected: 0 (no remaining generic duplicate opener sentences)
+Timestamp: 2026-03-25T19:30:00Z
+
+Output:
+Match count: 0
+
+Build verification: PASS (Build succeeded, 0 errors, 0 warnings)
+Test verification: PASS (All tests pass)
+
+Status: PASS

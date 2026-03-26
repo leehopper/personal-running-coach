@@ -1,0 +1,35 @@
+Type: file
+Description: Verify duplicate XML doc sentences removed from ClaudeCoachingLlm constructors
+File: backend/src/RunCoach.Api/Modules/Coaching/ClaudeCoachingLlm.cs
+Expected: No duplicate "Initializes a new instance" opening sentences in either constructor's XML docs
+Timestamp: 2026-03-25T19:30:00Z
+
+--- Before (lines 42-46, first constructor) ---
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class.
+    /// Initializes a new instance using dependency-injected settings and logger.
+    /// Creates the <see cref="AnthropicClient"/> from configuration.
+    /// </summary>
+
+--- After (lines 42-45, first constructor) ---
+    /// <summary>
+    /// Initializes a new instance using dependency-injected settings and logger.
+    /// Creates the <see cref="AnthropicClient"/> from configuration.
+    /// </summary>
+
+--- Before (lines 68-72, second constructor) ---
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class.
+    /// Initializes a new instance with an externally provided client.
+    /// Used for testing with a mock/substitute client.
+    /// </summary>
+
+--- After (lines 67-70, second constructor) ---
+    /// <summary>
+    /// Initializes a new instance with an externally provided client.
+    /// Used for testing with a mock/substitute client.
+    /// </summary>
+
+Verification: Grep for duplicate pattern returns zero matches.
+
+Status: PASS
