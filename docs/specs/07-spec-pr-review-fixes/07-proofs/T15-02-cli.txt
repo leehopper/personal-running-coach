@@ -1,0 +1,14 @@
+Type: cli
+Description: dotnet build succeeds with DI wiring changes
+Command: dotnet build --verbosity quiet
+Expected: Build succeeded with 0 errors
+Timestamp: 2026-03-25T00:00:00Z
+
+--- OUTPUT ---
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.83
+Status: PASS

@@ -1,3 +1,10 @@
+Type: file
+Description: ServiceCollectionExtensions.cs contains DI registrations for all module services
+Command: cat backend/src/RunCoach.Api/Infrastructure/ServiceCollectionExtensions.cs
+Expected: AddApplicationModules registers IPromptStore, IPaceCalculator, IVdotCalculator as singletons; ICoachingLlm and IContextAssembler as scoped; binds CoachingLlmSettings and PromptStoreSettings from IConfiguration
+Timestamp: 2026-03-25T00:00:00Z
+
+--- OUTPUT ---
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Computations;
@@ -39,3 +46,10 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
+
+--- VERIFICATION ---
+Singleton registrations: IPromptStore, IPaceCalculator, IVdotCalculator - PRESENT
+Scoped registrations: ICoachingLlm, IContextAssembler - PRESENT
+Settings bindings: CoachingLlmSettings (Anthropic), PromptStoreSettings (Prompts) - PRESENT
+IConfiguration parameter added to method signature - PRESENT
+Status: PASS
