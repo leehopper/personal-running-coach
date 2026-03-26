@@ -502,6 +502,42 @@ public class ContextAssemblerTests
     }
 
     [Fact]
+    public async Task AssembleAsync_FifteenConversationTurns_TruncatesToLastTen()
+    {
+        // Arrange — 15 turns exceeds MaxConversationTurns (10), so only the last 10 should appear
+        var input = BuildLeeInput(conversationTurns: 15);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — turns 6-15 should be present (the last 10), turns 1-5 should be truncated
+        var convSection = actualPrompt.EndSections.First(s => s.Key == "conversation_history");
+
+        // Truncated turns (1-5) must not appear
+        for (var i = 1; i <= 5; i++)
+        {
+            convSection.Content.Should().NotContain(
+                $"User message {i}:",
+                because: $"turn {i} should be truncated when conversation exceeds {ContextAssembler.MaxConversationTurns} turns");
+        }
+
+        // Retained turns (6-15) must all appear
+        for (var i = 6; i <= 15; i++)
+        {
+            convSection.Content.Should().Contain(
+                $"User message {i}:",
+                because: $"turn {i} should be retained as one of the most recent {ContextAssembler.MaxConversationTurns} turns");
+        }
+
+        // Count [User]: markers to confirm exactly 10 turns
+        var actualTurnCount = convSection.Content
+            .Split("[User]:").Length - 1;
+        actualTurnCount.Should().Be(
+            ContextAssembler.MaxConversationTurns,
+            because: $"exactly {ContextAssembler.MaxConversationTurns} turns should remain after truncation");
+    }
+
+    [Fact]
     public async Task AssembleAsync_ProfileWithRaceHistory_FormatsRaceTimes()
     {
         // Arrange

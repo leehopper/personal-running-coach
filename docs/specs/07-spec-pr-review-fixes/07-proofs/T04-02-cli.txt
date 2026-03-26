@@ -1,0 +1,16 @@
+Type: cli
+Command: dotnet test --filter "ContextAssemblerTests"
+Expected: All ContextAssemblerTests pass including new truncation test (303 total)
+Timestamp: 2026-03-25T12:00:00Z
+
+Output:
+  Run tests: RunCoach.Api.Tests.dll [net10.0|arm64]
+  Passed! - Failed: 0, Passed: 303, Skipped: 0, Total: 303, Duration: 300ms
+  Tests succeeded: RunCoach.Api.Tests.dll (net10.0|arm64)
+
+Verification:
+  - All 302 pre-existing tests still pass (no regressions)
+  - 1 new test added and passing
+  - Total: 303 tests passing
+
+Status: PASS
