@@ -53,6 +53,7 @@ public class JsonSchemaHelperTests
     [InlineData(typeof(MacroPlanOutput))]
     [InlineData(typeof(MesoWeekOutput))]
     [InlineData(typeof(MicroWorkoutListOutput))]
+    [InlineData(typeof(SafetyVerdict))]
     public void GenerateSchema_AllObjectNodes_HaveAdditionalPropertiesFalse(Type outputType)
     {
         // Arrange
@@ -143,6 +144,7 @@ public class JsonSchemaHelperTests
     [InlineData(typeof(MacroPlanOutput), 2)]
     [InlineData(typeof(MesoWeekOutput), 2)]
     [InlineData(typeof(MicroWorkoutListOutput), 3)]
+    [InlineData(typeof(SafetyVerdict), 2)]
     public void GenerateSchema_NestingDepth_DoesNotExceedLimit(
         Type outputType,
         int expectedMaxDepth)
