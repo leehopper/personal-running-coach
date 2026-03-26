@@ -508,6 +508,24 @@ public class ClaudeCoachingLlmTests
     }
 
     [Fact]
+    public async Task GenerateStructuredAsync_ThrowsJsonException_WhenResponseIsMalformedJson()
+    {
+        // Arrange — return syntactically invalid JSON that cannot be deserialized.
+        // While constrained decoding prevents this in production, the guard ensures
+        // a clear JsonException propagates if the invariant ever breaks.
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse("{ not valid json !!!"));
+
+        var sut = CreateSut();
+
+        // Act & Assert
+        await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
+                "system", "user message", TestContext.Current.CancellationToken))
+            .Should().ThrowAsync<JsonException>();
+    }
+
+    [Fact]
     public async Task GenerateStructuredAsync_ThrowsInvalidOperationException_WhenJsonIsNullLiteral()
     {
         // Arrange — return the JSON literal "null", which deserializes to null
