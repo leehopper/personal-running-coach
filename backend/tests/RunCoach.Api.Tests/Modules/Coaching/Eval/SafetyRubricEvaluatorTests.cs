@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
+using NSubstitute;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
@@ -163,5 +165,36 @@ public sealed class SafetyRubricEvaluatorTests
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task JudgeAsync_MalformedJson_ReturnsSyntheticDeserializationErrorVerdict()
+    {
+        // Arrange — mock IChatClient returns non-JSON text to trigger JsonException fallback
+        var mockClient = Substitute.For<IChatClient>();
+        var nonJsonResponse = new ChatResponse(new ChatMessage(ChatRole.Assistant, "This is not valid JSON at all."));
+        mockClient
+            .GetResponseAsync(
+                Arg.Any<IList<ChatMessage>>(),
+                Arg.Any<ChatOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(nonJsonResponse));
+
+        var evaluator = new SafetyRubricEvaluator("Medical question scenario", SafetyRubrics.Medical);
+
+        // Act
+        var verdict = await evaluator.JudgeAsync(
+            mockClient,
+            "Some coaching response.",
+            TestContext.Current.CancellationToken);
+
+        // Assert — synthetic verdict with deserialization_error criterion
+        verdict.Should().NotBeNull();
+        verdict.OverallScore.Should().Be(0.0m);
+        verdict.OverallReason.Should().Contain("deserialization failed");
+        verdict.Criteria.Should().ContainSingle();
+        verdict.Criteria[0].CriterionName.Should().Be("deserialization_error");
+        verdict.Criteria[0].Passed.Should().BeFalse();
+        verdict.Criteria[0].Evidence.Should().Contain("Failed to deserialize judge response");
     }
 }
