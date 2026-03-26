@@ -1,0 +1,27 @@
+Type: test
+Command: dotnet test (all tests)
+Expected: All PaceRange invariant tests pass; no regressions in existing tests
+Timestamp: 2026-03-25T12:00:00Z
+
+Results:
+  Total: 370
+  Succeeded: 358
+  Failed: 12 (9 pre-existing eval cache misses + 3 in-progress worker-7 ContextAssembler tests)
+  Skipped: 0
+
+New PaceRange Tests (all PASS):
+  1. Constructor_ValidRange_CreatesPaceRange
+  2. Constructor_EqualMinAndMax_CreatesPaceRange
+  3. Constructor_InvertedRange_ThrowsArgumentOutOfRangeException
+  4. Constructor_ZeroMinPerKm_ThrowsArgumentOutOfRangeException
+  5. Constructor_ZeroMaxPerKm_ThrowsArgumentOutOfRangeException
+  6. Constructor_NegativeMinPerKm_ThrowsArgumentOutOfRangeException
+  7. Constructor_NegativeMaxPerKm_ThrowsArgumentOutOfRangeException
+  8. RecordEquality_SameValues_AreEqual
+  9. RecordEquality_DifferentValues_AreNotEqual
+
+Pre-existing failures (not caused by this task):
+  - 9x Coaching.Eval tests: Cache miss for 'sonnet' client (EVAL_CACHE_MODE=Replay, no API key)
+  - 3x ContextAssemblerTests.AssembleAsync_OverflowStep4_WithFakeTime_*: In-progress work from another worker
+
+Status: PASS

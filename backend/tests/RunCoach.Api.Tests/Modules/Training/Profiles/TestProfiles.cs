@@ -74,8 +74,8 @@ public static class TestProfiles
             EstimatedVdot: null,
             TrainingPaces: new TrainingPaces(
                 EasyPaceRange: new PaceRange(
-                    MinPerKm: TimeSpan.FromSeconds(420),
-                    MaxPerKm: TimeSpan.FromSeconds(480)),
+                    minPerKm: TimeSpan.FromSeconds(420),
+                    maxPerKm: TimeSpan.FromSeconds(480)),
                 MarathonPace: null,
                 ThresholdPace: null,
                 IntervalPace: null,
