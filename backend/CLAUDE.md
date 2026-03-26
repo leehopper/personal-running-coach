@@ -44,7 +44,7 @@ backend/
 - **Primary constructors** when applicable: `public class MyService(IMyRepo repo) : IMyService { }`
 - **Private fields** prefixed with `_` (e.g., `_memberVariable`)
 - **Properties** initialized with default non-null values: `public string Name { get; set; } = string.Empty;`
-- **One type per file** — classes, interfaces, enums, records, structs
+- **One type per file** — classes, interfaces, enums, records, structs. Exception: `internal` nested types used solely as serialization/deserialization models for their enclosing class may remain nested (e.g., `YamlPromptStore.YamlPromptDocument`).
 - **Record types for DTOs** with `Dto` suffix (e.g., `WorkoutDto`, `CreatePlanRequestDto`)
 - **Ternary operators** over if-else for simple conditional assignments
 - **Async throughout** for all EF Core and I/O operations

@@ -1,0 +1,15 @@
+Type: cli
+Command: grep -n "One type per file" backend/CLAUDE.md
+Expected: Line documents the nested type exception with example
+Timestamp: 2026-03-25T18:45:00Z
+
+Output:
+backend/CLAUDE.md:47:- **One type per file** -- classes, interfaces, enums, records, structs. Exception: `internal` nested types used solely as serialization/deserialization models for their enclosing class may remain nested (e.g., `YamlPromptStore.YamlPromptDocument`).
+
+Analysis:
+- The one-type-per-file coding standard now documents the exception
+- Exception is scoped to internal nested types used solely for serialization/deserialization
+- Concrete example provided (YamlPromptStore.YamlPromptDocument) for clarity
+- Build passes with zero warnings after change
+
+Status: PASS
