@@ -695,6 +695,181 @@ public class ContextAssemblerTests
     }
 
     // ================================================================
+    // Layer 1 / Layer 2 training history content tests
+    // ================================================================
+    [Fact]
+    public async Task AssembleAsync_FourWeeksOfHistory_RecentWeeksUsePerWorkoutFormat()
+    {
+        // Arrange — build 4 weeks of history relative to real now so the Layer 1 cutoff
+        // (MaxLayer1Weeks = 2 weeks) splits them deterministically: weeks 1-2 in Layer 1,
+        // weeks 3-4 in Layer 2.
+        var input = BuildLayeredHistoryInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — Layer 1 per-workout detail uses pipe-separated format:
+        // "YYYY-MM-DD | WorkoutType | X km | Y min | Z:ZZ/km"
+        var historySection = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        var lines = historySection.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        // At least some lines should match the per-workout detail pattern (pipe-separated fields)
+        var perWorkoutLines = lines
+            .Where(l => l.Contains(" | ") && l.Contains(" km |") && l.Contains("/km"))
+            .ToList();
+
+        perWorkoutLines.Should().NotBeEmpty(
+            because: "recent workouts (within 2 weeks) should use Layer 1 per-workout detail format");
+
+        // Verify the per-workout lines contain expected field structure
+        foreach (var line in perWorkoutLines)
+        {
+            var fields = line.Split(" | ");
+            fields.Length.Should().BeGreaterThanOrEqualTo(
+                5,
+                because: "per-workout format has date, type, distance, duration, and pace fields");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_FourWeeksOfHistory_OlderWeeksUseWeeklySummaryFormat()
+    {
+        // Arrange — 4 weeks of history; weeks 3-4 (oldest) should be in Layer 2 format
+        var input = BuildLayeredHistoryInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — Layer 2 weekly summaries use "Week of YYYY-MM-DD:" prefix
+        var historySection = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+
+        historySection.Content.Should().Contain(
+            "Week of",
+            because: "older workouts (beyond 2 weeks) should use Layer 2 weekly summary format");
+
+        // Weekly summary format: "Week of YYYY-MM-DD: X km total | Y runs"
+        var weekSummaryLines = historySection.Content
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Where(l => l.StartsWith("Week of", StringComparison.Ordinal))
+            .ToList();
+
+        weekSummaryLines.Should().NotBeEmpty(
+            because: "there should be at least one weekly summary for older weeks");
+
+        foreach (var line in weekSummaryLines)
+        {
+            line.Should().Contain(
+                "km total",
+                because: "weekly summaries include total distance");
+            line.Should().Contain(
+                "runs",
+                because: "weekly summaries include run count");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_FourWeeksOfHistory_Layer1ContainsWorkoutTypesAndPaces()
+    {
+        // Arrange
+        var input = BuildLayeredHistoryInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — per-workout detail should contain the specific workout types and pace info
+        var historySection = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        var perWorkoutLines = historySection.Content
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Where(l => l.Contains(" | ") && l.Contains("/km"))
+            .ToList();
+
+        // Should contain at least one Easy and one LongRun from the recent 2 weeks
+        perWorkoutLines.Should().Contain(
+            l => l.Contains("Easy"),
+            because: "Layer 1 should include easy runs from recent weeks");
+
+        perWorkoutLines.Should().Contain(
+            l => l.Contains("LongRun"),
+            because: "Layer 1 should include long runs from recent weeks");
+
+        // Each per-workout line should have a pace value (M:SS/km format)
+        foreach (var line in perWorkoutLines)
+        {
+            line.Should().MatchRegex(
+                @"\d+:\d{2}/km",
+                because: "per-workout detail includes pace in M:SS/km format");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_FourWeeksOfHistory_Layer2IncludesLongRunDistance()
+    {
+        // Arrange — weekly summaries for weeks with a LongRun should include "Long run: X km"
+        var input = BuildLayeredHistoryInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        var historySection = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        var weekSummaryLines = historySection.Content
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Where(l => l.StartsWith("Week of", StringComparison.Ordinal))
+            .ToList();
+
+        weekSummaryLines.Should().Contain(
+            l => l.Contains("Long run:"),
+            because: "weekly summaries for weeks with a LongRun should include the long run distance");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_FourWeeksOfHistory_Layer1BeforeLayer2InOutput()
+    {
+        // Arrange
+        var input = BuildLayeredHistoryInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — in the output, Layer 1 (per-workout) lines should appear before
+        // Layer 2 (weekly summary) lines, because BuildTrainingHistorySection outputs
+        // recent workouts first, then older weekly summaries.
+        var historySection = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        var lines = historySection.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        var firstPerWorkoutIndex = Array.FindIndex(lines, l => l.Contains(" | ") && l.Contains("/km"));
+        var firstWeekSummaryIndex = Array.FindIndex(lines, l => l.StartsWith("Week of", StringComparison.Ordinal));
+
+        firstPerWorkoutIndex.Should().BeGreaterThanOrEqualTo(
+            0,
+            because: "there should be at least one per-workout line");
+        firstWeekSummaryIndex.Should().BeGreaterThanOrEqualTo(
+            0,
+            because: "there should be at least one weekly summary line");
+        firstPerWorkoutIndex.Should().BeLessThan(
+            firstWeekSummaryIndex,
+            because: "Layer 1 per-workout detail should appear before Layer 2 weekly summaries");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_FourWeeksOfHistory_WorkoutNotesIncludedInLayer1()
+    {
+        // Arrange
+        var input = BuildLayeredHistoryInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — workouts with notes should have them appended in Layer 1 format
+        var historySection = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+
+        // The helper creates Tempo workouts with notes like "2km warm-up, 5km at tempo, 2km cool-down"
+        historySection.Content.Should().Contain(
+            "warm-up",
+            because: "workout notes should be included in Layer 1 per-workout detail");
+    }
+
+    // ================================================================
     // Overflow cascade tests
     // ================================================================
     [Fact]
@@ -1053,6 +1228,73 @@ public class ContextAssemblerTests
         }
 
         return builder.ToImmutable();
+    }
+
+    /// <summary>
+    /// Builds a <see cref="ContextAssemblerInput"/> with 4 weeks of training history
+    /// relative to actual DateTime.UtcNow, ensuring a deterministic Layer 1/Layer 2 split.
+    /// Weeks 1-2 (most recent) fall within the MaxLayer1Weeks cutoff (per-workout detail),
+    /// weeks 3-4 fall outside the cutoff (weekly summaries).
+    /// </summary>
+    private static ContextAssemblerInput BuildLayeredHistoryInput()
+    {
+        var lee = TestProfiles.Lee();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var workouts = ImmutableArray.CreateBuilder<WorkoutSummary>();
+        var easyPace = TimeSpan.FromMinutes(5.5);
+        var tempoPace = TimeSpan.FromMinutes(4.8);
+
+        for (var week = 4; week >= 1; week--)
+        {
+            var weekStart = today.AddDays(-7 * week);
+
+            // Monday: easy run 7km
+            workouts.Add(new WorkoutSummary(
+                weekStart,
+                "Easy",
+                7m,
+                (int)(7m * (decimal)easyPace.TotalMinutes),
+                easyPace,
+                null));
+
+            // Wednesday: tempo run 8km
+            workouts.Add(new WorkoutSummary(
+                weekStart.AddDays(2),
+                "Tempo",
+                8m,
+                (int)(8m * (decimal)tempoPace.TotalMinutes),
+                tempoPace,
+                "2km warm-up, 5km at tempo, 2km cool-down"));
+
+            // Friday: easy run 6km
+            workouts.Add(new WorkoutSummary(
+                weekStart.AddDays(4),
+                "Easy",
+                6m,
+                (int)(6m * (decimal)easyPace.TotalMinutes),
+                easyPace,
+                null));
+
+            // Sunday: long run (12-15km progressive)
+            var longRunKm = 12m + (4 - week);
+            workouts.Add(new WorkoutSummary(
+                weekStart.AddDays(6),
+                "LongRun",
+                longRunKm,
+                (int)(longRunKm * (decimal)easyPace.TotalMinutes * 1.1m),
+                easyPace,
+                null));
+        }
+
+        return new ContextAssemblerInput(
+            lee.UserProfile,
+            lee.GoalState,
+            lee.GoalState.CurrentFitnessEstimate,
+            lee.GoalState.CurrentFitnessEstimate.TrainingPaces,
+            workouts.ToImmutable(),
+            ImmutableArray<ConversationTurn>.Empty,
+            "Create a training plan for my half marathon.");
     }
 
     /// <summary>
