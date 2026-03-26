@@ -25,6 +25,9 @@ public static class ServiceCollectionExtensions
         services.Configure<PromptStoreSettings>(
             configuration.GetSection(PromptStoreSettings.SectionName));
 
+        // System services — TimeProvider for deterministic date/time operations.
+        services.AddSingleton(TimeProvider.System);
+
         // Training module — stateless computation services (singleton).
         services.AddSingleton<IPaceCalculator, PaceCalculator>();
         services.AddSingleton<IVdotCalculator, VdotCalculator>();

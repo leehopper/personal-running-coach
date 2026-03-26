@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
@@ -19,7 +20,7 @@ public class ContextAssemblerTests
     public ContextAssemblerTests()
     {
         var store = CreateMockPromptStore();
-        _sut = new ContextAssembler(store, NullLogger<ContextAssembler>.Instance);
+        _sut = new ContextAssembler(store, TimeProvider.System, NullLogger<ContextAssembler>.Instance);
     }
 
     [Fact]
@@ -1168,6 +1169,168 @@ public class ContextAssemblerTests
     }
 
     // ================================================================
+    // Deterministic overflow cascade Step 4 tests (FakeTimeProvider)
+    // ================================================================
+    [Fact]
+    public async Task AssembleAsync_OverflowStep4_WithFakeTime_OnlyIncludesWorkoutsWithinFourteenDays()
+    {
+        // Arrange — pin "now" to 2026-02-15 so the 14-day cutoff is 2026-02-01.
+        // Create workouts at known dates: some within the window, some outside.
+        // Use massive conversation (20 turns, 5000 chars each) to force the cascade
+        // past Steps 1-3 so that Step 4 (filter to most recent 2 weeks) executes.
+        //
+        // Step 4 calls BuildTrainingHistorySection with useLayer2Only: true, so the
+        // output uses weekly summary format ("Week of YYYY-MM-DD:"). We assert on
+        // ISO week start dates rather than individual workout dates.
+        var fakeNow = new DateTimeOffset(2026, 2, 15, 12, 0, 0, TimeSpan.Zero);
+        var fakeTime = new FakeTimeProvider(fakeNow);
+
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store, fakeTime, NullLogger<ContextAssembler>.Instance);
+
+        // Workouts within the 14-day window (>= 2026-02-01):
+        // Feb 14 (Sat) and Feb 10 (Tue) are in ISO week starting 2026-02-09 (Mon).
+        // Feb 3 (Tue) and Feb 1 (Sun) are in ISO week starting 2026-01-26 (Mon) and 2026-02-02 (Mon) respectively.
+        // Feb 1, 2026 is a Sunday => ISO week starting 2026-01-26. Feb 3 is a Tuesday => ISO week starting 2026-02-02.
+        var recentWorkouts = new[]
+        {
+            new WorkoutSummary(new DateOnly(2026, 2, 14), "Easy", 8m, 44, TimeSpan.FromMinutes(5.5), null),
+            new WorkoutSummary(new DateOnly(2026, 2, 10), "Tempo", 10m, 48, TimeSpan.FromMinutes(4.8), null),
+            new WorkoutSummary(new DateOnly(2026, 2, 3), "LongRun", 16m, 96, TimeSpan.FromMinutes(6.0), null),
+        };
+
+        // Workouts outside the 14-day window (< 2026-02-01):
+        var oldWorkouts = new[]
+        {
+            new WorkoutSummary(new DateOnly(2026, 1, 25), "Tempo", 9m, 43, TimeSpan.FromMinutes(4.8), null),
+            new WorkoutSummary(new DateOnly(2026, 1, 18), "LongRun", 15m, 90, TimeSpan.FromMinutes(6.0), null),
+            new WorkoutSummary(new DateOnly(2026, 1, 10), "Easy", 6m, 33, TimeSpan.FromMinutes(5.5), null),
+            new WorkoutSummary(new DateOnly(2025, 12, 20), "Easy", 5m, 28, TimeSpan.FromMinutes(5.5), null),
+        };
+
+        var allWorkouts = recentWorkouts.Concat(oldWorkouts).ToImmutableArray();
+
+        var input = BuildOverflowStep4Input(allWorkouts);
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — training history should only contain weeks covering recent workouts.
+        // Step 4 outputs Layer 2 weekly summaries, so we check for ISO week start dates.
+        var historySection = actualPrompt.MiddleSections
+            .FirstOrDefault(s => s.Key == "training_history");
+
+        if (historySection is not null)
+        {
+            var weekLines = historySection.Content
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Where(l => l.StartsWith("Week of", StringComparison.Ordinal))
+                .ToList();
+
+            // Recent workouts span ISO weeks starting 2026-02-02 and 2026-02-09.
+            weekLines.Should().Contain(
+                l => l.Contains("2026-02-09"),
+                because: "Feb 10 and Feb 14 are in ISO week starting 2026-02-09 and should be retained");
+
+            weekLines.Should().Contain(
+                l => l.Contains("2026-02-02"),
+                because: "Feb 3 is in ISO week starting 2026-02-02 and should be retained");
+
+            // Old workouts' weeks should not appear.
+            historySection.Content.Should().NotContain(
+                "2026-01-19",
+                because: "ISO week starting Jan 19 contains only old workouts outside the 14-day window");
+
+            historySection.Content.Should().NotContain(
+                "2026-01-05",
+                because: "ISO week starting Jan 5 contains only old workouts outside the 14-day window");
+
+            historySection.Content.Should().NotContain(
+                "2025-12",
+                because: "December 2025 workouts are outside the 14-day window");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_OverflowStep4_WithFakeTime_BoundaryDateExactlyFourteenDaysAgoIsIncluded()
+    {
+        // Arrange — verify the boundary condition: a workout dated exactly 14 days before
+        // "now" is included (>= cutoff, not > cutoff). Pin "now" to 2026-03-01 so the
+        // cutoff is 2026-02-15.
+        // Feb 15, 2026 is a Sunday => ISO week starting 2026-02-09.
+        // Feb 14, 2026 is a Saturday => ISO week starting 2026-02-09 too.
+        // Feb 28, 2026 is a Saturday => ISO week starting 2026-02-23.
+        // Since Feb 14 and Feb 15 share the same ISO week, we need workouts in
+        // separate ISO weeks to verify the boundary. Use Feb 8 (before cutoff,
+        // ISO week starting Feb 2) and Feb 15 (on cutoff, ISO week starting Feb 9).
+        var fakeNow = new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero);
+        var fakeTime = new FakeTimeProvider(fakeNow);
+
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store, fakeTime, NullLogger<ContextAssembler>.Instance);
+
+        // Feb 15 is exactly on the cutoff, Feb 8 is one week before cutoff, Feb 28 is within window.
+        var workouts = ImmutableArray.Create(
+            new WorkoutSummary(new DateOnly(2026, 2, 15), "Easy", 7m, 38, TimeSpan.FromMinutes(5.5), null),
+            new WorkoutSummary(new DateOnly(2026, 2, 8), "Tempo", 8m, 38, TimeSpan.FromMinutes(4.8), null),
+            new WorkoutSummary(new DateOnly(2026, 2, 28), "LongRun", 15m, 90, TimeSpan.FromMinutes(6.0), null));
+
+        var input = BuildOverflowStep4Input(workouts);
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        var historySection = actualPrompt.MiddleSections
+            .FirstOrDefault(s => s.Key == "training_history");
+
+        if (historySection is not null)
+        {
+            // Feb 15 (on cutoff) is in ISO week starting 2026-02-09 — should be present.
+            historySection.Content.Should().Contain(
+                "2026-02-09",
+                because: "Feb 15 is on the exact cutoff date and its ISO week (starting Feb 9) should be included");
+
+            // Feb 28 is in ISO week starting 2026-02-23 — should be present.
+            historySection.Content.Should().Contain(
+                "2026-02-23",
+                because: "Feb 28 is within the 14-day window");
+
+            // Feb 8 (before cutoff) is in ISO week starting 2026-02-02 — should be excluded.
+            historySection.Content.Should().NotContain(
+                "2026-02-02",
+                because: "Feb 8 is before the cutoff and its ISO week (starting Feb 2) should be excluded");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_OverflowStep4_WithFakeTime_AllWorkoutsOutsideWindow_MiddleSectionsEmpty()
+    {
+        // Arrange — all workouts are older than 14 days from the pinned "now".
+        // After Step 4 filters them all out, the middle sections should be empty.
+        var fakeNow = new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);
+        var fakeTime = new FakeTimeProvider(fakeNow);
+
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store, fakeTime, NullLogger<ContextAssembler>.Instance);
+
+        // All workouts are from January — more than 14 days before June 1
+        var workouts = ImmutableArray.Create(
+            new WorkoutSummary(new DateOnly(2026, 1, 5), "Easy", 7m, 38, TimeSpan.FromMinutes(5.5), null),
+            new WorkoutSummary(new DateOnly(2026, 1, 12), "Tempo", 9m, 43, TimeSpan.FromMinutes(4.8), null),
+            new WorkoutSummary(new DateOnly(2026, 1, 19), "LongRun", 15m, 90, TimeSpan.FromMinutes(6.0), null));
+
+        var input = BuildOverflowStep4Input(workouts);
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — with all workouts filtered out, middle sections should be empty
+        actualPrompt.MiddleSections.Should().BeEmpty(
+            because: "Step 4 filters out all workouts when none fall within the 14-day window");
+    }
+
+    // ================================================================
     // ISO week year boundary tests
     // ================================================================
     [Fact]
@@ -1246,7 +1409,7 @@ public class ContextAssemblerTests
         failingStore.GetActiveVersion("coaching-system")
             .Returns(_ => throw new KeyNotFoundException("No active version for 'coaching-system'"));
 
-        var sut = new ContextAssembler(failingStore, NullLogger<ContextAssembler>.Instance);
+        var sut = new ContextAssembler(failingStore, TimeProvider.System, NullLogger<ContextAssembler>.Instance);
         var input = BuildLeeInput();
 
         // Act
@@ -1266,7 +1429,7 @@ public class ContextAssemblerTests
         failingStore.GetPromptAsync("coaching-system", "v1", Arg.Any<CancellationToken>())
             .Returns<Task<PromptTemplate>>(_ => throw new KeyNotFoundException("No template for 'coaching-system' v1"));
 
-        var sut = new ContextAssembler(failingStore, NullLogger<ContextAssembler>.Instance);
+        var sut = new ContextAssembler(failingStore, TimeProvider.System, NullLogger<ContextAssembler>.Instance);
         var input = BuildLeeInput();
 
         // Act
@@ -1287,7 +1450,7 @@ public class ContextAssemblerTests
         failingStore.GetPromptAsync("coaching-system", "v1", Arg.Any<CancellationToken>())
             .Returns<Task<PromptTemplate>>(_ => throw new FileNotFoundException("Prompt file not found: coaching-system-v1.yaml"));
 
-        var sut = new ContextAssembler(failingStore, NullLogger<ContextAssembler>.Instance);
+        var sut = new ContextAssembler(failingStore, TimeProvider.System, NullLogger<ContextAssembler>.Instance);
         var input = BuildLeeInput();
 
         // Act
@@ -1649,6 +1812,36 @@ public class ContextAssemblerTests
             ImmutableArray<WorkoutSummary>.Empty,
             ImmutableArray<ConversationTurn>.Empty,
             "Create a training plan for my marathon.");
+    }
+
+    /// <summary>
+    /// Builds a <see cref="ContextAssemblerInput"/> with the given workouts and a massive
+    /// conversation payload (20 turns, 5000 chars per message) that guarantees the overflow
+    /// cascade reaches Step 4. The conversation is so large that Steps 1-3 cannot bring the
+    /// total under the 15K token budget, forcing the assembler to filter training history
+    /// to the most recent 14 days.
+    /// </summary>
+    private static ContextAssemblerInput BuildOverflowStep4Input(ImmutableArray<WorkoutSummary> workouts)
+    {
+        var conversation = ImmutableArray.CreateBuilder<ConversationTurn>();
+        for (var i = 1; i <= 20; i++)
+        {
+            var padding = new string('x', 5000);
+            conversation.Add(new ConversationTurn(
+                $"User message {i}: How should I approach training? {padding}",
+                $"Coach response {i}: Focus on easy running this week. {padding}"));
+        }
+
+        var lee = TestProfiles.Lee();
+
+        return new ContextAssemblerInput(
+            lee.UserProfile,
+            lee.GoalState,
+            lee.GoalState.CurrentFitnessEstimate,
+            lee.GoalState.CurrentFitnessEstimate.TrainingPaces,
+            workouts,
+            conversation.ToImmutable(),
+            "Create a training plan.");
     }
 
     /// <summary>

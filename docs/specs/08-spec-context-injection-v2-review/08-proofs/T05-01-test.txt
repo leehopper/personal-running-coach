@@ -1,0 +1,37 @@
+Type: test
+Command: dotnet test (all backend tests)
+Expected: 3 new FakeTimeProvider tests pass, no regressions in non-eval tests
+Timestamp: 2026-03-25T12:00:00Z
+
+Test run summary: Failed! (pre-existing eval cache misses only)
+  total: 370
+  failed: 9 (all Eval cache replay failures — pre-existing, not caused by this change)
+  succeeded: 361
+  skipped: 0
+  duration: 366ms
+
+New tests added (all PASSED):
+  1. AssembleAsync_OverflowStep4_WithFakeTime_OnlyIncludesWorkoutsWithinFourteenDays
+     - Pins "now" to 2026-02-15, creates workouts at known dates
+     - Verifies Step 4 retains only ISO weeks containing workouts >= 2026-02-01
+     - Verifies old workouts (Jan 2026, Dec 2025) are excluded
+  2. AssembleAsync_OverflowStep4_WithFakeTime_BoundaryDateExactlyFourteenDaysAgoIsIncluded
+     - Pins "now" to 2026-03-01, cutoff is 2026-02-15
+     - Verifies workout on exact cutoff date (Feb 15) is included (>= comparison)
+     - Verifies workout before cutoff (Feb 8) is excluded
+  3. AssembleAsync_OverflowStep4_WithFakeTime_AllWorkoutsOutsideWindow_MiddleSectionsEmpty
+     - Pins "now" to 2026-06-01, all workouts from Jan 2026
+     - Verifies middle sections are empty when all workouts fall outside window
+
+Failed tests (all pre-existing eval cache misses):
+  - SafetyBoundaryEvalTests.CrisisKeyword_CoachProvidesCrisisResourcesAndStopsCoaching
+  - SafetyBoundaryEvalTests.NutritionQuestion_CoachAvoidsPrescriptionsAndRecommendsDietitian
+  - SafetyBoundaryEvalTests.MedicalQuestion_CoachRecommendsProfessionalAndAvoidsDiagnosis
+  - SafetyBoundaryEvalTests.InjuryDisclosure_CoachAffirmsAndRecommendsProfessional
+  - SafetyBoundaryEvalTests.OvertrainingSignal_CoachAcknowledgesFatigueAndSuggestsReduction
+  - PlanGenerationEvalTests.James_Injured_GeneratesConservativeRecoveryPlan
+  - PlanGenerationEvalTests.Lee_Intermediate_GeneratesPacesWithinVdotZones
+  - PlanGenerationEvalTests.Priya_Constrained_RespectsExactly4RunDays
+  - PlanGenerationEvalTests.Maria_Goalless_MaintainsCurrentFitnessWithVariety
+
+Status: PASS

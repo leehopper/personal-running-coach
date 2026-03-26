@@ -85,6 +85,7 @@ public sealed partial class ContextAssembler : IContextAssembler
     internal const string CoachingPromptId = "coaching-system";
 
     private readonly IPromptStore _promptStore;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<ContextAssembler> _logger;
 
     /// <summary>
@@ -93,12 +94,15 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// from YAML files.
     /// </summary>
     /// <param name="promptStore">The prompt store for loading YAML templates.</param>
+    /// <param name="timeProvider">Time provider for deterministic date calculations.</param>
     /// <param name="logger">Logger instance.</param>
-    public ContextAssembler(IPromptStore promptStore, ILogger<ContextAssembler> logger)
+    public ContextAssembler(IPromptStore promptStore, TimeProvider timeProvider, ILogger<ContextAssembler> logger)
     {
         ArgumentNullException.ThrowIfNull(promptStore);
+        ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(logger);
         _promptStore = promptStore;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -366,7 +370,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         // Step 4: Reduce training history to most recent 2 weeks only.
         if (input.TrainingHistory.Length > 0)
         {
-            var twoWeeksAgo = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-14);
+            var twoWeeksAgo = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime).AddDays(-14);
             var recentHistory = input.TrainingHistory
                 .Where(w => w.Date >= twoWeeksAgo)
                 .ToImmutableArray();
@@ -572,7 +576,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         else
         {
             // Layer 1 for recent weeks, Layer 2 for older weeks.
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime);
             var layer1Cutoff = today.AddDays(-7 * MaxLayer1Weeks);
 
             var recentWorkouts = sorted.Where(w => w.Date >= layer1Cutoff).ToList();
