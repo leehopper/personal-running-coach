@@ -4,11 +4,19 @@
 
 Remove duplicate "Initializes a new instance" opening sentences from both constructor XML doc blocks in `ClaudeCoachingLlm.cs`.
 
+## Root Cause
+
+Both constructors had two sentences starting with "Initializes a new instance" -- one generic (SA1642-required) and one specific. The StyleCop SA1642 analyzer requires constructor summaries to begin with "Initializes a new instance of the <see cref="ClassName"/> class." and `dotnet format` auto-inserts this line if missing, so simply deleting it causes the hook to re-add it.
+
+## Fix
+
+Merged the duplicate lines into a single sentence that satisfies SA1642 while incorporating the specific description. Changed the period after "class" to a line-continuation, flowing the specific info into the same sentence.
+
 ## Changes
 
 - **File modified:** `backend/src/RunCoach.Api/Modules/Coaching/ClaudeCoachingLlm.cs`
-- Removed the generic `Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class.` line from both constructors' `<summary>` blocks
-- Each constructor retains its specific description (dependency-injected vs externally-provided client)
+- Constructor 1: Merged into "Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class / using dependency-injected settings and logger."
+- Constructor 2: Merged into "Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class / with an externally provided client for testing with a mock/substitute."
 
 ## Proof Artifacts
 
@@ -19,7 +27,7 @@ Remove duplicate "Initializes a new instance" opening sentences from both constr
 
 ## Verification
 
-- `grep -c "Initializes a new instance of the"` returns 0 matches (duplicate removed)
+- `dotnet format` reports "Formatted 0 of 91 files" (SA1642 satisfied)
 - `dotnet build` succeeds with 0 errors, 0 warnings
 - `dotnet test` passes all tests
 

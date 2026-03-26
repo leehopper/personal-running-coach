@@ -40,8 +40,8 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     private readonly bool _ownsClient;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class.
-    /// Initializes a new instance using dependency-injected settings and logger.
+    /// Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class
+    /// using dependency-injected settings and logger.
     /// Creates the <see cref="AnthropicClient"/> from configuration.
     /// </summary>
     public ClaudeCoachingLlm(
@@ -66,9 +66,8 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class.
-    /// Initializes a new instance with an externally provided client.
-    /// Used for testing with a mock/substitute client.
+    /// Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class
+    /// with an externally provided client for testing with a mock/substitute.
     /// </summary>
     internal ClaudeCoachingLlm(
         IAnthropicClient client,
