@@ -1,0 +1,13 @@
+Type: cli
+Command: cd backend && dotnet build --verbosity quiet
+Expected: Build succeeds with 0 warnings and 0 errors
+Timestamp: 2026-03-25T18:40:00Z
+
+Output:
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.25
+
+Status: PASS

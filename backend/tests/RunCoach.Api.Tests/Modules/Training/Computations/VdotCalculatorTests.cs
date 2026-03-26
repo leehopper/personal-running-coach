@@ -78,17 +78,19 @@ public class VdotCalculatorTests
         actualVdot.Should().BeNull(because: "15K is not a supported standard distance");
     }
 
-    [Fact]
-    public void CalculateVdot_ZeroTime_ReturnsNull()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-30)]
+    public void CalculateVdot_ZeroOrNegativeTime_ReturnsNull(int totalMinutes)
     {
         // Arrange
-        var raceTime = new RaceTime("5K", TimeSpan.Zero, new DateOnly(2025, 1, 1), null);
+        var raceTime = new RaceTime("5K", TimeSpan.FromMinutes(totalMinutes), new DateOnly(2025, 1, 1), null);
 
         // Act
         var actualVdot = _sut.CalculateVdot(raceTime);
 
         // Assert
-        actualVdot.Should().BeNull(because: "a zero-duration race time is invalid");
+        actualVdot.Should().BeNull(because: "a zero or negative race time is invalid");
     }
 
     [Fact]

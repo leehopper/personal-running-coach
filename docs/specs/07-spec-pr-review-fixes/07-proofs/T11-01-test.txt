@@ -1,0 +1,17 @@
+Type: test
+Command: cd backend && dotnet test
+Expected: All tests pass including new negative TimeSpan InlineData case
+Timestamp: 2026-03-25T18:40:00Z
+
+Output:
+Run tests: 'RunCoach.Api.Tests.dll' [net10.0|arm64]
+Passed! - Failed: 0, Passed: 314, Skipped: 0, Total: 314, Duration: 324ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+Tests succeeded.
+
+New test case added:
+- CalculateVdot_ZeroOrNegativeTime_ReturnsNull(totalMinutes: -30) [new InlineData]
+- CalculateVdot_ZeroOrNegativeTime_ReturnsNull(totalMinutes: 0) [renamed from CalculateVdot_ZeroTime_ReturnsNull]
+
+Both cases exercise the `timeInMinutes <= 0` guard at VdotCalculator.cs:44.
+
+Status: PASS
