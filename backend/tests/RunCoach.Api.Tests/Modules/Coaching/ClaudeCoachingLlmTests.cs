@@ -508,6 +508,26 @@ public class ClaudeCoachingLlmTests
     }
 
     [Fact]
+    public async Task GenerateStructuredAsync_ThrowsInvalidOperationException_WhenJsonIsNullLiteral()
+    {
+        // Arrange — return the JSON literal "null", which deserializes to null
+        // for reference types. While constrained decoding makes this structurally
+        // unreachable in production, the guard prevents silent null propagation
+        // if the invariant ever breaks.
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse("null"));
+
+        var sut = CreateSut();
+
+        // Act & Assert
+        await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
+                "system", "user message", CancellationToken.None))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*null literal*");
+    }
+
+    [Fact]
     public void AsIChatClient_ReturnsNonNullIChatClient()
     {
         // Arrange

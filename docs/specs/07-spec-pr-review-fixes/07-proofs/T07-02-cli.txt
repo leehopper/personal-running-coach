@@ -1,0 +1,13 @@
+Type: cli
+Command: dotnet build --nologo -v quiet
+Expected: Build succeeds with 0 warnings after adding new test
+Timestamp: 2026-03-25T14:00:00Z
+
+Output:
+  Build succeeded.
+      0 Warning(s)
+      0 Error(s)
+
+  Time Elapsed 00:00:01.23
+
+Status: PASS

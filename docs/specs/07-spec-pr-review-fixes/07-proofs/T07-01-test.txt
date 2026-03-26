@@ -1,0 +1,17 @@
+Type: test
+Command: dotnet test
+Expected: New test passes, verifying null literal deserialization throws InvalidOperationException
+Timestamp: 2026-03-25T14:00:00Z
+
+Output:
+  Run tests: RunCoach.Api.Tests.dll [net10.0|arm64]
+  Passed! - Failed: 0, Passed: 306, Skipped: 0, Total: 306, Duration: 298ms
+  Tests succeeded: RunCoach.Api.Tests.dll (net10.0|arm64)
+
+Test: GenerateStructuredAsync_ThrowsInvalidOperationException_WhenJsonIsNullLiteral
+  - Mocks API to return the JSON literal "null" as text content
+  - Calls GenerateStructuredAsync<MacroPlanOutput>
+  - Verifies InvalidOperationException is thrown
+  - Verifies exception message contains "null literal"
+
+Status: PASS
