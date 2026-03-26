@@ -1,0 +1,27 @@
+Type: file
+Command: git diff -- backend/src/RunCoach.Api/Modules/Coaching/Prompts/PromptStoreSettings.cs
+Expected: ActiveVersions property type changed from Dictionary<string, string> to IReadOnlyDictionary<string, string>
+Timestamp: 2026-03-25T12:00:00Z
+
+--- Output ---
+diff --git a/backend/src/RunCoach.Api/Modules/Coaching/Prompts/PromptStoreSettings.cs b/backend/src/RunCoach.Api/Modules/Coaching/Prompts/PromptStoreSettings.cs
+index 76837e1..40dc6a4 100644
+--- a/backend/src/RunCoach.Api/Modules/Coaching/Prompts/PromptStoreSettings.cs
++++ b/backend/src/RunCoach.Api/Modules/Coaching/Prompts/PromptStoreSettings.cs
+@@ -21,5 +21,5 @@ public sealed record PromptStoreSettings
+     /// Gets the mapping of prompt IDs to their active version strings.
+     /// Example: { "coaching-system": "v1" }.
+     /// </summary>
+-    public Dictionary<string, string> ActiveVersions { get; init; } = new();
++    public IReadOnlyDictionary<string, string> ActiveVersions { get; init; } = new Dictionary<string, string>();
+ }
+
+--- Analysis ---
+The property type is now IReadOnlyDictionary<string, string>, which:
+1. Prevents callers from calling .Add(), .Remove(), .Clear() after construction
+2. The init setter still prevents reassignment after construction
+3. The default value uses new Dictionary<string, string>() which implements IReadOnlyDictionary
+4. Configuration binder can still populate via init setter during options binding
+5. Test code using `new Dictionary<string, string> { ... }` still compiles since Dictionary implements IReadOnlyDictionary
+
+Status: PASS

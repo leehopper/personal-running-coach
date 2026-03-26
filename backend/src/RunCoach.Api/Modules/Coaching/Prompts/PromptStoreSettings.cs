@@ -21,5 +21,5 @@ public sealed record PromptStoreSettings
     /// Gets the mapping of prompt IDs to their active version strings.
     /// Example: { "coaching-system": "v1" }.
     /// </summary>
-    public Dictionary<string, string> ActiveVersions { get; init; } = new();
+    public IReadOnlyDictionary<string, string> ActiveVersions { get; init; } = new Dictionary<string, string>();
 }

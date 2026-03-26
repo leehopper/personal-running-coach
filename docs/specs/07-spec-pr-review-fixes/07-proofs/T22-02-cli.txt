@@ -1,0 +1,22 @@
+Type: cli
+Command: dotnet build && dotnet test (backend)
+Expected: Build succeeds with zero warnings/errors, all 315 tests pass
+Timestamp: 2026-03-25T12:00:00Z
+
+--- Build Output ---
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+--- Test Output ---
+Passed! - Failed: 0, Passed: 315, Skipped: 0, Total: 315, Duration: 308ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+Tests succeeded.
+
+--- Analysis ---
+All existing consumers of ActiveVersions continue to work:
+- YamlPromptStore.GetActiveVersion() uses TryGetValue() - available on IReadOnlyDictionary
+- YamlPromptStore.ValidateConfiguredVersions() uses foreach - available on IReadOnlyDictionary
+- Test code creates Dictionary<string, string> for initializers - assignable to IReadOnlyDictionary
+- Configuration binder populates via init setter - works with IReadOnlyDictionary property type
+
+Status: PASS
