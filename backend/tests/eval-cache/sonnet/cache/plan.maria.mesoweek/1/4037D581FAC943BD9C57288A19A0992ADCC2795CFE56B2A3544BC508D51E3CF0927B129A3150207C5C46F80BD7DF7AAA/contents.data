@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long easy run at 5:22–5:56/km. Keep effort conversational throughout. 20 km is your anchor — this builds aerobic base and reinforces your endurance foundation without adding stress.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Recovery is where adaptation happens — this is an active investment in Sunday's effort and Tuesday's quality work.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Interval\",\"notes\":\"2 km warm-up at easy pace, then 5×1 km at 4:11/km with 400 m jog recovery between reps, 1.6 km cool-down. Total ~10 km. This sharpens your aerobic ceiling and keeps your neuromuscular system engaged during maintenance.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"8 km easy at 5:22–5:56/km. This is a true recovery run — resist the urge to push. The purpose is blood flow and light aerobic stimulus, not fitness gains.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"2 km warm-up, 8 km at threshold pace (4:28/km), 2 km cool-down. Total ~12 km. Threshold work maintains your lactate clearance capacity — the engine that powered your 3:22 at Boston.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"8 km easy at 5:22–5:56/km. Keep it relaxed — this is your buffer day between Thursday's tempo and Sunday's long run.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"7 km easy at 5:22–5:56/km. Light shakeout effort. No watch-staring — just move comfortably and arrive at Sunday feeling fresh.\"}],\"week_summary\":\"Welcome to your maintenance plan, Maria. With 12 years of experience and a VDOT of 46.7, you've built something genuinely impressive — and this plan is designed to protect and sustain that fitness, not grind it down. Week 1 targets 55 km, matching your current weekly volume so there's no shock to the system. The structure follows an 80/20 principle: roughly 80% of your running at easy effort, with two quality sessions (intervals Tuesday, tempo Thursday) to keep your aerobic sharpness intact. Your long run anchors Sunday at 20 km, well within your 120-minute cap. Given your Achilles history on the left side, we're keeping easy days genuinely easy — that tendon responds well to load management, and there's no reason to test it unnecessarily. What questions do you have about how this week is structured?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 2574,
+    "outputTokenCount": 732,
+    "totalTokenCount": 3306
+  }
+}

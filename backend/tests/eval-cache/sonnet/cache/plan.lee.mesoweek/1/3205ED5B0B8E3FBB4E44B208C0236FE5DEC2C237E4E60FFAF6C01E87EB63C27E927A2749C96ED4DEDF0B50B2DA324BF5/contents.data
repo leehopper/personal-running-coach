@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":42,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Easy long run at 6:27/km. Target 14–15 km. Keep effort conversational — this is aerobic foundation work, not a race. Your IT band history means we ease into long run increases gradually.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Recovery is where adaptation happens — treat this as active investment in Sunday's effort.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run, 7 km at 5:50–6:27/km. Shake out Sunday's long run. If legs feel heavy, stay at the slower end of the range.\"},{\"day_of_week\":3,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Low-impact cross-training: cycling, swimming, or yoga. 30–45 min. Keeps aerobic stimulus without pounding — especially valuable given your IT band history.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Tempo workout: 2 km warm-up at easy pace, 4 km at 4:50/km threshold pace, 2 km cool-down. Total ~8 km. This mirrors what you ran on 3/16 — a solid baseline to build from.\"},{\"day_of_week\":5,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Two quality sessions this week (long run + tempo) means your body needs this. Don't negotiate with this one.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run, 8 km at 5:50–6:27/km. Comfortable effort — you should be able to hold a full conversation. Finish feeling like you could have gone further.\"}],\"week_summary\":\"Welcome to Week 1, Lee. This week re-establishes your training rhythm after a slightly inconsistent few weeks — and that's completely fine. Your 10K result gives us a solid VDOT 42 foundation to build from. The structure here mirrors what you've already been doing well: a long run anchor on Sunday, one tempo session mid-week, and easy aerobic volume filling the gaps. At 42 km we're staying close to your recent peak (40 km) while nudging volume just slightly upward. The cross-training Wednesday is deliberate — it protects your IT band as we ramp up, and keeps your aerobic engine running without adding road stress. Your 1:45 half-marathon goal is genuinely achievable from where you are right now. That's a 4:59/km race pace, and your current threshold pace is already 4:50/km — your fitness is closer than it might feel.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 2422,
+    "outputTokenCount": 705,
+    "totalTokenCount": 3127
+  }
+}

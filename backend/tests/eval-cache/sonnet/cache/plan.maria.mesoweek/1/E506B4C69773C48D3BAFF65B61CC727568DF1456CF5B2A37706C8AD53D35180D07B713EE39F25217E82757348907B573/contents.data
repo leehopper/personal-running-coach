@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long easy run at 5:22–5:56/km. Keep effort conversational throughout — this is your aerobic anchor for the week. Cap at 120 min. Aim for 20–21 km.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. You've earned it after the long run. Sleep, hydrate, and let the adaptation begin.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run, 8 km at 5:39–5:56/km. Keep it genuinely easy — this is active recovery, not a fitness day.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Interval\",\"notes\":\"Quality session: 2 km warm-up, 5×1 km at 4:11/km with 400 m jog recovery, 1.6 km cool-down (~10 km total). These intervals maintain your VO2max stimulus without building fatigue.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 8 km at 5:39–5:56/km. Shake out any residual fatigue from yesterday's intervals. No pressure on pace.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Threshold session: 2 km warm-up, 8 km at 4:28/km, 2 km cool-down (~12 km total). This is your lactate threshold work — comfortably hard, not a race effort.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 6 km at 5:39–5:56/km. Keep this genuinely easy — it's volume without stress, capping a solid week.\"}],\"week_summary\":\"Welcome to your maintenance plan, Maria. This first week mirrors the structure you've been executing well — a long run anchor on Sunday, one interval session, one tempo, and easy running filling the rest. At 55 km, we're holding the fitness you've built through your recent marathon block without pushing into new territory. Your VDOT of 46.7 reflects strong, consistent work, and the goal here is to protect that engine. All paces are drawn directly from your race history using Daniels' formula — trust them, especially on easy days. What's your sense of how your body is feeling coming into this week?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "usage": {
+    "inputTokenCount": 2604,
+    "outputTokenCount": 648,
+    "totalTokenCount": 3252
+  }
+}
