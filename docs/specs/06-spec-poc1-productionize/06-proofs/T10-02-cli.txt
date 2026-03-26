@@ -1,0 +1,14 @@
+Type: cli
+Command: python3 -c "import yaml; data = yaml.safe_load(open('.github/workflows/ci.yml')); assert 'permissions' in data; assert data['permissions'] == {'contents': 'read'}; print('PASS: top-level permissions block validated')"
+Expected: YAML parses correctly with top-level permissions: { contents: read }
+Timestamp: 2026-03-25T12:00:00Z
+Status: PASS
+
+--- Output ---
+Top-level keys: ['name', True, 'permissions', 'jobs']
+permissions: {'contents': 'read'}
+jobs: ['changes', 'backend', 'frontend', 'security', 'gate']
+
+The permissions key is correctly placed at the workflow level (alongside name, on, jobs).
+The value is exactly { contents: read }, establishing a restrictive default for all jobs.
+Job-level permissions on 'changes' and 'security' jobs will override as needed.
