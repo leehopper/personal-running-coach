@@ -582,6 +582,35 @@ public class ClaudeCoachingLlmTests
         actualText.Should().Be("complete content");
     }
 
+    [Fact]
+    public void Dispose_DoesNotDisposeClient_WhenNotOwned()
+    {
+        // Arrange — create a mock that implements both IAnthropicClient and IDisposable
+        // so we can verify Dispose is NOT forwarded when _ownsClient is false.
+        var disposableClient = Substitute.For<IAnthropicClient, IDisposable>();
+        disposableClient.Messages.Returns(_mockMessages);
+        var sut = new ClaudeCoachingLlm(disposableClient, DefaultSettings, _logger);
+
+        // Act
+        sut.Dispose();
+
+        // Assert — the injected client's Dispose should NOT have been called
+        ((IDisposable)disposableClient).DidNotReceive().Dispose();
+    }
+
+    [Fact]
+    public void Dispose_DoesNotThrow_WhenClientIsNotDisposable()
+    {
+        // Arrange — the default mock only implements IAnthropicClient, not IDisposable.
+        // The internal constructor sets _ownsClient = false, so this also exercises
+        // the type-check guard (_client is IDisposable).
+        var sut = CreateSut();
+
+        // Act & Assert — should complete without throwing
+        var act = () => sut.Dispose();
+        act.Should().NotThrow();
+    }
+
     /// <summary>
     /// Builds a Message response with a single text content block.
     /// </summary>

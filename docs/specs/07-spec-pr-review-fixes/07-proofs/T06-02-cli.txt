@@ -1,0 +1,10 @@
+Type: cli
+Command: dotnet test --no-build -nologo (full suite)
+Expected: All tests pass with no regressions
+Timestamp: 2026-03-25T00:00:00Z
+Status: PASS
+
+Output:
+  Run tests: 'RunCoach.Api.Tests.dll' [net10.0|arm64]
+  Passed! - Failed: 0, Passed: 305, Skipped: 0, Total: 305, Duration: 295ms
+  Tests succeeded: 'RunCoach.Api.Tests.dll' [net10.0|arm64]

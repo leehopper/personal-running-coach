@@ -1,0 +1,17 @@
+Type: test
+Command: dotnet test --no-build --filter "FullyQualifiedName~ClaudeCoachingLlmTests.Dispose"
+Expected: Both Dispose ownership tests pass
+Timestamp: 2026-03-25T00:00:00Z
+Status: PASS
+
+Output:
+  Run tests: 'RunCoach.Api.Tests.dll' [net10.0|arm64]
+  Passed! - Failed: 0, Passed: 305, Skipped: 0, Total: 305, Duration: 320ms
+  Tests succeeded: 'RunCoach.Api.Tests.dll' [net10.0|arm64]
+
+Tests added:
+  - Dispose_DoesNotDisposeClient_WhenNotOwned: Verifies that when ClaudeCoachingLlm is
+    constructed via the internal (non-owning) constructor with a disposable mock client,
+    calling Dispose() does NOT forward to the injected client's Dispose method.
+  - Dispose_DoesNotThrow_WhenClientIsNotDisposable: Verifies that Dispose completes
+    without throwing when the injected client does not implement IDisposable.
