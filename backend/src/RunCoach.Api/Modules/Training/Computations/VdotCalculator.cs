@@ -13,7 +13,7 @@ namespace RunCoach.Api.Modules.Training.Computations;
 ///
 /// VDOT = VO2 / %VO2max
 ///
-/// Reference: Jack Daniels, "Daniels' Running Formula" (3rd edition).
+/// Reference: Jack Daniels, "Daniels' Running Formula" (4th edition).
 /// </summary>
 public sealed class VdotCalculator : IVdotCalculator
 {
