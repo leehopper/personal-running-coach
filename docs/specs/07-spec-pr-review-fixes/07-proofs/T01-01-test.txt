@@ -1,0 +1,18 @@
+Type: test
+Command: dotnet test tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj
+Expected: All tests pass including new stop_reason truncation tests
+Timestamp: 2026-03-25T12:00:00Z
+
+Test run summary: Passed\!
+  total: 302
+  failed: 0
+  succeeded: 302
+  skipped: 0
+  duration: 328ms
+
+New tests added:
+  - GenerateAsync_ThrowsInvalidOperationException_WhenStopReasonIsMaxTokens: PASS
+  - GenerateStructuredAsync_ThrowsInvalidOperationException_WhenStopReasonIsMaxTokens: PASS
+  - GenerateAsync_DoesNotThrow_WhenStopReasonIsEndTurn: PASS
+
+Status: PASS

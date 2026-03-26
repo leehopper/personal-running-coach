@@ -521,10 +521,71 @@ public class ClaudeCoachingLlmTests
         chatClient.Should().BeAssignableTo<IChatClient>();
     }
 
+    [Fact]
+    public async Task GenerateAsync_ThrowsInvalidOperationException_WhenStopReasonIsMaxTokens()
+    {
+        // Arrange
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse("truncated content", "max_tokens"));
+
+        var sut = CreateSut();
+
+        // Act & Assert
+        await sut.Invoking(s => s.GenerateAsync("system", "user message", CancellationToken.None))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*truncated*max_tokens*");
+    }
+
+    [Fact]
+    public async Task GenerateStructuredAsync_ThrowsInvalidOperationException_WhenStopReasonIsMaxTokens()
+    {
+        // Arrange
+        var jsonResponse = JsonSerializer.Serialize(
+            new MacroPlanOutput
+            {
+                TotalWeeks = 12,
+                GoalDescription = "Run a marathon",
+                Rationale = "Progressive build",
+                Warnings = "None",
+                Phases = [],
+            },
+            ClaudeCoachingLlm.StructuredOutputSerializerOptions);
+
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse(jsonResponse, "max_tokens"));
+
+        var sut = CreateSut();
+
+        // Act & Assert
+        await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
+                "system", "user message", CancellationToken.None))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*truncated*max_tokens*");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DoesNotThrow_WhenStopReasonIsEndTurn()
+    {
+        // Arrange
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse("complete content", "end_turn"));
+
+        var sut = CreateSut();
+
+        // Act
+        var actualText = await sut.GenerateAsync("system", "user message", CancellationToken.None);
+
+        // Assert
+        actualText.Should().Be("complete content");
+    }
+
     /// <summary>
     /// Builds a Message response with a single text content block.
     /// </summary>
-    private static Message BuildTextResponse(string text)
+    private static Message BuildTextResponse(string text, string stopReason = "end_turn")
     {
         var raw = new Dictionary<string, JsonElement>
         {
@@ -532,7 +593,7 @@ public class ClaudeCoachingLlmTests
             ["type"] = ToJsonElement("message"),
             ["role"] = ToJsonElement("assistant"),
             ["model"] = ToJsonElement("claude-sonnet-4-5-20250514"),
-            ["stop_reason"] = ToJsonElement("end_turn"),
+            ["stop_reason"] = ToJsonElement(stopReason),
             ["content"] = ToJsonElement(new[]
             {
                 new { type = "text", text },

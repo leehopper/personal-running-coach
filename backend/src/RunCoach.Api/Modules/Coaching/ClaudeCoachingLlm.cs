@@ -126,6 +126,13 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             response.Usage.InputTokens,
             response.Usage.OutputTokens);
 
+        if (response.StopReason is { } sr && sr == StopReason.MaxTokens)
+        {
+            throw new InvalidOperationException(
+                "LLM response was truncated (stop_reason=max_tokens). " +
+                "Increase MaxTokens or reduce prompt size.");
+        }
+
         return text;
     }
 
@@ -180,6 +187,13 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             stopReason,
             response.Usage.InputTokens,
             response.Usage.OutputTokens);
+
+        if (response.StopReason is { } sr && sr == StopReason.MaxTokens)
+        {
+            throw new InvalidOperationException(
+                "LLM response was truncated (stop_reason=max_tokens). " +
+                "Increase MaxTokens or reduce prompt size.");
+        }
 
         return JsonSerializer.Deserialize<T>(json, StructuredOutputSerializerOptions)
             ?? throw new InvalidOperationException(
