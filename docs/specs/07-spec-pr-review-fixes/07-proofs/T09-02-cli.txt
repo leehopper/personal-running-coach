@@ -1,0 +1,14 @@
+Type: cli
+Command: dotnet test (full suite)
+Expected: All tests pass including new cache eviction retry test
+Timestamp: 2026-03-25T12:01:00Z
+
+Output:
+  Passed! - Failed: 0, Passed: 314, Skipped: 0, Total: 314, Duration: 316ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+  Tests succeeded
+
+Status: PASS
+
+Notes:
+  - Full suite runs green with 314 tests (up from 312 baseline)
+  - No regressions introduced

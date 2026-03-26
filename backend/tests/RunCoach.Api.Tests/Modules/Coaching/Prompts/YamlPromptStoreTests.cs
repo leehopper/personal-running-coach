@@ -218,6 +218,28 @@ public sealed class YamlPromptStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPromptAsync_FailThenSucceed_EvictsCacheAndRetries()
+    {
+        // Arrange — no file on disk yet
+        var sut = CreateStore("late-prompt", "v1");
+
+        // Act — first call fails (file missing)
+        var firstAct = () => sut.GetPromptAsync("late-prompt", "v1", TestContext.Current.CancellationToken);
+        await firstAct.Should().ThrowAsync<KeyNotFoundException>();
+
+        // Arrange — now create the file so the retry can succeed
+        WriteYamlFile("late-prompt.v1.yaml", BuildMinimalYaml("Now I exist."));
+
+        // Act — second call should succeed because the faulted entry was evicted
+        var actual = await sut.GetPromptAsync("late-prompt", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        actual.Id.Should().Be("late-prompt");
+        actual.Version.Should().Be("v1");
+        actual.StaticSystemPrompt.Should().Contain("Now I exist.");
+    }
+
+    [Fact]
     public async Task GetPromptAsync_ConcurrentCalls_ReturnSameInstance()
     {
         // Arrange
