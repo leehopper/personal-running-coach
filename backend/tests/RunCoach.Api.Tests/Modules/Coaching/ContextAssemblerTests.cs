@@ -1236,6 +1236,69 @@ public class ContextAssemblerTests
     }
 
     // ================================================================
+    // Prompt store failure propagation tests
+    // ================================================================
+    [Fact]
+    public async Task AssembleAsync_GetActiveVersionThrowsKeyNotFound_PropagatesKeyNotFoundException()
+    {
+        // Arrange — configure IPromptStore.GetActiveVersion to throw KeyNotFoundException
+        var failingStore = Substitute.For<IPromptStore>();
+        failingStore.GetActiveVersion("coaching-system")
+            .Returns(_ => throw new KeyNotFoundException("No active version for 'coaching-system'"));
+
+        var sut = new ContextAssembler(failingStore, NullLogger<ContextAssembler>.Instance);
+        var input = BuildLeeInput();
+
+        // Act
+        var act = () => sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>()
+            .WithMessage("*coaching-system*");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_GetPromptAsyncThrowsKeyNotFound_PropagatesKeyNotFoundException()
+    {
+        // Arrange — configure IPromptStore.GetPromptAsync to throw KeyNotFoundException
+        var failingStore = Substitute.For<IPromptStore>();
+        failingStore.GetActiveVersion("coaching-system").Returns("v1");
+        failingStore.GetPromptAsync("coaching-system", "v1", Arg.Any<CancellationToken>())
+            .Returns<Task<PromptTemplate>>(_ => throw new KeyNotFoundException("No template for 'coaching-system' v1"));
+
+        var sut = new ContextAssembler(failingStore, NullLogger<ContextAssembler>.Instance);
+        var input = BuildLeeInput();
+
+        // Act
+        var act = () => sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>()
+            .WithMessage("*coaching-system*");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_GetPromptAsyncThrowsFileNotFound_PropagatesFileNotFoundException()
+    {
+        // Arrange — configure IPromptStore.GetPromptAsync to throw FileNotFoundException
+        // (YamlPromptStore throws this when the YAML file is missing from disk)
+        var failingStore = Substitute.For<IPromptStore>();
+        failingStore.GetActiveVersion("coaching-system").Returns("v1");
+        failingStore.GetPromptAsync("coaching-system", "v1", Arg.Any<CancellationToken>())
+            .Returns<Task<PromptTemplate>>(_ => throw new FileNotFoundException("Prompt file not found: coaching-system-v1.yaml"));
+
+        var sut = new ContextAssembler(failingStore, NullLogger<ContextAssembler>.Instance);
+        var input = BuildLeeInput();
+
+        // Act
+        var act = () => sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<FileNotFoundException>()
+            .WithMessage("*coaching-system*");
+    }
+
+    // ================================================================
     // Helper methods
     // ================================================================
     private static IPromptStore CreateMockPromptStore()

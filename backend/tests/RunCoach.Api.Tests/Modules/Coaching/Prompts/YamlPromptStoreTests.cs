@@ -359,6 +359,31 @@ public sealed class YamlPromptStoreTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task GetPromptAsync_CallerTokenCancelled_CacheEntryNotCorrupted()
+    {
+        // Arrange — file exists so the underlying load will succeed
+        var yaml = BuildMinimalYaml("Cached despite cancellation.");
+        WriteYamlFile("cancel-test.v1.yaml", yaml);
+        var sut = CreateStore("cancel-test", "v1");
+
+        // Act — first caller cancels immediately; underlying Lazy uses CancellationToken.None
+        // so the load completes, but the caller sees OperationCanceledException from WaitAsync
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        var firstAct = () => sut.GetPromptAsync("cancel-test", "v1", cts.Token);
+        await firstAct.Should().ThrowAsync<OperationCanceledException>();
+
+        // Act — second caller uses a valid token; the cached Lazy should still be intact
+        var actual = await sut.GetPromptAsync("cancel-test", "v1", CancellationToken.None);
+
+        // Assert — cache entry was not corrupted by the first caller's cancellation
+        actual.Id.Should().Be("cancel-test");
+        actual.Version.Should().Be("v1");
+        actual.StaticSystemPrompt.Should().Contain("Cached despite cancellation.");
+    }
+
     private static string BuildFullYaml()
     {
         return string.Join(
