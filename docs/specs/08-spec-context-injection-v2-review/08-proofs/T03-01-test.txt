@@ -1,0 +1,32 @@
+Type: test
+Command: dotnet test (from backend/)
+Expected: Three new prompt store failure propagation tests pass; all non-eval tests pass
+Timestamp: 2026-03-25T00:00:00Z
+
+Test Run Results:
+  Total:   358
+  Passed:  349
+  Failed:  9 (all in Eval namespace -- pre-existing cache misses)
+  Skipped: 0
+
+New tests added (all PASSED):
+  1. AssembleAsync_GetActiveVersionThrowsKeyNotFound_PropagatesKeyNotFoundException
+     - Configures mock IPromptStore.GetActiveVersion to throw KeyNotFoundException
+     - Verifies exception propagates through AssembleAsync unchanged
+
+  2. AssembleAsync_GetPromptAsyncThrowsKeyNotFound_PropagatesKeyNotFoundException
+     - Configures mock IPromptStore.GetPromptAsync to throw KeyNotFoundException
+     - Verifies exception propagates through AssembleAsync unchanged
+
+  3. AssembleAsync_GetPromptAsyncThrowsFileNotFound_PropagatesFileNotFoundException
+     - Configures mock IPromptStore.GetPromptAsync to throw FileNotFoundException
+     - Verifies exception propagates through AssembleAsync unchanged
+     - Models the real YamlPromptStore behavior when YAML file is missing from disk
+
+All 9 failures are in Eval/ namespace (pre-existing eval cache replay failures):
+  - 5 SafetyBoundaryEvalTests
+  - 4 PlanGenerationEvalTests
+
+No failures in ContextAssemblerTests or any non-Eval test class.
+
+Status: PASS
