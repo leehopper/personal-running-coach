@@ -40,7 +40,7 @@ namespace RunCoach.Api.Modules.Coaching;
 /// following (e.g., "ignore previous instructions", role-play injection, system prompt
 /// overrides). Consider a dedicated <c>IPromptSanitizer</c> applied at section boundaries.
 /// Currently safe — POC has no user-facing input endpoints; all data is programmatic test fixtures.
-/// See also: <see cref="PromptRenderer"/> remarks for template-token interference concerns.
+/// See also: <see cref="PromptRenderer"/> which sanitizes token values against template injection.
 /// </remarks>
 public sealed partial class ContextAssembler : IContextAssembler
 {

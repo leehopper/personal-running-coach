@@ -1,0 +1,33 @@
+Type: file
+Command: Verify PromptRenderer.cs contains SanitizeTokenValue and loop-based sanitization
+Expected: SanitizeTokenValue method exists, uses while loop to collapse {{ and }} until none remain
+Timestamp: 2026-03-25T00:00:00Z
+
+File: backend/src/RunCoach.Api/Modules/Coaching/Prompts/PromptRenderer.cs
+
+Changes made:
+1. Added SanitizeTokenValue(string value) internal static method
+   - Returns early for null/empty
+   - Uses while loop with Contains check for "{{" or "}}"
+   - Repeatedly replaces "{{" with "{" and "}}" with "}" until stable
+   - Handles edge cases: triple braces {{{ collapse fully, not just one pass
+
+2. Updated Render method to call SanitizeTokenValue(value) on each token value
+   before substitution, preventing template injection
+
+3. Updated XML doc remarks:
+   - Removed FUTURE comment (concern is now addressed)
+   - Documented sanitization behavior in class and method summaries
+
+4. Updated ContextAssembler.cs FUTURE comment reference:
+   - Changed from "template-token interference concerns" to
+     "sanitizes token values against template injection"
+
+Security properties verified:
+- Token value "{{goal}}" becomes "{goal}" (cannot match template token)
+- Token value "{{{nested}}}" becomes "{nested}" (multi-pass collapse)
+- Token value "{}" remains unchanged (single braces preserved)
+- Token value "{{" becomes "{" (incomplete pattern neutralized)
+- Empty string returns empty (no crash on edge case)
+
+Status: PASS
