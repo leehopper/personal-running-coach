@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using RunCoach.Api.Modules.Coaching.Prompts;
+using YamlDotNet.Core;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Prompts;
 
@@ -237,6 +238,103 @@ public sealed class YamlPromptStoreTests : IDisposable
         actual.Id.Should().Be("late-prompt");
         actual.Version.Should().Be("v1");
         actual.StaticSystemPrompt.Should().Contain("Now I exist.");
+    }
+
+    [Theory]
+    [InlineData("../etc/passwd", "v1")]
+    [InlineData("coaching-system", "../../../v1")]
+    [InlineData("../../secret", "v1")]
+    public async Task GetPromptAsync_PathTraversal_ThrowsInvalidOperationException(string id, string version)
+    {
+        // Arrange
+        var settings = new PromptStoreSettings
+        {
+            ActiveVersions = new Dictionary<string, string> { [id] = version },
+        };
+        var sut = new YamlPromptStore(settings, _tempDir, _logger);
+
+        // Act
+        var act = () => sut.GetPromptAsync(id, version, TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*escapes the configured base directory*");
+    }
+
+    [Fact]
+    public void ValidateConfiguredVersions_PathTraversal_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var settings = new PromptStoreSettings
+        {
+            ActiveVersions = new Dictionary<string, string> { ["../etc/passwd"] = "v1" },
+        };
+        var sut = new YamlPromptStore(settings, _tempDir, _logger);
+
+        // Act
+        var act = () => sut.ValidateConfiguredVersions();
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*escapes the configured base directory*");
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_MalformedYaml_ThrowsYamlException()
+    {
+        // Arrange — syntactically invalid YAML (unbalanced braces, bad indentation)
+        const string malformedYaml = "static_system_prompt: [\ninvalid: {{\n  broken";
+        WriteYamlFile("malformed.v1.yaml", malformedYaml);
+        var sut = CreateStore("malformed", "v1");
+
+        // Act
+        var act = () => sut.GetPromptAsync("malformed", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<YamlException>();
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_WrongStructureYaml_ReturnsEmptyTemplate()
+    {
+        // Arrange — valid YAML but wrong structure (flat string, not expected mapping)
+        const string wrongStructure = "just_a_random_key: some value\nanother_key: 42\n";
+        WriteYamlFile("wrong-structure.v1.yaml", wrongStructure);
+        var sut = CreateStore("wrong-structure", "v1");
+
+        // Act
+        var actual = await sut.GetPromptAsync("wrong-structure", "v1", TestContext.Current.CancellationToken);
+
+        // Assert — unmatched properties are ignored; mapped fields default to null/empty
+        actual.Id.Should().Be("wrong-structure");
+        actual.Version.Should().Be("v1");
+        actual.StaticSystemPrompt.Should().BeEmpty();
+        actual.ContextTemplate.Should().BeEmpty();
+        actual.Metadata.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetPromptAsync_MalformedYamlThenFixed_EvictsCacheAndReloads()
+    {
+        // Arrange — start with malformed YAML
+        const string malformedYaml = "static_system_prompt: [\nunbalanced";
+        WriteYamlFile("fixable.v1.yaml", malformedYaml);
+        var sut = CreateStore("fixable", "v1");
+
+        // Act — first call fails with YamlException
+        var firstAct = () => sut.GetPromptAsync("fixable", "v1", TestContext.Current.CancellationToken);
+        await firstAct.Should().ThrowAsync<YamlException>();
+
+        // Arrange — overwrite with valid YAML
+        WriteYamlFile("fixable.v1.yaml", BuildMinimalYaml("Now I'm valid."));
+
+        // Act — second call should succeed because the faulted entry was evicted
+        var actual = await sut.GetPromptAsync("fixable", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        actual.Id.Should().Be("fixable");
+        actual.Version.Should().Be("v1");
+        actual.StaticSystemPrompt.Should().Contain("Now I'm valid.");
     }
 
     [Fact]

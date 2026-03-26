@@ -1,0 +1,19 @@
+Type: test
+Command: dotnet test (all tests including path traversal validation)
+Expected: All tests pass, including new path traversal tests
+Timestamp: 2026-03-25T20:30:00Z
+Status: PASS
+
+Test run output:
+  Passed! - Failed: 0, Passed: 325, Skipped: 0, Total: 325, Duration: 302ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+
+New tests added:
+  - GetPromptAsync_PathTraversal_ThrowsInvalidOperationException [Theory with 3 InlineData cases]
+    - ("../etc/passwd", "v1") - traversal in id
+    - ("coaching-system", "../../../v1") - traversal in version
+    - ("../../secret", "v1") - traversal in id
+  - ValidateConfiguredVersions_PathTraversal_ThrowsInvalidOperationException [Fact]
+    - Verifies startup validation also catches path traversal
+
+All 4 new test cases verify that InvalidOperationException is thrown with
+message containing "escapes the configured base directory".

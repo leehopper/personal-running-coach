@@ -176,8 +176,20 @@ public sealed partial class YamlPromptStore : IPromptStore
     [LoggerMessage(Level = LogLevel.Information, Message = "Validated prompt '{Id}' version '{Version}' exists at '{FilePath}'")]
     private static partial void LogValidatedVersion(ILogger logger, string id, string version, string filePath);
 
-    private string BuildFilePath(string id, string version) =>
-        Path.Combine(_basePath, $"{id}.{version}.yaml");
+    private string BuildFilePath(string id, string version)
+    {
+        var combined = Path.Combine(_basePath, $"{id}.{version}.yaml");
+        var fullPath = Path.GetFullPath(combined);
+        var normalizedBase = Path.GetFullPath(_basePath + Path.DirectorySeparatorChar);
+
+        if (!fullPath.StartsWith(normalizedBase, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Resolved prompt path '{fullPath}' escapes the configured base directory.");
+        }
+
+        return fullPath;
+    }
 
     private async Task<PromptTemplate> LoadAsync(
         string id,
