@@ -1,0 +1,15 @@
+Type: cli
+Description: Verify build and all tests pass after adding CancellationToken parameter
+Command: dotnet build && dotnet test
+Expected: Build succeeds with 0 errors/warnings; all 326 tests pass
+Timestamp: 2026-03-25T12:00:00Z
+
+--- Build Output ---
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+--- Test Output ---
+Passed! - Failed: 0, Passed: 326, Skipped: 0, Total: 326, Duration: 315ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+
+Status: PASS

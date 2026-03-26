@@ -47,12 +47,15 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        await WriteEvalResultAsync("plan-sarah", new
-        {
-            Profile = "Sarah (beginner)",
-            MesoWeek = mesoWeek,
-            Workouts = workoutList,
-        });
+        await WriteEvalResultAsync(
+            "plan-sarah",
+            new
+            {
+                Profile = "Sarah (beginner)",
+                MesoWeek = mesoWeek,
+                Workouts = workoutList,
+            },
+            TestContext.Current.CancellationToken);
 
         // Assert -- typed constraint checks
         var context = new PlanConstraintContext
@@ -119,12 +122,15 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        await WriteEvalResultAsync("plan-lee", new
-        {
-            Profile = "Lee (intermediate)",
-            MesoWeek = mesoWeek,
-            Workouts = workoutList,
-        });
+        await WriteEvalResultAsync(
+            "plan-lee",
+            new
+            {
+                Profile = "Lee (intermediate)",
+                MesoWeek = mesoWeek,
+                Workouts = workoutList,
+            },
+            TestContext.Current.CancellationToken);
 
         // Assert -- typed constraint checks with pace verification
         var context = new PlanConstraintContext
@@ -191,12 +197,15 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        await WriteEvalResultAsync("plan-maria", new
-        {
-            Profile = "Maria (goalless / maintenance)",
-            MesoWeek = mesoWeek,
-            Workouts = workoutList,
-        });
+        await WriteEvalResultAsync(
+            "plan-maria",
+            new
+            {
+                Profile = "Maria (goalless / maintenance)",
+                MesoWeek = mesoWeek,
+                Workouts = workoutList,
+            },
+            TestContext.Current.CancellationToken);
 
         // Assert -- Maria-specific: weekly km within +-10% of current 55km
         var currentKm = (int)profile.UserProfile.CurrentWeeklyDistanceKm;
@@ -250,14 +259,17 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        await WriteEvalResultAsync("plan-james", new
-        {
-            Profile = "James (injured / return from injury)",
-            MacroPlan = macroPlan,
-            MesoWeek = mesoWeek,
-            Workouts = workoutList,
-            CoachingNarrative = narrative,
-        });
+        await WriteEvalResultAsync(
+            "plan-james",
+            new
+            {
+                Profile = "James (injured / return from injury)",
+                MacroPlan = macroPlan,
+                MesoWeek = mesoWeek,
+                Workouts = workoutList,
+                CoachingNarrative = narrative,
+            },
+            TestContext.Current.CancellationToken);
 
         // Assert -- typed constraint checks
         var context = new PlanConstraintContext
@@ -326,12 +338,15 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             assembled,
             TestContext.Current.CancellationToken);
 
-        await WriteEvalResultAsync("plan-priya", new
-        {
-            Profile = "Priya (constrained / 4 days max)",
-            MesoWeek = mesoWeek,
-            Workouts = workoutList,
-        });
+        await WriteEvalResultAsync(
+            "plan-priya",
+            new
+            {
+                Profile = "Priya (constrained / 4 days max)",
+                MesoWeek = mesoWeek,
+                Workouts = workoutList,
+            },
+            TestContext.Current.CancellationToken);
 
         // Assert -- Priya-specific: exactly 4 run days and 3 rest/cross-train days
         mesoWeek.Days.Should().HaveCount(

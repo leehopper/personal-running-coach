@@ -159,7 +159,7 @@ public sealed class EvalTestBaseTests
         try
         {
             // Act
-            await EvalTestBase.WriteEvalResultAsync(scenarioName, testData);
+            await EvalTestBase.WriteEvalResultAsync(scenarioName, testData, TestContext.Current.CancellationToken);
 
             // Assert
             var outputPath = Path.Combine(EvalTestBase.GetOutputDirectory(), $"{scenarioName}.json");

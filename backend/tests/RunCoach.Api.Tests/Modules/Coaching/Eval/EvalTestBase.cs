@@ -175,12 +175,15 @@ public abstract class EvalTestBase : IAsyncDisposable
     /// Writes the full eval result (LLM response and metadata) to a JSON file
     /// in the eval-results/ directory.
     /// </summary>
-    public static async Task WriteEvalResultAsync(string scenarioName, object result)
+    public static async Task WriteEvalResultAsync(
+        string scenarioName,
+        object result,
+        CancellationToken ct = default)
     {
         EnsureOutputDirectory();
         var outputPath = GetOutputPath(scenarioName);
         var json = JsonSerializer.Serialize(result, WriteOptions);
-        await File.WriteAllTextAsync(outputPath, json).ConfigureAwait(false);
+        await File.WriteAllTextAsync(outputPath, json, ct).ConfigureAwait(false);
     }
 
     /// <summary>
