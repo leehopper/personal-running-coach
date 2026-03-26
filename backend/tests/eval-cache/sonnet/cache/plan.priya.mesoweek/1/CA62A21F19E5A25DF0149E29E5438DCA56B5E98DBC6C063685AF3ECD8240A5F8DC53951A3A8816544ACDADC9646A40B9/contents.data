@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":62,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"24 km easy long run at 5:07–5:39/km. Keep effort conversational throughout — this is aerobic foundation work, not a fitness test. Hydrate and fuel every 45 min.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Sleep and nutrition are doing the adaptation work today — this is active recovery in disguise.\"},{\"day_of_week\":2,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Optional 30–45 min low-impact cross-training (cycling, swimming, yoga). Keep heart rate easy. This is mobility and blood flow, not fitness building.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"10 km easy at 5:07–5:39/km. This is a pure aerobic day — resist any urge to push. If you feel good, that's the signal the pacing is right, not a reason to speed up.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Your body is integrating last week's training load. Trust the process.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"12 km total: 3 km warm-up at easy pace, 6 km at threshold pace (4:16/km), 3 km cool-down. Threshold work builds your lactate ceiling — the pace that will feel manageable on race day.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"16 km easy at 5:07–5:39/km. A medium-long run to accumulate aerobic volume without adding intensity. Keep it honest — easy means easy.\"}],\"week_summary\":\"Welcome to Week 1, Priya. Your recent training shows you're already handling solid volume — a 26 km long run, tempo work, and marathon-pace sessions in the same week is genuinely impressive consistency. This first week is about establishing a sustainable rhythm for the 24 weeks ahead. We're holding volume close to your recent baseline (~62 km) rather than jumping up, which gives your body a chance to settle into the structure before we start building. The focus is aerobic base: one long run, one tempo, one medium-long, and one easy run across four days. Your 3:15 marathon goal is very achievable from a VDOT of 49.7 — it asks for roughly 4:37/km race pace, which sits comfortably between your easy and marathon training paces. The plan ahead will build you there methodically. How does this structure feel given your weekly schedule?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2536,
+    "outputTokenCount": 690,
+    "totalTokenCount": 3226
+  }
+}

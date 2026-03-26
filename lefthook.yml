@@ -1,6 +1,12 @@
 pre-commit:
   parallel: true
   commands:
+    reject-docs-specs:
+      glob: "docs/specs/**"
+      run: |
+        echo "ERROR: docs/specs/ is gitignored — do not stage these files."
+        echo "Offending files: {staged_files}"
+        exit 1
     dotnet-format:
       root: "backend/"
       glob: "*.cs"

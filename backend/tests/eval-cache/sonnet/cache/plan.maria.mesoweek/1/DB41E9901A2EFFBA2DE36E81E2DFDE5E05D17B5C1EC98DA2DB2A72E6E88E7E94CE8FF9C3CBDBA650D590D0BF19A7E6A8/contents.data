@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long run at easy effort, 5:22–5:56/km. Cap at 120 min. This anchors your week and builds aerobic base. Keep it conversational — if you can't speak in full sentences, ease off.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Recovery is where adaptation happens — this is an active investment in Sunday's work.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run, 8 km at 5:39–5:56/km. Legs may feel heavy from Sunday — that's normal. Keep effort genuinely easy.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Interval\",\"notes\":\"Quality session: 2 km warm-up, 5×1 km at 4:11/km with 400 m jog recovery, ~1.5 km cool-down (~10 km total). These sharpen your aerobic ceiling and maintain the fitness you've built. Warm up thoroughly before hitting pace.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 8 km at 5:39–5:56/km. This is a buffer day — keep effort low so Thursday's quality work can absorb properly.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Tempo run: 2 km warm-up, 8 km at 4:28/km, 2 km cool-down (12 km total). This is your threshold stimulus for the week — comfortably hard, not all-out. Steady breathing, controlled effort.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 8 km at 5:39–5:56/km. A gentle close to the week. Keeps volume consistent without adding stress. Great day to run by feel.\"}],\"week_summary\":\"Welcome to your maintenance plan, Maria. This first week mirrors what your training history shows you're already handling well — around 55 km with a long run, two quality sessions, and easy volume filling the rest. The goal here isn't to build or peak; it's to preserve the excellent fitness you've earned. Your VDOT of 46.7 reflects real work, and this plan is designed to protect that investment while keeping training sustainable and enjoyable long-term. The structure follows an 80/20 principle: roughly 80% of your running at easy effort, 20% at quality paces. What feels most important to you as you head into this week?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2574,
+    "outputTokenCount": 682,
+    "totalTokenCount": 3256
+  }
+}
