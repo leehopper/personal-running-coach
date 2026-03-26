@@ -1,0 +1,15 @@
+Type: test
+Command: dotnet test (all tests)
+Expected: New ISO week year boundary test passes along with all existing tests
+Timestamp: 2026-03-25T00:00:00Z
+
+Output:
+Passed! - Failed: 0, Passed: 326, Skipped: 0, Total: 326, Duration: 302ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+
+Test added:
+1. AssembleAsync_WorkoutsSpanningIsoWeekYearBoundary_GroupsByIsoWeekNotCalendarYear
+   - Creates workouts on Dec 28 (ISO 2025-W52) and Dec 29/31/Jan 1/Jan 2 (ISO 2026-W01)
+   - Verifies GroupByWeek produces 2 weekly summaries: 1 run for W52, 4 runs for W01
+   - Confirms ISOWeek.GetYear correctly handles the calendar/ISO year divergence
+
+Status: PASS

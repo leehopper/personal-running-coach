@@ -1168,6 +1168,45 @@ public class ContextAssemblerTests
     }
 
     // ================================================================
+    // ISO week year boundary tests
+    // ================================================================
+    [Fact]
+    public async Task AssembleAsync_WorkoutsSpanningIsoWeekYearBoundary_GroupsByIsoWeekNotCalendarYear()
+    {
+        // Arrange — Dec 29, 2025 is a Monday (ISO week 2026-W01), so workouts on
+        // Dec 29-31 and Jan 1-2 all belong to ISO week 2026-W01, while Dec 28 (Sunday)
+        // belongs to ISO week 2025-W52. All dates are old enough to land in the
+        // Layer 2 (weekly summary) bucket, exercising GroupByWeek directly.
+        var input = BuildIsoWeekBoundaryInput();
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — Layer 2 weekly summaries should show exactly 2 weeks:
+        // one for the week containing Dec 28 (ISO 2025-W52, 1 run)
+        // and one for the week containing Dec 29-31 + Jan 2 (ISO 2026-W01, 4 runs)
+        var historySection = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        var weekSummaryLines = historySection.Content
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Where(l => l.StartsWith("Week of", StringComparison.Ordinal))
+            .ToList();
+
+        weekSummaryLines.Should().HaveCount(
+            2,
+            because: "workouts spanning Dec 28 - Jan 2 should split into ISO 2025-W52 and 2026-W01");
+
+        // The ISO 2026-W01 group (Dec 29 + Dec 31 + Jan 1 + Jan 2 = 4 runs, 26 km)
+        weekSummaryLines.Should().Contain(
+            l => l.Contains("4 runs"),
+            because: "Dec 29, Dec 31, Jan 1, and Jan 2 all belong to ISO week 2026-W01");
+
+        // The ISO 2025-W52 group (Dec 28 = 1 run, 8 km)
+        weekSummaryLines.Should().Contain(
+            l => l.Contains("1 runs"),
+            because: "Dec 28 (Sunday) belongs to ISO week 2025-W52, separate from the others");
+    }
+
+    // ================================================================
     // Helper methods
     // ================================================================
     private static IPromptStore CreateMockPromptStore()
@@ -1518,5 +1557,74 @@ public class ContextAssemblerTests
             ImmutableArray<WorkoutSummary>.Empty,
             ImmutableArray<ConversationTurn>.Empty,
             "Create a training plan for my marathon.");
+    }
+
+    /// <summary>
+    /// Builds a <see cref="ContextAssemblerInput"/> with workouts spanning the ISO week
+    /// year boundary at Dec 28, 2025 / Dec 29, 2025. Dec 29, 2025 is a Monday — the
+    /// start of ISO week 2026-W01 — so workouts on Dec 29-31 and Jan 1-2 belong to
+    /// ISO week 2026-W01, while Dec 28 (Sunday) belongs to ISO week 2025-W52.
+    /// All dates are old enough to land in the Layer 2 (weekly summary) bucket.
+    /// </summary>
+    private static ContextAssemblerInput BuildIsoWeekBoundaryInput()
+    {
+        var lee = TestProfiles.Lee();
+        var easyPace = TimeSpan.FromMinutes(5.5);
+
+        var workouts = ImmutableArray.CreateBuilder<WorkoutSummary>();
+
+        // Dec 28, 2025 (Sunday) — ISO week 2025-W52
+        workouts.Add(new WorkoutSummary(
+            new DateOnly(2025, 12, 28),
+            "Easy",
+            8m,
+            44,
+            easyPace,
+            null));
+
+        // Dec 29, 2025 (Monday) — ISO week 2026-W01
+        workouts.Add(new WorkoutSummary(
+            new DateOnly(2025, 12, 29),
+            "Easy",
+            7m,
+            38,
+            easyPace,
+            null));
+
+        // Dec 31, 2025 (Wednesday) — ISO week 2026-W01
+        workouts.Add(new WorkoutSummary(
+            new DateOnly(2025, 12, 31),
+            "Tempo",
+            6m,
+            29,
+            TimeSpan.FromMinutes(4.8),
+            null));
+
+        // Jan 1, 2026 (Thursday) — ISO week 2026-W01
+        workouts.Add(new WorkoutSummary(
+            new DateOnly(2026, 1, 1),
+            "Easy",
+            5m,
+            27,
+            easyPace,
+            null));
+
+        // Jan 2, 2026 (Friday) — ISO week 2026-W01
+        workouts.Add(new WorkoutSummary(
+            new DateOnly(2026, 1, 2),
+            "Easy",
+            8m,
+            44,
+            easyPace,
+            null));
+
+        return new ContextAssemblerInput(
+            lee.UserProfile,
+            lee.GoalState,
+            lee.GoalState.CurrentFitnessEstimate,
+            lee.GoalState.CurrentFitnessEstimate.TrainingPaces,
+            workouts.ToImmutable(),
+            ImmutableArray<ConversationTurn>.Empty,
+            "Create a training plan for my half marathon.");
     }
 }
