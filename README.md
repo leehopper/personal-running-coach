@@ -8,7 +8,7 @@ An AI running coach that maintains a persistent adaptive coaching relationship. 
 
 ## Prerequisites
 
-- .NET 10 SDK (preview)
+- .NET 10 SDK
 - Node.js 22+
 - Docker / Colima (for PostgreSQL, Redis, pgAdmin)
 
