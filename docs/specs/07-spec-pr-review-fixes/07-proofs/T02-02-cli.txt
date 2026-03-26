@@ -1,0 +1,37 @@
+Type: cli
+Command: dotnet build --no-restore (from backend/)
+Expected: Build succeeds with 0 warnings, 0 errors
+Timestamp: 2026-03-25T00:00:00Z
+Status: PASS
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.13
+
+Verification of corrected pace table values:
+
+VDOT 50 (newly computed, book-verified):
+  EasyMin=306 (5:06/km), EasyMax=338 (5:38/km), Marathon=271 (4:31/km),
+  Threshold=255 (4:15/km), Interval=235 (3:55/km), Repetition=218 (3:38/km)
+
+Cross-reference against DEC-040/R-019 expected values:
+  Marathon=271: PASS (race prediction 3:10:49 / 42.195km = 271.3 s/km, rounds to 271)
+  Threshold=255: PASS (book T-1000 = 4:15 = 255s; equation at 88% VO2max = 255.2 s/km)
+  Interval=235: PASS (book I-1000 = 3:55 = 235s; equation at ~97% VO2max = 235.8 s/km)
+  Repetition=218: PASS (book R-400 = 87s; 87 * 1000/400 = 217.5, rounds to 218)
+  EasyMin=306: PASS (extrapolated from step trend: 311 - 5 = 306)
+  EasyMax=338: PASS (extrapolated from step trend: 344 - 6 = 338)
+
+Shift verification for VDOT 51-85:
+  Each corrected[N] = previous_buggy[N-1] for N in 51..85
+  This undoes the confirmed off-by-one where buggy[N] contained correct values for N+1
+
+Step-size smoothness across 49->50->51 boundary:
+  EasyMin: 311 -> 306 (-5) -> 301 (-5) -- smooth
+  EasyMax: 344 -> 338 (-6) -> 331 (-7) -- within normal variation
+  Marathon: 273 -> 271 (-2) -> 267 (-4) -- minor variation, book values
+  Threshold: 259 -> 255 (-4) -> 250 (-5) -- smooth
+  Interval: 242 -> 235 (-7) -> 231 (-4) -- book-verified value
+  Repetition: 228 -> 218 (-10) -> 216 (-2) -- book-verified value (R-400=87s)

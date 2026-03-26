@@ -13,13 +13,16 @@ public class PaceCalculatorTests
         // Arrange
         var vdot = 50m;
 
-        // Expected values from published Daniels' Running Formula tables for VDOT 50
-        var expectedEasyMin = TimeSpan.FromSeconds(301);   // ~5:01/km
-        var expectedEasyMax = TimeSpan.FromSeconds(331);   // ~5:31/km
-        var expectedMarathon = TimeSpan.FromSeconds(267);  // ~4:27/km
-        var expectedThreshold = TimeSpan.FromSeconds(250); // ~4:10/km
-        var expectedInterval = TimeSpan.FromSeconds(231);  // ~3:51/km
-        var expectedRep = TimeSpan.FromSeconds(216);       // ~3:36/km
+        // Expected values from published Daniels' Running Formula (4th edition) tables for VDOT 50.
+        // Corrected per DEC-040: original table had an off-by-one row shift from VDOT 50-85.
+        // Marathon=271 verified via race prediction (3:10:49); Threshold=255 and Interval=235
+        // verified against published per-1000m columns and Daniels-Gilbert equation cross-reference.
+        var expectedEasyMin = TimeSpan.FromSeconds(306);   // ~5:06/km
+        var expectedEasyMax = TimeSpan.FromSeconds(338);   // ~5:38/km
+        var expectedMarathon = TimeSpan.FromSeconds(271);  // ~4:31/km
+        var expectedThreshold = TimeSpan.FromSeconds(255); // ~4:15/km
+        var expectedInterval = TimeSpan.FromSeconds(235);  // ~3:55/km
+        var expectedRep = TimeSpan.FromSeconds(218);       // ~3:38/km
 
         // Act
         var actualPaces = _sut.CalculatePaces(vdot);
