@@ -659,6 +659,239 @@ public class ContextAssemblerTests
     }
 
     // ================================================================
+    // Overflow cascade tests
+    // ================================================================
+    [Fact]
+    public async Task AssembleAsync_OverflowTriggered_StaysWithinTokenBudget()
+    {
+        // Arrange — create input large enough to exceed the 15K token budget
+        var input = BuildOverflowInput(
+            workoutWeeks: 12,
+            workoutsPerWeek: 6,
+            conversationTurns: 20,
+            charsPerMessage: 500);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — the cascade must bring the result within budget
+        actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
+            TokenBudget,
+            because: "the overflow cascade must enforce the 15K token budget");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_OverflowStep1_ReducesTrainingHistoryToLayer2Only()
+    {
+        // Arrange — create input where training history is large enough to exceed budget
+        // but switching to Layer 2 (weekly summaries) brings it under.
+        // Many workouts with verbose notes create large Layer 1 but compact Layer 2.
+        var input = BuildOverflowInput(
+            workoutWeeks: 8,
+            workoutsPerWeek: 6,
+            conversationTurns: 2,
+            charsPerMessage: 100);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — Layer 2 produces weekly summaries (one line per week), not per-workout detail.
+        // With Layer 2, max 4 weeks of weekly summaries should be present.
+        actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(TokenBudget);
+
+        var historySection = actualPrompt.MiddleSections
+            .FirstOrDefault(s => s.Key == "training_history");
+        historySection.Should().NotBeNull(
+            because: "training history should still be present after Step 1");
+
+        // Layer 2 format uses "Week of YYYY-MM-DD:" prefix (weekly summary format),
+        // while Layer 1 uses per-workout detail "YYYY-MM-DD | WorkoutType |..."
+        historySection!.Content.Should().Contain(
+            "Week of",
+            because: "Step 1 reduces to Layer 2 weekly summaries");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_OverflowStep2_TruncatesConversationHistory()
+    {
+        // Arrange — create input with massive conversation that stays over budget
+        // even after Step 1 (Layer 2). Use many long conversation turns.
+        var input = BuildOverflowInput(
+            workoutWeeks: 4,
+            workoutsPerWeek: 6,
+            conversationTurns: 20,
+            charsPerMessage: 1500);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — conversation was truncated: fewer turns than the original 20
+        actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(TokenBudget);
+
+        var conversationSection = actualPrompt.EndSections
+            .FirstOrDefault(s => s.Key == "conversation_history");
+        if (conversationSection is not null)
+        {
+            // Count [User]: markers to determine number of turns
+            var turnCount = conversationSection.Content
+                .Split("[User]:", StringSplitOptions.RemoveEmptyEntries).Length - 1;
+            turnCount.Should().BeLessThan(
+                20,
+                because: "Step 2 truncates oldest conversation turns");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_OverflowStep4_ReducesToRecentTwoWeeksOnly()
+    {
+        // Arrange — create input so large that Steps 1 and 2 are not enough.
+        // Use very long conversation messages plus extensive training history.
+        var input = BuildOverflowInput(
+            workoutWeeks: 12,
+            workoutsPerWeek: 6,
+            conversationTurns: 8,
+            charsPerMessage: 3000);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — training history should be reduced to at most recent 2 weeks of data
+        actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(TokenBudget);
+
+        var historySection = actualPrompt.MiddleSections
+            .FirstOrDefault(s => s.Key == "training_history");
+
+        // After Step 4, history may be empty (if no workouts in last 14 days)
+        // or contain only data from the most recent 2 weeks.
+        // Either way, it should be significantly smaller than the original 12 weeks.
+        if (historySection is not null)
+        {
+            historySection.EstimatedTokens.Should().BeLessThan(
+                1000,
+                because: "Step 4 reduces training history to at most 2 recent weeks");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_OverflowStep5_TruncatesConversationToThreeTurns()
+    {
+        // Arrange — create extremely large input that requires all cascade steps
+        var input = BuildOverflowInput(
+            workoutWeeks: 12,
+            workoutsPerWeek: 6,
+            conversationTurns: 20,
+            charsPerMessage: 4000);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — after Step 5, conversation should have at most 3 turns
+        actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(TokenBudget);
+
+        var conversationSection = actualPrompt.EndSections
+            .FirstOrDefault(s => s.Key == "conversation_history");
+        if (conversationSection is not null)
+        {
+            var turnCount = conversationSection.Content
+                .Split("[User]:", StringSplitOptions.RemoveEmptyEntries).Length - 1;
+            turnCount.Should().BeLessThanOrEqualTo(
+                ContextAssembler.ReducedConversationTurns,
+                because: "Step 5 truncates conversation to most recent 3 turns");
+        }
+    }
+
+    [Fact]
+    public async Task AssembleAsync_OverflowCascade_TokenEstimateSumStillMatchesTotal()
+    {
+        // Arrange — use an input that triggers the overflow cascade
+        var input = BuildOverflowInput(
+            workoutWeeks: 10,
+            workoutsPerWeek: 6,
+            conversationTurns: 15,
+            charsPerMessage: 1000);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — even after cascade, reported total must match sum of sections
+        var expectedTotal = _sut.EstimateTokens(actualPrompt.SystemPrompt)
+            + actualPrompt.StartSections.Sum(s => s.EstimatedTokens)
+            + actualPrompt.MiddleSections.Sum(s => s.EstimatedTokens)
+            + actualPrompt.EndSections.Sum(s => s.EstimatedTokens);
+
+        actualPrompt.EstimatedTokenCount.Should().Be(
+            expectedTotal,
+            because: "the reported total should match the sum of all section estimates after overflow cascade");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_OverflowCascade_CurrentUserMessageAlwaysPreserved()
+    {
+        // Arrange — extreme overflow that triggers all cascade steps
+        var input = BuildOverflowInput(
+            workoutWeeks: 12,
+            workoutsPerWeek: 6,
+            conversationTurns: 20,
+            charsPerMessage: 4000);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — the current user message must always be present regardless of cascade
+        actualPrompt.EndSections.Should().Contain(
+            s => s.Key == "current_user_message",
+            because: "the current user message must never be removed by the overflow cascade");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_OverflowCascade_StartSectionsNeverRemoved()
+    {
+        // Arrange — extreme overflow
+        var input = BuildOverflowInput(
+            workoutWeeks: 12,
+            workoutsPerWeek: 6,
+            conversationTurns: 20,
+            charsPerMessage: 4000);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — start sections (user profile, goal, fitness, paces) are never touched by cascade
+        actualPrompt.StartSections.Should().HaveCount(
+            4,
+            because: "the overflow cascade never removes start sections (user profile, goal, fitness, paces)");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_JustUnderBudget_NoCascadeTriggered()
+    {
+        // Arrange — use a real profile with moderate conversation that stays under budget
+        var input = BuildLeeInput(conversationTurns: 5);
+
+        // Pre-check: verify this input is actually under budget to validate the test setup
+        var preCheck = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+        preCheck.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
+            TokenBudget,
+            because: "this test requires an input that stays under budget without cascade");
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — no cascade means per-workout detail should be present (Layer 1),
+        // not weekly summary format. The training history should contain workout type markers.
+        var historySection = actualPrompt.MiddleSections
+            .FirstOrDefault(s => s.Key == "training_history");
+        historySection.Should().NotBeNull();
+
+        // Layer 1 per-workout detail contains pipe-separated fields like "Easy | 7 km"
+        // Layer 2 weekly summary contains "Week of" prefix
+        // When no cascade, recent workouts should be in Layer 1 format
+        historySection!.Content.Should().Contain(
+            " | ",
+            because: "without overflow cascade, recent training history uses Layer 1 per-workout detail");
+    }
+
+    // ================================================================
     // Helper methods
     // ================================================================
     private static IPromptStore CreateMockPromptStore()
@@ -784,5 +1017,64 @@ public class ContextAssemblerTests
         }
 
         return builder.ToImmutable();
+    }
+
+    /// <summary>
+    /// Builds a <see cref="ContextAssemblerInput"/> with enough content to exceed
+    /// the 15K token budget, triggering the overflow cascade.
+    /// </summary>
+    /// <param name="workoutWeeks">Number of weeks of training history to generate.</param>
+    /// <param name="workoutsPerWeek">Workouts per week in training history.</param>
+    /// <param name="conversationTurns">Number of conversation turns.</param>
+    /// <param name="charsPerMessage">Characters per user/coach message in conversation.</param>
+    private static ContextAssemblerInput BuildOverflowInput(
+        int workoutWeeks,
+        int workoutsPerWeek,
+        int conversationTurns,
+        int charsPerMessage)
+    {
+        var lee = TestProfiles.Lee();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // Build large training history.
+        var workouts = ImmutableArray.CreateBuilder<WorkoutSummary>();
+        for (var week = workoutWeeks; week >= 1; week--)
+        {
+            var weekStart = today.AddDays(-7 * week);
+            for (var day = 0; day < workoutsPerWeek; day++)
+            {
+                var workoutDate = weekStart.AddDays(day);
+                var workoutType = day == 0 ? "LongRun" : "Easy";
+                var notes = $"Workout notes for week {week}, day {day + 1}. " +
+                    $"Felt good during the run, maintained target pace throughout. " +
+                    $"Weather was mild, slight headwind on the return.";
+                workouts.Add(new WorkoutSummary(
+                    workoutDate,
+                    workoutType,
+                    8m + day,
+                    45 + (day * 5),
+                    TimeSpan.FromMinutes(5.5),
+                    notes));
+            }
+        }
+
+        // Build long conversation history.
+        var conversation = ImmutableArray.CreateBuilder<ConversationTurn>();
+        for (var i = 1; i <= conversationTurns; i++)
+        {
+            var padding = new string('x', Math.Max(0, charsPerMessage - 60));
+            conversation.Add(new ConversationTurn(
+                $"User message {i}: How should I approach my training? {padding}",
+                $"Coach response {i}: Focus on easy runs with quality. {padding}"));
+        }
+
+        return new ContextAssemblerInput(
+            lee.UserProfile,
+            lee.GoalState,
+            lee.GoalState.CurrentFitnessEstimate,
+            lee.GoalState.CurrentFitnessEstimate.TrainingPaces,
+            workouts.ToImmutable(),
+            conversation.ToImmutable(),
+            "Create a training plan for my half marathon.");
     }
 }
