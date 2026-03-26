@@ -23,6 +23,25 @@ namespace RunCoach.Api.Modules.Coaching;
 /// The system prompt is loaded from versioned YAML files via <see cref="IPromptStore"/>
 /// and context templates are rendered using <see cref="PromptRenderer"/>.
 /// </summary>
+/// <remarks>
+/// FUTURE: Before wiring user-facing endpoints, add prompt injection sanitization for
+/// all user-controlled free-text fields that flow into assembled prompt sections:
+///
+/// - <c>UserProfile.Name</c> (user_profile section)
+/// - <c>InjuryNote.Description</c> (user_profile section)
+/// - <c>RaceTime.Conditions</c> (user_profile section)
+/// - <c>UserPreferences.Constraints</c> (user_profile section)
+/// - <c>RaceGoal.RaceName</c> (goal_state section)
+/// - <c>WorkoutSummary.Notes</c> (training_history section)
+/// - <c>ConversationTurn.UserMessage</c> (conversation_history section)
+/// - <c>ContextAssemblerInput.CurrentUserMessage</c> (current_user_message section)
+///
+/// Sanitization should strip or neutralize patterns that could alter LLM instruction
+/// following (e.g., "ignore previous instructions", role-play injection, system prompt
+/// overrides). Consider a dedicated <c>IPromptSanitizer</c> applied at section boundaries.
+/// Currently safe — POC has no user-facing input endpoints; all data is programmatic test fixtures.
+/// See also: <see cref="PromptRenderer"/> remarks for template-token interference concerns.
+/// </remarks>
 public sealed partial class ContextAssembler : IContextAssembler
 {
     /// <summary>
