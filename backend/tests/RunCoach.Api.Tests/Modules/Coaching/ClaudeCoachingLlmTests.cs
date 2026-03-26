@@ -526,6 +526,25 @@ public class ClaudeCoachingLlmTests
     }
 
     [Fact]
+    public async Task GenerateStructuredAsync_ThrowsJsonException_WhenRequiredFieldsAreMissing()
+    {
+        // Arrange — return valid JSON that only has total_weeks but is missing
+        // goal_description, phases, rationale, and warnings. System.Text.Json
+        // enforces the C# 'required' keyword, so deserialization should throw
+        // JsonException for the missing required properties.
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse("""{"total_weeks": 12}"""));
+
+        var sut = CreateSut();
+
+        // Act & Assert
+        await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
+                "system", "user message", TestContext.Current.CancellationToken))
+            .Should().ThrowAsync<JsonException>();
+    }
+
+    [Fact]
     public async Task GenerateStructuredAsync_ThrowsInvalidOperationException_WhenJsonIsNullLiteral()
     {
         // Arrange — return the JSON literal "null", which deserializes to null

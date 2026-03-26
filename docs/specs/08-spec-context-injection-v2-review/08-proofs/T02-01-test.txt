@@ -1,0 +1,16 @@
+Type: test
+Command: dotnet test (full suite)
+Expected: New test GenerateStructuredAsync_ThrowsJsonException_WhenRequiredFieldsAreMissing passes; no regressions in unit tests
+Timestamp: 2026-03-25T22:15:00Z
+
+Result:
+  Total: 358, Passed: 349, Failed: 9, Skipped: 0
+  Duration: 307ms
+
+  New test: GenerateStructuredAsync_ThrowsJsonException_WhenRequiredFieldsAreMissing — PASSED
+  (Not in failure log, passed count increased from baseline 348 to 349)
+
+  All 9 failures are pre-existing Eval cache-miss tests (SafetyBoundaryEvalTests, PlanGenerationEvalTests),
+  not related to this change. No unit test regressions.
+
+Status: PASS
