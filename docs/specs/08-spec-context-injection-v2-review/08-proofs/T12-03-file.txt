@@ -1,0 +1,25 @@
+Type: file
+Description: Verify DecimalRangeTests follow PaceRangeTests pattern with 9 test cases
+Command: cat backend/tests/RunCoach.Api.Tests/Modules/Training/Models/DecimalRangeTests.cs
+Expected: 9 test methods covering valid construction, equal values, zero values, inverted range, negative values, and record equality
+Timestamp: 2026-03-25T22:45:00Z
+
+--- OUTPUT ---
+Test cases:
+1. Constructor_ValidRange_CreatesDecimalRange - valid (30, 50) range
+2. Constructor_EqualMinAndMax_CreatesDecimalRange - equal (40, 40) range
+3. Constructor_ZeroMinAndMax_CreatesDecimalRange - zero (0, 0) range
+4. Constructor_ZeroMinPositiveMax_CreatesDecimalRange - (0, 50) range
+5. Constructor_InvertedRange_ThrowsArgumentOutOfRangeException - (50, 30) throws
+6. Constructor_NegativeMin_ThrowsArgumentOutOfRangeException - (-1, 50) throws
+7. Constructor_NegativeMax_ThrowsArgumentOutOfRangeException - (0, -1) throws
+8. RecordEquality_SameValues_AreEqual - structural equality
+9. RecordEquality_DifferentValues_AreNotEqual - structural inequality
+
+--- NOTE ---
+Tests could not be executed via dotnet test due to worker-9's in-progress
+UserProfile refactor causing test project compilation failure. The test
+code has been manually verified to follow PaceRangeTests patterns exactly.
+Tests will be executable once worker-9 completes task #9.
+
+Status: BLOCKED (test project compilation blocked by worker-9 task #9)

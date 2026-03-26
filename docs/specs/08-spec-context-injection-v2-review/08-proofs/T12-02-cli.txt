@@ -1,0 +1,23 @@
+Type: cli
+Description: Verify API project builds successfully with DecimalRange changes
+Command: dotnet build src/RunCoach.Api/RunCoach.Api.csproj --verbosity quiet
+Expected: Build succeeded with 0 errors and 0 warnings
+Timestamp: 2026-03-25T22:45:00Z
+
+--- OUTPUT ---
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.72
+
+--- NOTE ---
+Full solution build (dotnet build) fails due to worker-9 (task #9) actively
+refactoring UserProfile.cs with an incomplete TestProfiles.cs update. The
+test project compilation errors are all in TestProfiles.cs referencing
+UserProfile constructor parameter names that worker-9 is in the process
+of changing. These errors are entirely outside the scope of task #12.
+
+The API project (which contains DecimalRange.cs) builds cleanly with 0 errors.
+
+Status: PASS

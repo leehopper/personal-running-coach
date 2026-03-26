@@ -1,0 +1,38 @@
+Type: file
+Description: Verify DecimalRange implementation matches PaceRange pattern with invariant enforcement
+Command: cat backend/src/RunCoach.Api/Modules/Training/Models/DecimalRange.cs
+Expected: Sealed record with explicit constructor, ArgumentOutOfRangeException guards for negative values and inverted range
+Timestamp: 2026-03-25T22:45:00Z
+
+--- OUTPUT ---
+namespace RunCoach.Api.Modules.Training.Models;
+
+/// <summary>
+/// A generic numeric range with minimum and maximum decimal values.
+/// Used for distance ranges, volume targets, and similar bounded quantities.
+/// </summary>
+public sealed record DecimalRange
+{
+    public DecimalRange(decimal min, decimal max)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(min);
+        ArgumentOutOfRangeException.ThrowIfNegative(max);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(min, max);
+
+        Min = min;
+        Max = max;
+    }
+
+    public decimal Min { get; init; }
+
+    public decimal Max { get; init; }
+}
+
+--- VERIFICATION ---
+- ThrowIfNegative(min): prevents negative Min values
+- ThrowIfNegative(max): prevents negative Max values
+- ThrowIfGreaterThan(min, max): enforces Min <= Max invariant
+- Properties use { get; init; } pattern matching PaceRange
+- Constructor parameter names are lowercase (C# convention for explicit constructors)
+
+Status: PASS
