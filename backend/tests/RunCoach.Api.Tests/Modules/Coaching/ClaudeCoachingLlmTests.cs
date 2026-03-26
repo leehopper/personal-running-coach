@@ -400,9 +400,20 @@ public class ClaudeCoachingLlmTests
         var result = await sut.GenerateStructuredAsync<MacroPlanOutput>(
             "system", "user message", TestContext.Current.CancellationToken);
 
-        // Assert
+        // Assert — OutputConfig carries a JsonOutputFormat with the MacroPlanOutput schema
         capturedParams.Should().NotBeNull();
         capturedParams!.OutputConfig.Should().NotBeNull();
+        var jsonFormat = capturedParams.OutputConfig!.Format.Should().BeOfType<JsonOutputFormat>().Which;
+        jsonFormat.Schema.Should().NotBeNull();
+        jsonFormat.Schema.Should().ContainKey("properties");
+
+        var propertiesJson = jsonFormat.Schema["properties"].GetRawText();
+        var properties = JsonDocument.Parse(propertiesJson).RootElement;
+        properties.TryGetProperty("total_weeks", out _).Should().BeTrue("schema should contain total_weeks");
+        properties.TryGetProperty("goal_description", out _).Should().BeTrue("schema should contain goal_description");
+        properties.TryGetProperty("phases", out _).Should().BeTrue("schema should contain phases");
+
+        // Assert — deserialized result is correct
         result.Should().NotBeNull();
         result.GoalDescription.Should().Be("Run a marathon");
         result.TotalWeeks.Should().Be(12);
