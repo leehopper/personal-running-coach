@@ -1,8 +1,0 @@
-Type: cli
-Command: ls docs/specs/
-Expected: only 06-spec-poc1-productionize
-Timestamp: 2026-03-24T04:17:00Z
----
-06-spec-poc1-productionize
----
-Status: PASS

@@ -1,9 +1,0 @@
-Type: test
-Command: dotnet test --filter "GenerateStructuredAsync_ThrowsJsonException_WhenResponseIsMalformedJson"
-Expected: New test passes, verifying JsonException propagates for malformed JSON
-Timestamp: 2026-03-25T00:00:00Z
-
-Output:
-Passed! - Failed: 0, Passed: 316, Skipped: 0, Total: 316, Duration: 292ms - RunCoach.Api.Tests.dll (net10.0|arm64)
-
-Status: PASS

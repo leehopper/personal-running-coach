@@ -6,9 +6,13 @@ pre-commit:
       glob: "*.cs"
       run: dotnet format RunCoach.slnx --include {staged_files} --no-restore
       stage_fixed: true
-    eval-cache-ttl:
+    eval-cache-ttl-fix:
       glob: "**/eval-cache/**/entry.json"
-      run: bash backend/tests/scripts/check-eval-cache-ttl.sh
+      run: bash backend/tests/scripts/fix-eval-cache-ttl.sh
+      stage_fixed: true
+    eval-cache-dedup:
+      glob: "**/eval-cache/**"
+      run: bash backend/tests/scripts/clean-eval-cache-duplicates.sh
     eslint:
       root: "frontend/"
       glob: "*.{ts,tsx}"
@@ -32,9 +36,12 @@ pre-push:
       root: "backend/"
       glob: "*.cs"
       run: EVAL_CACHE_MODE=Replay dotnet test RunCoach.slnx --no-restore --filter "Category!=Integration"
-    eval-cache-check:
+    eval-cache-replay:
       glob: "*.cs"
       run: bash backend/tests/scripts/prepush-eval-check.sh
+    eval-cache-ttl-check:
+      glob: "**/eval-cache/**/entry.json"
+      run: bash backend/tests/scripts/check-eval-cache-ttl.sh
     typescript-check:
       root: "frontend/"
       glob: "*.{ts,tsx}"

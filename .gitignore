@@ -36,6 +36,9 @@ coverage/
 eval-results/
 # Note: backend/tests/eval-cache/ IS committed as golden test fixtures for CI Replay mode
 
+# Specs and proofs (session artifacts, not committed)
+docs/specs/
+
 # Worktrees
 .worktrees/
 

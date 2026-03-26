@@ -1,8 +1,0 @@
-Type: cli
-Command: git tag -l poc1-complete
-Expected: poc1-complete
-Timestamp: 2026-03-24T04:05:28Z
----
-poc1-complete
----
-Status: PASS
