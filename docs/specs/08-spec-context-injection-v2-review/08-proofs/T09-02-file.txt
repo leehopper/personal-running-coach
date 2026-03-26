@@ -1,0 +1,29 @@
+Type: file
+Command: Verify UserProfile record has validation guards
+Expected: All constructor parameters have appropriate validation
+Timestamp: 2026-03-25T12:00:00Z
+
+File: backend/src/RunCoach.Api/Modules/Training/Models/UserProfile.cs
+
+Validation guards added:
+  1. name: ArgumentException.ThrowIfNullOrWhiteSpace
+  2. gender: ArgumentException.ThrowIfNullOrWhiteSpace
+  3. userId: Manual check for Guid.Empty -> ArgumentException
+  4. age: ThrowIfLessThanOrEqual(0) + ThrowIfGreaterThan(150)
+  5. runningExperienceYears: ThrowIfNegative
+  6. currentWeeklyDistanceKm: ThrowIfNegative
+  7. weightKg (nullable): ThrowIfLessThanOrEqual(0) when HasValue
+  8. heightCm (nullable): ThrowIfLessThanOrEqual(0) when HasValue
+  9. restingHeartRateAvg (nullable): ThrowIfLessThanOrEqual(0) when HasValue
+  10. maxHeartRate (nullable): ThrowIfLessThanOrEqual(0) when HasValue
+  11. currentLongRunKm (nullable): ThrowIfLessThanOrEqual(0) when HasValue
+  12. preferences: ArgumentNullException.ThrowIfNull
+
+Pattern followed: PaceRange record (task #11) -- converted from positional
+record to explicit constructor with { get; init; } properties.
+
+Call sites updated:
+  - TestProfiles.cs (5 profiles): PascalCase named args -> camelCase
+  - ContextAssemblerTests.cs: Uses positional args, no changes needed
+
+Status: PASS

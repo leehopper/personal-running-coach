@@ -43,28 +43,28 @@ public static class TestProfiles
         var today = DateOnly.FromDateTime(now);
 
         var profile = new UserProfile(
-            UserId: userId,
-            Name: "Sarah",
-            Age: 28,
-            Gender: "Female",
-            WeightKg: 62m,
-            HeightCm: 165m,
-            RestingHeartRateAvg: 72,
-            MaxHeartRate: null,
-            RunningExperienceYears: 0.5m,
-            CurrentWeeklyDistanceKm: 15m,
-            CurrentLongRunKm: 5m,
-            RecentRaceTimes: ImmutableArray<RaceTime>.Empty,
-            InjuryHistory: ImmutableArray<InjuryNote>.Empty,
-            Preferences: new UserPreferences(
+            userId: userId,
+            name: "Sarah",
+            age: 28,
+            gender: "Female",
+            weightKg: 62m,
+            heightCm: 165m,
+            restingHeartRateAvg: 72,
+            maxHeartRate: null,
+            runningExperienceYears: 0.5m,
+            currentWeeklyDistanceKm: 15m,
+            currentLongRunKm: 5m,
+            recentRaceTimes: ImmutableArray<RaceTime>.Empty,
+            injuryHistory: ImmutableArray<InjuryNote>.Empty,
+            preferences: new UserPreferences(
                 PreferredRunDays: [DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday],
                 LongRunDay: DayOfWeek.Saturday,
                 MaxRunDaysPerWeek: 3,
                 PreferredUnits: "metric",
                 AvailableTimePerRunMinutes: 45,
                 Constraints: ImmutableArray<string>.Empty),
-            CreatedOn: now,
-            ModifiedOn: now);
+            createdOn: now,
+            modifiedOn: now);
 
         // No race history -> no VDOT, estimated paces based on beginner defaults.
         // Use estimated max HR as fallback.
@@ -112,30 +112,30 @@ public static class TestProfiles
         var paces = PaceCalc.CalculatePaces(vdot);
 
         var profile = new UserProfile(
-            UserId: userId,
-            Name: "Lee",
-            Age: 34,
-            Gender: "Male",
-            WeightKg: 75m,
-            HeightCm: 178m,
-            RestingHeartRateAvg: 58,
-            MaxHeartRate: 186,
-            RunningExperienceYears: 3m,
-            CurrentWeeklyDistanceKm: 40m,
-            CurrentLongRunKm: 14m,
-            RecentRaceTimes: [raceTime],
-            InjuryHistory: [
+            userId: userId,
+            name: "Lee",
+            age: 34,
+            gender: "Male",
+            weightKg: 75m,
+            heightCm: 178m,
+            restingHeartRateAvg: 58,
+            maxHeartRate: 186,
+            runningExperienceYears: 3m,
+            currentWeeklyDistanceKm: 40m,
+            currentLongRunKm: 14m,
+            recentRaceTimes: [raceTime],
+            injuryHistory: [
                 new InjuryNote("Mild IT band tightness", new DateOnly(2025, 9, 1), "Recovered"),
             ],
-            Preferences: new UserPreferences(
+            preferences: new UserPreferences(
                 PreferredRunDays: [DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday],
                 LongRunDay: DayOfWeek.Sunday,
                 MaxRunDaysPerWeek: 5,
                 PreferredUnits: "metric",
                 AvailableTimePerRunMinutes: 75,
                 Constraints: ImmutableArray<string>.Empty),
-            CreatedOn: now,
-            ModifiedOn: now);
+            createdOn: now,
+            modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
             EstimatedVdot: vdot,
@@ -178,30 +178,30 @@ public static class TestProfiles
         var paces = PaceCalc.CalculatePaces(vdot);
 
         var profile = new UserProfile(
-            UserId: userId,
-            Name: "Maria",
-            Age: 42,
-            Gender: "Female",
-            WeightKg: 57m,
-            HeightCm: 163m,
-            RestingHeartRateAvg: 50,
-            MaxHeartRate: 178,
-            RunningExperienceYears: 12m,
-            CurrentWeeklyDistanceKm: 55m,
-            CurrentLongRunKm: 20m,
-            RecentRaceTimes: raceTimes,
-            InjuryHistory: [
+            userId: userId,
+            name: "Maria",
+            age: 42,
+            gender: "Female",
+            weightKg: 57m,
+            heightCm: 163m,
+            restingHeartRateAvg: 50,
+            maxHeartRate: 178,
+            runningExperienceYears: 12m,
+            currentWeeklyDistanceKm: 55m,
+            currentLongRunKm: 20m,
+            recentRaceTimes: raceTimes,
+            injuryHistory: [
                 new InjuryNote("Achilles tendinitis (left)", new DateOnly(2023, 3, 1), "Recovered"),
             ],
-            Preferences: new UserPreferences(
+            preferences: new UserPreferences(
                 PreferredRunDays: [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday],
                 LongRunDay: DayOfWeek.Sunday,
                 MaxRunDaysPerWeek: 6,
                 PreferredUnits: "metric",
                 AvailableTimePerRunMinutes: 120,
                 Constraints: ImmutableArray<string>.Empty),
-            CreatedOn: now,
-            ModifiedOn: now);
+            createdOn: now,
+            modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
             EstimatedVdot: vdot,
@@ -236,23 +236,23 @@ public static class TestProfiles
         var paces = PaceCalc.CalculatePaces(vdot);
 
         var profile = new UserProfile(
-            UserId: userId,
-            Name: "James",
-            Age: 38,
-            Gender: "Male",
-            WeightKg: 80m,
-            HeightCm: 183m,
-            RestingHeartRateAvg: 62,
-            MaxHeartRate: null,
-            RunningExperienceYears: 5m,
-            CurrentWeeklyDistanceKm: 10m,
-            CurrentLongRunKm: null,
-            RecentRaceTimes: [raceTime],
-            InjuryHistory: [
+            userId: userId,
+            name: "James",
+            age: 38,
+            gender: "Male",
+            weightKg: 80m,
+            heightCm: 183m,
+            restingHeartRateAvg: 62,
+            maxHeartRate: null,
+            runningExperienceYears: 5m,
+            currentWeeklyDistanceKm: 10m,
+            currentLongRunKm: null,
+            recentRaceTimes: [raceTime],
+            injuryHistory: [
                 new InjuryNote("Plantar fasciitis (right foot)", new DateOnly(2025, 12, 1), "Active"),
                 new InjuryNote("Runner's knee (left)", new DateOnly(2024, 6, 15), "Recovered"),
             ],
-            Preferences: new UserPreferences(
+            preferences: new UserPreferences(
                 PreferredRunDays: [DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday],
                 LongRunDay: DayOfWeek.Saturday,
                 MaxRunDaysPerWeek: 3,
@@ -263,8 +263,8 @@ public static class TestProfiles
                     "No speed work until cleared",
                     "Must include walking breaks if any foot pain",
                 ]),
-            CreatedOn: now,
-            ModifiedOn: now);
+            createdOn: now,
+            modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
             EstimatedVdot: vdot,
@@ -301,20 +301,20 @@ public static class TestProfiles
         var paces = PaceCalc.CalculatePaces(vdot);
 
         var profile = new UserProfile(
-            UserId: userId,
-            Name: "Priya",
-            Age: 30,
-            Gender: "Female",
-            WeightKg: 55m,
-            HeightCm: 160m,
-            RestingHeartRateAvg: 52,
-            MaxHeartRate: 190,
-            RunningExperienceYears: 7m,
-            CurrentWeeklyDistanceKm: 60m,
-            CurrentLongRunKm: 24m,
-            RecentRaceTimes: raceTimes,
-            InjuryHistory: ImmutableArray<InjuryNote>.Empty,
-            Preferences: new UserPreferences(
+            userId: userId,
+            name: "Priya",
+            age: 30,
+            gender: "Female",
+            weightKg: 55m,
+            heightCm: 160m,
+            restingHeartRateAvg: 52,
+            maxHeartRate: 190,
+            runningExperienceYears: 7m,
+            currentWeeklyDistanceKm: 60m,
+            currentLongRunKm: 24m,
+            recentRaceTimes: raceTimes,
+            injuryHistory: ImmutableArray<InjuryNote>.Empty,
+            preferences: new UserPreferences(
                 PreferredRunDays: [DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday, DayOfWeek.Sunday],
                 LongRunDay: DayOfWeek.Sunday,
                 MaxRunDaysPerWeek: 4,
@@ -324,8 +324,8 @@ public static class TestProfiles
                     "Maximum 4 run days per week due to work schedule",
                     "Never before 7:00 AM (childcare responsibilities)",
                 ]),
-            CreatedOn: now,
-            ModifiedOn: now);
+            createdOn: now,
+            modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
             EstimatedVdot: vdot,
