@@ -143,7 +143,19 @@ Unblocked. Single PR, scope per `docs/decisions/decision-log.md` § DEC-042:
 
 Kitchen-sink alignment: DEC-041's `Distance`/`Pace`/`PaceRange(Fast, Slow)` value objects are in scope for the DEC-042 PR. This is a deliberate cutover — DEC-042 has to replace the calculator's return types anyway, so wrapping them as typed values is essentially free at that point. See `docs/planning/unit-system-design.md` for the full design.
 
-### 3. POC 2: Adaptive replanning
+### 3. OSS Quality Tooling Restoration
+
+Repo was flipped from private to public on 2026-04-15. DEC-034's private-repo amendment stripped CodeRabbit, CodeQL, SonarQube Cloud, and branch protection out of the pipeline; those become restorable now. Research document and handoff prompts live at `docs/specs/research-oss-tooling-restoration/research-oss-tooling-restoration.md`. Scope:
+
+- **Restore:** CodeRabbit (`.coderabbit.yaml` with module-scoped path instructions, coaching prompts explicitly no-touch), CodeQL (C# manual build-mode against `.slnx` + javascript-typescript, `security-extended` suite, no overlap with existing build-time Sonar rules), SonarQube Cloud (CI-based analysis via `dotnet-sonarscanner`, Codecov remains coverage authority, MCP server integration is user-side not CI-side), branch protection ruleset on `main` (soft-launch sequencing — `continue-on-error` first week, then required).
+- **Cut permanently:** Claude Code GitHub Action. Replaced by local `/review-pr` + user's deep-review skill. Do not re-propose.
+- **License, trademark, and attribution pass (item 8):** Pick a `LICENSE` (user decision — research prompt R-LIC compares MIT / Apache-2.0 / MPL-2.0 / AGPL-3.0 / BUSL / PolyForm NC), commit `NOTICE` / `THIRD-PARTY-NOTICES.md`, extend DEC-042's Daniels trademark disclaimer into a broader README attribution section, choose a provenance convention for `docs/research/artifacts/`, update root `package.json` `license` field to match.
+- **License-compliance scheduled workflow (item 9):** PR-triggered `actions/dependency-review-action` with license allow/denylist keyed to the chosen repo license, plus a weekly scheduled SBOM workflow (FOSSA vs Syft to be decided in research prompt R-LCC). Pre-public trigger has fired.
+- **Explicit deferrals (captured here so future sessions do not re-propose):** Snyk (R-SN — superseded by Dependabot + Trivy + CodeQL; reconsider when we deploy container images or hit an unfixable transitive-dep CVE), Codacy (R-CD — its only unique value is multi-tool consolidation, which SonarQube Cloud + CodeQL make redundant; reconsider if we add a Python or Rust module outside SonarQube Cloud's free-tier coverage).
+
+Not blocked by DEC-042 implementation — can land in parallel.
+
+### 4. POC 2: Adaptive replanning
 
 Next POC in the roadmap. Plan file needed. Not blocked by any of the above. Can start in parallel with DEC-042 implementation if capacity allows.
 
@@ -200,17 +212,18 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 - Batch API for eval runs and scheduled background tasks (50% discount)
 - Opus 4.6 as eval judge (replaces Haiku — better reasoning for quality assurance)
 
-**Quality tooling (restore when repo goes public or upgrades to Pro):**
-- CodeRabbit PR review (free for OSS only; using local `/review-pr` via Max instead)
-- CodeQL security scanning (requires GitHub Team + Code Security; using Trivy instead)
-- SonarCloud dashboard (free for OSS only; using SonarAnalyzer.CSharp + eslint-plugin-sonarjs in-build instead)
-- Claude Code GitHub Action for PR review (requires API key; using local `/review-pr` via Max instead)
-- Branch protection rules or rulesets on `main` (both require GitHub Pro for private repos)
+**Quality tooling — moved to active "OSS Quality Tooling Restoration" under Next Up §3** as of 2026-04-15 public flip:
+- CodeRabbit PR review, CodeQL, SonarQube Cloud (formerly SonarCloud), branch protection — all now restorable
+- License-compliance scheduled workflow — pre-public trigger has fired
+
+**Quality tooling (permanently cut or deferred with reconsider-triggers):**
+- Claude Code GitHub Action — **permanently cut**. Replaced by local `/review-pr` via Max + user's deep-review skill. No `@claude` mentions on PRs. Do not re-propose.
+- Snyk — **deferred**. Rejected in DEC-034 with trigger "reconsider if repo goes private"; public flip is the inverse trigger but Dependabot + Trivy + CodeQL cover the same signals for this stack. Reconsider when deploying container images or when an unfixable transitive-dep CVE appears. Research prompt R-SN in `docs/specs/research-oss-tooling-restoration/` if fresh 2026 data is needed before the reconsider.
+- Codacy — **deferred**. Was DEC-034's optional "Phase 2" SAST layer; Phase 2 never arrived. SonarQube Cloud + CodeQL + existing build-time analyzers cover all Codacy-unique signals except multi-tool consolidation, which our intentionally-small stack does not need. Reconsider if we add a language module (Python, Rust) outside SonarQube Cloud's free-tier coverage. Research prompt R-CD in `docs/specs/research-oss-tooling-restoration/` if fresh data is needed.
 
 **Quality tooling (add later regardless of visibility):**
 - Performance regression testing in CI (deferred per DEC-034 — GitHub runner variance makes detection unreliable)
 - Trivy container image scanning (add when deploying Docker images)
-- License compliance scheduled workflow (add pre-public release)
 
 **Strategic:**
 - Public repo visibility (keeping private to protect coaching prompt IP; revisit when/if free OSS tooling becomes worth it)
