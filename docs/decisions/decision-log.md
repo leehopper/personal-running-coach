@@ -1049,10 +1049,10 @@ Use undated floating alias model IDs as defaults: `claude-sonnet-4-6` for coachi
 
 ## DEC-040: Daniels pace table — equation-computed values and edition standardization
 
-**Date:** 2026-03-23
-**Status:** Planned (for post-PR #17 refactor)
+**Date:** 2026-03-23 (original); 2026-04-14 (partial-ship audit); 2026-04-15 (superseded)
+**Status:** Superseded by DEC-042 — row-shift patch shipped on main as a bridge; full rewrite to pure-equation derivation designed under DEC-042
 **Category:** Domain / Data Integrity
-**Informed by:** R-019 (batch-9a-daniels-pace-table-verification.md)
+**Informed by:** R-019 (batch-9a-daniels-pace-table-verification.md); R-025 and R-026..R-034 (batch-11 and batch-12) for the superseding design
 
 **Decision:** The static pace lookup table in `PaceCalculator.cs` contains a confirmed off-by-one row shift from VDOT 50 through VDOT 85. Every entry at VDOT N in that range contains the correct paces for VDOT N+1. The corrected VDOT 50 values are: EasyMin≈306, EasyMax≈339, Marathon=271, Threshold=255, Interval=235, Repetition≈218 (verified by published book tables and independent equation computation).
 
@@ -1067,6 +1067,33 @@ Use undated floating alias model IDs as defaults: `claude-sonnet-4-6` for coachi
 - No published errata from Human Kinetics addresses this range; the error is in our transcription, not the source
 
 **Scope:** This is a data-only fix with potential test updates. No architectural changes. Will be done as a separate PR after PR #17 merges.
+
+**What shipped (2026-03-25 through 2026-03-26 on `main`):**
+- `934f1de` — `fix: correct off-by-one row shift in Daniels pace table (DEC-040)`: VDOT 50 row replaced with the R-019-verified values `(306, 338, 271, 255, 235, 218)`; VDOT 51–85 shifted back one row.
+- `0a6e813` — `fix: standardize Daniels' Running Formula edition citation to 4th edition`: doc comments aligned.
+- `fbadeda` — `chore: record new eval cache fixtures from pace table fix`: re-records LLM cache fixtures invalidated by the pace change so CI replay stayed green.
+- `54c4c9c` — `refactor: add invariant enforcement to PaceRange record`: `Min <= Max` guard.
+
+The fix was applied by row-shifting the pre-existing (erroneous) data, not by re-deriving each row from first-party Daniels 4th edition values. This is a defensible short-term patch but preserves any secondary transcription error that was present in the pre-shift data.
+
+**Residual anomaly discovered 2026-04-14 (computational audit):**
+A full-table smoothness audit, back-solving the implicit %VO2max for every cell via the Daniels-Gilbert oxygen cost equation, found **two remaining discontinuities at the VDOT 49→50 boundary** — present only in the Interval and Repetition columns, which are also the zones most likely to have been affected by a second error class:
+
+- **Interval VDOT 49→50:** back-solved %VO2max jumps **+1.55 pp** (95.88% → 97.43%). Every other Interval transition in the 30–85 range stays below 0.7 pp.
+- **Repetition VDOT 49→50:** back-solved %VO2max jumps **+3.69 pp** (103.19% → 106.88%). The next-largest Repetition transition is 0.90 pp. The step in seconds-per-km at 49→50 is **−10** versus −2 to −4 elsewhere in that column.
+- **Threshold, Marathon, Easy zones** at the same boundary are smooth (no flags).
+
+R-019 independently verified VDOT 50 Interval = 235 s/km and VDOT 50 Repetition = 218 s/km against three sources (book per-1000m column, Daniels-Gilbert equation at 98% / 107% VO2max, and book R-400 = 87 s conversion), so the VDOT 50 values are almost certainly correct. That means **the VDOT 49 Interval (242) and Repetition (228) values, and potentially rows below, are inconsistent with the verified VDOT 50 values.** R-019 explicitly did not verify VDOT 30–49 — it said "likely correct" based on step-size consistency alone, which the new audit shows is not sufficient.
+
+**Integrity fence added (branch `fix/daniels-pace-table`, 2026-04-14):**
+`backend/tests/RunCoach.Api.Tests/Modules/Training/Computations/PaceCalculatorTableIntegrityTests.cs` locks in the current state with:
+1. A 56-row `[Theory]` snapshot of every integer VDOT 30–85 across all six zones — any unreviewed edit fails the build.
+2. `Vdot50_BackSolvesToR019VerifiedIntensityPercentages` — anchor test asserting the four R-019-verified VDOT 50 values back-solve to the correct %VO2max within 0.3 pp.
+3. `AllRows_PacesAreMonotonicallyDecreasing` — no row may be slower than its lower-VDOT neighbor in any zone.
+4. `BackSolvedVo2Max_IsSmoothAcrossConsecutiveRows_ExceptAtKnownAnomalies` — fails on any future row-to-row %VO2max jump larger than 1.0 pp, with an explicit in-code exception for the two documented VDOT 49→50 anomalies above. Removing those exceptions is the R-025 exit criterion.
+5. `Diagnostic_EmitsImplicitVo2MaxAndStepSizes` — non-failing observability; emits the full back-solved %VO2max matrix to test output on every run.
+
+**Follow-up R-025 (queued):** Durable implementation pattern research — library survey (GoldenCheetah, tlgs/vdot, Run SMART Project, etc.), authoritative derivation methodology for each zone (especially Repetition), reference-grade VDOT 30–85 values sourced directly from the Daniels 4th edition book, and a recommended implementation pattern (pure-equation, equation-verified lookup, committed fixture, or ported library). R-025 will drive the design of the real durable fix; this decision record is the bridge between the partial patch that shipped and that future work.
 
 ---
 
@@ -1097,6 +1124,73 @@ Use undated floating alias model IDs as defaults: `claude-sonnet-4-6` for coachi
 - Deferred: Per-context preferences, multi-sport, UnitsNet dependency
 
 See `docs/planning/unit-system-design.md` for full design.
+
+---
+
+## DEC-042: Pure-equation PaceCalculator rewrite — hybrid derivation with committed equation-derived fixtures
+
+**Date:** 2026-04-15
+**Status:** Proposed — pending R-035 for Repetition-pace formulation
+**Category:** Domain / Architecture
+**Informed by:** R-025 (`batch-11-daniels-implementation-patterns.md`), R-026 through R-031 and R-034 (`batch-12a` through `batch-12g`). Final R-pace formulation pending R-035.
+**Supersedes:** DEC-040's partial row-shift patch, which will be retired when this lands.
+
+**Decision:** Replace the current `SortedDictionary<int, PaceTableEntry>` lookup in `PaceCalculator.cs` with a pure-equation `PaceZoneCalculator` that computes every pace zone on demand from the Daniels-Gilbert 1979 equations. Eliminate the transcription-error class entirely. Five zones (E, M, T, I, R) plus optional sixth zone F (Fast Repetition). Use a hybrid derivation strategy: closed-form quadratic inversion for fixed-% zones (E, T, I), and Newton-Raphson race-time prediction for the race-prediction zones (M, R, F). Commit golden test fixtures computed from the equations themselves, never transcribed from the book.
+
+**Zone derivation methods:**
+
+| Zone | Method | Constant / Distance | Expected precision |
+|------|--------|---------------------|--------------------|
+| Easy fast end | Closed-form quadratic solve | 70.0% VO₂max | ±3 s/km |
+| Easy slow end | Closed-form quadratic solve | 59.0% VO₂max | ±3 s/km |
+| Marathon | Newton-Raphson race prediction | 42,195 m | ±0.5 s/km |
+| Threshold | Closed-form quadratic solve | 88.0% VO₂max | ±0.5 s/km |
+| Interval | Closed-form quadratic solve | 97.3% VO₂max | ±0.5 s/km |
+| Repetition | Newton-Raphson race prediction | **pending R-035** (mile vs. 3K) | target ±1 s/km |
+| Fast Repetition (optional) | Derived from R | `R − 3 s/200 m` or Newton-Raphson at 800 m | target ±1 s/km |
+
+T and I constants are the mean of back-solved percentages across VDOT 30–80 as reported in R-028 (range 87.87%–88.10% and 97.20%–97.42% respectively — both within 0.23 pp). E-range boundaries are less precisely determined and the ±3 s/km target is acknowledged as a deliberate precision-vs-simplicity trade-off.
+
+**Implementation scope (single PR):**
+
+1. **New class `PaceZoneCalculator`** implementing `IPaceZoneCalculator` (interface-backed per the future multi-methodology consideration in R-032, even though that research is deferred). Pure functions, singleton DI lifetime.
+2. **New helper `DanielsGilbertEquations`** — internal static class exposing `OxygenCost(vMPerMin)`, `FractionalUtilization(tMinutes)`, `SolveVelocityForTargetVo2(target)` (closed-form), and `PredictRaceTime(vdot, distanceMeters)` (Newton-Raphson with GoldenCheetah's initial guess and 1e-3 min convergence).
+3. **Delete the `SortedDictionary` lookup table** from `PaceCalculator.cs` entirely. R-034 confirms the current table is legally unsafe to keep in any repo that may go public — the VDOT 50–85 row-shift error is circumstantial evidence of manual transcription from the copyrighted 4th edition.
+4. **Add five missing race distances** to `VdotCalculator.DistanceMeters`: 1500 m, 1 mile (1609.34 m), 3 km, 2 mile (3218.69 m), 15 km. R-030 identified these as latent defects.
+5. **Add input validation guards** to `VdotCalculator.CalculateVdot`: reject race durations outside 3.5–300 minutes and velocities below 50 m/min. R-030's recommendation based on the `F(t) > 1.0` threshold for very short efforts and the negative `VO₂(v)` region for very slow velocities.
+6. **Replace `PaceCalculator.EstimateMaxHr(age) = 220 − age` with the Tanaka formula `208 − 0.7·age`**, rounded to nearest integer. R-031 recommendation — Tanaka has 18,712-subject meta-analysis validation while the Fox/Haskell 220−age formula has SEE of ±12 bpm and no scientific basis.
+7. **New class `HeartRateZoneCalculator`** (separate from pace calculator per R-031's architectural finding that HR and pace are parallel intensity markers, not coupled derivations). Takes `maxHr` (required) and `restingHr` (optional). Implements Daniels' %HRmax zone bands: E = 65–79%, M = 80–85%, T = 88–92%, I = 98–100%, R = no HR target. Offer Karvonen %HRR as advanced option when resting HR is provided.
+8. **Value-object integration with DEC-041 unit system.** `PaceZoneCalculator` returns `Pace` and `PaceRange(Fast, Slow)` directly. Land DEC-041's `Distance`, `Pace`, `PaceRange` value objects in the same PR or in a precursor commit on the same branch. The `PaceRange` `Min/Max` → `Fast/Slow` rename is part of this work per DEC-041.
+9. **Equation-derived golden fixture.** Replace the 56-row integrity fence (`PaceCalculatorTableIntegrityTests.cs` on branch `fix/daniels-pace-table`) with a new fixture that asserts every cell is the equation output at that VDOT/zone — the equations are the specification and the fixture is derived from them, not from the book. Test structure: `[Theory]` per integer VDOT 30–85 computing every zone, plus smoothness and monotonicity regression tests. Provenance header per R-034's recipe (cite 1979 monograph, disclaim trademark).
+10. **Trademark disclaimer and attribution.** Add a README note acknowledging "VDOT" as a registered trademark of The Run SMART Project, LLC, and disclaiming affiliation with Daniels or the Run SMART Project. Use the term descriptively throughout the codebase.
+
+**Rationale:**
+
+- **Legal safety (R-034).** The current lookup table's row-shift transcription error is circumstantial evidence of manual copying from the copyrighted 4th-edition book. Equation-derived values from the 1979 Daniels-Gilbert monograph (public-domain mathematical formulas, explicitly excluded from copyright under 17 U.S.C. § 102(b), further supported by Feist v. Rural Telephone for uncopyrightability of mathematical facts) eliminate all meaningful infringement risk. This reason alone forces the rewrite before any public release.
+- **Correctness (R-028 + R-030).** Back-solving T and I constants from book values yields 87.87%–88.10% and 97.20%–97.42% respectively — pp variation well within noise. Equation-computed values reproduce published table cells within ±0.5 s/km for T and I, and match the race-time-to-VDOT table within ±0.1 VDOT for forward VDOT calculation. `VdotCalculator` is already verified correct.
+- **Extensibility (R-029).** Equation-based computation is continuous by construction and handles any VDOT without interpolation. The official vdoto2.com calculator already outputs decimal VDOT values, confirming this is the first-party-endorsed semantic. Adding new zones (F, Fast Reps) or new race distances is a one-line change.
+- **Auditability (R-025, R-026).** Equations are the specification. The fixture test re-derives every cell on every build. Any future drift from coefficient edits, constant changes, or computation-layer bugs fails loudly. No room for transcription-error class defects to return.
+- **Precedent (R-034).** Every serious open-source implementation — GoldenCheetah, tlgs/vdot, vdot-calculator on PyPI — uses the pure-equation approach. Projects that committed transcribed tables (ericgio/vdot, daniels-calculator) are legally exposed. This is a solved design pattern in the community.
+
+**Open question pending R-035:** The R-pace derivation method — R-025's mile-race-prediction formulation vs. R-028's 3K-race-prediction-with-multipliers formulation. Both produce correct R-400 at VDOT 50; neither has been tested across the full VDOT 30–85 range against an authoritative oracle. R-035 resolves this by using vdoto2.com manual queries plus GoldenCheetah source inspection. Implementation of DEC-042 proceeds after R-035 reports.
+
+**Deferred from DEC-042 scope:**
+
+- R-032 (multi-methodology interface extensibility) — the interface-backed `IPaceZoneCalculator` name is chosen proactively to accommodate Hanson, 80/20, or polarized zones later, but only a concrete `DanielsPaceZoneCalculator` implementation is in scope for this PR. Future methodologies can be added as sibling implementations.
+- R-033 (LLM pace-zone consumption precision) — informs whether paces should be numeric, narrative, or categorical in LLM prompts. Not blocking DEC-042 correctness; the calculator still returns numeric `Pace` objects and the prompt layer can render them however needed.
+- Temperature / altitude adjustments from Daniels' environmental appendix — out of scope for MVP-0, deferred to post-MVP-0.
+- Fast Repetition (F) zone is **in scope** per the alignment discussion but could be descoped if implementation cost exceeds budget. R-029 confirmed F exists in vdoto2.com as a sixth zone and is derivable from R with a small offset.
+
+**Why not each alternative:**
+
+- **Pattern 2 (equation-verified lookup table):** Keep the table, add a test that re-derives every cell. Correctness improves, but we inherit copyright exposure from the committed table values and gain no extensibility. R-034 disqualifies this.
+- **Pattern 3 (golden fixture only, no lookup):** This *is* what DEC-042 uses for tests, but the test fixture is derived from our own equations, not the book. "Pattern 3 as runtime source" — commit a CSV and load it at startup — fails the extensibility and legal tests the same way Pattern 2 does.
+- **Pattern 4 (library dependency):** No .NET package exists (confirmed R-025, R-026). tlgs/vdot and vdot-calculator on PyPI are Python; porting is trivial but we lose the value of `using` a library. No viable option.
+- **Pattern 5 (port tlgs/vdot or similar):** R-025 noted tlgs/vdot does not implement R-pace as race prediction — its approach is incomplete for our purposes. Porting would import incomplete logic and add attribution overhead with no correctness win.
+
+**Branch disposition:** The in-progress integrity fence on `fix/daniels-pace-table` (`PaceCalculatorTableIntegrityTests.cs` with 56 book-derived snapshot rows) is **not to be committed to main**. R-034 flags the snapshot values as legally unsafe, and the fence is technically obsolete once DEC-042 lands. The branch will be discarded (or rebased to just the equation-derived fixture) when the DEC-042 rewrite starts. The local fence remains useful during the interim as a reference for what anomalies the rewrite must fix.
+
+**Effort estimate:** Single PR, roughly 300–500 net LOC. Core calculator and equations ~150 LOC, tests ~200 LOC, HR calculator ~100 LOC, supporting changes (distances, guards, Tanaka, README) ~50 LOC. Risk is low; every decision is grounded in cited research and every alternative has been evaluated.
 
 ---
 
