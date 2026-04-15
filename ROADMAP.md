@@ -121,39 +121,31 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 **Daniels pace table — DEC-040 to DEC-042 trajectory:**
 - DEC-040 row-shift patch shipped to main 2026-03-25..26 across commits `934f1de`, `0a6e813`, `fbadeda`, `54c4c9c` (row-shift correction, edition citation, eval cache re-record, `PaceRange` invariant).
 - 2026-04-14 computational audit found residual anomalies at VDOT 49→50 in the Interval (+1.55 pp) and Repetition (+3.69 pp) columns. R-019 had only verified VDOT 50; rows 30–49 carried a second error class.
-- R-025 (batch 11) established the pure-equation design direction. R-026 through R-031 plus R-034 (batch 12) closed every gap: equation reference, coefficient stability, exact T/I constants (88.0% / 97.3%), five-zone + optional F, `VdotCalculator` verified correct with 5 missing distances and missing input guards, Tanaka as the HR formula, legal safety for equation-derived fixtures only. R-035 (batch 13) is now the final gap — disambiguating R-pace formulation (mile-race prediction vs. 3K-with-multipliers).
-- **DEC-040 is superseded by DEC-042**, which replaces the lookup table entirely with a pure-equation `PaceZoneCalculator`. See `docs/decisions/decision-log.md` § DEC-042 for full scope.
+- R-025 (batch 11) established the pure-equation design direction. R-026 through R-031 plus R-034 (batch 12) closed every gap: equation reference, coefficient stability, exact T/I constants (88.0% / 97.3%), five-zone + F, `VdotCalculator` verified correct with 5 missing distances and missing input guards, Tanaka as the HR formula, legal safety for equation-derived fixtures only. R-035 (batch 13) resolved the last remaining gap — R-pace adopts R-028's 3K-race-prediction-with-multipliers formulation (max \|err\| ≤ 1.1 s vs. Daniels' published tables), with `R-800 = 2 × R-400` as a simpler-equal rule. F-pace is a Newton-Raphson solve at 800 m race distance.
+- **DEC-040 is superseded by DEC-042**, which replaces the lookup table entirely with a pure-equation `PaceZoneCalculator`. DEC-042 is **Approved — ready for implementation**. See `docs/decisions/decision-log.md` § DEC-042 for full scope.
 
 ## Next Up
 
-### 1. R-035 — Repetition-pace formulation disambiguation (in progress)
+### 1. DEC-042 implementation — pure-equation `PaceZoneCalculator`
 
-Narrow research to pick between R-025's mile-race-prediction and R-028's 3K-race-prediction-with-multipliers formulations for R-pace, using vdoto2.com manual spot queries as oracle and GoldenCheetah's `VDOTCalculator.cpp` as the reference implementation. Last remaining gap before DEC-042 coding. See research queue R-035 entry for the full prompt.
-
-### 2. Discard the integrity-fence work on `fix/daniels-pace-table`
-
-The 56-row `PaceCalculatorTableIntegrityTests.cs` fence is technically useful as regression protection but embeds book-transcribed values. R-034 confirms those values carry copyright risk and the lookup table itself is circumstantial evidence of manual transcription — both must be retired, not hardened, before any public release. The fence branch stays local during the DEC-042 rewrite as a reference for what the rewrite must fix, then is discarded. No merge of the fence to main.
-
-### 3. DEC-042 implementation — pure-equation `PaceZoneCalculator`
-
-Unblocks as soon as R-035 reports. Single PR, scope per `docs/decisions/decision-log.md` § DEC-042:
-- Delete current `PaceCalculator` lookup table.
-- New `PaceZoneCalculator` + internal `DanielsGilbertEquations` helper.
-- Hybrid derivation: closed-form quadratic inversion for E/T/I (70%/59%, 88.0%, 97.3%); Newton-Raphson race prediction for M (42,195 m) and R (pending R-035) and optional F.
-- Add 5 missing race distances and input-validation guards to `VdotCalculator`.
+Unblocked. Single PR, scope per `docs/decisions/decision-log.md` § DEC-042:
+- Delete current `PaceCalculator` lookup table (legally unsafe per R-034; the `fix/daniels-pace-table` integrity fence is also discarded at this point — the fence embeds book-transcribed values and was only ever a stepping stone).
+- New `PaceZoneCalculator` + internal `DanielsGilbertEquations` helper. Three Newton-Raphson call sites: 42,195 m (Marathon), 3,000 m (Repetition), 800 m (Fast Repetition).
+- Hybrid derivation: closed-form quadratic inversion for E (70% / 59%), T (88.0%), I (97.3%); Newton-Raphson race prediction for M, R (with R-200 = 0.9295 × (200/3000) × t₃ₖ, R-400 = 0.9450 × (400/3000) × t₃ₖ, R-800 = 2 × R-400), and F (F-400 = t₈₀₀ / 2, F-200 = t₈₀₀ / 4).
+- Add 5 missing race distances and input-validation guards to `VdotCalculator` (3.5–300 min duration, velocity > 50 m/min, VDOT 25–90 range with low-VDOT warning).
 - Replace `EstimateMaxHr = 220 − age` with Tanaka `208 − 0.7·age`.
 - New `HeartRateZoneCalculator` (separate from pace) with Daniels' %HRmax bands.
-- Equation-derived golden fixture (not book-transcribed) replacing the old integrity fence.
+- Equation-derived golden fixture with provenance header citing the 1979 *Oxygen Power* monograph; replaces the old integrity fence.
 - DEC-041 value objects (`Distance`, `Pace`, `PaceRange(Fast, Slow)`) land in the same PR.
 - Trademark disclaimer in README.
 
-### 4. DEC-041: Unit system value objects (lands with DEC-042)
+### 2. DEC-041: Unit system value objects (lands with DEC-042)
 
 Kitchen-sink alignment: DEC-041's `Distance`/`Pace`/`PaceRange(Fast, Slow)` value objects are in scope for the DEC-042 PR. This is a deliberate cutover — DEC-042 has to replace the calculator's return types anyway, so wrapping them as typed values is essentially free at that point. See `docs/planning/unit-system-design.md` for the full design.
 
-### 5. POC 2: Adaptive replanning
+### 3. POC 2: Adaptive replanning
 
-Next POC in the roadmap. Plan file needed. Not blocked by any of the above. Can start in parallel with R-035 if capacity allows.
+Next POC in the roadmap. Plan file needed. Not blocked by any of the above. Can start in parallel with DEC-042 implementation if capacity allows.
 
 ## Plan Files
 

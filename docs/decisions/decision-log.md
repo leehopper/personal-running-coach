@@ -1129,32 +1129,36 @@ See `docs/planning/unit-system-design.md` for full design.
 
 ## DEC-042: Pure-equation PaceCalculator rewrite — hybrid derivation with committed equation-derived fixtures
 
-**Date:** 2026-04-15
-**Status:** Proposed — pending R-035 for Repetition-pace formulation
+**Date:** 2026-04-15 (initial); 2026-04-15 (R-035 resolution applied)
+**Status:** Approved — ready for implementation
 **Category:** Domain / Architecture
-**Informed by:** R-025 (`batch-11-daniels-implementation-patterns.md`), R-026 through R-031 and R-034 (`batch-12a` through `batch-12g`). Final R-pace formulation pending R-035.
+**Informed by:** R-025 (`batch-11-daniels-implementation-patterns.md`), R-026 through R-031 and R-034 (`batch-12a` through `batch-12g`), R-035 (`batch-13-r-pace-disambiguation.md`).
 **Supersedes:** DEC-040's partial row-shift patch, which will be retired when this lands.
 
 **Decision:** Replace the current `SortedDictionary<int, PaceTableEntry>` lookup in `PaceCalculator.cs` with a pure-equation `PaceZoneCalculator` that computes every pace zone on demand from the Daniels-Gilbert 1979 equations. Eliminate the transcription-error class entirely. Five zones (E, M, T, I, R) plus optional sixth zone F (Fast Repetition). Use a hybrid derivation strategy: closed-form quadratic inversion for fixed-% zones (E, T, I), and Newton-Raphson race-time prediction for the race-prediction zones (M, R, F). Commit golden test fixtures computed from the equations themselves, never transcribed from the book.
 
 **Zone derivation methods:**
 
-| Zone | Method | Constant / Distance | Expected precision |
+| Zone | Method | Constant / Distance | Verified precision |
 |------|--------|---------------------|--------------------|
 | Easy fast end | Closed-form quadratic solve | 70.0% VO₂max | ±3 s/km |
 | Easy slow end | Closed-form quadratic solve | 59.0% VO₂max | ±3 s/km |
 | Marathon | Newton-Raphson race prediction | 42,195 m | ±0.5 s/km |
 | Threshold | Closed-form quadratic solve | 88.0% VO₂max | ±0.5 s/km |
 | Interval | Closed-form quadratic solve | 97.3% VO₂max | ±0.5 s/km |
-| Repetition | Newton-Raphson race prediction | **pending R-035** (mile vs. 3K) | target ±1 s/km |
-| Fast Repetition (optional) | Derived from R | `R − 3 s/200 m` or Newton-Raphson at 800 m | target ±1 s/km |
+| Repetition | Newton-Raphson race prediction at 3 000 m, then multiply | R-200 = 0.9295 × (200/3000) × t₃ₖ; R-400 = 0.9450 × (400/3000) × t₃ₖ; **R-800 = 2 × R-400** | max \|error\| 1.1 s across VDOT 30–85 (R-035) |
+| Fast Repetition | Newton-Raphson race prediction at 800 m, scaled linearly | F-400 = t₈₀₀ / 2; F-200 = t₈₀₀ / 4 | exact match to vdoto2.com (R-035) |
 
 T and I constants are the mean of back-solved percentages across VDOT 30–80 as reported in R-028 (range 87.87%–88.10% and 97.20%–97.42% respectively — both within 0.23 pp). E-range boundaries are less precisely determined and the ±3 s/km target is acknowledged as a deliberate precision-vs-simplicity trade-off.
+
+**R-pace resolution (R-035, 2026-04-15):** R-035 head-to-head tested three formulations against the published Daniels tables across VDOT 30–85. Option B (3K race prediction × distance-specific multipliers from R-028) won with max \|error\| ≤ 1.1 s and RMS 0.53 s with near-zero systematic bias. Option A (mile race prediction + linear scaling, from R-025) showed a consistent −1.2 s fast bias at VDOT 55–65. GoldenCheetah's 105%-of-vVDOT approach drifted up to 3.7 s at the tails due to its quadratic vVDOT polynomial approximation. R-035 also found that Option B's 0.9528 multiplier for R-800 slightly overshoots, while the simpler rule `R-800 = 2 × R-400` is within ±1 s at every anchor point where R-800 is defined — DEC-042 adopts the simpler rule.
+
+**F-pace resolution (R-035, 2026-04-15):** The commonly-cited rule `F = R − 3 s/200 m` is wrong at the tails (at VDOT 30 the R/F gap is ~0.5 s/200 m; at VDOT 60 it is ~4 s/200 m). The authoritative definition per vdoto2.com is that F-pace equals current 800 m race pace, so F is computed via a Newton-Raphson race-prediction solve at 800 m, with linear scaling to sub-distances. Implementation cost: one additional Newton-Raphson solve. Three total (M at 42,195 m, R at 3 000 m, F at 800 m), each converging in 5–10 iterations.
 
 **Implementation scope (single PR):**
 
 1. **New class `PaceZoneCalculator`** implementing `IPaceZoneCalculator` (interface-backed per the future multi-methodology consideration in R-032, even though that research is deferred). Pure functions, singleton DI lifetime.
-2. **New helper `DanielsGilbertEquations`** — internal static class exposing `OxygenCost(vMPerMin)`, `FractionalUtilization(tMinutes)`, `SolveVelocityForTargetVo2(target)` (closed-form), and `PredictRaceTime(vdot, distanceMeters)` (Newton-Raphson with GoldenCheetah's initial guess and 1e-3 min convergence).
+2. **New helper `DanielsGilbertEquations`** — internal static class exposing `OxygenCost(vMPerMin)`, `FractionalUtilization(tMinutes)`, `SolveVelocityForTargetVo2(target)` (closed-form), and `PredictRaceTime(vdot, distanceMeters)` (Newton-Raphson with GoldenCheetah's initial guess and 1e-3 min convergence). Three Newton-Raphson call sites exist in `PaceZoneCalculator`: 42,195 m for Marathon, 3,000 m for Repetition, 800 m for Fast Repetition. Each converges in 5–10 iterations.
 3. **Delete the `SortedDictionary` lookup table** from `PaceCalculator.cs` entirely. R-034 confirms the current table is legally unsafe to keep in any repo that may go public — the VDOT 50–85 row-shift error is circumstantial evidence of manual transcription from the copyrighted 4th edition.
 4. **Add five missing race distances** to `VdotCalculator.DistanceMeters`: 1500 m, 1 mile (1609.34 m), 3 km, 2 mile (3218.69 m), 15 km. R-030 identified these as latent defects.
 5. **Add input validation guards** to `VdotCalculator.CalculateVdot`: reject race durations outside 3.5–300 minutes and velocities below 50 m/min. R-030's recommendation based on the `F(t) > 1.0` threshold for very short efforts and the negative `VO₂(v)` region for very slow velocities.
@@ -1172,14 +1176,17 @@ T and I constants are the mean of back-solved percentages across VDOT 30–80 as
 - **Auditability (R-025, R-026).** Equations are the specification. The fixture test re-derives every cell on every build. Any future drift from coefficient edits, constant changes, or computation-layer bugs fails loudly. No room for transcription-error class defects to return.
 - **Precedent (R-034).** Every serious open-source implementation — GoldenCheetah, tlgs/vdot, vdot-calculator on PyPI — uses the pure-equation approach. Projects that committed transcribed tables (ericgio/vdot, daniels-calculator) are legally exposed. This is a solved design pattern in the community.
 
-**Open question pending R-035:** The R-pace derivation method — R-025's mile-race-prediction formulation vs. R-028's 3K-race-prediction-with-multipliers formulation. Both produce correct R-400 at VDOT 50; neither has been tested across the full VDOT 30–85 range against an authoritative oracle. R-035 resolves this by using vdoto2.com manual queries plus GoldenCheetah source inspection. Implementation of DEC-042 proceeds after R-035 reports.
+**VDOT-range caveats (R-035):** Two model-domain limitations worth locking into code and tests.
+
+- **VDOT < 39:** Daniels' Run SMART Project revised low-VDOT training paces in August 2019 "for greater accuracy." The R-028 multipliers (0.9295 / 0.9450) come from pre-2019 tables, so R-pace below VDOT 39 may differ from the current vdoto2.com calculator by slightly more than 1 s. Still acceptable as an MVP-0 precision target; log as a known limitation in the fixture header.
+- **VDOT < ~25:** The Daniels-Gilbert fractional-utilization curve itself produces non-sensical outputs below roughly VDOT 25 per community reports about vdoto2.com. This is a limit of the underlying model (fit to competitive athletes), not our implementation. DEC-042's input guards should clamp or warn accordingly.
 
 **Deferred from DEC-042 scope:**
 
 - R-032 (multi-methodology interface extensibility) — the interface-backed `IPaceZoneCalculator` name is chosen proactively to accommodate Hanson, 80/20, or polarized zones later, but only a concrete `DanielsPaceZoneCalculator` implementation is in scope for this PR. Future methodologies can be added as sibling implementations.
 - R-033 (LLM pace-zone consumption precision) — informs whether paces should be numeric, narrative, or categorical in LLM prompts. Not blocking DEC-042 correctness; the calculator still returns numeric `Pace` objects and the prompt layer can render them however needed.
 - Temperature / altitude adjustments from Daniels' environmental appendix — out of scope for MVP-0, deferred to post-MVP-0.
-- Fast Repetition (F) zone is **in scope** per the alignment discussion but could be descoped if implementation cost exceeds budget. R-029 confirmed F exists in vdoto2.com as a sixth zone and is derivable from R with a small offset.
+- Fast Repetition (F) zone is **in scope and fully specified** (R-035 resolved the derivation as a Newton-Raphson solve at 800 m — see the zone table above).
 
 **Why not each alternative:**
 
@@ -1190,7 +1197,7 @@ T and I constants are the mean of back-solved percentages across VDOT 30–80 as
 
 **Branch disposition:** The in-progress integrity fence on `fix/daniels-pace-table` (`PaceCalculatorTableIntegrityTests.cs` with 56 book-derived snapshot rows) is **not to be committed to main**. R-034 flags the snapshot values as legally unsafe, and the fence is technically obsolete once DEC-042 lands. The branch will be discarded (or rebased to just the equation-derived fixture) when the DEC-042 rewrite starts. The local fence remains useful during the interim as a reference for what anomalies the rewrite must fix.
 
-**Effort estimate:** Single PR, roughly 300–500 net LOC. Core calculator and equations ~150 LOC, tests ~200 LOC, HR calculator ~100 LOC, supporting changes (distances, guards, Tanaka, README) ~50 LOC. Risk is low; every decision is grounded in cited research and every alternative has been evaluated.
+**Effort estimate:** Single PR, roughly 350–550 net LOC. Core calculator and equations ~180 LOC (three Newton-Raphson call sites plus the closed-form solves), tests ~220 LOC (equation-derived fixture + structural invariants + VDOT-range boundary tests), HR calculator ~100 LOC, supporting changes (distances, guards, Tanaka, README) ~50 LOC. Risk is low; every decision is grounded in cited research and every alternative has been evaluated.
 
 ---
 
