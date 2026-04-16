@@ -1,0 +1,14 @@
+Type: cli
+Description: Backend tests pass after adding SonarQube workflow and properties files
+Expected: All tests pass (no regressions from adding infrastructure files)
+Timestamp: 2026-04-15T23:00:00Z
+Command: dotnet test backend/RunCoach.slnx
+Status: PASS
+
+Output:
+Passed! - Failed: 0, Passed: 419, Skipped: 0, Total: 419, Duration: 302ms - RunCoach.Api.Tests.dll (net10.0|arm64)
+Tests succeeded.
+
+Note: These files (.github/workflows/sonarqube.yml and frontend/sonar-project.properties) are
+CI infrastructure only. They do not affect local builds or tests. The backend test pass confirms
+no regressions were introduced.
