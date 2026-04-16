@@ -8,7 +8,6 @@ version: "1.0.0"
 
 model:
   id: "claude-sonnet-4-5-20250514"
-  temperature: 0.3
   max_tokens: 4096
 
 persona:

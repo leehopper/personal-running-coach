@@ -181,7 +181,6 @@ public sealed class AnthropicStructuredOutputClient : DelegatingChatClient
             MaxTokens = options.MaxOutputTokens ?? _defaultMaxTokens,
             System = systemPrompt ?? string.Empty,
             Messages = userAssistantMessages,
-            Temperature = options.Temperature,
             OutputConfig = new OutputConfig
             {
                 Format = new JsonOutputFormat

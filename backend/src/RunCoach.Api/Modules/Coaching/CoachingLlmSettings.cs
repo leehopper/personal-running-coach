@@ -25,12 +25,6 @@ public sealed record CoachingLlmSettings
     public string ModelId { get; init; } = "claude-sonnet-4-6";
 
     /// <summary>
-    /// Gets temperature for generation. Lower values produce more deterministic output.
-    /// Defaults to 0.3 per coaching-v1.yaml.
-    /// </summary>
-    public double Temperature { get; init; } = 0.3;
-
-    /// <summary>
     /// Gets maximum tokens for the response.
     /// Defaults to 4096 per coaching-v1.yaml.
     /// </summary>

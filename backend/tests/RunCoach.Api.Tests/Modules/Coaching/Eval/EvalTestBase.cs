@@ -149,7 +149,7 @@ public abstract class EvalTestBase : IAsyncDisposable
     protected IContextAssembler Assembler { get; }
 
     /// <summary>
-    /// Gets the coaching LLM settings (model IDs, temperature, etc.).
+    /// Gets the coaching LLM settings (model IDs, max tokens, etc.).
     /// </summary>
     protected CoachingLlmSettings Settings => _settings;
 

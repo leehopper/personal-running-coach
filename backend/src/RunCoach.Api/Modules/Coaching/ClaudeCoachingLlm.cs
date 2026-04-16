@@ -17,8 +17,8 @@ namespace RunCoach.Api.Modules.Coaching;
 /// Uses the official Anthropic .NET SDK with built-in retry logic
 /// (exponential backoff for 429 rate limits and transient errors).
 /// Configuration comes from <see cref="CoachingLlmSettings"/>,
-/// which reads model ID, temperature, and max tokens from the
-/// IOptions pattern (overridable via appsettings or user-secrets).
+/// which reads model ID and max tokens from the IOptions pattern
+/// (overridable via appsettings or user-secrets).
 ///
 /// The API key is never logged.
 /// </summary>
@@ -93,7 +93,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(userMessage);
 
-        LogSendingRequest(_logger, _settings.ModelId, _settings.Temperature, _settings.MaxTokens);
+        LogSendingRequest(_logger, _settings.ModelId, _settings.MaxTokens);
 
         var createParams = new MessageCreateParams
         {
@@ -108,7 +108,6 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
                     Content = userMessage,
                 },
             ],
-            Temperature = _settings.Temperature,
         };
 
         var response = await _client.Messages.Create(createParams, ct).ConfigureAwait(false);
@@ -144,7 +143,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(userMessage);
 
-        LogSendingRequest(_logger, _settings.ModelId, _settings.Temperature, _settings.MaxTokens);
+        LogSendingRequest(_logger, _settings.ModelId, _settings.MaxTokens);
 
         var schemaNode = JsonSchemaHelper.GenerateSchema<T>();
         var schemaDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
@@ -163,7 +162,6 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
                     Content = userMessage,
                 },
             ],
-            Temperature = _settings.Temperature,
             OutputConfig = new OutputConfig
             {
                 Format = new JsonOutputFormat
@@ -273,8 +271,8 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Sending coaching request to {ModelId} (temperature={Temperature}, maxTokens={MaxTokens})")]
-    private static partial void LogSendingRequest(ILogger logger, string modelId, double temperature, int maxTokens);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Sending coaching request to {ModelId} (maxTokens={MaxTokens})")]
+    private static partial void LogSendingRequest(ILogger logger, string modelId, int maxTokens);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Received response from {ModelId}: {ContentLength} chars, stop_reason={StopReason}, input_tokens={InputTokens}, output_tokens={OutputTokens}")]
     private static partial void LogReceivedResponse(ILogger logger, string modelId, int contentLength, string stopReason, long inputTokens, long outputTokens);
