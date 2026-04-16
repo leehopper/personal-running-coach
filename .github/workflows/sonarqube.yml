@@ -1,0 +1,99 @@
+# .github/workflows/sonarqube.yml
+name: SonarQube Cloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Backend: .NET 10 via dotnet-sonarscanner
+  # ──────────────────────────────────────────────
+  backend-analysis:
+    name: Backend analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0  # full history required for new-code detection
+
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5.2.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # Scanner v11.2+ auto-provisions a JRE — no setup-java needed
+      - name: Install dotnet-sonarscanner
+        run: dotnet tool install --global dotnet-sonarscanner --version 11.2.1
+
+      - name: SonarScanner begin
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_BACKEND }}
+        run: |
+          dotnet sonarscanner begin \
+            /k:"runcoach-backend" \
+            /o:"leehopper" \
+            /d:sonar.host.url="https://sonarcloud.io" \
+            /d:sonar.token="$SONAR_TOKEN" \
+            /d:sonar.cs.opencover.reportsPaths="backend/TestResults/coverage.opencover.xml" \
+            /d:sonar.sources="backend/src" \
+            /d:sonar.tests="backend/tests" \
+            /d:sonar.exclusions="backend/tests/eval-cache/**,**/*.generated.cs,docs/**,.claude/**,backend/src/RunCoach.Api/Prompts/**" \
+            /d:sonar.test.inclusions="backend/tests/**" \
+            /d:sonar.cs.roslyn.ignoreIssues=false
+
+      - name: Restore
+        run: dotnet restore backend/RunCoach.slnx
+
+      - name: Build
+        run: dotnet build backend/RunCoach.slnx --no-restore --no-incremental
+
+      - name: Test with coverage
+        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true
+        env:
+          EVAL_CACHE_MODE: Replay
+
+      - name: SonarScanner end
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_BACKEND }}
+        run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
+
+  # ──────────────────────────────────────────────
+  # Frontend: React 19 + TypeScript via scan action
+  # ──────────────────────────────────────────────
+  frontend-analysis:
+    name: Frontend analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0  # full history required for new-code detection
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Test with coverage
+        working-directory: frontend
+        run: npm run test -- --coverage
+
+      - name: SonarQube scan
+        uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4  # v7.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_FRONTEND }}
+        with:
+          projectBaseDir: frontend/

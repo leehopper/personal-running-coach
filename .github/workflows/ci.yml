@@ -53,13 +53,12 @@ jobs:
       - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5.2.0
         with:
           dotnet-version: '10.0.x'
-          dotnet-quality: 'preview'
       - name: Restore
         run: dotnet restore backend/RunCoach.slnx
       - name: Build
         run: dotnet build backend/RunCoach.slnx --no-restore
       - name: Test
-        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=../../TestResults/
+        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true
         env:
           EVAL_CACHE_MODE: Replay
       - name: Upload coverage

@@ -1,0 +1,45 @@
+# .github/workflows/license-review.yml
+# PR gate: license compliance + vulnerability check for .NET 10 + React 19 monorepo
+# Requires: GitHub Automatic Dependency Submission enabled for NuGet
+#   Settings -> Code security -> Dependency graph -> Automatic dependency submission -> NuGet
+#   Without this, dependency-review-action reports all CPM-managed NuGet packages as >= 0
+#   and misses transitive dependencies. See R-043 (batch-14h).
+
+name: License Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write  # Required to post PR comment on violation
+
+jobs:
+  dependency-review:
+    name: License & dependency review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48  # v4.9.0
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime
+          show-patched-versions: true
+          # Allowlist approach per R-043 recommendation (deny-licenses is
+          # deprecated in v4, removed in future v5). Fail-closed: any license
+          # not listed here blocks the PR. Covers Apache-2.0 compatibility.
+          allow-licenses: >-
+            MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD,
+            Unlicense, CC0-1.0, CC-BY-4.0, Zlib, BSL-1.0,
+            Python-2.0, PSF-2.0, Artistic-2.0, MPL-2.0, WTFPL
+          # LGPL-3.0 CI tools (SonarQube scan action, SonarAnalyzer.CSharp,
+          # eslint-plugin-sonarjs) are build-time only — never shipped in the
+          # binary. Exempt by purl so the allowlist stays strict.
+          allow-dependencies-licenses: >-
+            pkg:githubactions/SonarSource/sonarqube-scan-action
+          comment-summary-in-pr: always
+          retry-on-snapshot-warnings: true
+          retry-on-snapshot-warnings-timeout: 180

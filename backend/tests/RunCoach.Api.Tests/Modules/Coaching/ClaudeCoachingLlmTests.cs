@@ -245,7 +245,7 @@ public class ClaudeCoachingLlmTests
         settings.ApiKey.Should().BeEmpty();
         settings.ModelId.Should().Be("claude-sonnet-4-6");
         settings.Temperature.Should().BeApproximately(0.3, 0.001);
-        settings.MaxTokens.Should().Be(4096);
+        settings.MaxTokens.Should().Be(8192);
         settings.MaxRetries.Should().Be(3);
         settings.TimeoutSeconds.Should().Be(120);
     }

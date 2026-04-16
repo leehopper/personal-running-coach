@@ -1,8 +1,14 @@
 # Frontend — React 19 + TypeScript
 
+> **Trademark rule — VDOT.** All user-visible strings (component text, page copy, form labels, tooltips, error messages, placeholder text, toast notifications) must use "Daniels-Gilbert zones" or "pace-zone index" — **not** "VDOT". The VDOT mark is enforced by The Run SMART Project LLC (Runalyze precedent). This is a hard rule for the frontend because every string on this tier is user-facing by definition. There is no carve-out for internal identifiers on the frontend — TypeScript type names, variables, and props that might flow into logs or telemetry should also avoid the term. See root `CLAUDE.md` and `NOTICE` for full context.
+
 ## Stack
 
 See root CLAUDE.md for full tech stack. Additionally: eslint-plugin-sonarjs (build-time analysis), Zod v4.
+
+## Quality Pipeline (DEC-043)
+
+See root `CLAUDE.md` for the full five-layer pipeline. Frontend-specific notes: CodeQL uses `build-mode: none` with the combined `javascript-typescript` identifier. SonarQube Cloud ingests LCOV coverage from `npm run test -- --coverage`. Build-time `eslint-plugin-sonarjs` remains the compile-time hard gate; SonarQube Cloud is advisory dashboard only.
 
 ## Build & Dev Commands
 

@@ -78,7 +78,7 @@ The self-optimization model has a critical architectural implication: **the LLM 
 4. Pattern recognition across training history
 5. Goal recalibration conversations
 
-The computation layer handles: VDOT/pace lookups, ACWR calculations, mileage progression math, single-run spike checks, safety guardrail enforcement. These are never LLM-generated — the model literally cannot prescribe something the code layer blocks.
+The computation layer handles: pace-zone index/pace lookups, ACWR calculations, mileage progression math, single-run spike checks, safety guardrail enforcement. These are never LLM-generated — the model literally cannot prescribe something the code layer blocks.
 
 ## Daily Adaptation Framework (from R-001)
 

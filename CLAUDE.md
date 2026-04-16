@@ -85,6 +85,10 @@ Never ad-hoc web search for planning decisions. Always: add topic to research qu
 - Secrets go in environment variables or git-ignored files
 - Use .NET user-secrets for local dev
 
+## Trademark Rule: VDOT
+
+User-facing surface (coaching prompts, UI strings, README, documentation, API responses, commit messages, PR descriptions) must use "**Daniels-Gilbert zones**", "**pace-zone index**", or generic exercise-physiology terminology — **not** "VDOT". The VDOT mark is actively enforced by The Run SMART Project LLC: it compelled Runalyze to remove all VDOT-named features. A public OSS repo will not fly under the radar. Internal code identifiers, variable names, private implementation, and historical research artifacts may use VDOT freely until DEC-042's pace-calculator rewrite replaces them with `PaceZoneIndexCalculator` and friends. When in doubt, treat anything that will appear in an LLM prompt, a user-visible string, a generated plan, a badge, or a README as user-facing. See `NOTICE` for the full disclaimer text and `docs/research/artifacts/batch-14g-license-trademark-attribution.md` for the precedent research.
+
 ## PR Review Protocol
 
 Before merging any PR, run `/review-pr` locally via Claude Code Max subscription. Focus human review on:
@@ -94,6 +98,10 @@ Before merging any PR, run `/review-pr` locally via Claude Code Max subscription
 4. Security — any auth, user input, or secrets code gets mandatory manual review
 5. Scope creep — did the AI change things beyond what was asked?
 6. Dependency verification — do all referenced packages actually exist?
+
+## Quality Pipeline (DEC-043)
+
+Five-layer pipeline: pre-commit (Lefthook), PR review (CodeRabbit + local `/review-pr`), CI (CodeQL SAST, SonarQube Cloud, license-review gate, Trivy, Codecov), build-time analysis (SonarAnalyzer.CSharp + eslint-plugin-sonarjs via TreatWarningsAsErrors), human review. One authority per signal — CodeQL owns first-party SAST, Codecov owns coverage via Cobertura, SonarQube Cloud owns the dashboard via OpenCover, dependency-review-action owns license + CVE gating. Do not add a second tool that owns the same signal. Do not re-propose Snyk or Codacy without checking the reconsider-triggers in ROADMAP § Deferred Items — see DEC-043 in `docs/decisions/decision-log.md` for the full rationale. Branch protection via `main-protection` ruleset — see `docs/ci/unblock-procedures.md` for operational reference.
 
 ## Post-Change Checklist
 

@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":9,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week ahead. Gentle foot mobility or calf stretching (pain-free only) is fine if it feels good.\"},{\"day_of_week\":1,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20-min easy run at 5:24–5:58/km. Walk the first 2–3 minutes as a warm-up, and walk any time you notice foot discomfort. No heroics today — this is about reestablishing the habit, not fitness.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or very gentle cross-training (seated cycling, swimming — zero impact). Listen to your foot. Recovery between runs is where adaptation happens.\"},{\"day_of_week\":3,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Midweek recovery keeps the foot happy and sets you up for a strong Saturday.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20-min easy run at 5:24–5:58/km. Same approach as Monday — walk breaks whenever needed. Notice how your foot feels compared to earlier in the week.\"},{\"day_of_week\":5,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day before your long run. Keep off your feet as much as is practical. A little light stretching is fine if it's comfortable.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Your Saturday long run — 20 min easy at 5:24–5:58/km. This is the same duration as your weekday runs for now, and that's completely intentional. We're building the habit and testing your foot's response before we add any time. Walk breaks are not optional if there's any foot discomfort — they're part of the plan.\"}],\"week_summary\":\"Welcome back, James. Week 1 is about one thing: re-establishing a safe, consistent running routine while respecting where your foot is right now. Your physio has cleared you for 20-minute easy runs only, and that's exactly what we're working with — three runs, all capped at 20 minutes, all at easy effort (5:24–5:58/km). The total volume of around 9 km sits just above your recent average, which is appropriate given your training history shows you've already been moving. Walk breaks are built into the plan as a genuine tool, not a fallback. Your pre-injury VDOT of 46.5 tells us the fitness is in there — our job right now is to protect the foundation so we can build back to it. How does this structure feel for your week?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2275,
+    "outputTokenCount": 688,
+    "totalTokenCount": 2963
+  }
+}

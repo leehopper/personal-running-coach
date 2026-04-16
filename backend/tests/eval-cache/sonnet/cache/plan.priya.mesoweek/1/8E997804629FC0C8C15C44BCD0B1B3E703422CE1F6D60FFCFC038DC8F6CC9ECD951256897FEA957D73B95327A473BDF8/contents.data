@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long easy run at 5:07–5:39/km. Keep effort conversational throughout. 22–24 km is the target — no need to push beyond what feels comfortable on week one. This anchors your aerobic foundation.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Recovery is where adaptation happens — treat this as active investment in Tuesday's quality session.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or light movement (walking, stretching). Let Sunday's long run absorb fully before your midweek quality work.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Threshold run: 10 min easy warm-up, 20 min at 4:16/km, 10 min easy cool-down (~10 km total). This builds your lactate threshold — the single biggest predictor of marathon performance.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. With 4 run days per week, spacing quality sessions with rest protects you from accumulated fatigue.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run, 12–14 km at 5:07–5:39/km. Conversational pace only. This builds aerobic volume without taxing your recovery.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 10–12 km at 5:07–5:39/km. Keep it relaxed — this is your second easy day in a row and should feel effortless. Good prep for Sunday's long run.\"}],\"week_summary\":\"Welcome to your marathon build, Priya. Week 1 of your Base phase is intentionally conservative — your recent training history shows a strong 60 km week followed by a dip to 10 km in late February, so we're starting at 55 km to re-establish consistency before building. The structure is simple: one long run on Sunday, one threshold session on Wednesday to begin sharpening your lactate threshold, and two easy runs to fill aerobic volume. Your VDOT of 49.7 from your 1:32 half-marathon gives us a clear picture of your fitness — your 3:15 marathon goal (4:37/km race pace) is ambitious but genuinely achievable with 24 weeks of smart, consistent work. The paces above are derived directly from your race data, so trust them even when easy pace feels slow. That's exactly the point.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2329,
+    "outputTokenCount": 678,
+    "totalTokenCount": 3007
+  }
+}

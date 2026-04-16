@@ -24,7 +24,7 @@ How RunCoach handles metric, imperial, and mixed-unit contexts. Based on R-020 r
 
 ### Why These Choices
 
-- **`double` not `decimal`** — GPS has ±3-10m inherent imprecision. `double` gives ~15 digits of precision (nanometer-level for marathon distances) and performs better for VDOT math.
+- **`double` not `decimal`** — GPS has ±3-10m inherent imprecision. `double` gives ~15 digits of precision (nanometer-level for marathon distances) and performs better for pace-zone math.
 - **`readonly record struct`** — immutable, value semantics (two distances from different units that resolve to the same meters are equal), stack-allocated (zero GC pressure).
 - **No comparison operators on Pace** — `IsFasterThan()`/`IsSlowerThan()` make intent unambiguous.
 
@@ -36,7 +36,7 @@ The current codebase uses raw types with unit-in-name conventions:
 - `PaceRange(MinPerKm, MaxPerKm)` — confusing naming (faster pace = Min)
 - `string PreferredUnits` — passed through to LLM prompt, no backend logic
 - PaceCalculator table in seconds-per-km (correct canonical unit, wrong container type)
-- VdotCalculator race distances in meters via `FrozenDictionary<string, double>` (already correct)
+- `VdotCalculator` race distances in meters via `FrozenDictionary<string, double>` (already correct; internal class name preserved until DEC-042 rename)
 
 This is documented as POC cleanup debt. The value object migration is a prerequisite for MVP-0.
 
@@ -54,7 +54,7 @@ Application Layer (Services)
 
 Domain Layer (Value Objects, Business Rules)
   Distance (meters), Pace (sec/km), Duration
-  VDOT calculator, pace zone engine, ACWR
+  Pace-zone index calculator, pace zone engine, ACWR
   All math in canonical units
 
 Infrastructure / Persistence

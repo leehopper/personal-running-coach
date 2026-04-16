@@ -68,7 +68,7 @@ context_template: |
   === FITNESS ASSESSMENT ===
   {{fitness}}
 
-  === TRAINING PACES (computed from VDOT — use these exactly) ===
+  === TRAINING PACES (computed from Daniels-Gilbert zones — use these exactly) ===
   {{training_paces}}
 
   === RECENT TRAINING HISTORY ===

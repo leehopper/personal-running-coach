@@ -54,7 +54,7 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 - Branch protection deferred (requires GitHub Pro for private repos)
 
 **POC 1 initial implementation (Claude Code — 2026-03-21, PR #17):**
-- Unit 1: Deterministic training science layer — formula-based VDOT calculator, pace calculator with 5 zones, all 5 test profiles with simulated history, `WorkoutSummary`/`WeekSummary` models, comprehensive unit tests
+- Unit 1: Deterministic training science layer — formula-based pace-zone index calculator (internal: `VdotCalculator`), pace calculator with 5 zones, all 5 test profiles with simulated history, `WorkoutSummary`/`WeekSummary` models, comprehensive unit tests
 - Unit 2: Coaching prompt & context assembly — `ClaudeCoachingLlm` adapter (sealed, disposable, injectable), structured `AssembledPrompt` with positional sections, token estimation with overflow cascade, `ContextAssembler` with 15K budget enforcement, console app via `Host.CreateApplicationBuilder`
 - Unit 3: Eval suite — `PlanGenerationEvalTests` (5 profiles) + `SafetyBoundaryEvalTests` (5 safety scenarios), tagged `[Trait("Category", "Eval")]`, structured result output
 - Unit 4: Experiments framework — `ExperimentRunner`/`ExperimentExecutor` with 16+ variations across 4 experiment categories, dry-run mode, observation models, suite results **(removed in PR #18 review fixes — superseded by eval suite)**
@@ -116,11 +116,22 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 - Removed `ParseCacheMode` null test case that conflicted with `EVAL_CACHE_MODE` env var in CI
 - Research: R-018 (xUnit v3 MTP filtering) — `coverlet.MTP` incompatible with xUnit v3's bundled MTP 1.x, staying on `coverlet.msbuild`
 
+**OSS Quality Tooling Restoration (2026-04-15, complete — DEC-043):**
+- Dual-license architecture: Apache-2.0 (code) + CC-BY-NC-SA-4.0 (coaching prompts), NOTICE, THIRD-PARTY-NOTICES.md
+- VDOT trademark avoidance: user-facing surface renamed to "Daniels-Gilbert zones" / "pace-zone index" per Runalyze enforcement precedent; VDOT-avoidance rule encoded in all 3 CLAUDE.md and 3 REVIEW.md files; internal code identifier rename delegated to DEC-042
+- CodeRabbit restored: `.coderabbit.yaml` schema v2, profile=chill, module-scoped path_instructions
+- CodeQL restored: v4.35.1, `security-extended` queries, matrix [csharp, javascript-typescript], build-mode=manual for C#
+- SonarQube Cloud restored: two-project monorepo (backend OpenCover, frontend LCOV), advisory dashboard alongside existing build-time analyzers
+- License-compliance CI: `dependency-review-action` v4.9.0 PR gate + `sbom-action` v0.22.0 weekly SBOM
+- Branch protection: `main-protection` ruleset with required checks, squash-only merge, signed commits, admin bypass with audit trail
+- One-authority-per-signal partitioning: CodeQL=SAST, Codecov=Cobertura coverage, SonarQube Cloud=OpenCover dashboard, dependency-review-action=license+CVE gate
+- Spec: `docs/specs/09-spec-oss-tooling-restoration/09-spec-oss-tooling-restoration.md`
+
 **Branch status:** POC 1 productionized and merged to `main`. Follow-up branch `fix/daniels-pace-table` holds the 2026-04-14 integrity-fence audit work; that branch is now **discardable** — see Next Up item 2.
 
 **Daniels pace table — DEC-040 to DEC-042 trajectory:**
 - DEC-040 row-shift patch shipped to main 2026-03-25..26 across commits `934f1de`, `0a6e813`, `fbadeda`, `54c4c9c` (row-shift correction, edition citation, eval cache re-record, `PaceRange` invariant).
-- 2026-04-14 computational audit found residual anomalies at VDOT 49→50 in the Interval (+1.55 pp) and Repetition (+3.69 pp) columns. R-019 had only verified VDOT 50; rows 30–49 carried a second error class.
+- 2026-04-14 computational audit found residual anomalies at pace-zone index 49→50 in the Interval (+1.55 pp) and Repetition (+3.69 pp) columns. R-019 had only verified pace-zone index 50; rows 30–49 carried a second error class.
 - R-025 (batch 11) established the pure-equation design direction. R-026 through R-031 plus R-034 (batch 12) closed every gap: equation reference, coefficient stability, exact T/I constants (88.0% / 97.3%), five-zone + F, `VdotCalculator` verified correct with 5 missing distances and missing input guards, Tanaka as the HR formula, legal safety for equation-derived fixtures only. R-035 (batch 13) resolved the last remaining gap — R-pace adopts R-028's 3K-race-prediction-with-multipliers formulation (max \|err\| ≤ 1.1 s vs. Daniels' published tables), with `R-800 = 2 × R-400` as a simpler-equal rule. F-pace is a Newton-Raphson solve at 800 m race distance.
 - **DEC-040 is superseded by DEC-042**, which replaces the lookup table entirely with a pure-equation `PaceZoneCalculator`. DEC-042 is **Approved — ready for implementation**. See `docs/decisions/decision-log.md` § DEC-042 for full scope.
 
@@ -132,12 +143,13 @@ Unblocked. Single PR, scope per `docs/decisions/decision-log.md` § DEC-042:
 - Delete current `PaceCalculator` lookup table (legally unsafe per R-034; the `fix/daniels-pace-table` integrity fence is also discarded at this point — the fence embeds book-transcribed values and was only ever a stepping stone).
 - New `PaceZoneCalculator` + internal `DanielsGilbertEquations` helper. Three Newton-Raphson call sites: 42,195 m (Marathon), 3,000 m (Repetition), 800 m (Fast Repetition).
 - Hybrid derivation: closed-form quadratic inversion for E (70% / 59%), T (88.0%), I (97.3%); Newton-Raphson race prediction for M, R (with R-200 = 0.9295 × (200/3000) × t₃ₖ, R-400 = 0.9450 × (400/3000) × t₃ₖ, R-800 = 2 × R-400), and F (F-400 = t₈₀₀ / 2, F-200 = t₈₀₀ / 4).
-- Add 5 missing race distances and input-validation guards to `VdotCalculator` (3.5–300 min duration, velocity > 50 m/min, VDOT 25–90 range with low-VDOT warning).
+- Add 5 missing race distances and input-validation guards to `VdotCalculator` (3.5–300 min duration, velocity > 50 m/min, pace-zone index 25–90 range with low-index warning).
 - Replace `EstimateMaxHr = 220 − age` with Tanaka `208 − 0.7·age`.
 - New `HeartRateZoneCalculator` (separate from pace) with Daniels' %HRmax bands.
 - Equation-derived golden fixture with provenance header citing the 1979 *Oxygen Power* monograph; replaces the old integrity fence.
 - DEC-041 value objects (`Distance`, `Pace`, `PaceRange(Fast, Slow)`) land in the same PR.
 - Trademark disclaimer in README.
+- **Internal VDOT code identifier rename** — `VdotCalculator` → `PaceZoneIndexCalculator`, field/variable/test renames, `IVdotCalculator` → `IPaceZoneIndexCalculator`. Picked up as part of the pace-calculator rewrite, not a separate pass. Landed together so the new file names are right from first commit. Scoped to internal code only; scientific and documentary citations of "VDOT" (in `NOTICE`, research artifacts, historical decisions) remain as-is per the DEC-043 user-facing rename boundary.
 
 ### 2. DEC-041: Unit system value objects (lands with DEC-042)
 
@@ -190,6 +202,12 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 - `WeekGroup` nested record uses mutable `List<WorkoutSummary>` — use `IReadOnlyList`
 - Nested types in `PaceCalculator` and `YamlPromptStore` — extract to own files or document as intentional
 
+**Structured output post-deserialization validation (pre-MVP-0, surfaced 2026-04-15):**
+Anthropic's constrained decoding enforces property names, types, and `additionalProperties: false`, but does **not** enforce `minItems`/`maxItems` on arrays or numerical `minimum`/`maximum` on scalars. This means the `[Description]` text on structured output records is a hint to the model, not a hard gate — the model can and does violate it under non-deterministic conditions. A 2026-04-15 eval re-record caught `MesoWeekOutput.Days` returning 8 items instead of 7 for the Priya profile, producing a broken weekly plan.
+- **Scope:** This is not a one-off fix. It requires a systematic audit of every structured output record (`MesoWeekOutput`, `MacroPlanOutput`, `MicroWorkoutListOutput`, and any future additions) to identify all array-length invariants and scalar-range invariants that the schema description asserts but constrained decoding cannot enforce, then design a post-deserialization validation + retry layer that catches violations before they reach coaching output.
+- **Design considerations:** retry budget (how many times to re-call the LLM before failing), whether to surface the validation failure to the user or silently retry, whether to log violation rates for prompt-tuning feedback, whether prompt reinforcement (repeating the constraint in the system prompt body, not just the schema description) reduces violation frequency enough to make retry rare, and whether any invariant is better enforced by schema restructuring (e.g., 7 named day properties instead of an unbounded array).
+- **Eval gap audit:** Alongside the validation layer, audit the eval suite for similar gaps where assertions depend on LLM compliance with schema descriptions rather than structurally-enforced constraints. The `Priya_Constrained_RespectsExactly4RunDays` test caught this one, but other eval tests may have latent exposure to the same class of non-deterministic violation that the old cached responses happened to satisfy.
+
 **Infrastructure:**
 - Kubernetes (deferred to public beta per DEC-032)
 - Garmin integration (deferred to post-MVP-1, Apple Health prioritized per DEC-033)
@@ -200,17 +218,12 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 - Batch API for eval runs and scheduled background tasks (50% discount)
 - Opus 4.6 as eval judge (replaces Haiku — better reasoning for quality assurance)
 
-**Quality tooling (restore when repo goes public or upgrades to Pro):**
-- CodeRabbit PR review (free for OSS only; using local `/review-pr` via Max instead)
-- CodeQL security scanning (requires GitHub Team + Code Security; using Trivy instead)
-- SonarCloud dashboard (free for OSS only; using SonarAnalyzer.CSharp + eslint-plugin-sonarjs in-build instead)
-- Claude Code GitHub Action for PR review (requires API key; using local `/review-pr` via Max instead)
-- Branch protection rules or rulesets on `main` (both require GitHub Pro for private repos)
+**Quality tooling (permanently cut or deferred with reconsider-triggers — see DEC-043):**
+- Claude Code GitHub Action — **permanently cut**. Replaced by local `/review-pr` via Max + user's deep-review skill. No `@claude` mentions on PRs. Do not re-propose.
+- Snyk — **deferred** (R-039). Four reconsider-triggers: (1) PII ingestion — Snyk's container scanning adds value when we handle personal health data; (2) container deployment — Snyk Container covers base-image CVEs Trivy may lag on; (3) second contributor — `@snyk/protect` patching reduces the "everyone must run Dependabot updates" coordination cost; (4) Dependabot miss — if a high-severity CVE in a transitive dep goes unpatched for >30 days, Snyk's proprietary DB may have caught it.
+- Codacy — **deferred** (R-040). Zero residual value. Same SonarAnalyzer.CSharp + eslint-plugin-sonarjs the project already runs. Reconsider only if a language module (Python, Rust) is added outside SonarQube Cloud's free-tier coverage.
+- CODEOWNERS — **deferred** until first external contributor joins (same trigger as Snyk reconsider #3).
 
 **Quality tooling (add later regardless of visibility):**
 - Performance regression testing in CI (deferred per DEC-034 — GitHub runner variance makes detection unreliable)
 - Trivy container image scanning (add when deploying Docker images)
-- License compliance scheduled workflow (add pre-public release)
-
-**Strategic:**
-- Public repo visibility (keeping private to protect coaching prompt IP; revisit when/if free OSS tooling becomes worth it)

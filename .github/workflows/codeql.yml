@@ -1,0 +1,68 @@
+# CodeQL SAST — first-party code only (C# + TypeScript/JavaScript)
+# Trivy handles dependency, secret, and IaC scanning separately.
+name: "CodeQL"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly Monday 07:25 UTC — offset from the hour to avoid Actions queue spikes
+    - cron: "25 7 * * 1"
+
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}-${{ matrix.language }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: csharp
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@c10b8064de6f491fea524254123dbe5e09572f13  # v4.35.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      # ── C# manual build (runs only for the csharp matrix leg) ──
+      - name: Set up .NET SDK
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5.2.0
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore NuGet packages
+        if: matrix.language == 'csharp'
+        run: dotnet restore backend/RunCoach.slnx
+
+      - name: Build backend
+        if: matrix.language == 'csharp'
+        run: dotnet build backend/RunCoach.slnx --no-restore
+      # ── End C# manual build ──
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@c10b8064de6f491fea524254123dbe5e09572f13  # v4.35.1
+        with:
+          category: "/language:${{ matrix.language }}"

@@ -62,6 +62,21 @@
   data (user profiles, settings) should use EF Core relational tables, not
   event streams.
 
+### Trademark: VDOT on prompt content
+
+- CRITICAL: Flag any introduction of the literal string "VDOT" inside
+  `src/RunCoach.Api/Prompts/*.yaml`. These files are LLM prompt content and
+  any "VDOT" token flows directly into user-facing coaching output. Use
+  "Daniels-Gilbert zones" or "pace-zone index" instead. The VDOT mark is
+  enforced by The Run SMART Project LLC (Runalyze precedent).
+- Internal C# identifiers (`VdotCalculator`, `IVdotCalculator`,
+  `EstimatedVdot`, test class names, variable names) are explicitly exempt
+  until DEC-042's pace-calculator rewrite lands. Do not flag those in code
+  files.
+- API response DTOs, `ProblemDetails` error messages, and any string that
+  may reach a frontend or an HTTP consumer are treated as user-facing and
+  must avoid "VDOT".
+
 ### LLM integration
 
 - CRITICAL: No hardcoded prompts in C# code. All prompts must be loaded from
@@ -102,6 +117,21 @@
 - Eval tests must use DiskBasedReportingConfiguration with
   ResponseCachingChatClient. In CI, tests FAIL on cache miss — no live API
   calls. This prevents unexpected costs and non-deterministic CI results.
+
+### Tool authority partitioning (DEC-043)
+
+- When reviewing CI changes, check the one-authority-per-signal mapping:
+  CodeQL = first-party SAST, Codecov = coverage via Cobertura, SonarQube
+  Cloud = dashboard via OpenCover, dependency-review-action = license + CVE
+  gate. Reject any PR that adds a second tool owning the same signal.
+- Backend-specific: SonarQube Cloud ingests OpenCover only (no Cobertura
+  property exists for C#). Codecov ingests Cobertura. Do not merge them.
+
+### Snyk/Codacy proposal gate (DEC-043)
+
+- Reject any proposal to add Snyk or Codacy unless at least one of the
+  explicit reconsider-triggers in ROADMAP § Deferred Items has fired.
+  See DEC-043 in docs/decisions/decision-log.md.
 
 ## Ignore
 

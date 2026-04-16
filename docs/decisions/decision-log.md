@@ -1201,4 +1201,48 @@ T and I constants are the mean of back-solved percentages across VDOT 30–80 as
 
 ---
 
+## DEC-043: OSS Quality Tooling Restoration
+
+**Date:** 2026-04-15
+**Status:** Final
+**Category:** Quality pipeline / project governance
+**Informed by:** R-036 (`batch-14a-coderabbit-integration.md`), R-037 (`batch-14b-codeql-integration.md`), R-038 (`batch-14c-sonarqube-cloud-integration.md`), R-039 (`batch-14d-snyk-reevaluation.md`), R-040 (`batch-14e-codacy-reevaluation.md`), R-041 (`batch-14f-branch-protection.md`), R-042 (`batch-14g-license-trademark-attribution.md`), R-043 (`batch-14h-license-compliance-ci.md`).
+**Supersedes:** DEC-034's 2026-03-19 private-repo amendment (which stripped CodeRabbit, CodeQL, SonarQube Cloud, and branch protection from the pipeline).
+**Scope boundary:** DEC-042 (pace-calculator rewrite) — the internal VDOT code-identifier rename was added to DEC-042's scope as part of this restoration rather than being a separate pass.
+
+**Decision:** Restore the five-layer quality pipeline that DEC-034 originally designed, minus the permanently-cut Claude Code GitHub Action slot, now that the repo is public. Close the legal gaps (LICENSE, trademark, attribution) the public flip exposed. Partition every quality signal to a single authority. Encode the new conventions durably in CLAUDE.md and REVIEW.md so future AI sessions cannot re-open settled questions.
+
+**Ten decisions enacted:**
+
+1. **Dual-license architecture.** Apache-2.0 for all code; CC-BY-NC-SA-4.0 for coaching prompt YAML files under `backend/src/RunCoach.Api/Prompts/`. Distinct LICENSE files at each boundary.
+2. **VDOT trademark avoidance on user-facing surface.** Rename all user-facing references from "VDOT" to "Daniels-Gilbert zones" or "pace-zone index" per the Runalyze enforcement precedent (The Run SMART Project LLC). Internal code identifiers deferred to DEC-042.
+3. **CodeRabbit restore.** `.coderabbit.yaml` schema v2, profile=chill, module-scoped path_instructions, coaching-prompt no-touch rule, silenced on Dependabot PRs.
+4. **CodeQL restore.** `github/codeql-action` v4.35.1, `security-extended` queries (not `security-and-quality`), matrix over [csharp, javascript-typescript], C# build-mode=manual, Prompts excluded from analysis.
+5. **SonarQube Cloud restore.** Two-project monorepo pattern (runcoach-backend, runcoach-frontend), dotnet-sonarscanner for backend (OpenCover coverage — Cobertura not supported for C#), sonarqube-scan-action v7 for frontend (LCOV). Build-time analyzers untouched — Sonar is advisory dashboard, not compile-time gate.
+6. **License-compliance CI.** `actions/dependency-review-action` v4.9.0 as PR gate with Apache-2.0-compatible denylist. `anchore/sbom-action` v0.22.0 for weekly SBOM (SPDX 2.3 + CycloneDX 1.6). GitHub Automatic Dependency Submission for NuGet required (CPM not parsed by static graph).
+7. **Branch protection via repository ruleset.** Squash-only merge (signed commits + linear history forces this), required checks [gate, CodeQL×2, SonarQube×2, License Review], admin bypass "for pull requests only" with 24-hour issue follow-up.
+8. **One-authority-per-signal partitioning.** CodeQL = first-party SAST, Codecov = coverage via Cobertura, SonarQube Cloud = dashboard via OpenCover, dependency-review-action = license + CVE gate.
+9. **SHA-pinned GitHub Actions.** Every `uses:` line has a 40-character commit SHA plus `# vX.Y.Z` comment. Dependabot automates version bumps.
+10. **Convention encoding.** VDOT-avoidance rule and quality-pipeline authority map in all CLAUDE.md and REVIEW.md files.
+
+**Deferred with reconsider-triggers:**
+
+**Snyk** (R-039): Unique value is `@snyk/protect` transitive-patching for npm and proprietary-DB ~47-day CVE lead. Not needed while: (a) no PII ingestion, (b) no container deployments, (c) single maintainer can eyeball Dependabot, (d) no Dependabot miss on a high-severity CVE. Reconsider if any of these four triggers fire.
+
+**Codacy** (R-040): Zero residual value confirmed. Ships the same SonarAnalyzer.CSharp NuGet and the same eslint-plugin-sonarjs bundle the project already runs. SonarQube Cloud replicates its dashboard with deeper metrics. Reconsider only if a language module (Python, Rust) is added outside SonarQube Cloud's free-tier coverage.
+
+**CODEOWNERS file:** Deferred until the first external contributor joins (same trigger as Snyk reconsider #3).
+
+**Permanently cut:**
+
+**Claude Code GitHub Action.** Replaced by local `/review-pr` via Max + the user's deep-review skill. No `@claude` mentions on PRs. Do not re-propose.
+
+**Cross-references:**
+
+- DEC-042 scope expanded to include internal VDOT code-identifier rename (`VdotCalculator` → `PaceZoneIndexCalculator`, field/variable/test renames).
+- `docs/ci/unblock-procedures.md` documents the ruleset shape, emergency bypass, and eval-cache re-record workflow.
+- Spec: `docs/specs/09-spec-oss-tooling-restoration/09-spec-oss-tooling-restoration.md`.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

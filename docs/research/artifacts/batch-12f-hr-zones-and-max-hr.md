@@ -1,3 +1,5 @@
+> **User-facing rename (2026-04-15):** References to "VDOT" in this document are preserved as historical technical vocabulary. Per DEC-043, the project's user-facing surface now uses "Daniels-Gilbert zones" or "pace-zone index" terminology to avoid exposure to The Run SMART Project LLC trademark (Runalyze enforcement precedent). Artifact body retained as-is for research provenance.
+
 # Daniels' HR zones, max HR formulas, and what to implement
 
 **Jack Daniels' 4th edition provides %HRmax ranges for each training zone but deliberately avoids recommending any age-based max HR formula — he insists on field testing.** This means an AI running coach needs to look beyond Daniels for its default HRmax estimation, and the best evidence-backed replacement for `220 - age` is the Tanaka formula (`208 - 0.7 × age`), validated across 18,712 subjects. Critically, HR zones should be implemented as a separate, independent system from VDOT pace zones — Daniels treats them as parallel intensity markers, not coupled calculations. Every major coaching authority and recent exercise physiology research supports this architecture.

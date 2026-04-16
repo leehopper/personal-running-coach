@@ -1,3 +1,5 @@
+> **User-facing rename (2026-04-15):** References to "VDOT" in this document are preserved as historical technical vocabulary. Per DEC-043, the project's user-facing surface now uses "Daniels-Gilbert zones" or "pace-zone index" terminology to avoid exposure to The Run SMART Project LLC trademark (Runalyze enforcement precedent). Artifact body retained as-is for research provenance.
+
 # Option B wins: 3K-multiplier best reproduces Daniels R pace
 
 **The 3K-multiplier formulation (Option B) reproduces the official Daniels R-pace tables within 1 second across the entire VDOT 30–85 range, with an RMS error of 0.48 s.** Option A (mile prediction, linearly scaled) reaches 1.3 s error and shows systematic bias at mid-high VDOT. GoldenCheetah's fixed-fraction-of-vVDOT approach—a third method not in the original question—diverges by up to 3.7 s at the extremes. The oracle data comes from the Daniels' Running Formula published tables (DanielsOneSheet), which vdoto2.com confirmed match its calculator for VDOT ≥ 39 in a 2019 announcement.
