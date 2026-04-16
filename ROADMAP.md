@@ -122,8 +122,9 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 - CodeRabbit restored: `.coderabbit.yaml` schema v2, profile=chill, module-scoped path_instructions
 - CodeQL restored: v4.35.1, `security-extended` queries, matrix [csharp, javascript-typescript], build-mode=manual for C#
 - SonarQube Cloud restored: two-project monorepo (backend OpenCover, frontend LCOV), advisory dashboard alongside existing build-time analyzers
-- License-compliance CI: `dependency-review-action` v4.9.0 PR gate + `sbom-action` v0.22.0 weekly SBOM
-- Branch protection: `main-protection` ruleset with required checks, squash-only merge, signed commits, admin bypass with audit trail
+- License-compliance CI: `dependency-review-action` v4.9.0 PR gate (allow-licenses model) + `sbom-action` v0.24.0 weekly SBOM; NuGet Automatic Dependency Submission enabled
+- Branch protection: `main-protection` ruleset with 6 required checks [CI Gate, Analyze (csharp), Analyze (javascript-typescript), Backend analysis, Frontend analysis, License & dependency review], squash-only merge, admin bypass with audit trail
+- Action SHAs upgraded to Node.js 24 where available (setup-node v6.3.0, sonarqube-scan-action v7.1.0, sbom-action v0.24.0); dependency-review-action v4.9.0 remains on Node.js 20 (no upgrade available, monitor for v5.x before June 2026 forced migration)
 - One-authority-per-signal partitioning: CodeQL=SAST, Codecov=Cobertura coverage, SonarQube Cloud=OpenCover dashboard, dependency-review-action=license+CVE gate
 - Spec: `docs/specs/09-spec-oss-tooling-restoration/09-spec-oss-tooling-restoration.md`
 

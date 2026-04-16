@@ -9,23 +9,24 @@ the full design rationale.
 | Check name | Wired by | Tool |
 | --- | --- | --- |
 | `CI Gate` | `ci.yml` (original scaffolding) | GitHub Actions composite gate |
-| `Backend analysis` | Unit 5 (T05.1) | dotnet-sonarscanner |
-| `Frontend analysis` | Unit 5 (T05.1) | SonarSource/sonarqube-scan-action v7.1 |
-| `License & dependency review` | Unit 6 (T06.1) | actions/dependency-review-action v4.9 |
+| `Analyze (csharp)` | `codeql.yml` | github/codeql-action v4.35.1 |
+| `Analyze (javascript-typescript)` | `codeql.yml` | github/codeql-action v4.35.1 |
+| `Backend analysis` | `sonarqube.yml` | dotnet-sonarscanner v11.2.1 |
+| `Frontend analysis` | `sonarqube.yml` | SonarSource/sonarqube-scan-action v7.1.0 |
+| `License & dependency review` | `license-review.yml` | actions/dependency-review-action v4.9.0 |
 
-**Deferred until first successful run on main (add via Settings → Rules → Rulesets):**
+All six checks are active in the `main-protection` ruleset as of 2026-04-16.
 
-| Check name | Wired by | Tool |
-| --- | --- | --- |
-| `Analyze (csharp)` | Unit 4 (T04.1) | github/codeql-action v4.35.1 |
-| `Analyze (javascript-typescript)` | Unit 4 (T04.1) | github/codeql-action v4.35.1 |
+Note: GitHub Actions check names use `{job name}` without the workflow-name
+prefix for these workflows. The `required_signatures` rule was removed from
+the ruleset because GitHub's web UI signs squash-merge commits automatically
+with the web-flow GPG key, making the rule redundant for squash-only merge.
 
-Note: GitHub Actions check names are `{job name}` not `{workflow name} / {job name}` for these workflows. Verify exact names in the Actions tab after the first successful run before adding to the ruleset.
-
-The SonarQube Cloud GitHub App also posts separate checks named
+The SonarQube Cloud GitHub App also posts separate advisory checks named
 `[runcoach-backend] SonarCloud Code Analysis` and `[runcoach-frontend] SonarCloud Code Analysis`.
-These are the quality gate verdicts (coverage, duplication, security hotspots) from the same
-scan. They are advisory and not in the required-checks list.
+These report quality gate verdicts (coverage, duplication, security hotspots)
+from the same CI scan. They are not in the required-checks list — review
+hotspot findings in the SonarQube Cloud dashboard and mark as Safe/Won't Fix.
 
 ## Re-recording eval cache fixtures
 
