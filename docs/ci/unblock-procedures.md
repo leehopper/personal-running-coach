@@ -8,12 +8,24 @@ the full design rationale.
 
 | Check name | Wired by | Tool |
 | --- | --- | --- |
-| `gate` | `ci.yml` (original scaffolding) | GitHub Actions composite gate |
-| `CodeQL / Analyze (csharp)` | Unit 4 (T04.1) | github/codeql-action v4 |
-| `CodeQL / Analyze (javascript-typescript)` | Unit 4 (T04.1) | github/codeql-action v4 |
-| `SonarQube Cloud / Backend analysis` | Unit 5 (T05.1) | dotnet-sonarscanner |
-| `SonarQube Cloud / Frontend analysis` | Unit 5 (T05.1) | SonarSource/sonarqube-scan-action v7 |
-| `License Review / License & dependency review` | Unit 6 (T06.1) | actions/dependency-review-action v4 |
+| `CI Gate` | `ci.yml` (original scaffolding) | GitHub Actions composite gate |
+| `Backend analysis` | Unit 5 (T05.1) | dotnet-sonarscanner |
+| `Frontend analysis` | Unit 5 (T05.1) | SonarSource/sonarqube-scan-action v7.1 |
+| `License & dependency review` | Unit 6 (T06.1) | actions/dependency-review-action v4.9 |
+
+**Deferred until first successful run on main (add via Settings → Rules → Rulesets):**
+
+| Check name | Wired by | Tool |
+| --- | --- | --- |
+| `Analyze (csharp)` | Unit 4 (T04.1) | github/codeql-action v4.35.1 |
+| `Analyze (javascript-typescript)` | Unit 4 (T04.1) | github/codeql-action v4.35.1 |
+
+Note: GitHub Actions check names are `{job name}` not `{workflow name} / {job name}` for these workflows. Verify exact names in the Actions tab after the first successful run before adding to the ruleset.
+
+The SonarQube Cloud GitHub App also posts separate checks named
+`[runcoach-backend] SonarCloud Code Analysis` and `[runcoach-frontend] SonarCloud Code Analysis`.
+These are the quality gate verdicts (coverage, duplication, security hotspots) from the same
+scan. They are advisory and not in the required-checks list.
 
 ## Re-recording eval cache fixtures
 
