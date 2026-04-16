@@ -1,0 +1,217 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# ─────────────────────────────────────────────────────────────────────
+# CodeRabbit configuration for RunCoach
+# Schema v2 is still current as of 2026-04-15 (last schema update: 2026-04-13).
+# Docs: https://docs.coderabbit.ai/getting-started/yaml-configuration
+# ─────────────────────────────────────────────────────────────────────
+
+# Review language — matches our docs and comments standard.
+language: "en-US"
+
+# No early-access features; we want stable behavior only.
+early_access: false
+
+reviews:
+  # ── Tone & workflow ────────────────────────────────────────────────
+  # "chill" focuses on bugs, security, and logic errors. "assertive"
+  # adds style/naming/perf nits — start chill, re-evaluate after 4 weeks.
+  profile: "chill"
+
+  # Do NOT let CodeRabbit submit "Request Changes" reviews.
+  # Humans own the merge gate; CodeRabbit is advisory only.
+  request_changes_workflow: false
+
+  # ── PR summary controls ───────────────────────────────────────────
+  # Generate a high-level summary in each PR's walkthrough comment.
+  high_level_summary: true
+
+  # No poem — keeps walkthrough professional for external contributors.
+  poem: false
+
+  # Show review status messages so authors know CodeRabbit is working.
+  review_status: true
+
+  # Collapse walkthrough behind a <details> toggle to reduce scroll.
+  collapse_walkthrough: true
+
+  # Sequence diagrams are useful for backend module interactions.
+  sequence_diagrams: true
+
+  # ── Path filters ──────────────────────────────────────────────────
+  # Exclude paths that should never receive review comments.
+  # CodeRabbit already ignores node_modules, lockfiles (package-lock.json,
+  # yarn.lock, pnpm-lock.yaml, *.lock), .dll, .exe, .min.js, images,
+  # and many generated patterns by default. We add repo-specific exclusions.
+  path_filters:
+    - "!node_modules/**"                      # redundant but explicit
+    - "!**/package-lock.json"                 # redundant but explicit
+    - "!**/yarn.lock"                         # redundant but explicit
+    - "!**/pnpm-lock.yaml"                    # redundant but explicit
+    - "!backend/tests/eval-cache/**"          # committed eval fixture cache — never review
+    - "!**/*.generated.cs"                    # EF Core scaffolded / source-gen output
+    - "!**/*.g.cs"                            # .NET incremental source generators
+    - "!**/*.Designer.cs"                     # WinForms / resource designers
+    - "!frontend/src/**/*.generated.ts"       # any codegen TS files
+    - "!**/dist/**"                           # build output if ever committed
+    - "!**/*.min.js"                          # redundant but explicit
+    - "!**/*.min.css"                         # redundant but explicit
+
+  # ── Path instructions ─────────────────────────────────────────────
+  # Scoped review guidance per module. CodeRabbit's LLM reads these
+  # before reviewing files matching each glob pattern.
+  path_instructions:
+    # Backend module boundaries & deterministic/LLM split
+    - path: "backend/Modules/**/*.cs"
+      instructions: |
+        This is a modular .NET 10 backend. Each Module/ folder is a vertical
+        slice with its own DI registration, domain, and API surface.
+        When reviewing:
+        - Enforce module boundary isolation: a module must NOT reference
+          another module's internal types directly. Cross-module calls go
+          through contracts/interfaces in a shared Contracts project.
+        - Flag any code that mixes deterministic business logic with LLM
+          orchestration. Deterministic logic belongs in pure service classes;
+          LLM calls belong in dedicated *Agent or *Orchestrator classes.
+        - Verify that new public APIs have corresponding integration tests.
+        - Check for correct use of C# 14 features (primary constructors,
+          field keyword, extension types) consistent with the rest of the
+          codebase.
+
+    # Frontend — React 19 + RTK Query conventions
+    - path: "frontend/src/modules/**/*.{ts,tsx}"
+      instructions: |
+        This is a React 19 + Vite + TypeScript strict frontend using RTK
+        Query for data fetching. When reviewing:
+        - Ensure components use React 19 patterns (use() hook for async,
+          server component compatibility where applicable).
+        - Data fetching must use RTK Query endpoints, NOT raw fetch/axios
+          calls inside components.
+        - Verify TypeScript strict mode compliance (no `any`, no `as`
+          escape hatches without justification).
+        - Check that new modules register their RTK Query API slices via
+          the central store configuration.
+
+    # PROTECTED: coaching prompt IP — do NOT suggest rewording
+    - path: "backend/**/Prompts/*.yaml"
+      instructions: |
+        These YAML files contain proprietary coaching prompt intellectual
+        property. Do NOT suggest prompt wording changes, rephrasing,
+        restructuring of prompt text, or tone adjustments. Only flag:
+        - Broken YAML syntax
+        - Missing required YAML keys (if a schema is evident)
+        - Obvious security issues (e.g., prompt injection vectors)
+        All other commentary on these files should be suppressed.
+
+    # PROTECTED: ADR files — append-only historical record
+    - path: "docs/decisions/*.md"
+      instructions: |
+        Architecture Decision Records are append-only historical documents.
+        Do NOT suggest rewording, restructuring, or stylistic changes.
+        Do NOT post individual line-level review comments on these files.
+        Only include them in the high-level PR summary walkthrough.
+        Flag only: broken Markdown links or obviously incorrect dates.
+
+    # PROTECTED: plan files — similar treatment to ADRs
+    - path: "docs/plans/**"
+      instructions: |
+        Plan documents are living project artifacts authored by humans.
+        Do NOT suggest rewording or restructuring. Do NOT post line-level
+        review comments. Only include in the high-level PR summary.
+        Flag only: broken Markdown links or factual inconsistencies
+        with linked ADRs.
+
+  # ── Auto-review controls ──────────────────────────────────────────
+  auto_review:
+    enabled: true
+    drafts: false                            # skip draft PRs
+
+    # Dependabot & Renovate: skip automatically — prevents noise on
+    # version-bump PRs. Exact usernames, case-sensitive, [bot] suffix.
+    ignore_usernames:
+      - "dependabot[bot]"
+      - "renovate[bot]"
+      - "github-actions[bot]"
+
+    # Skip WIP PRs by title keyword
+    ignore_title_keywords:
+      - "WIP"
+      - "[skip review]"
+      - "do not merge"
+
+    # Re-review on each push, but pause after 5 commits to avoid
+    # flooding long-lived PRs.
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 5
+
+  # ── Tools configuration ───────────────────────────────────────────
+  tools:
+    # Read GitHub Checks annotations from our existing CI (Trivy, Codecov,
+    # dotnet build warnings). CodeRabbit can suggest fixes for CI failures.
+    github-checks:
+      enabled: true
+      timeout_ms: 120000                     # 2 min — our CI can be slow
+
+    # DISABLE CodeRabbit's built-in ESLint — we already run
+    # eslint-plugin-sonarjs in CI via Lefthook pre-commit and GitHub
+    # Actions. Enabling this would double-report.
+    eslint:
+      enabled: false
+
+    # CodeRabbit has no built-in Roslyn/C# analyzer, so there is no
+    # setting to disable. It will not duplicate SonarAnalyzer.CSharp
+    # findings directly. The LLM may independently flag overlapping
+    # issues, but profile: "chill" minimizes this.
+
+    # Keep secret scanning on — Betterleaks replaced Gitleaks in Mar 2026.
+    gitleaks:
+      enabled: true
+
+    # Keep Semgrep enabled for security rules the LLM might miss.
+    semgrep:
+      enabled: true
+
+    # YAML lint — useful for our Prompts/*.yaml files (syntax only).
+    yamllint:
+      enabled: true
+
+    # Markdown lint for docs — light touch.
+    markdownlint:
+      enabled: true
+
+    # Shell check for any scripts.
+    shellcheck:
+      enabled: true
+
+    # Hadolint if we add Dockerfiles.
+    hadolint:
+      enabled: true
+
+    # Disable tools we don't need.
+    ruff:
+      enabled: false                         # no Python in this repo
+    biome:
+      enabled: false                         # we use ESLint, not Biome
+    golangci-lint:
+      enabled: false                         # no Go in this repo
+
+  # ── Finishing touches ─────────────────────────────────────────────
+  finishing_touches:
+    docstrings:
+      enabled: false                         # we manage XML docs manually
+    unit_tests:
+      enabled: false                         # we write our own tests
+
+# ── Chat settings ─────────────────────────────────────────────────
+chat:
+  auto_reply: true                           # respond to @coderabbitai mentions
+
+# ── Knowledge base ────────────────────────────────────────────────
+knowledge_base:
+  opt_out: false                             # allow learning from our repo
+  learnings:
+    scope: "auto"                            # learn from dismissed comments
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "**/CLAUDE.md"                       # AI coding guidelines
+      - "**/CONTRIBUTING.md"
