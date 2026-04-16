@@ -42,6 +42,9 @@ jobs:
             OSL-3.0, CPL-1.0, BSD-4-Clause,
             SSPL-1.0, BUSL-1.1,
             CC-BY-SA-4.0, CC-BY-NC-4.0, CC-BY-NC-SA-4.0, CC-BY-ND-4.0, CC-BY-NC-ND-4.0
+          # GitHub Actions are CI tools, not runtime dependencies shipped with
+          # the product. LGPL-3.0 on a CI action has no copyleft implications.
+          allow-dependencies-licenses: "pkg:githubactions/SonarSource/sonarqube-scan-action"
           comment-summary-in-pr: always
           retry-on-snapshot-warnings: true
           retry-on-snapshot-warnings-timeout: 180
