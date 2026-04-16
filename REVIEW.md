@@ -94,6 +94,22 @@ frontier
 - Confirm error handling covers edge cases — AI-generated code is
   "confidently incomplete" with clean happy paths but missing failure modes.
 
+### Trademark: VDOT
+
+- CRITICAL: Flag any introduction of the string "VDOT" on user-facing surface.
+  This covers coaching prompt YAML files under `backend/src/RunCoach.Api/Prompts/`,
+  README, ROADMAP, active `docs/planning/` docs, UI strings, API response
+  payloads, generated plan narrative, error messages, and commit messages.
+  The VDOT mark is enforced by The Run SMART Project LLC (Runalyze
+  precedent). Use "Daniels-Gilbert zones" or "pace-zone index" instead.
+- Internal code identifiers (class names like `VdotCalculator`, field names
+  like `EstimatedVdot`, test class names) are explicitly exempt until
+  DEC-042's pace-calculator rewrite replaces them. Do not flag those.
+- Historical research artifacts under `docs/research/artifacts/` and
+  historical DEC entries in `docs/decisions/decision-log.md` are also exempt
+  — they are append-only records preserved as-is with a top-of-file rename
+  note per DEC-043.
+
 ## Ignore
 
 # Pre-populated for known framework patterns

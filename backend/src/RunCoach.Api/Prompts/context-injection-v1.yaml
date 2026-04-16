@@ -58,18 +58,18 @@ sections:
 
       - key: "fitness_estimate"
         source: "FitnessEstimate"
-        description: "Current fitness level assessment with VDOT and basis"
+        description: "Current fitness level assessment with pace-zone index and basis"
         token_estimate: 300
         required: true
         format: >
-          VDOT: {EstimatedVdot}
+          Pace-zone index: {EstimatedVdot}
           Fitness level: {FitnessLevel}
           Assessment basis: {AssessmentBasis}
           Assessed on: {AssessedOn}
 
       - key: "training_paces"
         source: "TrainingPaces"
-        description: "Deterministically computed training pace zones from VDOT — authoritative, not to be overridden"
+        description: "Deterministically computed training pace zones from Daniels-Gilbert equations — authoritative, not to be overridden"
         token_estimate: 400
         required: true
         format: >

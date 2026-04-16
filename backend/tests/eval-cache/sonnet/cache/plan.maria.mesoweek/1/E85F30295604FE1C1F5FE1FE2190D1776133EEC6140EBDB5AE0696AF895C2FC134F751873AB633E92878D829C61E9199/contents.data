@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Easy long run at 5:22–5:56/km. Cap at 20 km or 120 min, whichever comes first. This is your aerobic anchor for the week — keep it conversational and relaxed.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. After Sunday's long run, letting your body absorb the work is just as important as the run itself.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run, 10–11 km at 5:22–5:56/km. Shake out the legs from Sunday. If you feel flat, the slower end of that range is the right call.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Threshold workout: 2 km easy warm-up, then 4×8 min at 4:28/km with 90 sec easy jog recovery, 2 km easy cool-down. Total ~13 km. This is the quality anchor of your week — it maintains your lactate threshold without digging a deep hole.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run, 10 km at 5:22–5:56/km. This bridges Thursday's quality work and Friday's run. Keep effort genuinely easy — this is not a junk mile day, it's a recovery-in-motion day.\"},{\"day_of_week\":5,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Low-impact cross-training: 30–45 min of cycling, swimming, or yoga. Keeps aerobic stimulus without adding run-specific load. A great day to check in with your Achilles — any tightness worth noting?\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run, 10–11 km at 5:22–5:56/km. Finish the week on a comfortable, confidence-building note. No heroics — just steady, relaxed running.\"}],\"week_summary\":\"Welcome to your maintenance plan, Maria. This first week is designed to match your recent training rhythm — you've been running 62–64 km on your best weeks, and we're landing at 55 km intentionally. Your last recorded week dipped to 47 km, so this is a measured, respectful step back up rather than a jump. The structure follows an 80/20 principle: one threshold session on Thursday is your sole quality stimulus, everything else is aerobic base work. The cross-train day on Friday protects your Achilles history while keeping you active six days. The goal this week is simple: re-establish your rhythm, protect your fitness, and feel good doing it. What would be most helpful to know going into Sunday's long run?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2312,
+    "outputTokenCount": 735,
+    "totalTokenCount": 3047
+  }
+}

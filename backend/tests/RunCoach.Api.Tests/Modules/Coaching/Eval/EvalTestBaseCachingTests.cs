@@ -51,7 +51,7 @@ public sealed class EvalTestBaseCachingTests : EvalTestBase
         Settings.ModelId.Should().Be("claude-sonnet-4-6");
         Settings.JudgeModelId.Should().Be("claude-haiku-4-5");
         Settings.Temperature.Should().Be(0.3);
-        Settings.MaxTokens.Should().Be(4096);
+        Settings.MaxTokens.Should().Be(8192);
     }
 
     [Fact]

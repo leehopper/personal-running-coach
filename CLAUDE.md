@@ -85,6 +85,10 @@ Never ad-hoc web search for planning decisions. Always: add topic to research qu
 - Secrets go in environment variables or git-ignored files
 - Use .NET user-secrets for local dev
 
+## Trademark Rule: VDOT
+
+User-facing surface (coaching prompts, UI strings, README, documentation, API responses, commit messages, PR descriptions) must use "**Daniels-Gilbert zones**", "**pace-zone index**", or generic exercise-physiology terminology — **not** "VDOT". The VDOT mark is actively enforced by The Run SMART Project LLC: it compelled Runalyze to remove all VDOT-named features. A public OSS repo will not fly under the radar. Internal code identifiers, variable names, private implementation, and historical research artifacts may use VDOT freely until DEC-042's pace-calculator rewrite replaces them with `PaceZoneIndexCalculator` and friends. When in doubt, treat anything that will appear in an LLM prompt, a user-visible string, a generated plan, a badge, or a README as user-facing. See `NOTICE` for the full disclaimer text and `docs/research/artifacts/batch-14g-license-trademark-attribution.md` for the precedent research.
+
 ## PR Review Protocol
 
 Before merging any PR, run `/review-pr` locally via Claude Code Max subscription. Focus human review on:

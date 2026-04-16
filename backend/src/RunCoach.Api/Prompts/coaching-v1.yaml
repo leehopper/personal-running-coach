@@ -299,7 +299,7 @@ context_injection:
     {{FITNESS_ESTIMATE}}
 
 
-    === TRAINING PACES (computed from VDOT — use these exactly) ===
+    === TRAINING PACES (computed from Daniels-Gilbert zones — use these exactly) ===
 
     {{TRAINING_PACES}}
 

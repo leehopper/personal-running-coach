@@ -1,3 +1,5 @@
+> **User-facing rename (2026-04-15):** References to "VDOT" in this document are preserved as historical technical vocabulary. Per DEC-043, the project's user-facing surface now uses "Daniels-Gilbert zones" or "pace-zone index" terminology to avoid exposure to The Run SMART Project LLC trademark (Runalyze enforcement precedent). Artifact body retained as-is for research provenance.
+
 # Zone structure and VDOT continuity in Daniels' Running Formula
 
 **The 4th edition of Daniels' Running Formula defines exactly five pace-table zones (E, M, T, I, R) but references up to nine training-type abbreviations in its plans, and VDOT is mathematically continuous despite the book presenting only integer tables.** For an AI running coach implementation, the five-zone assumption holds for the pace-table layer, but the computation layer should use direct equation evaluation rather than table interpolation. The official Daniels-affiliated calculator at vdoto2.com already outputs decimal VDOT values and provides a sixth zone (Fast Reps), confirming that the integer-only book presentation is a print-era simplification rather than a design constraint.

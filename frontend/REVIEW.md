@@ -105,6 +105,21 @@
   elements must have visible focus styles. Form inputs require associated
   labels. Color combinations must meet WCAG 2.1 AA contrast ratios.
 
+### Trademark: VDOT
+
+- CRITICAL: Flag any appearance of "VDOT" in any frontend source file. This
+  includes JSX text, component props, form labels, tooltip text, error
+  messages, page copy, shadcn/ui string props, TypeScript type names,
+  variable names, test-file strings, and telemetry field names. Use
+  "Daniels-Gilbert zones" or "pace-zone index" instead. The VDOT mark is
+  enforced by The Run SMART Project LLC (Runalyze precedent).
+- The frontend has no internal-code carve-out — every string on this tier
+  either renders to a user or is logged/telemetered and becomes user-facing
+  by proxy. Apply the rule uniformly.
+- When generating new pages, components, or forms that reference fitness
+  metrics, default to "Daniels-Gilbert zones" or "pace-zone index" language
+  from the start. Do not require a fix-up review pass to remove VDOT.
+
 ### Testing (Vitest + RTL)
 
 - Use screen.getByRole/getByLabelText over getByTestId. RTL queries follow

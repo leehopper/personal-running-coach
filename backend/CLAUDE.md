@@ -1,5 +1,7 @@
 # Backend — .NET 10 / ASP.NET Core
 
+> **Trademark rule — VDOT.** User-facing surface (coaching prompt YAML under `src/RunCoach.Api/Prompts/`, API responses, generated plan narrative, error messages) must use "Daniels-Gilbert zones" or "pace-zone index" — **not** "VDOT". The VDOT mark is enforced by The Run SMART Project LLC (Runalyze precedent). Internal code identifiers, including `VdotCalculator`, `IVdotCalculator`, `EstimatedVdot`, and test class names, may continue to use VDOT until DEC-042's pace-calculator rewrite replaces them with `PaceZoneIndexCalculator` and friends. See root `CLAUDE.md` and `NOTICE` for full context.
+
 ## Stack
 
 See root CLAUDE.md for full tech stack. Additionally: Swashbuckle (OpenAPI), Anthropic SDK, YamlDotNet, M.E.AI.Evaluation (test project).
@@ -127,6 +129,17 @@ Run from `backend/`:
 - `dotnet build` — build all projects
 - `dotnet test` — run all tests
 - `dotnet restore --force` — force NuGet restore
+
+## API Key Configuration
+
+The main API project and the test project use **different** user-secrets stores:
+
+| Project | UserSecretsId | Set command |
+| --- | --- | --- |
+| `src/RunCoach.Api` | `runcoach-api` | `dotnet user-secrets set "Anthropic:ApiKey" "<key>" --project backend/src/RunCoach.Api` |
+| `tests/RunCoach.Api.Tests` | `runcoach-api-tests` | `dotnet user-secrets set "Anthropic:ApiKey" "<key>" --project backend/tests/RunCoach.Api.Tests` |
+
+**The eval tests read from `runcoach-api-tests`, not `runcoach-api`.** Setting the key on the wrong project is the most common cause of "credit balance too low" errors when the key is known-good. The `rerecord-eval-cache.sh` script checks user-secrets on the main project (step 1) but the tests themselves read from the test project's store. Both must be configured.
 
 ## Post-Change
 

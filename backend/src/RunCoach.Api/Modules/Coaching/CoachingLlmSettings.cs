@@ -34,7 +34,7 @@ public sealed record CoachingLlmSettings
     /// Gets maximum tokens for the response.
     /// Defaults to 4096 per coaching-v1.yaml.
     /// </summary>
-    public int MaxTokens { get; init; } = 4096;
+    public int MaxTokens { get; init; } = 8192;
 
     /// <summary>
     /// Gets maximum number of retries for failed requests (rate limits, transient errors).

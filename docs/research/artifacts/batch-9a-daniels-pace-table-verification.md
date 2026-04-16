@@ -1,3 +1,5 @@
+> **User-facing rename (2026-04-15):** References to "VDOT" in this document are preserved as historical technical vocabulary. Per DEC-043, the project's user-facing surface now uses "Daniels-Gilbert zones" or "pace-zone index" terminology to avoid exposure to The Run SMART Project LLC trademark (Runalyze enforcement precedent). Artifact body retained as-is for research provenance.
+
 > **Errata (2026-04-15):** This artifact did not verify VDOT 30–49 cell values against any authoritative source — the recommendation was "likely correct, spot-check" based on step-size consistency alone. A 2026-04-14 computational audit found residual anomalies at the VDOT 49→50 boundary in the Interval (+1.55 pp) and Repetition (+3.69 pp) columns after the DEC-040 row-shift fix was applied. Cause: the fix was applied by shifting pre-existing (also erroneous) data rather than re-deriving from the book. Superseded by the equation-based rewrite direction in DEC-042. See R-025 (`batch-11-daniels-implementation-patterns.md`) and R-028 (`batch-12c-pace-zone-derivation-constants.md`) for the corrected path.
 
 # Daniels VDOT 50 is an off-by-one row shift, not an edition mismatch

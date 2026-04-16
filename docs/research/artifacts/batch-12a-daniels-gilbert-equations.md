@@ -1,3 +1,5 @@
+> **User-facing rename (2026-04-15):** References to "VDOT" in this document are preserved as historical technical vocabulary. Per DEC-043, the project's user-facing surface now uses "Daniels-Gilbert zones" or "pace-zone index" terminology to avoid exposure to The Run SMART Project LLC trademark (Runalyze enforcement precedent). Artifact body retained as-is for research provenance.
+
 # Daniels-Gilbert equations: a complete implementation reference
 
 **The Daniels-Gilbert VDOT system rests on exactly two equations — a quadratic oxygen cost curve and a double-exponential duration curve — whose coefficients have remained unchanged since 1979.** Computing VDOT from a race result is a direct algebraic calculation requiring no iteration. Computing training paces requires inverting the quadratic (also analytical), while predicting equivalent race times requires Newton-Raphson iteration. The training zones are derived through a hybrid approach: Threshold and Interval paces use fixed %VO₂max targets, but Marathon and Repetition paces are race-prediction equivalents whose %VO₂max varies with VDOT level. This distinction is critical for a faithful implementation.

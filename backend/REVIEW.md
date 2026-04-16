@@ -62,6 +62,21 @@
   data (user profiles, settings) should use EF Core relational tables, not
   event streams.
 
+### Trademark: VDOT on prompt content
+
+- CRITICAL: Flag any introduction of the literal string "VDOT" inside
+  `src/RunCoach.Api/Prompts/*.yaml`. These files are LLM prompt content and
+  any "VDOT" token flows directly into user-facing coaching output. Use
+  "Daniels-Gilbert zones" or "pace-zone index" instead. The VDOT mark is
+  enforced by The Run SMART Project LLC (Runalyze precedent).
+- Internal C# identifiers (`VdotCalculator`, `IVdotCalculator`,
+  `EstimatedVdot`, test class names, variable names) are explicitly exempt
+  until DEC-042's pace-calculator rewrite lands. Do not flag those in code
+  files.
+- API response DTOs, `ProblemDetails` error messages, and any string that
+  may reach a frontend or an HTTP consumer are treated as user-facing and
+  must avoid "VDOT".
+
 ### LLM integration
 
 - CRITICAL: No hardcoded prompts in C# code. All prompts must be loaded from

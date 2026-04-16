@@ -1,5 +1,7 @@
 # Research Queue
 
+> **User-facing rename (2026-04-15).** Historical research topic names and body paragraphs in this file preserve the original term "VDOT" as used at the time each research topic was raised. Per DEC-043, the project's user-facing surface now uses "Daniels-Gilbert zones" or "pace-zone index" terminology to avoid exposure to The Run SMART Project LLC trademark (Runalyze enforcement precedent). Future research topics added to this queue should use the new terminology unless the topic is specifically about the trademarked term itself.
+
 Topics to hand off to a deep research agent. Each entry captures the question, why it matters, and where findings should feed back into the planning docs. Full research artifacts live in `research/artifacts/` — only outcomes and key takeaways get pulled into the main planning documents.
 
 ## How to Use

@@ -1,5 +1,7 @@
 # POC 1 — LLM Testing Architecture Refactor
 
+> **Historical record (2026-04-15).** This plan file documents completed POC 1 work and is preserved as-is for provenance. References to "VDOT" as a numeric fitness metric in this document predate the user-facing terminology rename captured in DEC-043 (coming); the project's user-facing surface now uses "Daniels-Gilbert zones" or "pace-zone index" language. The internal code-identifier rename (`VdotCalculator` → `PaceZoneIndexCalculator`) is scheduled as part of DEC-042's pace-calculator rewrite, not as a separate pass. See `docs/decisions/decision-log.md` § DEC-043 for the trademark enforcement precedent that drove the rename.
+
 **Decision:** DEC-036
 **Target branch:** `feature/poc1-context-injection-v2` (PR #17)
 **Status:** Plan complete, awaiting spec/implementation
