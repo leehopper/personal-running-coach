@@ -1,0 +1,36 @@
+# Scoped CodeQL config for RunCoach — security-extended queries only.
+# Quality/style rules are handled by SonarAnalyzer.CSharp + eslint-plugin-sonarjs
+# to avoid double-reporting.
+name: "RunCoach CodeQL config"
+
+queries:
+  - uses: security-extended
+
+paths:
+  - "backend/src"
+  - "frontend/src"
+
+paths-ignore:
+  # Test files
+  - "backend/tests"
+  - "backend/tests/eval-cache"
+  - "frontend/src/**/*.test.ts"
+  - "frontend/src/**/*.test.tsx"
+  # Coaching prompt IP — content, not code
+  - "backend/src/RunCoach.Api/Prompts"
+  # Generated / build artifacts
+  - "**/obj"
+  - "**/bin"
+  - "**/node_modules"
+  - "**/*.generated.cs"
+  - "**/*.Designer.cs"
+  - "**/wwwroot/lib"
+
+# cs/hardcoded-credentials was removed from CodeQL in CLI 2.21.4 (May 2025).
+# GitHub now recommends Secret Scanning for credential detection.
+# Defense-in-depth in case an older CLI is pinned.
+query-filters:
+  - exclude:
+      id: cs/hardcoded-credentials
+  - exclude:
+      id: cs/hardcoded-connection-string-credentials
