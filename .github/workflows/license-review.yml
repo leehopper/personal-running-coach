@@ -1,0 +1,48 @@
+# .github/workflows/license-review.yml
+# PR gate: license compliance + vulnerability check for .NET 10 + React 19 monorepo
+# Requires: GitHub Automatic Dependency Submission enabled for NuGet
+#   Settings -> Code security -> Dependency graph -> Automatic dependency submission -> NuGet
+#   Without this, dependency-review-action reports all CPM-managed NuGet packages as >= 0
+#   and misses transitive dependencies. See R-043 (batch-14h).
+
+name: License Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write  # Required to post PR comment on violation
+
+jobs:
+  dependency-review:
+    name: License & dependency review
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48  # v4.9.0
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime
+          show-patched-versions: true
+          # Apache-2.0 denylist per R-043 (batch-14h).
+          # GPL-2.0-only is specifically incompatible with Apache-2.0 due to
+          # patent-termination clause conflicts (confirmed by FSF and ASF).
+          # LGPL denied because static linking/bundling triggers full copyleft.
+          # SSPL-1.0 and BUSL-1.1 are not OSI-approved.
+          deny-licenses: >-
+            GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later,
+            AGPL-3.0-only, AGPL-3.0-or-later,
+            LGPL-2.0-only, LGPL-2.0-or-later, LGPL-2.1-only, LGPL-2.1-or-later,
+            LGPL-3.0-only, LGPL-3.0-or-later,
+            EUPL-1.1, EUPL-1.2, CDDL-1.0, CDDL-1.1, EPL-1.0, EPL-2.0,
+            OSL-3.0, CPL-1.0, BSD-4-Clause,
+            SSPL-1.0, BUSL-1.1,
+            CC-BY-SA-4.0, CC-BY-NC-4.0, CC-BY-NC-SA-4.0, CC-BY-ND-4.0, CC-BY-NC-ND-4.0
+          comment-summary-in-pr: always
+          retry-on-snapshot-warnings: true
+          retry-on-snapshot-warnings-timeout: 180

@@ -1,0 +1,66 @@
+# .github/workflows/license-sbom.yml
+# Weekly SBOM generation for .NET 10 + React 19 monorepo.
+# Generates SPDX 2.3 and CycloneDX 1.6 SBOM files, uploads as workflow
+# artifacts (90-day retention), and submits to GitHub Dependency Graph.
+# Cron offset from the hour to avoid Actions queue spikes per R-043 (batch-14h).
+
+name: Weekly SBOM Generation
+
+on:
+  schedule:
+    - cron: '25 6 * * 1'  # Monday 06:25 UTC
+  workflow_dispatch:        # Allow manual trigger for testing
+
+permissions:
+  contents: write  # Required for dependency-snapshot upload
+
+jobs:
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5.2.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # Restore generates project.assets.json, which Syft's NuGet cataloguers
+      # read to detect transitive dependencies. Without this step anchore/sbom-action
+      # sees only top-level packages declared in .csproj files.
+      - name: Restore .NET packages
+        run: dotnet restore backend/RunCoach.slnx
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Generate SBOM (SPDX 2.3)
+        uses: anchore/sbom-action@62ad5284b8ced813296287a0b63906cb364b73ee  # v0.22.0
+        with:
+          path: .
+          format: spdx-json
+          artifact-name: sbom-spdx.json
+          dependency-snapshot: true   # Upload to GitHub Dependency Graph
+          upload-artifact: true
+          upload-artifact-retention: 90
+
+      - name: Generate SBOM (CycloneDX 1.6)
+        uses: anchore/sbom-action@62ad5284b8ced813296287a0b63906cb364b73ee  # v0.22.0
+        with:
+          path: .
+          format: cyclonedx-json
+          artifact-name: sbom-cyclonedx.json
+          dependency-snapshot: false  # Already submitted in SPDX step
+          upload-artifact: true
+          upload-artifact-retention: 90

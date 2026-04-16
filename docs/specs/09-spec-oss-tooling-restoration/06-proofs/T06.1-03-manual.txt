@@ -1,0 +1,24 @@
+Type: url (manual - scheduled run verification)
+Command: Actions scheduled runs following Monday
+Expected: license-sbom.yml green
+Timestamp: 2026-04-15T22:46:00Z
+
+Visual proof cannot be captured pre-merge. This proof is deferred to post-merge validation.
+
+The license-sbom.yml workflow is configured for verification as follows:
+  - Cron: '25 6 * * 1' (first Monday after merge, 06:25 UTC)
+  - continue-on-error: true during bake week
+  - workflow_dispatch trigger allows manual early test
+
+Post-merge validation steps:
+  1. Optionally trigger the workflow manually via workflow_dispatch to verify before Monday
+  2. Or wait for scheduled Monday 06:25 UTC run
+  3. Verify both SBOM artifacts uploaded: sbom-spdx.json and sbom-cyclonedx.json
+  4. Verify dependency snapshot submitted to GitHub Dependency Graph
+
+HARD PREREQUISITE (user action required):
+  Settings -> Code security -> Dependency graph -> Automatic dependency submission -> NuGet
+  Must be enabled BEFORE first workflow run. Without it, NuGet CPM packages (Directory.Packages.props)
+  report as >= 0 and transitive dependencies are missed.
+
+Status: SKIPPED (visual_method: skip per task metadata)
