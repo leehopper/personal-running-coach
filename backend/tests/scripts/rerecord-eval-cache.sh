@@ -17,14 +17,22 @@ CACHE_DIR="$BACKEND_DIR/tests/eval-cache"
 echo "=== Eval Cache Re-Recording (DEC-039) ==="
 echo ""
 
-# Step 0: Verify API key is available
+# Step 0: Verify API key is available in the TEST project's user-secrets
+# (The test project has UserSecretsId=runcoach-api-tests, separate from the API project's runcoach-api)
 echo "[1/5] Checking API key..."
-if ! dotnet user-secrets list --project "$BACKEND_DIR/src/RunCoach.Api" 2>/dev/null | grep -q "Anthropic:ApiKey"; then
-    echo "ERROR: No Anthropic API key found in user-secrets."
-    echo "Set it with: dotnet user-secrets set \"Anthropic:ApiKey\" \"<key>\" --project backend/src/RunCoach.Api"
-    exit 1
+TEST_PROJECT="$BACKEND_DIR/tests/RunCoach.Api.Tests"
+if ! dotnet user-secrets list --project "$TEST_PROJECT" 2>/dev/null | grep -q "Anthropic:ApiKey"; then
+    if [ -n "$ANTHROPIC_API_KEY" ]; then
+        echo "  No key in test user-secrets, but ANTHROPIC_API_KEY env var is set (will be used as fallback)."
+    else
+        echo "ERROR: No Anthropic API key found."
+        echo "Set it with: dotnet user-secrets set \"Anthropic:ApiKey\" \"<key>\" --project backend/tests/RunCoach.Api.Tests"
+        echo "Or export ANTHROPIC_API_KEY in your shell."
+        exit 1
+    fi
+else
+    echo "  API key found in test user-secrets."
 fi
-echo "  API key found."
 
 # Step 1: Delete existing cache
 echo "[2/5] Deleting existing cache at $CACHE_DIR..."

@@ -132,6 +132,19 @@
 - Wrap only async operations in waitFor. Use findBy*queries (built-in getBy*
   - waitFor) for elements that appear asynchronously.
 
+### Tool authority partitioning (DEC-043)
+
+- When reviewing CI changes, check the one-authority-per-signal mapping:
+  CodeQL = first-party SAST, Codecov = coverage via Cobertura, SonarQube
+  Cloud = dashboard via LCOV, dependency-review-action = license + CVE
+  gate. Reject any PR that adds a second tool owning the same signal.
+
+### Snyk/Codacy proposal gate (DEC-043)
+
+- Reject any proposal to add Snyk or Codacy unless at least one of the
+  explicit reconsider-triggers in ROADMAP § Deferred Items has fired.
+  See DEC-043 in docs/decisions/decision-log.md.
+
 ## Ignore
 
 # 2026-03-25: Zod fluent API chains are intentionally long

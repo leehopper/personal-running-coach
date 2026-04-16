@@ -122,6 +122,10 @@ LLM evaluation tests live in `tests/RunCoach.Api.Tests/Modules/Coaching/Eval/`:
 - **CI runs in Replay mode** — zero API calls, uses committed fixtures in `tests/eval-cache/`
 - To re-record fixtures: `ANTHROPIC_API_KEY=... EVAL_CACHE_MODE=Record dotnet test` (or use `tests/scripts/rerecord-eval-cache.sh`)
 
+## Quality Pipeline (DEC-043)
+
+See root `CLAUDE.md` for the full five-layer pipeline. Backend-specific notes: CodeQL runs in `build-mode: manual` reusing the `dotnet restore` + `dotnet build --no-restore` flow. SonarQube Cloud ingests OpenCover coverage (not Cobertura — that property does not exist for C#). Build-time `SonarAnalyzer.CSharp` remains the compile-time hard gate via `TreatWarningsAsErrors`; SonarQube Cloud is advisory dashboard only. `backend/src/RunCoach.Api/Prompts/` is excluded from CodeQL and SonarQube analysis (coaching-prompt IP no-touch).
+
 ## Build & Test Commands
 
 Run from `backend/`:

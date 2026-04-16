@@ -118,6 +118,21 @@
   ResponseCachingChatClient. In CI, tests FAIL on cache miss — no live API
   calls. This prevents unexpected costs and non-deterministic CI results.
 
+### Tool authority partitioning (DEC-043)
+
+- When reviewing CI changes, check the one-authority-per-signal mapping:
+  CodeQL = first-party SAST, Codecov = coverage via Cobertura, SonarQube
+  Cloud = dashboard via OpenCover, dependency-review-action = license + CVE
+  gate. Reject any PR that adds a second tool owning the same signal.
+- Backend-specific: SonarQube Cloud ingests OpenCover only (no Cobertura
+  property exists for C#). Codecov ingests Cobertura. Do not merge them.
+
+### Snyk/Codacy proposal gate (DEC-043)
+
+- Reject any proposal to add Snyk or Codacy unless at least one of the
+  explicit reconsider-triggers in ROADMAP § Deferred Items has fired.
+  See DEC-043 in docs/decisions/decision-log.md.
+
 ## Ignore
 
 # 2026-03-25: EF Core migrations are generated, naming conventions don't apply

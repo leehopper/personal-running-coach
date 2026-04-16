@@ -99,6 +99,10 @@ Before merging any PR, run `/review-pr` locally via Claude Code Max subscription
 5. Scope creep — did the AI change things beyond what was asked?
 6. Dependency verification — do all referenced packages actually exist?
 
+## Quality Pipeline (DEC-043)
+
+Five-layer pipeline: pre-commit (Lefthook), PR review (CodeRabbit + local `/review-pr`), CI (CodeQL SAST, SonarQube Cloud, license-review gate, Trivy, Codecov), build-time analysis (SonarAnalyzer.CSharp + eslint-plugin-sonarjs via TreatWarningsAsErrors), human review. One authority per signal — CodeQL owns first-party SAST, Codecov owns coverage via Cobertura, SonarQube Cloud owns the dashboard via OpenCover, dependency-review-action owns license + CVE gating. Do not add a second tool that owns the same signal. Do not re-propose Snyk or Codacy without checking the reconsider-triggers in ROADMAP § Deferred Items — see DEC-043 in `docs/decisions/decision-log.md` for the full rationale. Branch protection via `main-protection` ruleset — see `docs/ci/unblock-procedures.md` for operational reference.
+
 ## Post-Change Checklist
 
 - [ ] `dotnet build` passes (backend changes)

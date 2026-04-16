@@ -6,6 +6,10 @@
 
 See root CLAUDE.md for full tech stack. Additionally: eslint-plugin-sonarjs (build-time analysis), Zod v4.
 
+## Quality Pipeline (DEC-043)
+
+See root `CLAUDE.md` for the full five-layer pipeline. Frontend-specific notes: CodeQL uses `build-mode: none` with the combined `javascript-typescript` identifier. SonarQube Cloud ingests LCOV coverage from `npm run test -- --coverage`. Build-time `eslint-plugin-sonarjs` remains the compile-time hard gate; SonarQube Cloud is advisory dashboard only.
+
 ## Build & Dev Commands
 
 Run from `frontend/`:
