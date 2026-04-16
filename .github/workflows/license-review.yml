@@ -28,23 +28,18 @@ jobs:
           fail-on-severity: high
           fail-on-scopes: runtime
           show-patched-versions: true
-          # Apache-2.0 denylist per R-043 (batch-14h).
-          # GPL-2.0-only is specifically incompatible with Apache-2.0 due to
-          # patent-termination clause conflicts (confirmed by FSF and ASF).
-          # LGPL denied because static linking/bundling triggers full copyleft.
-          # SSPL-1.0 and BUSL-1.1 are not OSI-approved.
-          deny-licenses: >-
-            GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later,
-            AGPL-3.0-only, AGPL-3.0-or-later,
-            LGPL-2.0-only, LGPL-2.0-or-later, LGPL-2.1-only, LGPL-2.1-or-later,
-            LGPL-3.0-only, LGPL-3.0-or-later,
-            EUPL-1.1, EUPL-1.2, CDDL-1.0, CDDL-1.1, EPL-1.0, EPL-2.0,
-            OSL-3.0, CPL-1.0, BSD-4-Clause,
-            SSPL-1.0, BUSL-1.1,
-            CC-BY-SA-4.0, CC-BY-NC-4.0, CC-BY-NC-SA-4.0, CC-BY-ND-4.0, CC-BY-NC-ND-4.0
-          # GitHub Actions are CI tools, not runtime dependencies shipped with
-          # the product. LGPL-3.0 on a CI action has no copyleft implications.
-          allow-dependencies-licenses: "pkg:githubactions/SonarSource/sonarqube-scan-action"
+          # Allowlist approach per R-043 recommendation (deny-licenses is
+          # deprecated in v4, removed in future v5). Fail-closed: any license
+          # not listed here blocks the PR. Covers Apache-2.0 compatibility.
+          allow-licenses: >-
+            MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD,
+            Unlicense, CC0-1.0, CC-BY-4.0, Zlib, BSL-1.0,
+            Python-2.0, PSF-2.0, Artistic-2.0, MPL-2.0, WTFPL
+          # LGPL-3.0 CI tools (SonarQube scan action, SonarAnalyzer.CSharp,
+          # eslint-plugin-sonarjs) are build-time only — never shipped in the
+          # binary. Exempt by purl so the allowlist stays strict.
+          allow-dependencies-licenses: >-
+            pkg:githubactions/SonarSource/sonarqube-scan-action
           comment-summary-in-pr: always
           retry-on-snapshot-warnings: true
           retry-on-snapshot-warnings-timeout: 180
