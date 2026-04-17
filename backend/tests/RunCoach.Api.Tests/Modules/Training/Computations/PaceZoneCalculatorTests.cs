@@ -223,6 +223,9 @@ public class PaceZoneCalculatorTests
     }
 
     // Full 56×6 equation-derived golden fixture (indices 30–85, step 1).
+    // Provenance: all expected values derived from the public-domain Daniels-Gilbert oxygen-cost
+    // and race-prediction equations (Daniels & Gilbert, 1979, Oxygen Power, Performance Press).
+    // No values are transcribed from the published lookup tables — fixture is equation-only.
     // All values recomputed from DanielsGilbertEquations at fixture-build time — self-consistent.
     // InlineData columns: idx, easySlow, easyFast, threshold, interval, marathon, rep400, frep400 (s/km).
     [Theory]

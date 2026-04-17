@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: POC 1 Complete — Merging to Main
+## Current Phase: DEC-042 Complete — Pure-Equation Pace-Zone Calculator
 
-POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding removed (console app, experiment prompts, spec artifacts, poc1 naming). TestProfiles relocated to test project. Eval cache moved from `backend/poc1-eval-cache/` to `backend/tests/eval-cache/`. 290 tests passing in Replay mode (0 failures). Tag `poc1-complete` preserves full POC history.
+POC 1 productionized on `feature/poc1-context-injection-v2` (tag `poc1-complete`). DEC-042 pure-equation pace-zone calculator implemented on `refactor/dec-042-pace-zone-calculator` — all six zones, `VdotCalculator` renamed to `PaceZoneIndexCalculator`, lookup table deleted, eval cache re-recorded.
 
 ### Setup Steps
 
@@ -116,6 +116,17 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 - Removed `ParseCacheMode` null test case that conflicted with `EVAL_CACHE_MODE` env var in CI
 - Research: R-018 (xUnit v3 MTP filtering) — `coverlet.MTP` incompatible with xUnit v3's bundled MTP 1.x, staying on `coverlet.msbuild`
 
+**DEC-042 + DEC-041: Pure-equation pace-zone calculator + value objects (2026-04-16, complete on `refactor/dec-042-pace-zone-calculator`):**
+- `DanielsGilbertEquations` internal static helper — OxygenCost, FractionalUtilization, SolveVelocityForTargetVo2, PredictRaceTimeMinutes (Newton-Raphson)
+- `PaceZoneCalculator` / `IPaceZoneCalculator` — six zones (E, M, T, I, R, F) derived purely from equations; no lookup table
+- `PaceZoneIndexCalculator` / `IPaceZoneIndexCalculator` — replaces `VdotCalculator`; 14 race distances, duration/velocity guards, low-index Warning log
+- `HeartRateZoneCalculator` / `IHeartRateZoneCalculator` — Tanaka max-HR (208−0.7·age), %HRmax bands, optional Karvonen
+- DEC-041 value objects: `Distance`, `Pace`, `PaceRange(Fast, Slow)`, `TrainingPaces` rewrite
+- Eval cache re-recorded (10 fixtures updated for `TrainingPaces` shape change)
+- DI registered all three new calculators as singletons in `ServiceCollectionExtensions`
+- README trademark disclaimer updated: confirms all identifiers are now trademark-neutral
+- Note: M-pace and F-pace diverge from Daniels' published tables (equation roots, not training-zone targets) — captured in T04-SPEC-REVIEW for user decision before merge
+
 **OSS Quality Tooling Restoration (2026-04-15, complete — DEC-043):**
 - Dual-license architecture: Apache-2.0 (code) + CC-BY-NC-SA-4.0 (coaching prompts), NOTICE, THIRD-PARTY-NOTICES.md
 - VDOT trademark avoidance: user-facing surface renamed to "Daniels-Gilbert zones" / "pace-zone index" per Runalyze enforcement precedent; VDOT-avoidance rule encoded in all 3 CLAUDE.md and 3 REVIEW.md files; internal code identifier rename delegated to DEC-042
@@ -128,7 +139,7 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 - One-authority-per-signal partitioning: CodeQL=SAST, Codecov=Cobertura coverage, SonarQube Cloud=OpenCover dashboard, dependency-review-action=license+CVE gate
 - Spec: `docs/specs/09-spec-oss-tooling-restoration/09-spec-oss-tooling-restoration.md`
 
-**Branch status:** POC 1 productionized and merged to `main`. Follow-up branch `fix/daniels-pace-table` holds the 2026-04-14 integrity-fence audit work; that branch is now **discardable** — see Next Up item 2.
+**Branch status:** POC 1 productionized and merged to `main`. DEC-042 implementation on `refactor/dec-042-pace-zone-calculator` — ready to PR. `fix/daniels-pace-table` is **discarded** (integrity-fence work superseded by pure-equation approach; branch can be deleted).
 
 **Daniels pace table — DEC-040 to DEC-042 trajectory:**
 - DEC-040 row-shift patch shipped to main 2026-03-25..26 across commits `934f1de`, `0a6e813`, `fbadeda`, `54c4c9c` (row-shift correction, edition citation, eval cache re-record, `PaceRange` invariant).
@@ -138,25 +149,11 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 
 ## Next Up
 
-### 1. DEC-042 implementation — pure-equation `PaceZoneCalculator`
+### 1. Merge DEC-042 PR
 
-Unblocked. Single PR, scope per `docs/decisions/decision-log.md` § DEC-042:
-- Delete current `PaceCalculator` lookup table (legally unsafe per R-034; the `fix/daniels-pace-table` integrity fence is also discarded at this point — the fence embeds book-transcribed values and was only ever a stepping stone).
-- New `PaceZoneCalculator` + internal `DanielsGilbertEquations` helper. Three Newton-Raphson call sites: 42,195 m (Marathon), 3,000 m (Repetition), 800 m (Fast Repetition).
-- Hybrid derivation: closed-form quadratic inversion for E (70% / 59%), T (88.0%), I (97.3%); Newton-Raphson race prediction for M, R (with R-200 = 0.9295 × (200/3000) × t₃ₖ, R-400 = 0.9450 × (400/3000) × t₃ₖ, R-800 = 2 × R-400), and F (F-400 = t₈₀₀ / 2, F-200 = t₈₀₀ / 4).
-- Add 5 missing race distances and input-validation guards to `VdotCalculator` (3.5–300 min duration, velocity > 50 m/min, pace-zone index 25–90 range with low-index warning).
-- Replace `EstimateMaxHr = 220 − age` with Tanaka `208 − 0.7·age`.
-- New `HeartRateZoneCalculator` (separate from pace) with Daniels' %HRmax bands.
-- Equation-derived golden fixture with provenance header citing the 1979 *Oxygen Power* monograph; replaces the old integrity fence.
-- DEC-041 value objects (`Distance`, `Pace`, `PaceRange(Fast, Slow)`) land in the same PR.
-- Trademark disclaimer in README.
-- **Internal VDOT code identifier rename** — `VdotCalculator` → `PaceZoneIndexCalculator`, field/variable/test renames, `IVdotCalculator` → `IPaceZoneIndexCalculator`. Picked up as part of the pace-calculator rewrite, not a separate pass. Landed together so the new file names are right from first commit. Scoped to internal code only; scientific and documentary citations of "VDOT" (in `NOTICE`, research artifacts, historical decisions) remain as-is per the DEC-043 user-facing rename boundary.
+Branch `refactor/dec-042-pace-zone-calculator` is ready for `/review-pr` and merge. Open item before merge: T04-SPEC-REVIEW — decide whether M-pace and F-pace equation divergence from Daniels' published tables is acceptable or requires spec revision. See T04-SPEC-REVIEW task.
 
-### 2. DEC-041: Unit system value objects (lands with DEC-042)
-
-Kitchen-sink alignment: DEC-041's `Distance`/`Pace`/`PaceRange(Fast, Slow)` value objects are in scope for the DEC-042 PR. This is a deliberate cutover — DEC-042 has to replace the calculator's return types anyway, so wrapping them as typed values is essentially free at that point. See `docs/planning/unit-system-design.md` for the full design.
-
-### 3. POC 2: Adaptive replanning
+### 2. POC 2: Adaptive replanning
 
 Next POC in the roadmap. Plan file needed. Not blocked by any of the above. Can start in parallel with DEC-042 implementation if capacity allows.
 
@@ -172,7 +169,7 @@ Next POC in the roadmap. Plan file needed. Not blocked by any of the above. Can 
 
 Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for details.
 
-- **POC 1:** Context injection & plan quality → feeds MVP-0 **(productionized, merging to main)**
+- **POC 1:** Context injection & plan quality → feeds MVP-0 **(complete, merged to main, DEC-042 PR pending)**
 - **POC 2:** Adaptive replanning → feeds MVP-1
 - **POC 3:** Tiered planning efficiency → validates architecture
 - **POC 4:** Interaction flow → validates UX
@@ -184,17 +181,14 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 
 ## Deferred Items
 
-**Pure-equation pace zones (DEC-042) — implementation deferred pending R-035:**
-- Design direction is crystallized and captured in DEC-042. Zone-derivation methodology is pinned for E/T/I (70%/59%, 88.0%, 97.3%) and M (Newton-Raphson at 42,195 m). Only R-pace formulation is open, pending R-035.
-- Implementation scope is fully specified in DEC-042 (hybrid derivation, optional F zone, missing distances, input guards, Tanaka HR, separate `HeartRateZoneCalculator`, DEC-041 value-object integration, equation-derived fixture, trademark disclaimer).
-- R-032 (multi-methodology interface extensibility) and R-033 (LLM pace-zone consumption precision) remain deferred as non-blocking for DEC-042 correctness. R-032 is addressed proactively via `IPaceZoneCalculator` interface shape.
+**DEC-042 spec divergences (T04-SPEC-REVIEW — open before merge):**
+- M-pace: equation root at 42,195 m gives ~198 s/km at index 50 vs. Daniels' published 290 s/km training target. The equation predicts race finish pace, not the 80–85% training-effort M-pace. Requires a deliberate framing decision.
+- F-pace: F-400 = t800/2 gives ~255 s/km at index 50 vs. R-400 ~217 s/km — F is slower than R in the equation output, opposite to Daniels' intent. Requires spec revision or alternate derivation.
 
-**Unit system refactor (pre-MVP-0, DEC-041):**
-- Replace raw `decimal DistanceKm` / `TimeSpan AveragePacePerKm` with `Distance`, `Pace`, `PaceRange` value objects
-- Internal canonical storage in meters and seconds-per-km
-- `StandardRace` enum, `UnitPreference` enum, EF Core `ValueConverter` mappings
-- `PaceRange` naming: `Fast`/`Slow` instead of `Min`/`Max`
-- See `docs/planning/unit-system-design.md` for full design
+**Unit system refactor (partial — DEC-041):**
+- `Distance`, `Pace`, `PaceRange(Fast, Slow)`, and `TrainingPaces` value objects shipped with DEC-042.
+- Remaining DEC-041 scope deferred to pre-MVP-0: `StandardRace` enum, `UnitPreference` enum, EF Core `ValueConverter` mappings, full controller-layer adoption.
+- See `docs/planning/unit-system-design.md` for full design.
 
 **POC 1 cleanup (remaining items):**
 - `ContextAssembler` uses `DateTime.UtcNow` directly — inject `TimeProvider` for testability

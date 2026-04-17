@@ -118,10 +118,9 @@ features from a product with a much larger user base. The mark is actively
 enforced, so the avoidance rule applies even though the underlying
 mathematics is public-domain.
 
-Internal code identifiers in this repository (for example the class name
-`VdotCalculator`) currently still use the term. Those identifiers are
-scheduled for rename alongside the pace-calculator rewrite captured in
-DEC-042 and are not exposed on any API surface or user-facing string.
+All internal code identifiers in this repository use trademark-neutral names
+(`PaceZoneIndexCalculator`, `PaceZoneCalculator`, `pace-zone index`) and no
+VDOT-named symbol is exposed on any API surface or user-facing string.
 
 ## Attribution
 
