@@ -125,7 +125,8 @@ POC 1 productionized on `feature/poc1-context-injection-v2` (tag `poc1-complete`
 - Eval cache re-recorded (10 fixtures updated for `TrainingPaces` shape change)
 - DI registered all three new calculators as singletons in `ServiceCollectionExtensions`
 - README trademark disclaimer updated: confirms all identifiers are now trademark-neutral
-- Note: M-pace and F-pace diverge from Daniels' published tables (equation roots, not training-zone targets) — captured in T04-SPEC-REVIEW for user decision before merge
+- `MesoWeekOutput` structured-output schema restructured from a `Days[]` array to seven required `Sunday..Saturday` properties. Constrained decoding can't enforce array length, and the Priya constrained profile (`MaxRunDaysPerWeek: 4`) was triggering the model to hedge with an 8-day response including a placeholder entry. Named properties make the invariant structural. Un-skipped `Priya_Constrained_RespectsExactly4RunDays` — 3/3 Record-mode passes deterministically.
+- `PredictRaceTimeMinutes` Newton-Raphson bug fixed: the solver was rooting `F·VO₂ = index` instead of the Daniels relation `VO₂/F = index`. Symptom at index 50 was a 2:19 marathon M-pace and an inverted F<R ordering. Fix flipped the root condition and rewrote the derivative with the quotient rule. All 56 rows of the equation-anchored fixture regenerated; `CalculatePaces_Monotonicity_AllZonesOrderedFromSlowToFast` and `CalculatePaces_MPacePrecision_WithinPublishedTableTolerance` un-skipped; M-pace at index 50 now reproduces Daniels' published ≈ 271 s/km. Eval cache untouched — test profiles used a lookup-table bridge (`TestPaceCalculator`) that always carried the correct Daniels values, so prompt content was stable; only production runtime was affected by the bug.
 
 **OSS Quality Tooling Restoration (2026-04-15, complete — DEC-043):**
 - Dual-license architecture: Apache-2.0 (code) + CC-BY-NC-SA-4.0 (coaching prompts), NOTICE, THIRD-PARTY-NOTICES.md
@@ -139,7 +140,7 @@ POC 1 productionized on `feature/poc1-context-injection-v2` (tag `poc1-complete`
 - One-authority-per-signal partitioning: CodeQL=SAST, Codecov=Cobertura coverage, SonarQube Cloud=OpenCover dashboard, dependency-review-action=license+CVE gate
 - Spec: `docs/specs/09-spec-oss-tooling-restoration/09-spec-oss-tooling-restoration.md`
 
-**Branch status:** POC 1 productionized and merged to `main`. DEC-042 implementation on `refactor/dec-042-pace-zone-calculator` — ready to PR. `fix/daniels-pace-table` is **discarded** (integrity-fence work superseded by pure-equation approach; branch can be deleted).
+**Branch status:** POC 1 productionized and merged to `main`. DEC-042 implementation on `refactor/dec-042-pace-zone-calculator` — ready to PR. `fix/daniels-pace-table` has been deleted from local and remote.
 
 **Daniels pace table — DEC-040 to DEC-042 trajectory:**
 - DEC-040 row-shift patch shipped to main 2026-03-25..26 across commits `934f1de`, `0a6e813`, `fbadeda`, `54c4c9c` (row-shift correction, edition citation, eval cache re-record, `PaceRange` invariant).
@@ -151,7 +152,7 @@ POC 1 productionized on `feature/poc1-context-injection-v2` (tag `poc1-complete`
 
 ### 1. Merge DEC-042 PR
 
-Branch `refactor/dec-042-pace-zone-calculator` is ready for `/review-pr` and merge. Open item before merge: T04-SPEC-REVIEW — decide whether M-pace and F-pace equation divergence from Daniels' published tables is acceptable or requires spec revision. See T04-SPEC-REVIEW task.
+Branch `refactor/dec-042-pace-zone-calculator` is ready for `/review-pr` and merge. No open blockers — the M-pace and F-pace divergences originally flagged for review resolved to a Newton-Raphson implementation bug (wrong root equation), now fixed.
 
 ### 2. POC 2: Adaptive replanning
 
@@ -180,10 +181,6 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 - **MVP-1 (Friends/testers):** Adds adaptation + Apple Health integration. The differentiator becomes visible.
 
 ## Deferred Items
-
-**DEC-042 spec divergences (T04-SPEC-REVIEW — open before merge):**
-- M-pace: equation root at 42,195 m gives ~198 s/km at index 50 vs. Daniels' published 290 s/km training target. The equation predicts race finish pace, not the 80–85% training-effort M-pace. Requires a deliberate framing decision.
-- F-pace: F-400 = t800/2 gives ~255 s/km at index 50 vs. R-400 ~217 s/km — F is slower than R in the equation output, opposite to Daniels' intent. Requires spec revision or alternate derivation.
 
 **Unit system refactor (partial — DEC-041):**
 - `Distance`, `Pace`, `PaceRange(Fast, Slow)`, and `TrainingPaces` value objects shipped with DEC-042.

@@ -1129,8 +1129,8 @@ See `docs/planning/unit-system-design.md` for full design.
 
 ## DEC-042: Pure-equation PaceCalculator rewrite — hybrid derivation with committed equation-derived fixtures
 
-**Date:** 2026-04-15 (initial); 2026-04-15 (R-035 resolution applied)
-**Status:** Approved — ready for implementation
+**Date:** 2026-04-15 (initial); 2026-04-15 (R-035 resolution applied); 2026-04-17 (implementation shipped, solver bug fix + MesoWeekOutput schema restructuring applied)
+**Status:** Shipped on `refactor/dec-042-pace-zone-calculator` — ready for PR merge
 **Category:** Domain / Architecture
 **Informed by:** R-025 (`batch-11-daniels-implementation-patterns.md`), R-026 through R-031 and R-034 (`batch-12a` through `batch-12g`), R-035 (`batch-13-r-pace-disambiguation.md`).
 **Supersedes:** DEC-040's partial row-shift patch, which will be retired when this lands.
@@ -1198,6 +1198,10 @@ T and I constants are the mean of back-solved percentages across VDOT 30–80 as
 **Branch disposition:** The in-progress integrity fence on `fix/daniels-pace-table` (`PaceCalculatorTableIntegrityTests.cs` with 56 book-derived snapshot rows) is **not to be committed to main**. R-034 flags the snapshot values as legally unsafe, and the fence is technically obsolete once DEC-042 lands. The branch will be discarded (or rebased to just the equation-derived fixture) when the DEC-042 rewrite starts. The local fence remains useful during the interim as a reference for what anomalies the rewrite must fix.
 
 **Effort estimate:** Single PR, roughly 350–550 net LOC. Core calculator and equations ~180 LOC (three Newton-Raphson call sites plus the closed-form solves), tests ~220 LOC (equation-derived fixture + structural invariants + VDOT-range boundary tests), HR calculator ~100 LOC, supporting changes (distances, guards, Tanaka, README) ~50 LOC. Risk is low; every decision is grounded in cited research and every alternative has been evaluated.
+
+**Implementation addendum (2026-04-17):** The initial `PredictRaceTimeMinutes` Newton-Raphson solver rooted `F·VO₂ = index` instead of the Daniels relation `VO₂/F = index`. The bug was masked because (a) R-pace at 3,000 m converges at `F(t) ≈ 0.997`, where multiply and divide agree to within 1 s/km, and (b) test profiles flowed through a lookup-table bridge (`TestPaceCalculator`) carrying correct Daniels values, so cached eval prompts were unaffected. The bug surfaced at marathon distance (M-pace at index 50 yielded 2:19 instead of the expected 3:10:49) and at 800 m (F-pace slower than R-pace, inverted ordering). The fix flipped the root condition to `VO₂/F − index` and rewrote the derivative using the quotient rule. The 56-row equation-anchored fixture in `PaceZoneCalculatorTests` was regenerated from the corrected solver; `Monotonicity_AllZonesOrderedFromSlowToFast` and `MPacePrecision_WithinPublishedTableTolerance` are now enforced rather than Skip'd. No spec revision required — batch-12a, 12c, and 13 had already specified `VDOT = VO₂/F` explicitly.
+
+Additionally, `MesoWeekOutput` structured output was restructured from a `Days: MesoDaySlotOutput[]` array to seven required `Sunday..Saturday` properties with the `DayOfWeek: int` field removed. Anthropic's constrained decoding enforces property names and `additionalProperties: false` but does not enforce array length or scalar range — and Priya's `MaxRunDaysPerWeek: 4` constraint was triggering the model to emit 8-day arrays with placeholder entries ~67% of the time. Named day properties make the seven-day invariant structural rather than an un-enforced schema-description hint. The `Priya_Constrained_RespectsExactly4RunDays` eval is un-Skip'd and passes deterministically across three consecutive Record-mode runs.
 
 ---
 
