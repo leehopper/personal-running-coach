@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Foundation long run at easy effort — 5:07 to 5:39/km. Keep it conversational, no heroics today. 22–24 km is the target range. This sets the aerobic tone for the whole week.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. You've earned it after the long run. Sleep, eat well, and let the adaptation begin.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run, 10–12 km at 5:07–5:39/km. Legs may feel a little heavy from Sunday — that's normal. Run by feel, not by ego.\"},{\"day_of_week\":3,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or very light movement — walking, stretching, or gentle yoga. No structured running.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Tempo run: 2 km easy warm-up, then 6 km at threshold pace (4:16/km), then 2 km easy cool-down. Total ~10 km. This builds your lactate ceiling — critical for marathon pace sustainability.\"},{\"day_of_week\":5,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. With four run days this week, recovery here is non-negotiable. Protect this space.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run, 10 km at 5:07–5:39/km. Light effort, smooth turnover. Think of this as banking aerobic time, not working hard.\"}],\"week_summary\":\"Welcome to Week 1 of your marathon build, Priya. First, a genuine acknowledgment — your recent training history is strong. A 26 km long run and consistent 52–60 km weeks heading into this block gives us an excellent foundation to work from. We're starting at 55 km this week, a slight step back from your recent peak, which is intentional: the structure shifts now, and introducing quality work (tempo) alongside your volume means the overall training stress increases even as the raw numbers look familiar. The week follows a Sunday long run anchor, a Tuesday easy run to flush the legs, a Thursday tempo session targeting your lactate threshold, and a Saturday easy run to close out aerobic volume. Your target marathon pace is 4:31/km — and your threshold work at 4:16/km is the primary engine we'll use to make that feel manageable come September. One open question to sit with as you begin: on a scale of effort, where does 4:31/km feel right now — challenging, comfortable, or somewhere in between? That will shape how we progress the quality work in coming weeks.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2330,
+    "outputTokenCount": 716,
+    "totalTokenCount": 3046
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Recovery\",\"weekly_target_km\":9,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week's work. Gentle foot mobility or calf stretching is fine if cleared by your physio.\"},{\"day_of_week\":1,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20-minute easy run at 5:24–5:58/km. Use a run/walk approach if you feel any foot discomfort — even 1 minute of walking is a smart move, not a setback. Tune in to how your right foot feels throughout.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Prioritize sleep, hydration, and any physio exercises your provider has given you.\"},{\"day_of_week\":3,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Optional low-impact cross-training — pool walking, gentle cycling, or upper body strength. Keep it easy. If your foot is talking to you, skip it entirely.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. This spacing between runs is intentional — plantar fascia recovers best with adequate time between load sessions.\"},{\"day_of_week\":5,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest before your Saturday run. Light foot/ankle mobility work is fine if it's part of your physio protocol.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Saturday long run — but we're keeping it at 20 minutes max as cleared. Easy effort at 5:24–5:58/km. Walk breaks welcome, especially in the back half if there's any foot fatigue.\"}],\"week_summary\":\"Welcome back, James. This first week is about re-establishing a rhythm with your body — not chasing fitness. Your physio has cleared you for 20-minute easy runs only, and that guidance is the foundation everything else is built on. Three days of running isn't the goal yet; two solid, comfortable efforts this week is a genuine win. The gap between runs is deliberately wide to give your plantar fascia time to adapt to load without tipping into irritation. Your pre-injury fitness is still in there — the goal right now is to protect the runway so you can actually use it.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2276,
+    "outputTokenCount": 587,
+    "totalTokenCount": 2863
+  }
+}

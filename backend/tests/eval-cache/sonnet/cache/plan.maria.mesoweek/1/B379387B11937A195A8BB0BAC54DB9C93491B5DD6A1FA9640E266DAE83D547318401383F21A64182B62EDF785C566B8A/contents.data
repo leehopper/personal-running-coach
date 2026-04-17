@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":52,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Easy long run at 5:22–5:56/km. Cap at 120 min. Purpose: aerobic base maintenance. Run by feel — this is a relationship-builder with your endurance, not a test.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Recovery is where adaptation happens — think of this as productive training time.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run at 5:22–5:56/km. Keep it conversational. This supports your aerobic base without taxing your system.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Threshold work: 2×15 min at 4:28/km with 3 min easy jog recovery between. Warm up and cool down 10 min easy each. Keeps your lactate threshold sharp during maintenance.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run at 5:22–5:56/km. Short and gentle — 45–50 min max. Flush the legs after yesterday's threshold effort.\"},{\"day_of_week\":5,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Low-impact cross-training: cycling, swimming, or yoga. 40–60 min. Supports aerobic fitness and gives your Achilles tendon a break from impact loading — a wise habit given your history.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run at 5:22–5:56/km. 50–55 min. Build tomorrow's long run on fresh-ish legs — keep the effort genuinely easy.\"}],\"week_summary\":\"Welcome to your maintenance plan, Maria. With 12 years of experience and a solid aerobic base at 55 km/week, the goal here isn't to build — it's to protect and sustain what you've worked hard to develop. This first week lands at 52 km, just slightly below your current load, giving your system a gentle reset after a busy training history. You'll touch all three key stimulus types: easy aerobic volume, threshold work to keep your lactate system primed, and a long run to maintain your endurance engine. The cross-training day on Saturday is intentional — given your left Achilles history, rotating some load away from running is a smart long-term habit, not a compromise. What feels most important to you to protect as we settle into this maintenance phase?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2313,
+    "outputTokenCount": 665,
+    "totalTokenCount": 2978
+  }
+}

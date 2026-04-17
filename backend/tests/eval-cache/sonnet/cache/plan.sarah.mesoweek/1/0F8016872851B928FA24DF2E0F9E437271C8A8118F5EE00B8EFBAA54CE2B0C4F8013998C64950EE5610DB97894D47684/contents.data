@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":15,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week ahead. Gentle walking or stretching is totally fine if you feel like moving.\"},{\"day_of_week\":1,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run at 7:00–8:00 /km. Keep it conversational — you should be able to chat comfortably. This run is about building the habit, not pushing limits. Aim for 25–30 min.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or light activity like walking. Your legs are adapting — this downtime is doing real work.\"},{\"day_of_week\":3,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Three-day schedules work because the recovery days are just as intentional as the run days.\"},{\"day_of_week\":4,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Second easy run of the week. Same pace range: 7:00–8:00 /km. Focus on relaxed breathing and an easy stride. Aim for 25–30 min.\"},{\"day_of_week\":5,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day before your long run tomorrow. Keep tomorrow in mind — stay hydrated and get good sleep if you can.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Your long run! This week it mirrors your current long run of 5 km at easy pace (7:00–8:00 /km). The goal is time on feet and building your aerobic foundation. No pressure on pace — just steady and comfortable.\"}],\"week_summary\":\"Welcome to week one, Sarah! This first week is all about establishing your rhythm and getting comfortable with three runs per week. Your total volume stays right at your current 15 km, so nothing here should feel overwhelming — and that's very much intentional. The physiological goal right now is aerobic base-building: teaching your body to use oxygen efficiently, strengthening connective tissue, and building the habit of consistent running. Every run this week is easy, and that's not a limitation — it's the foundation everything else gets built on. What matters most right now is that you finish each run feeling like you could have done a bit more.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2084,
+    "outputTokenCount": 594,
+    "totalTokenCount": 2678
+  }
+}
