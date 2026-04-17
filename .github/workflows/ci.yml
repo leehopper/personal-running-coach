@@ -62,7 +62,7 @@ jobs:
         env:
           EVAL_CACHE_MODE: Replay
       - name: Upload coverage
-        uses: codecov/codecov-action@4481f553995cc5011b158ce191746ac1a1d0f815  # v5.5.3
+        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad  # v5.5.3
         with:
           directory: backend/TestResults
           flags: backend
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
           node-version: 22
           cache: npm
@@ -90,7 +90,7 @@ jobs:
         run: npm run test -- --coverage
         working-directory: frontend
       - name: Upload coverage
-        uses: codecov/codecov-action@4481f553995cc5011b158ce191746ac1a1d0f815  # v5.5.3
+        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad  # v5.5.3
         with:
           directory: frontend/coverage
           flags: frontend
