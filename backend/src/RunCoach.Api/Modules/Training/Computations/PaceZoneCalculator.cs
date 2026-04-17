@@ -24,7 +24,7 @@ public sealed class PaceZoneCalculator : IPaceZoneCalculator
     /// R-400 multiplier: 400m repetition fraction of 3000m race pace (R-028).
     /// Derived as 0.9450 × (400/3000) of t3k.
     /// </summary>
-    private static readonly double R400Multiplier = 0.9450 * (400.0 / 3000.0);
+    private const double R400Multiplier = 0.9450 * (400.0 / 3000.0);
 
     /// <inheritdoc />
     public TrainingPaces CalculatePaces(decimal index)
