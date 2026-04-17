@@ -76,7 +76,8 @@ internal static class DanielsGilbertEquations
     /// <summary>
     /// Newton-Raphson solver: returns predicted race time (minutes) for the given pace-zone
     /// <paramref name="index"/> over <paramref name="distanceMeters"/>.
-    /// Solves <c>FractionalUtilization(t) · OxygenCost(distance/t) − index = 0</c>.
+    /// Solves <c>OxygenCost(distance/t) / FractionalUtilization(t) − index = 0</c>, the
+    /// Daniels–Gilbert root condition (pace-zone index = VO₂ ÷ sustainable-fraction).
     /// Initial guess: velocity at 100% VO₂max utilization from <see cref="SolveVelocityForTargetVo2"/>,
     /// equivalent to the GoldenCheetah approach (<c>t₀ = distance / (index × 0.17)</c> is the spec
     /// reference; this implementation uses the analytically identical quadratic root for stability).
@@ -94,19 +95,22 @@ internal static class DanielsGilbertEquations
             var v = distanceMeters / t;
             var fracUtil = FractionalUtilization(t);
             var oxygenCost = OxygenCost(v);
-            var fx = (fracUtil * oxygenCost) - index;
+            var fx = (oxygenCost / fracUtil) - index;
 
             if (Math.Abs(fx) < NrTolerance)
             {
                 return t;
             }
 
-            // f'(t) = F'(t)·C(v) + F(t)·C'(v)·(−d/t²)
+            // f(t) = VO₂(v(t)) / F(t) where v(t) = d/t
+            // f'(t) = [F(t)·VO₂'(v)·v'(t) − VO₂·F'(t)] / F(t)²
+            // with v'(t) = −d/t² and VO₂'(v) = linear + 2·quadratic·v
             var fracUtilDeriv =
                 (-FracUtilAmplitude1 * FracUtilDecay1 * Math.Exp(-FracUtilDecay1 * t))
                 + (-FracUtilAmplitude2 * FracUtilDecay2 * Math.Exp(-FracUtilDecay2 * t));
             var oxygenCostDeriv = OxygenCostLinear + (2.0 * OxygenCostQuadratic * v);
-            var fxDeriv = (fracUtilDeriv * oxygenCost) + (fracUtil * oxygenCostDeriv * (-distanceMeters / (t * t)));
+            var vDeriv = -distanceMeters / (t * t);
+            var fxDeriv = ((fracUtil * oxygenCostDeriv * vDeriv) - (oxygenCost * fracUtilDeriv)) / (fracUtil * fracUtil);
 
             t -= fx / fxDeriv;
         }
