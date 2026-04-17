@@ -146,7 +146,7 @@ public class ContextAssemblerTests
         // Assert
         actualPrompt.StartSections.Should().Contain(s => s.Key == "fitness_estimate");
         var fitnessSection = actualPrompt.StartSections.First(s => s.Key == "fitness_estimate");
-        fitnessSection.Content.Should().Contain("VDOT");
+        fitnessSection.Content.Should().Contain("Pace-zone index:");
         fitnessSection.Content.Should().Contain("Intermediate");
     }
 
