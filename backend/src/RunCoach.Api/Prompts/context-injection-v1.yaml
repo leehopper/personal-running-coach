@@ -73,7 +73,7 @@ sections:
         token_estimate: 400
         required: true
         format: >
-          Easy pace: {EasyPaceRange.MinPerKm} - {EasyPaceRange.MaxPerKm} /km
+          Easy pace: {EasyPaceRange.Fast} - {EasyPaceRange.Slow} /km
           Marathon pace: {MarathonPace} /km
           Threshold pace: {ThresholdPace} /km
           Interval pace: {IntervalPace} /km

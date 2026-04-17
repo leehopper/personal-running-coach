@@ -503,11 +503,11 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         if (fitness.EstimatedVdot.HasValue)
         {
-            sb.AppendLine(CultureInfo.InvariantCulture, $"VDOT: {fitness.EstimatedVdot.Value}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Pace-zone index: {fitness.EstimatedVdot.Value}");
         }
         else
         {
-            sb.AppendLine("VDOT: Not available (no race history)");
+            sb.AppendLine("Pace-zone index: Not available (no race history)");
         }
 
         sb.AppendLine(CultureInfo.InvariantCulture, $"Fitness level: {fitness.FitnessLevel}");
