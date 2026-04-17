@@ -584,6 +584,39 @@ public class ContextAssemblerTests
         pacesSection.Content.Should().NotContain("Threshold pace");
         pacesSection.Content.Should().NotContain("Interval pace");
         pacesSection.Content.Should().NotContain("Repetition pace");
+        pacesSection.Content.Should().NotContain("Fast-repetition pace");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_ProfileWithFastRepetitionPace_RendersFastRepetitionPace()
+    {
+        // Arrange — Lee's paces with an injected FastRepetitionPace (180 s/km = 3:00/km).
+        // TestPaceCalculator (the lookup-table bridge used by TestProfiles) leaves F-pace
+        // null, so we construct a variant explicitly to exercise the new render path.
+        var lee = TestProfiles.Lee();
+        var pacesWithFast = lee.GoalState.CurrentFitnessEstimate.TrainingPaces with
+        {
+            FastRepetitionPace = Pace.FromSecondsPerKm(180.0),
+        };
+        var fitnessWithFast = lee.GoalState.CurrentFitnessEstimate with
+        {
+            TrainingPaces = pacesWithFast,
+        };
+        var input = new ContextAssemblerInput(
+            lee.UserProfile,
+            lee.GoalState,
+            fitnessWithFast,
+            pacesWithFast,
+            lee.TrainingHistory,
+            ImmutableArray<ConversationTurn>.Empty,
+            "Create a training plan.");
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        var pacesSection = actualPrompt.StartSections.First(s => s.Key == "training_paces");
+        pacesSection.Content.Should().Contain("Fast-repetition pace: 3:00 /km");
     }
 
     [Fact]

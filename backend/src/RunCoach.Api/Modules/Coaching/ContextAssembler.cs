@@ -547,6 +547,11 @@ public sealed partial class ContextAssembler : IContextAssembler
             sb.AppendLine(CultureInfo.InvariantCulture, $"Repetition pace: {FormatPace(paces.RepetitionPace.Value)} /km");
         }
 
+        if (paces.FastRepetitionPace.HasValue)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Fast-repetition pace: {FormatPace(paces.FastRepetitionPace.Value)} /km");
+        }
+
         var content = sb.ToString().TrimEnd();
 
         return new PromptSection("training_paces", content, EstimateTokens(content));
