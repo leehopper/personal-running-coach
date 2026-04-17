@@ -137,4 +137,35 @@ public class DanielsGilbertEquationsTests
             1e-6,
             because: "SolveVelocityForTargetVo2 must invert OxygenCost at the index-50 anchor");
     }
+
+    // PredictRaceTimeMinutes — Newton-Raphson race-time predictor
+    [Theory]
+    [InlineData(50.0, 5000.0, 19.93)] // index 50, 5 km → ~19:56 per Daniels published table
+    [InlineData(46.0, 42195.0, 204.58)] // index 46, marathon → ~3:24:35 per Daniels table
+    [InlineData(50.0, 10000.0, 41.4)] // index 50, 10 km → ~41:24 per Daniels table
+    public void PredictRaceTimeMinutes_KnownIndex_MatchesDanielsPublishedTable(
+        double index,
+        double distanceMeters,
+        double expectedMinutes)
+    {
+        // Act
+        var actual = DanielsGilbertEquations.PredictRaceTimeMinutes(index, distanceMeters);
+
+        // Assert — allow ±0.5 min tolerance against published table values
+        actual.Should().BeApproximately(
+            expectedMinutes,
+            0.5,
+            because: $"index {index} over {distanceMeters}m should yield ~{expectedMinutes} min per Daniels tables");
+    }
+
+    [Fact]
+    public void PredictRaceTimeMinutes_PathologicalInput_ThrowsInvalidOperationException()
+    {
+        // distance = 0 means velocity = 0 for all t; OxygenCost(0) = -4.60 < 0, so
+        // FractionalUtilization(t)·OxygenCost(0) - index < 0 for all t — no convergence possible
+        var act = () => DanielsGilbertEquations.PredictRaceTimeMinutes(50.0, 0.0);
+
+        act.Should().Throw<InvalidOperationException>(
+            because: "the 10-iteration cap must surface as InvalidOperationException on pathological inputs");
+    }
 }

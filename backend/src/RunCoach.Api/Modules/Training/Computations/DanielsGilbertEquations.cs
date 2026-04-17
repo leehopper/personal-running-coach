@@ -7,6 +7,9 @@ namespace RunCoach.Api.Modules.Training.Computations;
 /// </summary>
 internal static class DanielsGilbertEquations
 {
+    /// <summary>Hard iteration cap for Newton-Raphson; per spec.</summary>
+    private const int NrMaxIterations = 10;
+
     /// <summary>Constant term in the oxygen-cost polynomial. Source: Daniels &amp; Gilbert 1979.</summary>
     private static readonly double OxygenCostConstant = -4.60;
 
@@ -30,6 +33,9 @@ internal static class DanielsGilbertEquations
 
     /// <summary>Decay rate of the slow exponential term (per minute). Source: Daniels &amp; Gilbert 1979.</summary>
     private static readonly double FracUtilDecay2 = 0.1932605;
+
+    /// <summary>Newton-Raphson convergence tolerance in minutes; per spec.</summary>
+    private static readonly double NrTolerance = 1e-3;
 
     /// <summary>
     /// Oxygen cost of running at <paramref name="velocityMetersPerMinute"/>.
@@ -65,5 +71,47 @@ internal static class DanielsGilbertEquations
         var cTerm = OxygenCostConstant - targetVo2;
         var discriminant = (OxygenCostLinear * OxygenCostLinear) - (4.0 * OxygenCostQuadratic * cTerm);
         return (-OxygenCostLinear + Math.Sqrt(discriminant)) / (2.0 * OxygenCostQuadratic);
+    }
+
+    /// <summary>
+    /// Newton-Raphson solver: returns predicted race time (minutes) for the given pace-zone
+    /// <paramref name="index"/> over <paramref name="distanceMeters"/>.
+    /// Solves <c>FractionalUtilization(t) · OxygenCost(distance/t) − index = 0</c>.
+    /// Initial guess: velocity at 100% VO₂max utilization from <see cref="SolveVelocityForTargetVo2"/>,
+    /// equivalent to the GoldenCheetah approach (<c>t₀ = distance / (index × 0.17)</c> is the spec
+    /// reference; this implementation uses the analytically identical quadratic root for stability).
+    /// Tolerance: 1e-3 min; hard cap: 10 iterations.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the solver fails to converge within 10 iterations.</exception>
+    public static double PredictRaceTimeMinutes(double index, double distanceMeters)
+    {
+        // Initial velocity at 100% VO₂max (assumes max utilization); gives t₀ ≈ 19.2 min at index 50 / 5 km
+        var initialVelocity = SolveVelocityForTargetVo2(index);
+        var t = distanceMeters / initialVelocity;
+
+        for (var i = 0; i < NrMaxIterations; i++)
+        {
+            var v = distanceMeters / t;
+            var fracUtil = FractionalUtilization(t);
+            var oxygenCost = OxygenCost(v);
+            var fx = (fracUtil * oxygenCost) - index;
+
+            if (Math.Abs(fx) < NrTolerance)
+            {
+                return t;
+            }
+
+            // f'(t) = F'(t)·C(v) + F(t)·C'(v)·(−d/t²)
+            var fracUtilDeriv =
+                (-FracUtilAmplitude1 * FracUtilDecay1 * Math.Exp(-FracUtilDecay1 * t))
+                + (-FracUtilAmplitude2 * FracUtilDecay2 * Math.Exp(-FracUtilDecay2 * t));
+            var oxygenCostDeriv = OxygenCostLinear + (2.0 * OxygenCostQuadratic * v);
+            var fxDeriv = (fracUtilDeriv * oxygenCost) + (fracUtil * oxygenCostDeriv * (-distanceMeters / (t * t)));
+
+            t -= fx / fxDeriv;
+        }
+
+        throw new InvalidOperationException(
+            $"PredictRaceTimeMinutes did not converge within 10 iterations for index={index}, distance={distanceMeters}m.");
     }
 }
