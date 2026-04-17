@@ -6,8 +6,10 @@ namespace RunCoach.Api.Tests;
 public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
     // Integration smoke test: boots the full API via WebApplicationFactory with Testcontainers
-    // Postgres. Opt-in only — set RUNCOACH_INTEGRATION_TESTS=1 to include (CI does this).
-    // Local dev runs skip by default so unit-test iteration stays fast.
+    // Postgres. Opt-in only — set RUNCOACH_INTEGRATION_TESTS=1 to include. Not currently
+    // wired in CI (the workflow doesn't set the env var), so this test is skipped in CI
+    // and in local unit-test iteration runs. Enable locally when validating integration
+    // behaviour end-to-end.
     private static bool IntegrationTestsEnabled =>
         string.Equals(
             Environment.GetEnvironmentVariable("RUNCOACH_INTEGRATION_TESTS"),
