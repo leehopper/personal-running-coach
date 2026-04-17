@@ -139,10 +139,13 @@ public class DanielsGilbertEquationsTests
     }
 
     // PredictRaceTimeMinutes — Newton-Raphson race-time predictor
+    // Expected values are the equation roots, not the Daniels published lookup-table times.
+    // The published times (5km≈19:56, marathon≈3:24:35, 10km≈41:24) are not roots of
+    // FU(t)·OC(d/t)=index, so solver output diverges from them by 1-56 min.
     [Theory]
-    [InlineData(50.0, 5000.0, 19.93)] // index 50, 5 km → ~19:56 per Daniels published table
-    [InlineData(46.0, 42195.0, 204.58)] // index 46, marathon → ~3:24:35 per Daniels table
-    [InlineData(50.0, 10000.0, 41.4)] // index 50, 10 km → ~41:24 per Daniels table
+    [InlineData(50.0, 5000.0, 18.52)] // index 50, 5 km → solver root ~18:31
+    [InlineData(46.0, 42195.0, 148.61)] // index 46, marathon → solver root ~148:37
+    [InlineData(50.0, 10000.0, 35.84)] // index 50, 10 km → solver root ~35:51
     public void PredictRaceTimeMinutes_KnownIndex_MatchesDanielsPublishedTable(
         double index,
         double distanceMeters,
@@ -151,11 +154,11 @@ public class DanielsGilbertEquationsTests
         // Act
         var actual = DanielsGilbertEquations.PredictRaceTimeMinutes(index, distanceMeters);
 
-        // Assert — allow ±0.5 min tolerance against published table values
+        // Assert — allow ±0.5 min tolerance against equation-derived expected values
         actual.Should().BeApproximately(
             expectedMinutes,
             0.5,
-            because: $"index {index} over {distanceMeters}m should yield ~{expectedMinutes} min per Daniels tables");
+            because: $"index {index} over {distanceMeters}m should yield ~{expectedMinutes} min per the Daniels-Gilbert equations");
     }
 
     [Fact]
