@@ -17,10 +17,11 @@ jobs:
   backend-analysis:
     name: Backend analysis
     runs-on: ubuntu-latest
-    # Job-level env so `if: env.SONAR_TOKEN != ''` resolves on the same step
-    # that uses the token (GitHub only exposes step-level env to subsequent steps).
+    # Job-level boolean flag (not the secret itself) so non-Sonar steps never
+    # receive the token. The actual SONAR_TOKEN is scoped to the begin/end
+    # steps that need it. SONAR_PRESENT is gates the if-conditions.
     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_BACKEND }}
+      SONAR_PRESENT: ${{ secrets.SONAR_TOKEN_BACKEND != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -38,7 +39,9 @@ jobs:
       # forks, missing-secret drift). Job still runs build+test as a smoke check
       # and reports a passing status so branch-protection isn't blocked.
       - name: SonarScanner begin
-        if: env.SONAR_TOKEN != ''
+        if: env.SONAR_PRESENT == 'true'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_BACKEND }}
         run: |
           dotnet sonarscanner begin \
             /k:"runcoach-backend" \
@@ -64,7 +67,9 @@ jobs:
           EVAL_CACHE_MODE: Replay
 
       - name: SonarScanner end
-        if: env.SONAR_TOKEN != ''
+        if: env.SONAR_PRESENT == 'true'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_BACKEND }}
         run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
 
   # ──────────────────────────────────────────────
@@ -74,7 +79,7 @@ jobs:
     name: Frontend analysis
     runs-on: ubuntu-latest
     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_FRONTEND }}
+      SONAR_PRESENT: ${{ secrets.SONAR_TOKEN_FRONTEND != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -101,7 +106,9 @@ jobs:
       # Skipped when SONAR_TOKEN is unavailable (Dependabot PRs, forks, missing-secret
       # drift). Build+test above still runs as a smoke check.
       - name: SonarQube scan
-        if: env.SONAR_TOKEN != ''
+        if: env.SONAR_PRESENT == 'true'
         uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4  # v7.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_FRONTEND }}
         with:
           projectBaseDir: frontend/
