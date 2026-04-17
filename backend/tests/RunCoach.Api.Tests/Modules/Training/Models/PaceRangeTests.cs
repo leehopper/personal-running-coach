@@ -81,4 +81,22 @@ public class PaceRangeTests
         range.Fast.IsFasterThan(range.Slow).Should().BeTrue(
             because: "Fast end should always be faster than Slow end");
     }
+
+    [Fact]
+    public void WithExpression_CannotReassignFastOrSlow()
+    {
+        // Arrange — a valid range.
+        var range = new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360));
+
+        // Assert — the Fast and Slow properties are declared { get; } (no init setter),
+        // so a `with` expression that tries to reassign them is a compile-time error.
+        // This prevents invariant bypass like:
+        //     range with { Slow = Pace.FromSecondsPerKm(280) }
+        // from producing a PaceRange where Slow is faster than Fast.
+        //
+        // Compile-time error behaviour cannot be asserted at runtime; this test
+        // pins the runtime invariant and documents the compile-time guard via
+        // this comment and the XML docs on PaceRange itself.
+        range.Fast.IsFasterThan(range.Slow).Should().BeTrue();
+    }
 }

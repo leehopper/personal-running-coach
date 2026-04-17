@@ -21,8 +21,17 @@ public sealed record PaceRange
     }
 
     /// <summary>Gets the faster (lower sec/km) end of the range.</summary>
-    public Pace Fast { get; init; }
+    /// <remarks>
+    /// Declared without an init setter so <c>with</c>-expressions cannot reassign
+    /// this property and bypass the constructor's Fast ≤ Slow invariant check.
+    /// Matches the pattern in <see cref="IntRange"/>.
+    /// </remarks>
+    public Pace Fast { get; }
 
     /// <summary>Gets the slower (higher sec/km) end of the range.</summary>
-    public Pace Slow { get; init; }
+    /// <remarks>
+    /// Declared without an init setter so <c>with</c>-expressions cannot reassign
+    /// this property and bypass the constructor's Fast ≤ Slow invariant check.
+    /// </remarks>
+    public Pace Slow { get; }
 }
