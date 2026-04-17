@@ -133,4 +133,54 @@ public class HeartRateZoneCalculatorTests
         actualZones.Interval.Lower.Should().BeGreaterThan(0);
         actualZones.Interval.Upper.Should().BeGreaterThan(0);
     }
+
+    [Theory]
+    [InlineData(180, 180)] // restingHr == maxHr
+    [InlineData(180, 200)] // restingHr > maxHr
+    [InlineData(60, 61)] // edge: one above
+    public void CalculateZones_RestingHrEqualOrGreaterThanMaxHr_ThrowsArgumentOutOfRange(int maxHr, int restingHr)
+    {
+        // Act
+        var act = () => _sut.CalculateZones(maxHr, restingHr);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Theory]
+    [InlineData(160)]
+    [InlineData(180)]
+    [InlineData(200)]
+    public void CalculateZones_HrMaxMode_AnyValidMaxHr_ZonesAreOrderedFromSlowToFast(int maxHr)
+    {
+        // Act
+        var actualZones = _sut.CalculateZones(maxHr, restingHr: null);
+
+        // Assert — the percentage bands must partition the HR range in
+        // increasing-intensity order: Easy < Marathon < Threshold < Interval.
+        actualZones.Easy.Upper.Should().BeLessThan(
+            actualZones.Marathon.Lower,
+            because: "Easy zone must end before Marathon zone begins");
+        actualZones.Marathon.Upper.Should().BeLessThan(
+            actualZones.Threshold.Lower,
+            because: "Marathon zone must end before Threshold zone begins");
+        actualZones.Threshold.Upper.Should().BeLessThan(
+            actualZones.Interval.Lower,
+            because: "Threshold zone must end before Interval zone begins");
+    }
+
+    [Theory]
+    [InlineData(160, 50)]
+    [InlineData(180, 50)]
+    [InlineData(200, 60)]
+    public void CalculateZones_KarvonenMode_AnyValidInputs_ZonesAreOrderedFromSlowToFast(int maxHr, int restingHr)
+    {
+        // Act
+        var actualZones = _sut.CalculateZones(maxHr, restingHr);
+
+        // Assert — Karvonen bands must also respect Easy < Marathon < Threshold < Interval.
+        actualZones.Easy.Upper.Should().BeLessThan(actualZones.Marathon.Lower);
+        actualZones.Marathon.Upper.Should().BeLessThan(actualZones.Threshold.Lower);
+        actualZones.Threshold.Upper.Should().BeLessThan(actualZones.Interval.Lower);
+    }
 }
