@@ -9,9 +9,9 @@ public class DanielsGilbertEquationsTests
     // Worked example: index 50, 5 km in 19:56 → velocity ≈ 250.84 m/min
     // VO₂ = −4.60 + 0.182258·250.84 + 0.000104·250.84² ≈ 47.68
     [Theory]
-    [InlineData(200.0, 30.4516)] // slow easy-run pace
+    [InlineData(200.0, 36.0116)] // slow easy-run pace: −4.60 + 0.182258·200 + 0.000104·40000
     [InlineData(250.84, 47.68)] // index-50 5 km race pace (19:56)
-    [InlineData(300.0, 63.97)] // fast interval pace
+    [InlineData(300.0, 59.4374)] // fast interval pace: −4.60 + 0.182258·300 + 0.000104·90000
     public void OxygenCost_KnownVelocity_ReturnsExpectedVo2(double velocity, double expectedVo2)
     {
         // Act
@@ -39,10 +39,10 @@ public class DanielsGilbertEquationsTests
     // FractionalUtilization — %VO₂max decays from ~1.08 toward 0.8
     // Short durations → high fraction; long durations → approaches 0.8
     [Theory]
-    [InlineData(5.0, 1.0)] // ~5 min: fraction > 1 (very high intensity, short effort)
-    [InlineData(19.93, 0.9605)] // index-50 5 km race (~19:56): expected ~0.961
-    [InlineData(60.0, 0.8360)] // 60 min: fraction decays toward baseline
-    [InlineData(240.0, 0.8012)] // 4 hours: approaches 0.8 baseline closely
+    [InlineData(5.0, 1.0915)] // ~5 min: fraction > 1 (very high intensity, short effort)
+    [InlineData(19.93, 0.9532)] // index-50 5 km race (~19:56): ~0.953
+    [InlineData(60.0, 0.8880)] // 60 min: fraction decays toward baseline
+    [InlineData(240.0, 0.8088)] // 4 hours: approaches 0.8 baseline closely
     public void FractionalUtilization_KnownDuration_ReturnsExpectedFraction(
         double timeMinutes,
         double expectedFraction)
@@ -93,9 +93,9 @@ public class DanielsGilbertEquationsTests
 
     // SolveVelocityForTargetVo2 — closed-form positive root of the OxygenCost quadratic
     [Theory]
-    [InlineData(30.4516)] // low easy-pace VO₂
+    [InlineData(36.0116)] // slow easy-run pace VO₂ (OxygenCost(200))
     [InlineData(47.68)] // index-50 race pace
-    [InlineData(63.97)] // fast interval VO₂
+    [InlineData(59.4374)] // fast interval pace VO₂ (OxygenCost(300))
     public void SolveVelocityForTargetVo2_RoundTrip_WithinTolerance(double targetVo2)
     {
         // Arrange
