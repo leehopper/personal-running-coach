@@ -1,30 +1,15 @@
 using RunCoach.Api.Modules.Training.Models;
 
-namespace RunCoach.Api.Modules.Training.Computations;
+namespace RunCoach.Api.Tests.Modules.Training.Profiles;
 
 /// <summary>
-/// Derives training pace zones from VDOT values using lookup tables
-/// based on Daniels' Running Formula. Interpolates between table entries
-/// for non-integer VDOT values.
+/// Test-only pace calculator bridging TestProfiles until T06.3 migrates to PaceZoneCalculator.
+/// Preserves the Daniels lookup-table logic removed from src with T03.
 /// </summary>
-public sealed class PaceCalculator : IPaceCalculator
+internal sealed class TestPaceCalculator
 {
-    /// <summary>
-    /// Daniels' pace table entries keyed by integer VDOT.
-    /// Each entry contains paces per kilometer in seconds:
-    /// (EasyMin, EasyMax, Marathon, Threshold, Interval, Repetition).
-    /// Values from published Daniels' Running Formula (4th edition) pace tables.
-    ///
-    /// VDOT 50 values verified against the published 4th edition per-1000m columns
-    /// and Daniels-Gilbert equation cross-reference (DEC-040, R-019). VDOT 51-85
-    /// corrected from a confirmed off-by-one row shift in the original transcription
-    /// where each row N contained the correct paces for N+1.
-    /// </summary>
     private static readonly SortedDictionary<int, PaceTableEntry> PaceTable = new()
     {
-        // VDOT -> EasyMin(s/km), EasyMax(s/km), Marathon(s/km), Threshold(s/km), Interval(s/km), Repetition(s/km)
-        // Easy min = faster end of easy range, Easy max = slower end
-        // Paces are in seconds per kilometer.
         [30] = new(447, 497, 393, 370, 345, 325),
         [31] = new(437, 485, 384, 362, 337, 317),
         [32] = new(428, 474, 376, 354, 329, 310),
@@ -83,13 +68,12 @@ public sealed class PaceCalculator : IPaceCalculator
         [85] = new(209, 231, 186, 176, 163, 153),
     };
 
-    /// <inheritdoc />
-    public TrainingPaces CalculatePaces(decimal vdot)
+    public static TrainingPaces CalculatePaces(decimal index)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(vdot, 30m);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(vdot, 85m);
+        ArgumentOutOfRangeException.ThrowIfLessThan(index, 30m);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(index, 85m);
 
-        var entry = InterpolateEntry(vdot);
+        var entry = InterpolateEntry(index);
 
         return new TrainingPaces(
             EasyPaceRange: new PaceRange(
@@ -101,44 +85,30 @@ public sealed class PaceCalculator : IPaceCalculator
             RepetitionPace: Pace.FromSecondsPerKm(entry.RepetitionSeconds));
     }
 
-    /// <inheritdoc />
-    public int EstimateMaxHr(int age)
+    private static PaceTableEntry InterpolateEntry(decimal index)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(age, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(age, 120);
+        var lower = (int)Math.Floor(index);
+        var upper = (int)Math.Ceiling(index);
 
-        return 220 - age;
-    }
+        lower = Math.Clamp(lower, 30, 85);
+        upper = Math.Clamp(upper, 30, 85);
 
-    /// <summary>
-    /// Interpolates between the two nearest table entries for non-integer VDOT values.
-    /// For integer VDOT values, returns the exact table entry.
-    /// </summary>
-    private static PaceTableEntry InterpolateEntry(decimal vdot)
-    {
-        var lowerVdot = (int)Math.Floor(vdot);
-        var upperVdot = (int)Math.Ceiling(vdot);
-
-        // Clamp to table boundaries
-        lowerVdot = Math.Clamp(lowerVdot, 30, 85);
-        upperVdot = Math.Clamp(upperVdot, 30, 85);
-
-        if (lowerVdot == upperVdot)
+        if (lower == upper)
         {
-            return PaceTable[lowerVdot];
+            return PaceTable[lower];
         }
 
-        var lower = PaceTable[lowerVdot];
-        var upper = PaceTable[upperVdot];
-        var fraction = (double)(vdot - lowerVdot);
+        var lo = PaceTable[lower];
+        var hi = PaceTable[upper];
+        var fraction = (double)(index - lower);
 
         return new PaceTableEntry(
-            EasyMinSeconds: Lerp(lower.EasyMinSeconds, upper.EasyMinSeconds, fraction),
-            EasyMaxSeconds: Lerp(lower.EasyMaxSeconds, upper.EasyMaxSeconds, fraction),
-            MarathonSeconds: Lerp(lower.MarathonSeconds, upper.MarathonSeconds, fraction),
-            ThresholdSeconds: Lerp(lower.ThresholdSeconds, upper.ThresholdSeconds, fraction),
-            IntervalSeconds: Lerp(lower.IntervalSeconds, upper.IntervalSeconds, fraction),
-            RepetitionSeconds: Lerp(lower.RepetitionSeconds, upper.RepetitionSeconds, fraction));
+            EasyMinSeconds: Lerp(lo.EasyMinSeconds, hi.EasyMinSeconds, fraction),
+            EasyMaxSeconds: Lerp(lo.EasyMaxSeconds, hi.EasyMaxSeconds, fraction),
+            MarathonSeconds: Lerp(lo.MarathonSeconds, hi.MarathonSeconds, fraction),
+            ThresholdSeconds: Lerp(lo.ThresholdSeconds, hi.ThresholdSeconds, fraction),
+            IntervalSeconds: Lerp(lo.IntervalSeconds, hi.IntervalSeconds, fraction),
+            RepetitionSeconds: Lerp(lo.RepetitionSeconds, hi.RepetitionSeconds, fraction));
     }
 
     private static double Lerp(double a, double b, double t) => a + ((b - a) * t);

@@ -29,8 +29,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
 
         // Training module — stateless computation services (singleton).
-        services.AddSingleton<IPaceCalculator, PaceCalculator>();
-        services.AddSingleton<IVdotCalculator, VdotCalculator>();
+        services.AddSingleton<IPaceZoneIndexCalculator, PaceZoneIndexCalculator>();
 
         // Coaching module — prompt store is singleton (caches templates for app lifetime).
         services.AddSingleton<IPromptStore, YamlPromptStore>();

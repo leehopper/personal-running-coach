@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using Microsoft.Extensions.Logging.Abstractions;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Models;
 
@@ -13,8 +14,10 @@ namespace RunCoach.Api.Tests.Modules.Training.Profiles;
 /// </summary>
 public static class TestProfiles
 {
-    private static readonly VdotCalculator VdotCalc = new();
-    private static readonly PaceCalculator PaceCalc = new();
+    private static readonly PaceZoneIndexCalculator IndexCalc =
+        new(NullLogger<PaceZoneIndexCalculator>.Instance);
+
+    private static readonly HeartRateZoneCalculator HrCalc = new();
 
     private static readonly Lazy<IReadOnlyDictionary<string, TestProfile>> LazyAll = new(() =>
         new Dictionary<string, TestProfile>(StringComparer.OrdinalIgnoreCase)
@@ -68,7 +71,7 @@ public static class TestProfiles
 
         // No race history -> no VDOT, estimated paces based on beginner defaults.
         // Use estimated max HR as fallback.
-        var estimatedMaxHr = PaceCalc.EstimateMaxHr(profile.Age);
+        var estimatedMaxHr = HrCalc.EstimateMaxHr(profile.Age);
 
         var fitnessEstimate = new FitnessEstimate(
             EstimatedVdot: null,
@@ -108,8 +111,8 @@ public static class TestProfiles
         var today = DateOnly.FromDateTime(now);
 
         var raceTime = new RaceTime("10K", TimeSpan.FromMinutes(48), new DateOnly(2026, 2, 15), "Flat course, mild weather");
-        var vdot = VdotCalc.CalculateVdot(raceTime)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var vdot = IndexCalc.CalculateIndex(raceTime)!.Value;
+        var paces = TestPaceCalculator.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -174,8 +177,8 @@ public static class TestProfiles
             new RaceTime("Half-Marathon", new TimeSpan(1, 38, 0), new DateOnly(2025, 6, 8), "Flat course, ideal conditions"),
             new RaceTime("Marathon", new TimeSpan(3, 22, 0), new DateOnly(2024, 4, 15), "Boston, hilly, cool"));
 
-        var vdot = VdotCalc.CalculateVdot(raceTimes)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var vdot = IndexCalc.CalculateIndex(raceTimes)!.Value;
+        var paces = TestPaceCalculator.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -232,8 +235,8 @@ public static class TestProfiles
 
         // Pre-injury race time for VDOT estimation (before injury).
         var raceTime = new RaceTime("10K", new TimeSpan(0, 44, 0), new DateOnly(2025, 9, 20), "Pre-injury personal best");
-        var vdot = VdotCalc.CalculateVdot(raceTime)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var vdot = IndexCalc.CalculateIndex(raceTime)!.Value;
+        var paces = TestPaceCalculator.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -297,8 +300,8 @@ public static class TestProfiles
             new RaceTime("Half-Marathon", new TimeSpan(1, 32, 0), new DateOnly(2025, 11, 3), "PB, flat course"),
             new RaceTime("10K", TimeSpan.Parse("00:42:30", CultureInfo.InvariantCulture), new DateOnly(2025, 8, 10), null));
 
-        var vdot = VdotCalc.CalculateVdot(raceTimes)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var vdot = IndexCalc.CalculateIndex(raceTimes)!.Value;
+        var paces = TestPaceCalculator.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
