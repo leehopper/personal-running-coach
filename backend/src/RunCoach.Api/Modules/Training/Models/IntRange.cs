@@ -16,7 +16,7 @@ public sealed record IntRange
         Upper = upper;
     }
 
-    public int Lower { get; init; }
+    public int Lower { get; }
 
-    public int Upper { get; init; }
+    public int Upper { get; }
 }

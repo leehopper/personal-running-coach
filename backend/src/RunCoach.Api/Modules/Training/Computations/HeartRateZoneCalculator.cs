@@ -34,6 +34,14 @@ public sealed class HeartRateZoneCalculator : IHeartRateZoneCalculator
     /// <inheritdoc />
     public HeartRateZones CalculateZones(int maxHr, int? restingHr = null)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxHr, 1);
+
+        if (restingHr is not null)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(restingHr.Value, 1);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(restingHr.Value, maxHr);
+        }
+
         return restingHr is null
             ? CalculateHrMaxZones(maxHr)
             : CalculateKarvonenZones(maxHr, restingHr.Value);

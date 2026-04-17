@@ -10,6 +10,11 @@ public readonly record struct Distance
 
     private Distance(double meters)
     {
+        if (!double.IsFinite(meters))
+        {
+            throw new ArgumentOutOfRangeException(nameof(meters), "Distance must be finite.");
+        }
+
         ArgumentOutOfRangeException.ThrowIfNegative(meters);
         Meters = meters;
     }

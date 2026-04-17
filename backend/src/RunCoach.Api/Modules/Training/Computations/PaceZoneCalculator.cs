@@ -10,7 +10,6 @@ public sealed class PaceZoneCalculator : IPaceZoneCalculator
 {
     private const double MinIndex = 25.0;
     private const double MaxIndex = 90.0;
-    private const double LowIndexWarningThreshold = 30.0;
 
     private const double EasyFastFraction = 0.70;
     private const double EasySlowFraction = 0.59;
@@ -37,11 +36,6 @@ public sealed class PaceZoneCalculator : IPaceZoneCalculator
             throw new ArgumentOutOfRangeException(
                 nameof(index),
                 $"Pace-zone index must be between {MinIndex} and {MaxIndex} (inclusive). Got: {index}.");
-        }
-
-        if (idx < LowIndexWarningThreshold)
-        {
-            // Index 25–29: below the validated domain floor for R-pace coefficients (R-035)
         }
 
         var easyFastVelocity = DanielsGilbertEquations.SolveVelocityForTargetVo2(EasyFastFraction * idx);
