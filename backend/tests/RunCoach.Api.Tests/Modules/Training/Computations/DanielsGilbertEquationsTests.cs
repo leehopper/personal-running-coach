@@ -112,7 +112,7 @@ public class DanielsGilbertEquationsTests
     }
 
     [Fact]
-    public void SolveVelocityForTargetVo2_ReturnsPositiveVelocity()
+    public void SolveVelocityForTargetVo2_RealisticVo2_ReturnsPositiveVelocity()
     {
         // Any realistic VO₂ value (positive, reasonable) must yield a positive velocity
         var velocity = DanielsGilbertEquations.SolveVelocityForTargetVo2(47.68);
