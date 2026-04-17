@@ -18,7 +18,9 @@ public class DanielsGilbertEquationsTests
         var actual = DanielsGilbertEquations.OxygenCost(velocity);
 
         // Assert
-        actual.Should().BeApproximately(expectedVo2, 0.05,
+        actual.Should().BeApproximately(
+            expectedVo2,
+            0.05,
             because: $"VO₂ at {velocity} m/min should match the Daniels–Gilbert 1979 equation");
     }
 
@@ -28,7 +30,9 @@ public class DanielsGilbertEquationsTests
         // At v = 0 the polynomial reduces to the constant term −4.60
         var actual = DanielsGilbertEquations.OxygenCost(0.0);
 
-        actual.Should().BeApproximately(-4.60, 1e-9,
+        actual.Should().BeApproximately(
+            -4.60,
+            1e-9,
             because: "VO₂ at zero velocity equals the constant term −4.60");
     }
 
@@ -47,7 +51,9 @@ public class DanielsGilbertEquationsTests
         var actual = DanielsGilbertEquations.FractionalUtilization(timeMinutes);
 
         // Assert
-        actual.Should().BeApproximately(expectedFraction, 0.002,
+        actual.Should().BeApproximately(
+            expectedFraction,
+            0.002,
             because: $"fractional utilization at {timeMinutes} min should match the Daniels–Gilbert 1979 equation");
     }
 
@@ -57,7 +63,9 @@ public class DanielsGilbertEquationsTests
         // As t → ∞ both exponential terms vanish; result → 0.8
         var actual = DanielsGilbertEquations.FractionalUtilization(10_000.0);
 
-        actual.Should().BeApproximately(0.8, 1e-6,
+        actual.Should().BeApproximately(
+            0.8,
+            1e-6,
             because: "fractional utilization at infinite duration approaches the 0.8 baseline");
     }
 
@@ -77,7 +85,56 @@ public class DanielsGilbertEquationsTests
         var actualIndex = vo2 / fracUtil;
 
         // Assert
-        actualIndex.Should().BeApproximately(expectedIndex, 0.5,
+        actualIndex.Should().BeApproximately(
+            expectedIndex,
+            0.5,
             because: "index 50 at 5 km / 19:56 is the canonical Daniels published anchor");
+    }
+
+    // SolveVelocityForTargetVo2 — closed-form positive root of the OxygenCost quadratic
+    [Theory]
+    [InlineData(30.4516)] // low easy-pace VO₂
+    [InlineData(47.68)] // index-50 race pace
+    [InlineData(63.97)] // fast interval VO₂
+    public void SolveVelocityForTargetVo2_RoundTrip_WithinTolerance(double targetVo2)
+    {
+        // Arrange
+        var velocity = DanielsGilbertEquations.SolveVelocityForTargetVo2(targetVo2);
+
+        // Act — feed the solved velocity back into OxygenCost
+        var actualVo2 = DanielsGilbertEquations.OxygenCost(velocity);
+
+        // Assert — round-trip must hold within 1e-6
+        actualVo2.Should().BeApproximately(
+            targetVo2,
+            1e-6,
+            because: $"OxygenCost(SolveVelocityForTargetVo2({targetVo2})) should equal {targetVo2} within 1e-6");
+    }
+
+    [Fact]
+    public void SolveVelocityForTargetVo2_ReturnsPositiveVelocity()
+    {
+        // Any realistic VO₂ value (positive, reasonable) must yield a positive velocity
+        var velocity = DanielsGilbertEquations.SolveVelocityForTargetVo2(47.68);
+
+        velocity.Should().BePositive(because: "running velocity cannot be negative");
+    }
+
+    [Fact]
+    public void SolveVelocityForTargetVo2_IsInverseOfOxygenCost_AtIndex50()
+    {
+        // Arrange — 5 km in 19:56 → known velocity
+        var timeMinutes = ((19.0 * 60.0) + 56.0) / 60.0;
+        var expectedVelocity = 5000.0 / timeMinutes;
+        var vo2 = DanielsGilbertEquations.OxygenCost(expectedVelocity);
+
+        // Act
+        var actualVelocity = DanielsGilbertEquations.SolveVelocityForTargetVo2(vo2);
+
+        // Assert
+        actualVelocity.Should().BeApproximately(
+            expectedVelocity,
+            1e-6,
+            because: "SolveVelocityForTargetVo2 must invert OxygenCost at the index-50 anchor");
     }
 }

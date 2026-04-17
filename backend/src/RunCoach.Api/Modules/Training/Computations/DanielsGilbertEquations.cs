@@ -51,4 +51,19 @@ internal static class DanielsGilbertEquations
             + (FracUtilAmplitude1 * Math.Exp(-FracUtilDecay1 * timeMinutes))
             + (FracUtilAmplitude2 * Math.Exp(-FracUtilDecay2 * timeMinutes));
     }
+
+    /// <summary>
+    /// Closed-form inverse of <see cref="OxygenCost"/>: returns the velocity (m/min) at which
+    /// <c>OxygenCost(v) == targetVo2</c>, via the positive root of the quadratic
+    /// <c>0.000104·v² + 0.182258·v − (4.60 + targetVo2) = 0</c>.
+    /// </summary>
+    public static double SolveVelocityForTargetVo2(double targetVo2)
+    {
+        // OxygenCost(v) = targetVo2
+        // OxygenCostQuadratic·v² + OxygenCostLinear·v + (OxygenCostConstant − targetVo2) = 0
+        // Positive root: v = (−b + √(b² − 4·a·c_term)) / (2·a)
+        var cTerm = OxygenCostConstant - targetVo2;
+        var discriminant = (OxygenCostLinear * OxygenCostLinear) - (4.0 * OxygenCostQuadratic * cTerm);
+        return (-OxygenCostLinear + Math.Sqrt(discriminant)) / (2.0 * OxygenCostQuadratic);
+    }
 }
