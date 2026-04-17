@@ -1,6 +1,6 @@
 # Backend — .NET 10 / ASP.NET Core
 
-> **Trademark rule — VDOT.** User-facing surface (coaching prompt YAML under `src/RunCoach.Api/Prompts/`, API responses, generated plan narrative, error messages) must use "Daniels-Gilbert zones" or "pace-zone index" — **not** "VDOT". The VDOT mark is enforced by The Run SMART Project LLC (Runalyze precedent). Calculator classes have been renamed to `PaceZoneIndexCalculator`, `PaceZoneCalculator`, and `HeartRateZoneCalculator` per DEC-042. Two internal-only identifiers still reference the VDOT term (`FitnessEstimate.EstimatedVdot`, a doc comment on `RaceTime`) — these are out of user-facing scope and are safe to leave until a later touch. See root `CLAUDE.md` and `NOTICE` for full context.
+> **Trademark rule — VDOT.** User-facing surface (coaching prompt YAML under `src/RunCoach.Api/Prompts/`, API responses, generated plan narrative, error messages) must use "Daniels-Gilbert zones" or "pace-zone index" — **not** "VDOT". The VDOT mark is enforced by The Run SMART Project LLC (Runalyze precedent). Calculator classes have been renamed to `PaceZoneIndexCalculator`, `PaceZoneCalculator`, and `HeartRateZoneCalculator` per DEC-042. Three internal-only references still carry the legacy term (`FitnessEstimate.EstimatedVdot`, a doc comment on `RaceTime`, and the `"VDOT"` literal inside `TestProfiles.Lee().AssessmentBasis` — the last flows into eval-cache prompt text so scrubbing requires a Sonnet fixture re-record). Tracked as a DEC-042 follow-up in ROADMAP. See root `CLAUDE.md` and `NOTICE` for full context.
 
 ## Stack
 
