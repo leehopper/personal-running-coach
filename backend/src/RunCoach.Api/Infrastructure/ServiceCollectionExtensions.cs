@@ -30,6 +30,8 @@ public static class ServiceCollectionExtensions
 
         // Training module — stateless computation services (singleton).
         services.AddSingleton<IPaceZoneIndexCalculator, PaceZoneIndexCalculator>();
+        services.AddSingleton<IPaceZoneCalculator, PaceZoneCalculator>();
+        services.AddSingleton<IHeartRateZoneCalculator, HeartRateZoneCalculator>();
 
         // Coaching module — prompt store is singleton (caches templates for app lifetime).
         services.AddSingleton<IPromptStore, YamlPromptStore>();
