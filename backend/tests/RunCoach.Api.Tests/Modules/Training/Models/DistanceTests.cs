@@ -32,6 +32,19 @@ public class DistanceTests
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void FromMeters_NonFiniteValue_ThrowsArgumentOutOfRangeException(double value)
+    {
+        // Act
+        var act = () => Distance.FromMeters(value);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
     [Fact]
     public void FromKilometers_ZeroValue_CreatesZeroDistance()
     {
