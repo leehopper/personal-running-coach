@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Aerobic cornerstone of the week. Keep effort genuinely easy — conversational pace, 5:22–5:56/km. 18–20 km. Your long run is the anchor; protect it by starting conservatively.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Your body adapts during recovery, not during the run itself. Think of today as part of the training, not a gap in it.\"},{\"day_of_week\":2,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Aerobic recovery run, 10–12 km at easy pace (5:22–5:56/km). Shake out Sunday's long run. Keep it honest — if your legs feel heavy, stay at the slower end.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Comfortably hard effort. After a 2 km easy warm-up, run 20 min at threshold pace (4:28/km), then 2 km easy cool-down. Total ~9 km. Threshold work preserves your lactate ceiling without adding excessive fatigue.\"},{\"day_of_week\":4,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Low-impact cross-training — cycling, swimming, or yoga. 30–45 min. Keeps aerobic stimulus ticking while giving your connective tissue, including that left Achilles, a break from impact.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run, 10–12 km at 5:22–5:56/km. Mid-week volume builder. Stay relaxed — this is bread-and-butter mileage that quietly does a lot of work.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 10 km at 5:22–5:56/km. Pre-long-run flush. Keep effort light and enjoyable — you're setting yourself up for a strong Sunday.\"}],\"week_summary\":\"Welcome to your maintenance plan, Maria. Week 1 is about settling into a sustainable rhythm at 55 km — right at your current fitness level, so nothing here should feel like a reach. The structure follows an 80/20 principle: the majority of your running is easy aerobic work, with one threshold session mid-week to keep your lactate fitness sharp. The cross-train day on Thursday is intentional — given your Achilles history, one day of non-impact aerobic work each week is a smart long-term investment. Your long run on Sunday anchors everything. A few things worth noting: your recent week of 47 km (March 16) suggests you may be in a natural down phase, so if 55 km feels like a lot this week, it's absolutely fine to dial back to 50 km and build from there. The goal of maintenance is consistency over months, not heroics in any single week. How does this structure feel as a starting point?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2312,
+    "outputTokenCount": 767,
+    "totalTokenCount": 3079
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"20–22 km at easy pace (5:07–5:39/km). We're starting slightly below your recent long run to establish a sustainable foundation. Run relaxed — conversational effort throughout.\"},{\"day_of_week\":1,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Recovery is where adaptation happens — treat this as active investment in Sunday's effort.\"},{\"day_of_week\":2,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Optional 30–45 min low-impact cross-training (cycling, swimming, yoga). Keep HR easy. This supports aerobic base without adding run-specific load.\"},{\"day_of_week\":3,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"12 km easy (5:07–5:39/km). Pure aerobic development. If you feel sluggish from Sunday, dial back to the slower end of the range — that's not a weakness, that's smart training.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. You're doing the right things — consistency across weeks matters far more than any single session.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"10 km total: 2 km easy warm-up, 5 km at threshold pace (4:16/km), 3 km easy cool-down. Threshold work builds your lactate ceiling — the physiological quality most predictive of marathon performance.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"13 km easy (5:07–5:39/km). A relaxed aerobic run to close the week. Keep effort genuinely easy — resist the urge to push on tired legs.\"}],\"week_summary\":\"Welcome to your marathon build, Priya. Week 1 is about reestablishing structure after the lighter week of 2026-02-23 and settling into a 4-day rhythm that works around your life. We're targeting 55 km — slightly conservative relative to your recent 60 km weeks — because building on a solid, fresh foundation beats grinding through accumulated fatigue. The single threshold session gives your aerobic system a quality stimulus without overloading week one. Your VDOT of 49.7 puts your marathon goal of 3:15 (4:37/km) within genuine reach — it's ambitious but physiologically grounded. Let's build toward it one week at a time.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2329,
+    "outputTokenCount": 642,
+    "totalTokenCount": 2971
+  }
+}

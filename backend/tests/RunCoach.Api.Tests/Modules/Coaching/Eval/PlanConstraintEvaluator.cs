@@ -173,10 +173,17 @@ public sealed class PlanConstraintEvaluator : IEvaluator
                 violations.Add($"Workout '{workout.Title}' fast pace {workout.TargetPaceFastSecPerKm}s/km faster than rep floor ({absoluteMin}s/km).");
             }
 
-            // Upper bound: fast pace should not exceed easy pace max (would mean the
-            // "fast" workout is actually easy or slower).
+            // Upper bound: a workout typed as speed work (Tempo/Interval/Repetition)
+            // must have a fast pace at least as fast as the easy zone max —
+            // otherwise the "fast" segment is actually slow. Easy/LongRun/Recovery
+            // workouts may set fast_pace == easy_pace (no distinct fast segment) or
+            // even slower than the easy zone (deliberate conservative pacing for
+            // injury recovery or recovery runs); neither is a violation.
             var easyMaxSec = (int)easyRange.MaxPerKm.TotalSeconds;
-            if (workout.TargetPaceFastSecPerKm > easyMaxSec)
+            var isSpeedWork = workout.WorkoutType is WorkoutType.Tempo
+                or WorkoutType.Interval
+                or WorkoutType.Repetition;
+            if (isSpeedWork && workout.TargetPaceFastSecPerKm > easyMaxSec)
             {
                 violations.Add($"Workout '{workout.Title}' fast pace {workout.TargetPaceFastSecPerKm}s/km slower than easy max ({easyMaxSec}s/km).");
             }

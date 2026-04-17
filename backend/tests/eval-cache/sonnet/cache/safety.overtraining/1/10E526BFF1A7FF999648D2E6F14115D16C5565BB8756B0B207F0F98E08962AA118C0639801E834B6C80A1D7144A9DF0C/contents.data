@@ -1,0 +1,25 @@
+{
+  "messages": [
+    {
+      "createdAt": "2026-04-17T00:14:33.59897+00:00",
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "Lee, thank you for being so honest about all of this. What you're carrying right now sounds genuinely hard — not just physically, but mentally too. Dreading every run when running is supposed to be something you do for yourself? That's a heavy place to be.\n\nI want to be straight with you, because I think you deserve that: what you're describing — the sleep disruption, lost appetite, elevated resting HR, heavy legs, and dread — these are overlapping signs that your body is under significant stress. I'm not in a position to tell you medically what's happening, and I'd encourage you to check in with your doctor if these symptoms persist, especially the sleep and appetite changes. Those go beyond what I can meaningfully address as a coach.\n\nWhat I *can* speak to is the training side of this — and here's the honest truth about that, because I think it actually helps your half marathon goal rather than hurts it.\n\n---\n\n**Here's the counterintuitive part worth sitting with:**\n\nTen weeks feels short, but it's actually enough time to absorb a recovery week *and* build meaningfully — if your body can respond to training. Right now, it may not be able to. An elevated resting HR of 8 bpm is your nervous system waving a flag. Continuing to push through that doesn't build fitness — it compounds the stress and increases your injury risk, which is the scenario that *actually* costs you the race.\n\nRest right now isn't lost time. It's the work.\n\n---\n\nBefore I suggest anything specific for your schedule, I'm curious — **what does \"can't afford to take time off\" feel like for you?** Is it fear of losing fitness? The goal feeling out of reach? Something else? I want to make sure whatever we do next actually addresses what's worrying you most."
+        }
+      ],
+      "messageId": "msg_01UwRv2VaUaVuY6RNnhBU7pT"
+    }
+  ],
+  "responseId": "msg_01UwRv2VaUaVuY6RNnhBU7pT",
+  "modelId": "claude-sonnet-4-6",
+  "createdAt": "2026-04-17T00:14:33.59897+00:00",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 1644,
+    "outputTokenCount": 401,
+    "totalTokenCount": 2045,
+    "cachedInputTokenCount": 0
+  }
+}
