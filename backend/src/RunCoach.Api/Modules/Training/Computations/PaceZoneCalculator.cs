@@ -8,8 +8,8 @@ namespace RunCoach.Api.Modules.Training.Computations;
 /// </summary>
 public sealed class PaceZoneCalculator : IPaceZoneCalculator
 {
-    private const double MinIndex = 25.0;
-    private const double MaxIndex = 90.0;
+    private const decimal MinIndex = 25.0m;
+    private const decimal MaxIndex = 90.0m;
 
     private const double EasyFastFraction = 0.70;
     private const double EasySlowFraction = 0.59;
@@ -29,14 +29,14 @@ public sealed class PaceZoneCalculator : IPaceZoneCalculator
     /// <inheritdoc />
     public TrainingPaces CalculatePaces(decimal index)
     {
-        var idx = (double)index;
-
-        if (idx < MinIndex || idx > MaxIndex)
+        if (index < MinIndex || index > MaxIndex)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(index),
                 $"Pace-zone index must be between {MinIndex} and {MaxIndex} (inclusive). Got: {index}.");
         }
+
+        var idx = (double)index;
 
         var easyFastVelocity = DanielsGilbertEquations.SolveVelocityForTargetVo2(EasyFastFraction * idx);
         var easySlowVelocity = DanielsGilbertEquations.SolveVelocityForTargetVo2(EasySlowFraction * idx);
