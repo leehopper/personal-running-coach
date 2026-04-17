@@ -166,19 +166,9 @@ public class PaceZoneCalculatorTests
             because: "Marathon at index 50: PredictRaceTimeMinutes(50, 42195) ≈ 139 min → 198 s/km");
     }
 
-    // R and F are deferred — must be null for T04.1
+    // All six zones are non-null for valid index
     [Fact]
-    public void CalculatePaces_RepetitionAndFastRepetition_AreNullInT04_1()
-    {
-        var result = _sut.CalculatePaces(50m);
-
-        result.RepetitionPace.Should().BeNull(because: "R zone is deferred to T04.2");
-        result.FastRepetitionPace.Should().BeNull(because: "F zone is deferred to T04.2");
-    }
-
-    // All required zones are non-null for valid index
-    [Fact]
-    public void CalculatePaces_ValidIndex_AllRequiredZonesNonNull()
+    public void CalculatePaces_ValidIndex_AllSixZonesNonNull()
     {
         var result = _sut.CalculatePaces(50m);
 
@@ -186,5 +176,49 @@ public class PaceZoneCalculatorTests
         result.MarathonPace.Should().NotBeNull(because: "M zone must be computed");
         result.ThresholdPace.Should().NotBeNull(because: "T zone must be computed");
         result.IntervalPace.Should().NotBeNull(because: "I zone must be computed");
+        result.RepetitionPace.Should().NotBeNull(because: "R zone must be computed");
+        result.FastRepetitionPace.Should().NotBeNull(because: "F zone must be computed");
+    }
+
+    // R zone — RepetitionPace = R-400 derived from 0.9450*(400/3000)*PredictRaceTimeMinutes(index, 3000)
+    // At index 50: actual equation output ≈ 216.76 s/km
+    [Fact]
+    public void CalculatePaces_RepetitionAtIndex50_MatchesEquationOutput()
+    {
+        var result = _sut.CalculatePaces(50m);
+
+        result.RepetitionPace!.Value.SecondsPerKm.Should().BeApproximately(
+            216.76,
+            2.0,
+            because: "R-400 at index 50 = 0.9450*(400/3000)*PredictRaceTimeMinutes(50,3000) expressed as s/km");
+    }
+
+    // F zone — FastRepetitionPace = F-400 derived from PredictRaceTimeMinutes(index, 800)/2
+    // At index 50: actual equation output ≈ 255.18 s/km
+    [Fact]
+    public void CalculatePaces_FastRepetitionAtIndex50_MatchesEquationOutput()
+    {
+        var result = _sut.CalculatePaces(50m);
+
+        result.FastRepetitionPace!.Value.SecondsPerKm.Should().BeApproximately(
+            255.18,
+            2.0,
+            because: "F-400 at index 50 = PredictRaceTimeMinutes(50,800)/2 expressed as s/km");
+    }
+
+    // Zone ordering: Interval > R and F both non-null
+    [Theory]
+    [InlineData(40)]
+    [InlineData(50)]
+    [InlineData(60)]
+    [InlineData(70)]
+    public void CalculatePaces_ZoneOrdering_RepetitionAndFastRepetitionNonNull(double index)
+    {
+        var result = _sut.CalculatePaces((decimal)index);
+
+        result.RepetitionPace.Should().NotBeNull(
+            because: $"R zone must be computed at index {index}");
+        result.FastRepetitionPace.Should().NotBeNull(
+            because: $"F zone must be computed at index {index}");
     }
 }
