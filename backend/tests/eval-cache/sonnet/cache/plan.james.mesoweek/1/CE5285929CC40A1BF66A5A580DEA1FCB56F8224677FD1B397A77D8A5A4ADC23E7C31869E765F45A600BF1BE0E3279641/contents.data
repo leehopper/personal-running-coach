@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":10,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week ahead. Gentle stretching or foam rolling is fine if it feels good.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Use this time for foot care — ice, gentle calf stretches, and any physio exercises you've been given.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20 min easy run at 5:24–5:58/km. Walk breaks welcome — no need to push through any foot discomfort. This is about reintroducing load, not proving fitness.\"},\"wednesday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. How did Tuesday feel? Notice any lingering foot sensation and keep a mental note for your physio check-in.\"},\"thursday\":{\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Optional 20–30 min low-impact cross-training — cycling, swimming, or pool running. Zero foot stress, all aerobic benefit. Skip entirely if you're fatigued.\"},\"friday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Light mobility work or physio exercises are a great use of this time.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Your long run day — 20 min easy at 5:24–5:58/km. Same rules as Tuesday: walk breaks any time foot discomfort appears. Think of this as a confidence-builder, not a workout.\"},\"week_summary\":\"Welcome back, James. This first week is deliberately conservative — and intentionally so. Your physio has cleared you for 20 minutes of easy running only, and your recent weeks (6.4 km, 8.9 km, 2.5 km) show some variability that tells me your body is still finding its footing, literally. So we're anchoring Week 1 at ~10 km across two easy runs, with a cross-training option mid-week to keep your aerobic engine ticking without loading the plantar fascia. Every run this week should feel genuinely easy — conversational pace, no watch-chasing. If your foot talks to you at any point, walk. That's not failure; that's smart training. The goal this week is simple: two clean, pain-free runs that leave you feeling encouraged, not beat up.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 3828,
+    "outputTokenCount": 600,
+    "totalTokenCount": 4428
+  }
+}

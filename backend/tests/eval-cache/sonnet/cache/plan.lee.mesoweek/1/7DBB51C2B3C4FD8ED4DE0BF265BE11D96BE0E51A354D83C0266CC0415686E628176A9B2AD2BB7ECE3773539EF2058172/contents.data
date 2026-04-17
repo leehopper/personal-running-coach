@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":40,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"14 km easy long run at 5:50–6:27/km. Keep effort conversational — this is about time on feet, not pace. Focus on relaxed form and steady breathing.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Your body adapts during recovery, not just during the run. Use this day to prioritize sleep and mobility if desired.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"8 km easy run at 5:50–6:27/km. This is an aerobic foundation run — resist the urge to push. Effort should feel genuinely easy.\"},\"wednesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"7 km total: 2 km easy warm-up, 3 km at threshold pace (4:50/km), 2 km easy cool-down. Your first quality session — threshold work builds lactate clearance capacity directly relevant to your half-marathon goal.\"},\"thursday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or very gentle mobility work. Back-to-back quality and rest here lets Wednesday's adaptation take hold before your next run.\"},\"friday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"8 km easy at 5:50–6:27/km. A buffer run to accumulate aerobic volume without stressing recovery. Keep HR in check — this is not a workout.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"8 km easy at 5:50–6:27/km. Final run of the week. Treat it as a relaxed finisher — loose and light on your feet going into Sunday's long run next week.\"},\"week_summary\":\"Welcome to Week 1, Lee — and a solid starting point you've got here. Your recent 10K gives us a clear fitness picture (VDOT 42), and your training history shows you've been consistent at 33–34 km most weeks, which means 40 km is a reachable but meaningful step up. This week we're establishing the rhythm: four runs, one quality session (tempo), and two full rest days to protect you from doing too much too soon. The tempo on Wednesday is your first real taste of half-marathon specific work — threshold pace is essentially the physiological lever that will lower your race time from where you are to that 1:45 goal. We stay at 40 km this week as a controlled baseline before we build. How does this structure feel for your schedule?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 3850,
+    "outputTokenCount": 633,
+    "totalTokenCount": 4483
+  }
+}

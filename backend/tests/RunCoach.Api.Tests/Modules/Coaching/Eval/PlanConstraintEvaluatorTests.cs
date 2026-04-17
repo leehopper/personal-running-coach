@@ -65,14 +65,6 @@ public sealed class PlanConstraintEvaluatorTests
     public void Evaluate_BeginnerInsufficientRest_ReturnsViolation()
     {
         // Arrange — only 1 rest day for a beginner
-        var days = Enumerable.Range(0, 7).Select(d => new MesoDayOutput
-        {
-            DayOfWeek = d,
-            SlotType = d == 0 ? DaySlotType.Rest : DaySlotType.Run,
-            WorkoutType = d == 0 ? null : WorkoutType.Easy,
-            Notes = "test",
-        }).ToArray();
-
         var context = new PlanConstraintContext
         {
             MesoWeek = new MesoWeekOutput
@@ -81,7 +73,13 @@ public sealed class PlanConstraintEvaluatorTests
                 PhaseType = PhaseType.Base,
                 WeeklyTargetKm = 20,
                 IsDeloadWeek = false,
-                Days = days,
+                Sunday = new MesoDaySlotOutput { SlotType = DaySlotType.Rest, Notes = "test" },
+                Monday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "test" },
+                Tuesday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "test" },
+                Wednesday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "test" },
+                Thursday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "test" },
+                Friday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "test" },
+                Saturday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.LongRun, Notes = "test" },
                 WeekSummary = "test",
             },
             IsBeginnerProfile = true,
@@ -262,24 +260,19 @@ public sealed class PlanConstraintEvaluatorTests
 
     private static MesoWeekOutput BuildValidMesoWeek(int weeklyKm)
     {
-        var days = new[]
-        {
-            new MesoDayOutput { DayOfWeek = 0, SlotType = DaySlotType.Rest, Notes = "Rest" },
-            new MesoDayOutput { DayOfWeek = 1, SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy" },
-            new MesoDayOutput { DayOfWeek = 2, SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy" },
-            new MesoDayOutput { DayOfWeek = 3, SlotType = DaySlotType.Rest, Notes = "Rest" },
-            new MesoDayOutput { DayOfWeek = 4, SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Tempo, Notes = "Tempo" },
-            new MesoDayOutput { DayOfWeek = 5, SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy" },
-            new MesoDayOutput { DayOfWeek = 6, SlotType = DaySlotType.Run, WorkoutType = WorkoutType.LongRun, Notes = "Long" },
-        };
-
         return new MesoWeekOutput
         {
             WeekNumber = 1,
             PhaseType = PhaseType.Base,
             WeeklyTargetKm = weeklyKm,
             IsDeloadWeek = false,
-            Days = days,
+            Sunday = new MesoDaySlotOutput { SlotType = DaySlotType.Rest, Notes = "Rest" },
+            Monday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy" },
+            Tuesday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy" },
+            Wednesday = new MesoDaySlotOutput { SlotType = DaySlotType.Rest, Notes = "Rest" },
+            Thursday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Tempo, Notes = "Tempo" },
+            Friday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy" },
+            Saturday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.LongRun, Notes = "Long" },
             WeekSummary = "Test week.",
         };
     }

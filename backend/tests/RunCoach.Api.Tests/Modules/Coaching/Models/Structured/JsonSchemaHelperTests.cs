@@ -100,7 +100,7 @@ public class JsonSchemaHelperTests
         var schemaStr = schema.ToJsonString();
         schemaStr.Should().Contain("week number within the current training phase");
         schemaStr.Should().Contain("deload week");
-        schemaStr.Should().Contain("seven day slots");
+        schemaStr.Should().Contain("Activity plan for Sunday");
     }
 
     [Fact]

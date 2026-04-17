@@ -212,10 +212,34 @@ output_format:
         - name: "weeklyTargetKm"
           type: "number"
           required: true
-        - name: "days"
-          type: "array"
+        - name: "sunday"
+          type: "object"
           required: true
-          description: "Array of DaySlot objects with dayOfWeek, slotType, emphasis"
+          description: "DaySlot object with slotType (Run/Rest/CrossTrain), workoutType, notes"
+        - name: "monday"
+          type: "object"
+          required: true
+          description: "DaySlot object with slotType, workoutType, notes"
+        - name: "tuesday"
+          type: "object"
+          required: true
+          description: "DaySlot object with slotType, workoutType, notes"
+        - name: "wednesday"
+          type: "object"
+          required: true
+          description: "DaySlot object with slotType, workoutType, notes"
+        - name: "thursday"
+          type: "object"
+          required: true
+          description: "DaySlot object with slotType, workoutType, notes"
+        - name: "friday"
+          type: "object"
+          required: true
+          description: "DaySlot object with slotType, workoutType, notes"
+        - name: "saturday"
+          type: "object"
+          required: true
+          description: "DaySlot object with slotType, workoutType, notes"
 
     micro_workout:
       description: "Specific workout with structure and pacing"

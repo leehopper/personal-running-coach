@@ -6,14 +6,8 @@ namespace RunCoach.Api.Modules.Coaching.Models.Structured;
 /// A single day slot within a weekly training template, as returned by structured output.
 /// Nesting depth: 1 (child of MesoWeekOutput).
 /// </summary>
-public sealed record MesoDayOutput
+public sealed record MesoDaySlotOutput
 {
-    /// <summary>
-    /// Gets the day of the week (0 = Sunday, 1 = Monday, etc.).
-    /// </summary>
-    [Description("The day of the week as an integer: 0 = Sunday, 1 = Monday, ..., 6 = Saturday.")]
-    public required int DayOfWeek { get; init; }
-
     /// <summary>
     /// Gets the type of activity assigned to this day slot.
     /// </summary>

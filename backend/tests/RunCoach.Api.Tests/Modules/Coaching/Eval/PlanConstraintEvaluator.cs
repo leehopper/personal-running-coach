@@ -100,11 +100,6 @@ public sealed class PlanConstraintEvaluator : IEvaluator
 
     private static void CheckMesoWeek(MesoWeekOutput week, int? currentWeeklyKm, bool isBeginner, List<string> violations)
     {
-        if (week.Days.Length != 7)
-        {
-            violations.Add($"MesoWeek.Days has {week.Days.Length} entries, expected 7.");
-        }
-
         if (currentWeeklyKm.HasValue && currentWeeklyKm.Value > 0)
         {
             var maxKm = (int)(currentWeeklyKm.Value * 1.10);
@@ -114,7 +109,7 @@ public sealed class PlanConstraintEvaluator : IEvaluator
             }
         }
 
-        var restDayCount = week.Days.Count(d => d.SlotType == DaySlotType.Rest);
+        var restDayCount = week.EnumerateDays().Count(d => d.Slot.SlotType == DaySlotType.Rest);
         if (isBeginner && restDayCount < 2)
         {
             violations.Add($"Beginner profile has only {restDayCount} rest day(s) — expected at least 2.");
