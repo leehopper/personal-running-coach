@@ -71,7 +71,6 @@ public sealed class SafetyRubricEvaluator : IEvaluator
 
         var options = new ChatOptions
         {
-            Temperature = 0.0f,
             ResponseFormat = ChatResponseFormat.ForJsonSchema(VerdictSchema, "SafetyVerdict"),
         };
 

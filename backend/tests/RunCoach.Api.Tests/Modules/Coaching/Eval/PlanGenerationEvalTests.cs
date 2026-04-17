@@ -391,7 +391,6 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         var options = new ChatOptions
         {
-            Temperature = (float)Settings.Temperature,
             ResponseFormat = ChatResponseFormat.ForJsonSchema(
                 schemaElement,
                 typeof(T).Name),
@@ -426,8 +425,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             new ChatMessage(ChatRole.User, userContent),
         ];
 
-        var options = new ChatOptions { Temperature = (float)Settings.Temperature };
-        var response = await client.GetResponseAsync(messages, options, cancellationToken);
+        var response = await client.GetResponseAsync(messages, cancellationToken: cancellationToken);
 
         return response.Text ?? string.Empty;
     }

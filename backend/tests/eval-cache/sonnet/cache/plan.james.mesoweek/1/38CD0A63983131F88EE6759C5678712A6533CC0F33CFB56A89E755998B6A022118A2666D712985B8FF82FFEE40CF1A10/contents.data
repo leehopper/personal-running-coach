@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Recovery\",\"weekly_target_km\":9,\"is_deload_week\":false,\"days\":[{\"day_of_week\":0,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body start the week with zero load on the foot. If you feel restless, gentle mobility work (ankles, calves, hips) is fine — just stay off pavement.\"},{\"day_of_week\":1,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"First run of the week. Keep it to 20 minutes max at easy pace (5:24–5:58/km). If your foot talks to you at any point, drop to a walk immediately — no heroics. Aim for 2.5–3 km.\"},{\"day_of_week\":2,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest and recover. Your physio has cleared 20 minutes easy only — honour that by giving your connective tissue time to adapt between efforts. This is where the healing happens.\"},{\"day_of_week\":3,\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Optional low-impact cross-training: swimming, cycling, or pool running. Keep effort easy and duration under 30 minutes. Avoid anything that loads the plantar fascia. Skip entirely if the foot is sore from Monday.\"},{\"day_of_week\":4,\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Check in with how the foot felt mid-week. Any lingering soreness from Monday or Wednesday is important information — note it and share with your physio.\"},{\"day_of_week\":5,\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Second run of the week. Same rules as Monday: 20 minutes max, easy pace (5:24–5:58/km), walking breaks if any foot discomfort. Aim for 3 km. Focus on a smooth, relaxed stride — no pushing.\"},{\"day_of_week\":6,\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Your 'long run' this week is also capped at 20 minutes easy — that's the physio's ceiling for now, not a forever limit. Think of this as your Saturday ritual being re-established. Aim for 3–3.5 km. Walk as needed. Celebrate finishing.\"}],\"week_summary\":\"Welcome back, James. This first week is about re-establishing the rhythm of running three days a week without asking more of your foot than your physio has cleared. Every run this week is capped at 20 minutes, held to easy pace (5:24–5:58/km), with walking breaks the moment any foot discomfort shows up. That isn't a sign of weakness — it's exactly the right call during plantar fascia recovery. The 9 km target is a modest, deliberate step up from your recent 6–9 km weeks, keeping you well within the 10% progression guardrail. Cross-training mid-week keeps your aerobic engine ticking without loading the foot. The goal this week is simple: three comfortable, pain-managed runs that leave your foot feeling the same or better than when you started. That's a win worth building on.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2275,
+    "outputTokenCount": 758,
+    "totalTokenCount": 3033
+  }
+}

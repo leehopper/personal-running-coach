@@ -19,7 +19,6 @@ public class ClaudeCoachingLlmTests
     {
         ApiKey = "sk-test-key-for-unit-tests",
         ModelId = "claude-sonnet-4-5-20250514",
-        Temperature = 0.3,
         MaxTokens = 4096,
         MaxRetries = 3,
         TimeoutSeconds = 120,
@@ -244,7 +243,6 @@ public class ClaudeCoachingLlmTests
         // Assert
         settings.ApiKey.Should().BeEmpty();
         settings.ModelId.Should().Be("claude-sonnet-4-6");
-        settings.Temperature.Should().BeApproximately(0.3, 0.001);
         settings.MaxTokens.Should().Be(8192);
         settings.MaxRetries.Should().Be(3);
         settings.TimeoutSeconds.Should().Be(120);
@@ -279,31 +277,6 @@ public class ClaudeCoachingLlmTests
         // Assert
         capturedParams.Should().NotBeNull();
         capturedParams!.Model.ToString().Should().Contain("claude-opus-4-20250514");
-    }
-
-    [Fact]
-    public async Task GenerateAsync_UsesTemperatureFromSettings()
-    {
-        // Arrange
-        var customSettings = DefaultSettings with { Temperature = 0.7 };
-        MessageCreateParams? capturedParams = null;
-        _mockMessages
-            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                capturedParams = callInfo.ArgAt<MessageCreateParams>(0);
-                return BuildTextResponse("response");
-            });
-
-        var sut = new ClaudeCoachingLlm(_mockClient, customSettings, _logger);
-
-        // Act
-        await sut.GenerateAsync("system", "user", TestContext.Current.CancellationToken);
-
-        // Assert
-        capturedParams.Should().NotBeNull();
-        capturedParams!.Temperature.Should().NotBeNull();
-        capturedParams.Temperature!.Value.Should().BeApproximately(0.7, 0.001);
     }
 
     [Fact]

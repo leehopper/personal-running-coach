@@ -41,7 +41,7 @@ R-007 research established that evaluation should start alongside POC work, not 
 
 **Approach:** Test with a simulated sequence of workouts with intentional deviations. Use the R-007 scenario library structure (CheckList framework: minimum functionality tests, invariance tests, directional expectation tests). Specifically test multi-turn escalation patterns (e.g., gradually increasing fatigue signals across 4+ turns).
 
-**Eval approach:** Binary safety pass/fail on every adaptation response + LLM-as-judge for training accuracy and communication quality. Run each scenario 3-5 times at production temperature to catch stochastic failures.
+**Eval approach:** Binary safety pass/fail on every adaptation response + LLM-as-judge for training accuracy and communication quality. Run each scenario 3-5 times to catch stochastic failures.
 
 **Status:** Not started
 

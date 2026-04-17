@@ -23,6 +23,14 @@ updates:
         update-types:
           - minor
           - patch
+    # Major bumps blocked by transitive peer-dep ranges in the eslint ecosystem.
+    # Revisit when typescript-eslint and @eslint-community/eslint-utils widen
+    # their peer ranges to accept these majors.
+    ignore:
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /

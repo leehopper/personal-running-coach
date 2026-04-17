@@ -289,38 +289,6 @@ public sealed class AnthropicStructuredOutputClientTests
     }
 
     [Fact]
-    public async Task GetResponseAsync_WithJsonSchema_PassesTemperatureFromOptions()
-    {
-        // Arrange
-        var schema = CreateSimpleSchema();
-        var options = new ChatOptions
-        {
-            Temperature = 0.5f,
-            ResponseFormat = ChatResponseFormat.ForJsonSchema(schema, "TestSchema"),
-        };
-
-        MessageCreateParams? capturedParams = null;
-        _mockMessages
-            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                capturedParams = callInfo.ArgAt<MessageCreateParams>(0);
-                return BuildTextResponse("{ \"name\": \"test\" }");
-            });
-
-        using var sut = CreateSut();
-        var messages = new List<ChatMessage> { new(ChatRole.User, "Generate") };
-
-        // Act
-        await sut.GetResponseAsync(messages, options, TestContext.Current.CancellationToken);
-
-        // Assert
-        capturedParams.Should().NotBeNull();
-        capturedParams!.Temperature.Should().NotBeNull();
-        capturedParams.Temperature!.Value.Should().BeApproximately(0.5, 0.001);
-    }
-
-    [Fact]
     public async Task GetResponseAsync_WithSchema_SplitsSystemMessageFromUserMessages()
     {
         // Arrange
