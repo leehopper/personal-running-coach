@@ -1781,11 +1781,11 @@ public class ContextAssemblerTests
             DateTime.UtcNow);
 
         var paces = new TrainingPaces(
-            new PaceRange(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(6)),
-            TimeSpan.FromMinutes(4.5),
-            TimeSpan.FromMinutes(4.2),
-            TimeSpan.FromMinutes(3.8),
-            TimeSpan.FromMinutes(3.5));
+            new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360)),
+            Pace.FromSecondsPerKm(270),
+            Pace.FromSecondsPerKm(252),
+            Pace.FromSecondsPerKm(228),
+            Pace.FromSecondsPerKm(210));
 
         var fitness = new FitnessEstimate(
             50m,

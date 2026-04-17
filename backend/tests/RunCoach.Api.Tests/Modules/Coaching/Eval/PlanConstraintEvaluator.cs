@@ -153,10 +153,10 @@ public sealed class PlanConstraintEvaluator : IEvaluator
     private static void CheckPaceRanges(WorkoutOutput workout, TrainingPaces paces, List<string> violations)
     {
         var easyRange = paces.EasyPaceRange;
-        if (workout.TargetPaceEasySecPerKm > 0 && easyRange.MinPerKm > TimeSpan.Zero)
+        if (workout.TargetPaceEasySecPerKm > 0 && easyRange is not null)
         {
-            var minAllowed = (int)(easyRange.MinPerKm.TotalSeconds * (1.0 - PaceTolerancePercent));
-            var maxAllowed = (int)(easyRange.MaxPerKm.TotalSeconds * (1.0 + PaceTolerancePercent));
+            var minAllowed = (int)(easyRange.Fast.SecondsPerKm * (1.0 - PaceTolerancePercent));
+            var maxAllowed = (int)(easyRange.Slow.SecondsPerKm * (1.0 + PaceTolerancePercent));
 
             if (workout.TargetPaceEasySecPerKm < minAllowed || workout.TargetPaceEasySecPerKm > maxAllowed)
             {
@@ -166,7 +166,7 @@ public sealed class PlanConstraintEvaluator : IEvaluator
 
         if (workout.TargetPaceFastSecPerKm > 0 && paces.RepetitionPace.HasValue)
         {
-            var absoluteMin = (int)(paces.RepetitionPace.Value.TotalSeconds * 0.90);
+            var absoluteMin = (int)(paces.RepetitionPace.Value.SecondsPerKm * 0.90);
 
             if (workout.TargetPaceFastSecPerKm < absoluteMin)
             {
@@ -179,11 +179,11 @@ public sealed class PlanConstraintEvaluator : IEvaluator
             // workouts may set fast_pace == easy_pace (no distinct fast segment) or
             // even slower than the easy zone (deliberate conservative pacing for
             // injury recovery or recovery runs); neither is a violation.
-            var easyMaxSec = (int)easyRange.MaxPerKm.TotalSeconds;
+            var easyMaxSec = easyRange is not null ? (int)easyRange.Slow.SecondsPerKm : 0;
             var isSpeedWork = workout.WorkoutType is WorkoutType.Tempo
                 or WorkoutType.Interval
                 or WorkoutType.Repetition;
-            if (isSpeedWork && workout.TargetPaceFastSecPerKm > easyMaxSec)
+            if (isSpeedWork && easyMaxSec > 0 && workout.TargetPaceFastSecPerKm > easyMaxSec)
             {
                 violations.Add($"Workout '{workout.Title}' fast pace {workout.TargetPaceFastSecPerKm}s/km slower than easy max ({easyMaxSec}s/km).");
             }

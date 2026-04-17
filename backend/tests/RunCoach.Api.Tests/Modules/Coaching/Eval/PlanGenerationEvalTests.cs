@@ -149,8 +149,8 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Lee-specific: easy pace within VDOT range (with 15% tolerance)
         var easyRange = paces.EasyPaceRange;
-        var minEasySec = (int)(easyRange.MinPerKm.TotalSeconds * 0.85);
-        var maxEasySec = (int)(easyRange.MaxPerKm.TotalSeconds * 1.15);
+        var minEasySec = (int)(easyRange!.Fast.SecondsPerKm * 0.85);
+        var maxEasySec = (int)(easyRange.Slow.SecondsPerKm * 1.15);
 
         foreach (var workout in workoutList.Workouts.Where(w => w.TargetPaceEasySecPerKm > 0))
         {
@@ -164,7 +164,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Lee-specific: no pace faster than repetition zone maximum
         if (paces.RepetitionPace.HasValue)
         {
-            var repFloor = (int)(paces.RepetitionPace.Value.TotalSeconds * 0.90);
+            var repFloor = (int)(paces.RepetitionPace.Value.SecondsPerKm * 0.90);
             foreach (var workout in workoutList.Workouts.Where(w => w.TargetPaceFastSecPerKm > 0))
             {
                 workout.TargetPaceFastSecPerKm.Should().BeGreaterThanOrEqualTo(

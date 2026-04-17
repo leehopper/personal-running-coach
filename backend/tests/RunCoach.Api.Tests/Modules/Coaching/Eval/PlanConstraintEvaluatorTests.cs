@@ -160,11 +160,11 @@ public sealed class PlanConstraintEvaluatorTests
     {
         // Arrange — easy pace is 200s/km but VDOT zone is 300-360s/km
         var paces = new TrainingPaces(
-            new PaceRange(TimeSpan.FromSeconds(300), TimeSpan.FromSeconds(360)),
-            MarathonPace: TimeSpan.FromSeconds(270),
-            ThresholdPace: TimeSpan.FromSeconds(240),
-            IntervalPace: TimeSpan.FromSeconds(210),
-            RepetitionPace: TimeSpan.FromSeconds(195));
+            new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360)),
+            MarathonPace: Pace.FromSecondsPerKm(270),
+            ThresholdPace: Pace.FromSecondsPerKm(240),
+            IntervalPace: Pace.FromSecondsPerKm(210),
+            RepetitionPace: Pace.FromSecondsPerKm(195));
 
         var workouts = new[] { BuildWorkout(WorkoutType.Easy, "Easy Run") with { TargetPaceEasySecPerKm = 200 } };
 
@@ -186,11 +186,11 @@ public sealed class PlanConstraintEvaluatorTests
     {
         // Arrange — fast pace 150s/km but rep pace is 195s/km (floor at 90% = 175s/km)
         var paces = new TrainingPaces(
-            new PaceRange(TimeSpan.FromSeconds(300), TimeSpan.FromSeconds(360)),
-            MarathonPace: TimeSpan.FromSeconds(270),
-            ThresholdPace: TimeSpan.FromSeconds(240),
-            IntervalPace: TimeSpan.FromSeconds(210),
-            RepetitionPace: TimeSpan.FromSeconds(195));
+            new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360)),
+            MarathonPace: Pace.FromSecondsPerKm(270),
+            ThresholdPace: Pace.FromSecondsPerKm(240),
+            IntervalPace: Pace.FromSecondsPerKm(210),
+            RepetitionPace: Pace.FromSecondsPerKm(195));
 
         var workouts = new[] { BuildWorkout(WorkoutType.Interval, "Intervals") with { TargetPaceFastSecPerKm = 150 } };
 
@@ -212,11 +212,11 @@ public sealed class PlanConstraintEvaluatorTests
     {
         // Arrange — fast pace 400s/km but easy max is 360s/km: the "fast" pace is easier than easy
         var paces = new TrainingPaces(
-            new PaceRange(TimeSpan.FromSeconds(300), TimeSpan.FromSeconds(360)),
-            MarathonPace: TimeSpan.FromSeconds(270),
-            ThresholdPace: TimeSpan.FromSeconds(240),
-            IntervalPace: TimeSpan.FromSeconds(210),
-            RepetitionPace: TimeSpan.FromSeconds(195));
+            new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360)),
+            MarathonPace: Pace.FromSecondsPerKm(270),
+            ThresholdPace: Pace.FromSecondsPerKm(240),
+            IntervalPace: Pace.FromSecondsPerKm(210),
+            RepetitionPace: Pace.FromSecondsPerKm(195));
 
         var workouts = new[] { BuildWorkout(WorkoutType.Interval, "Slow Intervals") with { TargetPaceFastSecPerKm = 400 } };
 

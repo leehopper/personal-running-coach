@@ -1,5 +1,6 @@
 using FluentAssertions;
 using RunCoach.Api.Modules.Training.Computations;
+using RunCoach.Api.Modules.Training.Models;
 
 namespace RunCoach.Api.Tests.Modules.Training.Computations;
 
@@ -17,52 +18,52 @@ public class PaceCalculatorTests
         // Corrected per DEC-040: original table had an off-by-one row shift from VDOT 50-85.
         // Marathon=271 verified via race prediction (3:10:49); Threshold=255 and Interval=235
         // verified against published per-1000m columns and Daniels-Gilbert equation cross-reference.
-        var expectedEasyMin = TimeSpan.FromSeconds(306);   // ~5:06/km
-        var expectedEasyMax = TimeSpan.FromSeconds(338);   // ~5:38/km
-        var expectedMarathon = TimeSpan.FromSeconds(271);  // ~4:31/km
-        var expectedThreshold = TimeSpan.FromSeconds(255); // ~4:15/km
-        var expectedInterval = TimeSpan.FromSeconds(235);  // ~3:55/km
-        var expectedRep = TimeSpan.FromSeconds(218);       // ~3:38/km
+        var expectedEasyFast = Pace.FromSecondsPerKm(306);   // ~5:06/km
+        var expectedEasySlow = Pace.FromSecondsPerKm(338);   // ~5:38/km
+        var expectedMarathon = Pace.FromSecondsPerKm(271);   // ~4:31/km
+        var expectedThreshold = Pace.FromSecondsPerKm(255);  // ~4:15/km
+        var expectedInterval = Pace.FromSecondsPerKm(235);   // ~3:55/km
+        var expectedRep = Pace.FromSecondsPerKm(218);        // ~3:38/km
 
         // Act
         var actualPaces = _sut.CalculatePaces(vdot);
 
         // Assert — within 5 seconds tolerance to account for rounding in published tables
-        var tolerance = TimeSpan.FromSeconds(5);
+        var tolerance = 5.0;
 
-        actualPaces.EasyPaceRange.MinPerKm.Should().BeCloseTo(
-            expectedEasyMin,
+        actualPaces.EasyPaceRange!.Fast.SecondsPerKm.Should().BeApproximately(
+            expectedEasyFast.SecondsPerKm,
             tolerance,
-            because: "VDOT 50 easy fast-end should be ~5:01/km per Daniels' table");
+            because: "VDOT 50 easy fast-end should be ~5:06/km per Daniels' table");
 
-        actualPaces.EasyPaceRange.MaxPerKm.Should().BeCloseTo(
-            expectedEasyMax,
+        actualPaces.EasyPaceRange.Slow.SecondsPerKm.Should().BeApproximately(
+            expectedEasySlow.SecondsPerKm,
             tolerance,
-            because: "VDOT 50 easy slow-end should be ~5:31/km per Daniels' table");
+            because: "VDOT 50 easy slow-end should be ~5:38/km per Daniels' table");
 
-        actualPaces.MarathonPace.Should().BeCloseTo(
-            expectedMarathon,
+        actualPaces.MarathonPace!.Value.SecondsPerKm.Should().BeApproximately(
+            expectedMarathon.SecondsPerKm,
             tolerance,
-            because: "VDOT 50 marathon pace should be ~4:27/km per Daniels' table");
+            because: "VDOT 50 marathon pace should be ~4:31/km per Daniels' table");
 
-        actualPaces.ThresholdPace.Should().BeCloseTo(
-            expectedThreshold,
+        actualPaces.ThresholdPace!.Value.SecondsPerKm.Should().BeApproximately(
+            expectedThreshold.SecondsPerKm,
             tolerance,
-            because: "VDOT 50 threshold pace should be ~4:10/km per Daniels' table");
+            because: "VDOT 50 threshold pace should be ~4:15/km per Daniels' table");
 
-        actualPaces.IntervalPace.Should().BeCloseTo(
-            expectedInterval,
+        actualPaces.IntervalPace!.Value.SecondsPerKm.Should().BeApproximately(
+            expectedInterval.SecondsPerKm,
             tolerance,
-            because: "VDOT 50 interval pace should be ~3:51/km per Daniels' table");
+            because: "VDOT 50 interval pace should be ~3:55/km per Daniels' table");
 
-        actualPaces.RepetitionPace.Should().BeCloseTo(
-            expectedRep,
+        actualPaces.RepetitionPace!.Value.SecondsPerKm.Should().BeApproximately(
+            expectedRep.SecondsPerKm,
             tolerance,
-            because: "VDOT 50 repetition pace should be ~3:36/km per Daniels' table");
+            because: "VDOT 50 repetition pace should be ~3:38/km per Daniels' table");
     }
 
     [Fact]
-    public void CalculatePaces_EasyPace_ReturnedAsMinMaxRange()
+    public void CalculatePaces_EasyPace_ReturnedAsFastSlowRange()
     {
         // Arrange
         var vdot = 50m;
@@ -72,11 +73,10 @@ public class PaceCalculatorTests
 
         // Assert
         actualPaces.EasyPaceRange.Should().NotBeNull(
-            because: "easy pace must always be a range with min and max values");
+            because: "easy pace must always be a range with fast and slow values");
 
-        var minPerKm = actualPaces.EasyPaceRange.MinPerKm;
-        var maxPerKm = actualPaces.EasyPaceRange.MaxPerKm;
-        minPerKm.Should().BeLessThan(maxPerKm, because: "fast end should be quicker than slow end");
+        actualPaces.EasyPaceRange!.Fast.IsFasterThan(actualPaces.EasyPaceRange.Slow).Should().BeTrue(
+            because: "fast end should be quicker than slow end");
     }
 
     [Fact]
@@ -90,42 +90,42 @@ public class PaceCalculatorTests
 
         // Assert
         actualPaces.EasyPaceRange.Should().NotBeNull(because: "easy pace zone must be derived");
-        actualPaces.EasyPaceRange.MinPerKm.Should().BePositive(because: "easy min pace must be positive");
-        actualPaces.EasyPaceRange.MaxPerKm.Should().BePositive(because: "easy max pace must be positive");
+        actualPaces.EasyPaceRange!.Fast.SecondsPerKm.Should().BePositive(because: "easy fast pace must be positive");
+        actualPaces.EasyPaceRange.Slow.SecondsPerKm.Should().BePositive(because: "easy slow pace must be positive");
 
         actualPaces.MarathonPace.Should().NotBeNull(because: "marathon pace zone must be derived");
-        actualPaces.MarathonPace!.Value.Should().BePositive(because: "marathon pace must be positive");
+        actualPaces.MarathonPace!.Value.SecondsPerKm.Should().BePositive(because: "marathon pace must be positive");
 
         actualPaces.ThresholdPace.Should().NotBeNull(because: "threshold pace zone must be derived");
-        actualPaces.ThresholdPace!.Value.Should().BePositive(because: "threshold pace must be positive");
+        actualPaces.ThresholdPace!.Value.SecondsPerKm.Should().BePositive(because: "threshold pace must be positive");
 
         actualPaces.IntervalPace.Should().NotBeNull(because: "interval pace zone must be derived");
-        actualPaces.IntervalPace!.Value.Should().BePositive(because: "interval pace must be positive");
+        actualPaces.IntervalPace!.Value.SecondsPerKm.Should().BePositive(because: "interval pace must be positive");
 
         actualPaces.RepetitionPace.Should().NotBeNull(because: "repetition pace zone must be derived");
-        actualPaces.RepetitionPace!.Value.Should().BePositive(because: "repetition pace must be positive");
+        actualPaces.RepetitionPace!.Value.SecondsPerKm.Should().BePositive(because: "repetition pace must be positive");
     }
 
     [Fact]
     public void CalculatePaces_KnownVdot_PaceZonesInCorrectOrder()
     {
-        // Arrange — paces should get progressively faster: easy > marathon > threshold > interval > rep
+        // Arrange — paces should get progressively faster: easy slow > marathon > threshold > interval > rep
         var vdot = 50m;
 
         // Act
         var actualPaces = _sut.CalculatePaces(vdot);
 
         // Assert
-        var easyMax = actualPaces.EasyPaceRange.MaxPerKm;
+        var easySlow = actualPaces.EasyPaceRange!.Slow;
         var marathon = actualPaces.MarathonPace!.Value;
         var threshold = actualPaces.ThresholdPace!.Value;
         var interval = actualPaces.IntervalPace!.Value;
         var repetition = actualPaces.RepetitionPace!.Value;
 
-        easyMax.Should().BeGreaterThan(marathon, because: "easy slow-end should be slower than marathon pace");
-        marathon.Should().BeGreaterThan(threshold, because: "marathon pace should be slower than threshold pace");
-        threshold.Should().BeGreaterThan(interval, because: "threshold pace should be slower than interval pace");
-        interval.Should().BeGreaterThan(repetition, because: "interval pace should be slower than repetition pace");
+        easySlow.IsSlowerThan(marathon).Should().BeTrue(because: "easy slow-end should be slower than marathon pace");
+        marathon.IsSlowerThan(threshold).Should().BeTrue(because: "marathon pace should be slower than threshold pace");
+        threshold.IsSlowerThan(interval).Should().BeTrue(because: "threshold pace should be slower than interval pace");
+        interval.IsSlowerThan(repetition).Should().BeTrue(because: "interval pace should be slower than repetition pace");
     }
 
     [Theory]
@@ -136,22 +136,19 @@ public class PaceCalculatorTests
     [InlineData(42)]
     public void CalculatePaces_LeesVdotRange_EasyPaceWithinExpectedRange(int vdot)
     {
-        // Arrange — Lee's 10K of 48:00 produces a VDOT in the 38-42 range depending on the formula.
+        // Arrange — Lee's 10K of 48:00 produces a VDOT in the 38-42 range.
         // The task specifies ~5:45-6:30/km easy pace, but this varies by VDOT.
-        // This test validates that each VDOT in Lee's plausible range returns a sensible easy pace.
-        var expectedEasyFastEnd = TimeSpan.FromSeconds(345);  // 5:45/km
-        var expectedEasySlowEnd = TimeSpan.FromSeconds(420);  // 7:00/km (generous upper bound)
+        var expectedEasyFastEnd = Pace.FromSecondsPerKm(345);  // 5:45/km
+        var expectedEasySlowEnd = Pace.FromSecondsPerKm(420);  // 7:00/km (generous upper bound)
 
         // Act
         var actualPaces = _sut.CalculatePaces(vdot);
 
-        // Assert
-        actualPaces.EasyPaceRange.MinPerKm.Should().BeGreaterThanOrEqualTo(
-            expectedEasyFastEnd,
+        // Assert — fast-end should not be faster than 5:45/km, and slow-end should not be slower than 7:00/km
+        actualPaces.EasyPaceRange!.Fast.IsFasterThan(expectedEasyFastEnd).Should().BeFalse(
             because: $"VDOT {vdot} easy fast-end should not be faster than 5:45/km for Lee's range");
 
-        actualPaces.EasyPaceRange.MaxPerKm.Should().BeLessThanOrEqualTo(
-            expectedEasySlowEnd,
+        actualPaces.EasyPaceRange.Slow.IsSlowerThan(expectedEasySlowEnd).Should().BeFalse(
             because: $"VDOT {vdot} easy slow-end should not be slower than 7:00/km for Lee's range");
     }
 
@@ -164,21 +161,17 @@ public class PaceCalculatorTests
     public void CalculatePaces_LeesVdotRange_IntervalPaceWithinExpectedRange(int vdot)
     {
         // Arrange — Lee's interval pace across plausible VDOT range.
-        // Task says ~4:20-4:35/km but this applies at the higher end of his VDOT range.
-        // At VDOT 38 interval is slower; at 42 it matches. Generous bounds used.
-        var expectedFastBound = TimeSpan.FromSeconds(255);  // 4:15/km
-        var expectedSlowBound = TimeSpan.FromSeconds(300);  // 5:00/km
+        var expectedFastBound = Pace.FromSecondsPerKm(255);  // 4:15/km
+        var expectedSlowBound = Pace.FromSecondsPerKm(300);  // 5:00/km
 
         // Act
         var actualPaces = _sut.CalculatePaces(vdot);
 
-        // Assert
-        actualPaces.IntervalPace!.Value.Should().BeGreaterThanOrEqualTo(
-            expectedFastBound,
+        // Assert — interval should not be faster than 4:15/km, and not slower than 5:00/km
+        actualPaces.IntervalPace!.Value.IsFasterThan(expectedFastBound).Should().BeFalse(
             because: $"VDOT {vdot} interval should not be faster than 4:15/km for Lee's range");
 
-        actualPaces.IntervalPace!.Value.Should().BeLessThanOrEqualTo(
-            expectedSlowBound,
+        actualPaces.IntervalPace!.Value.IsSlowerThan(expectedSlowBound).Should().BeFalse(
             because: $"VDOT {vdot} interval should not be slower than 5:00/km for Lee's range");
     }
 
@@ -253,8 +246,8 @@ public class PaceCalculatorTests
         var marathonAt51 = pacesAt51.MarathonPace!.Value;
         var actualMarathon = actualPaces.MarathonPace!.Value;
 
-        actualMarathon.Should().BeLessThan(marathonAt50, because: "higher VDOT produces faster marathon pace");
-        actualMarathon.Should().BeGreaterThan(marathonAt51, because: "VDOT 50.5 should not be as fast as VDOT 51");
+        actualMarathon.IsFasterThan(marathonAt50).Should().BeTrue(because: "higher VDOT produces faster marathon pace");
+        actualMarathon.IsSlowerThan(marathonAt51).Should().BeTrue(because: "VDOT 50.5 should not be as fast as VDOT 51");
     }
 
     [Theory]
@@ -267,13 +260,13 @@ public class PaceCalculatorTests
         // Act
         var actualPaces = _sut.CalculatePaces(vdot);
 
-        // Assert — all zones should produce non-zero TimeSpan values
-        actualPaces.EasyPaceRange.MinPerKm.Should().BePositive();
-        actualPaces.EasyPaceRange.MaxPerKm.Should().BePositive();
-        actualPaces.MarathonPace!.Value.Should().BePositive();
-        actualPaces.ThresholdPace!.Value.Should().BePositive();
-        actualPaces.IntervalPace!.Value.Should().BePositive();
-        actualPaces.RepetitionPace!.Value.Should().BePositive();
+        // Assert — all zones should produce positive sec/km values
+        actualPaces.EasyPaceRange!.Fast.SecondsPerKm.Should().BePositive();
+        actualPaces.EasyPaceRange.Slow.SecondsPerKm.Should().BePositive();
+        actualPaces.MarathonPace!.Value.SecondsPerKm.Should().BePositive();
+        actualPaces.ThresholdPace!.Value.SecondsPerKm.Should().BePositive();
+        actualPaces.IntervalPace!.Value.SecondsPerKm.Should().BePositive();
+        actualPaces.RepetitionPace!.Value.SecondsPerKm.Should().BePositive();
     }
 
     [Fact]
@@ -287,25 +280,20 @@ public class PaceCalculatorTests
         var lowerPaces = _sut.CalculatePaces(lowerVdot);
         var higherPaces = _sut.CalculatePaces(higherVdot);
 
-        // Assert — higher fitness (VDOT) should yield faster (shorter) paces across all zones
-        var lowerEasyMin = lowerPaces.EasyPaceRange.MinPerKm;
-        var higherEasyMin = higherPaces.EasyPaceRange.MinPerKm;
-        higherEasyMin.Should().BeLessThan(lowerEasyMin, because: "higher VDOT means faster easy pace");
+        // Assert — higher fitness (VDOT) should yield faster paces across all zones
+        higherPaces.EasyPaceRange!.Fast.IsFasterThan(lowerPaces.EasyPaceRange!.Fast).Should().BeTrue(
+            because: "higher VDOT means faster easy pace");
 
-        var lowerMarathon = lowerPaces.MarathonPace!.Value;
-        var higherMarathon = higherPaces.MarathonPace!.Value;
-        higherMarathon.Should().BeLessThan(lowerMarathon, because: "higher VDOT means faster marathon pace");
+        higherPaces.MarathonPace!.Value.IsFasterThan(lowerPaces.MarathonPace!.Value).Should().BeTrue(
+            because: "higher VDOT means faster marathon pace");
 
-        var lowerThreshold = lowerPaces.ThresholdPace!.Value;
-        var higherThreshold = higherPaces.ThresholdPace!.Value;
-        higherThreshold.Should().BeLessThan(lowerThreshold, because: "higher VDOT means faster threshold pace");
+        higherPaces.ThresholdPace!.Value.IsFasterThan(lowerPaces.ThresholdPace!.Value).Should().BeTrue(
+            because: "higher VDOT means faster threshold pace");
 
-        var lowerInterval = lowerPaces.IntervalPace!.Value;
-        var higherInterval = higherPaces.IntervalPace!.Value;
-        higherInterval.Should().BeLessThan(lowerInterval, because: "higher VDOT means faster interval pace");
+        higherPaces.IntervalPace!.Value.IsFasterThan(lowerPaces.IntervalPace!.Value).Should().BeTrue(
+            because: "higher VDOT means faster interval pace");
 
-        var lowerRep = lowerPaces.RepetitionPace!.Value;
-        var higherRep = higherPaces.RepetitionPace!.Value;
-        higherRep.Should().BeLessThan(lowerRep, because: "higher VDOT means faster repetition pace");
+        higherPaces.RepetitionPace!.Value.IsFasterThan(lowerPaces.RepetitionPace!.Value).Should().BeTrue(
+            because: "higher VDOT means faster repetition pace");
     }
 }

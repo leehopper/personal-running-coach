@@ -93,12 +93,12 @@ public sealed class PaceCalculator : IPaceCalculator
 
         return new TrainingPaces(
             EasyPaceRange: new PaceRange(
-                minPerKm: TimeSpan.FromSeconds(entry.EasyMinSeconds),
-                maxPerKm: TimeSpan.FromSeconds(entry.EasyMaxSeconds)),
-            MarathonPace: TimeSpan.FromSeconds(entry.MarathonSeconds),
-            ThresholdPace: TimeSpan.FromSeconds(entry.ThresholdSeconds),
-            IntervalPace: TimeSpan.FromSeconds(entry.IntervalSeconds),
-            RepetitionPace: TimeSpan.FromSeconds(entry.RepetitionSeconds));
+                fast: Pace.FromSecondsPerKm(entry.EasyMinSeconds),
+                slow: Pace.FromSecondsPerKm(entry.EasyMaxSeconds)),
+            MarathonPace: Pace.FromSecondsPerKm(entry.MarathonSeconds),
+            ThresholdPace: Pace.FromSecondsPerKm(entry.ThresholdSeconds),
+            IntervalPace: Pace.FromSecondsPerKm(entry.IntervalSeconds),
+            RepetitionPace: Pace.FromSecondsPerKm(entry.RepetitionSeconds));
     }
 
     /// <inheritdoc />

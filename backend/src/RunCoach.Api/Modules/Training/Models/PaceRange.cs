@@ -1,22 +1,28 @@
 namespace RunCoach.Api.Modules.Training.Models;
 
 /// <summary>
-/// Represents a pace range with minimum (faster) and maximum (slower) pace per kilometer.
-/// MinPerKm is the faster end of the range (shorter time), MaxPerKm is the slower end (longer time).
+/// A pace range with Fast (quicker end) and Slow (slower end) bounds.
+/// Fast.SecondsPerKm is always less than or equal to Slow.SecondsPerKm.
 /// </summary>
 public sealed record PaceRange
 {
-    public PaceRange(TimeSpan minPerKm, TimeSpan maxPerKm)
+    public PaceRange(Pace fast, Pace slow)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(minPerKm, TimeSpan.Zero);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxPerKm, TimeSpan.Zero);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(minPerKm, maxPerKm);
+        if (fast.IsSlowerThan(slow))
+        {
+            throw new ArgumentException(
+                "Fast pace must not be slower than Slow pace. " +
+                $"Fast={fast.SecondsPerKm:F1} s/km, Slow={slow.SecondsPerKm:F1} s/km.",
+                nameof(fast));
+        }
 
-        MinPerKm = minPerKm;
-        MaxPerKm = maxPerKm;
+        Fast = fast;
+        Slow = slow;
     }
 
-    public TimeSpan MinPerKm { get; init; }
+    /// <summary>Gets the faster (lower sec/km) end of the range.</summary>
+    public Pace Fast { get; init; }
 
-    public TimeSpan MaxPerKm { get; init; }
+    /// <summary>Gets the slower (higher sec/km) end of the range.</summary>
+    public Pace Slow { get; init; }
 }

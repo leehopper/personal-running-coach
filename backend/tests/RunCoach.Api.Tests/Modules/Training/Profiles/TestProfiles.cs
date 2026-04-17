@@ -74,8 +74,8 @@ public static class TestProfiles
             EstimatedVdot: null,
             TrainingPaces: new TrainingPaces(
                 EasyPaceRange: new PaceRange(
-                    minPerKm: TimeSpan.FromSeconds(420),
-                    maxPerKm: TimeSpan.FromSeconds(480)),
+                    fast: Pace.FromSecondsPerKm(420),
+                    slow: Pace.FromSecondsPerKm(480)),
                 MarathonPace: null,
                 ThresholdPace: null,
                 IntervalPace: null,
@@ -355,7 +355,7 @@ public static class TestProfiles
     /// </summary>
     private static ImmutableArray<WorkoutSummary> BuildLeeTrainingHistory(DateOnly today, TrainingPaces paces)
     {
-        var easyPace = AveragePace(paces.EasyPaceRange);
+        var easyPace = AveragePace(paces.EasyPaceRange!);
         var builder = ImmutableArray.CreateBuilder<WorkoutSummary>();
 
         for (var week = 3; week >= 1; week--)
@@ -376,8 +376,8 @@ public static class TestProfiles
                 weekStart.AddDays(2),
                 "Tempo",
                 8m,
-                (int)(8m * (decimal)paces.ThresholdPace!.Value.TotalMinutes),
-                paces.ThresholdPace!.Value,
+                (int)(8m * (decimal)paces.ThresholdPace!.Value.ToTimeSpan().TotalMinutes),
+                paces.ThresholdPace!.Value.ToTimeSpan(),
                 "2km warm-up, 4km at tempo, 2km cool-down"));
 
             // Friday: easy run 6km
@@ -395,8 +395,8 @@ public static class TestProfiles
                 weekStart.AddDays(6),
                 "LongRun",
                 longRunKm,
-                (int)(longRunKm * (decimal)paces.EasyPaceRange.MaxPerKm.TotalMinutes),
-                paces.EasyPaceRange.MaxPerKm,
+                (int)(longRunKm * (decimal)paces.EasyPaceRange!.Slow.ToTimeSpan().TotalMinutes),
+                paces.EasyPaceRange.Slow.ToTimeSpan(),
                 null));
         }
 
@@ -409,7 +409,7 @@ public static class TestProfiles
     /// </summary>
     private static ImmutableArray<WorkoutSummary> BuildMariaTrainingHistory(DateOnly today, TrainingPaces paces)
     {
-        var easyPace = AveragePace(paces.EasyPaceRange);
+        var easyPace = AveragePace(paces.EasyPaceRange!);
         var builder = ImmutableArray.CreateBuilder<WorkoutSummary>();
 
         for (var week = 4; week >= 1; week--)
@@ -431,7 +431,7 @@ public static class TestProfiles
                 "Intervals",
                 10m,
                 (int)((10m * (decimal)easyPace.TotalMinutes) * 0.85m),
-                paces.IntervalPace!.Value,
+                paces.IntervalPace!.Value.ToTimeSpan(),
                 "2km warm-up, 5x1km at interval pace with 400m jog, 1.6km cool-down"));
 
             // Thursday: tempo 12km
@@ -439,8 +439,8 @@ public static class TestProfiles
                 weekStart.AddDays(3),
                 "Tempo",
                 12m,
-                (int)(12m * (decimal)paces.ThresholdPace!.Value.TotalMinutes),
-                paces.ThresholdPace!.Value,
+                (int)(12m * (decimal)paces.ThresholdPace!.Value.ToTimeSpan().TotalMinutes),
+                paces.ThresholdPace!.Value.ToTimeSpan(),
                 "2km warm-up, 8km at tempo, 2km cool-down"));
 
             // Friday: easy recovery 6km
@@ -448,8 +448,8 @@ public static class TestProfiles
                 weekStart.AddDays(4),
                 "Easy",
                 6m,
-                (int)(6m * (decimal)paces.EasyPaceRange.MaxPerKm.TotalMinutes),
-                paces.EasyPaceRange.MaxPerKm,
+                (int)(6m * (decimal)paces.EasyPaceRange!.Slow.ToTimeSpan().TotalMinutes),
+                paces.EasyPaceRange.Slow.ToTimeSpan(),
                 "Recovery run"));
 
             // Saturday: easy 8km
@@ -467,8 +467,8 @@ public static class TestProfiles
                 weekStart.AddDays(6),
                 "LongRun",
                 longRunKm,
-                (int)(longRunKm * (decimal)paces.EasyPaceRange.MaxPerKm.TotalMinutes),
-                paces.EasyPaceRange.MaxPerKm,
+                (int)(longRunKm * (decimal)paces.EasyPaceRange!.Slow.ToTimeSpan().TotalMinutes),
+                paces.EasyPaceRange.Slow.ToTimeSpan(),
                 null));
         }
 
@@ -482,7 +482,7 @@ public static class TestProfiles
     private static ImmutableArray<WorkoutSummary> BuildJamesTrainingHistory(DateOnly today, TrainingPaces paces)
     {
         // James is limited to easy pace only, 20 min max.
-        var easyPace = paces.EasyPaceRange.MaxPerKm;
+        var easyPace = paces.EasyPaceRange!.Slow.ToTimeSpan();
         var builder = ImmutableArray.CreateBuilder<WorkoutSummary>();
 
         for (var week = 2; week >= 1; week--)
@@ -530,7 +530,7 @@ public static class TestProfiles
     /// </summary>
     private static ImmutableArray<WorkoutSummary> BuildPriyaTrainingHistory(DateOnly today, TrainingPaces paces)
     {
-        var easyPace = AveragePace(paces.EasyPaceRange);
+        var easyPace = AveragePace(paces.EasyPaceRange!);
         var builder = ImmutableArray.CreateBuilder<WorkoutSummary>();
 
         for (var week = 3; week >= 1; week--)
@@ -551,14 +551,14 @@ public static class TestProfiles
                 weekStart.AddDays(3),
                 "Tempo",
                 12m,
-                (int)(12m * (decimal)paces.ThresholdPace!.Value.TotalMinutes),
-                paces.ThresholdPace!.Value,
+                (int)(12m * (decimal)paces.ThresholdPace!.Value.ToTimeSpan().TotalMinutes),
+                paces.ThresholdPace!.Value.ToTimeSpan(),
                 "3km warm-up, 6km at tempo, 3km cool-down"));
 
             // Saturday: intervals or marathon pace 14km (alternating weeks)
             var isIntervalWeek = week % 2 == 0;
             var satWorkoutType = isIntervalWeek ? "Intervals" : "MarathonPace";
-            var satPace = isIntervalWeek ? paces.IntervalPace!.Value : paces.MarathonPace!.Value;
+            var satPace = isIntervalWeek ? paces.IntervalPace!.Value.ToTimeSpan() : paces.MarathonPace!.Value.ToTimeSpan();
             var satNotes = isIntervalWeek
                 ? "3km warm-up, 6x1km at interval pace with 400m jog, 2km cool-down"
                 : "3km warm-up, 8km at marathon pace, 3km cool-down";
@@ -576,20 +576,17 @@ public static class TestProfiles
                 weekStart.AddDays(6),
                 "LongRun",
                 longRunKm,
-                (int)(longRunKm * (decimal)paces.EasyPaceRange.MaxPerKm.TotalMinutes),
-                paces.EasyPaceRange.MaxPerKm,
+                (int)(longRunKm * (decimal)paces.EasyPaceRange!.Slow.ToTimeSpan().TotalMinutes),
+                paces.EasyPaceRange.Slow.ToTimeSpan(),
                 null));
         }
 
         return builder.ToImmutable();
     }
 
-    /// <summary>
-    /// Computes the average pace from a PaceRange (midpoint between min and max per km).
-    /// </summary>
     private static TimeSpan AveragePace(PaceRange range)
     {
-        var avgSeconds = (range.MinPerKm.TotalSeconds + range.MaxPerKm.TotalSeconds) / 2.0;
+        var avgSeconds = (range.Fast.SecondsPerKm + range.Slow.SecondsPerKm) / 2.0;
         return TimeSpan.FromSeconds(avgSeconds);
     }
 }

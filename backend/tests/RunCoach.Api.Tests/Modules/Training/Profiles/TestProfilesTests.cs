@@ -89,8 +89,8 @@ public class TestProfilesTests
 
         // Assert
         paces.EasyPaceRange.Should().NotBeNull();
-        paces.EasyPaceRange.MinPerKm.Should().Be(TimeSpan.FromSeconds(420));
-        paces.EasyPaceRange.MaxPerKm.Should().Be(TimeSpan.FromSeconds(480));
+        paces.EasyPaceRange!.Fast.Should().Be(Pace.FromSecondsPerKm(420));
+        paces.EasyPaceRange.Slow.Should().Be(Pace.FromSecondsPerKm(480));
         paces.MarathonPace.Should().BeNull();
         paces.ThresholdPace.Should().BeNull();
         paces.IntervalPace.Should().BeNull();
