@@ -69,11 +69,9 @@ public sealed partial class PaceZoneIndexCalculator(ILogger<PaceZoneIndexCalcula
         var oxygenCost = DanielsGilbertEquations.OxygenCost(velocityMetersPerMinute);
         var fractionalUtilization = DanielsGilbertEquations.FractionalUtilization(timeInMinutes);
 
-        if (fractionalUtilization <= 0)
-        {
-            return null;
-        }
-
+        // FractionalUtilization(t) = 0.8 + positive_exponentials is strictly > 0.8 for all
+        // finite t, and the duration/velocity guards above ensure t is bounded and finite.
+        // A zero/negative utilization cannot occur, so no divide-by-zero guard is needed.
         var index = oxygenCost / fractionalUtilization;
         var rounded = Math.Round((decimal)index, 1);
 
