@@ -69,13 +69,9 @@
   any "VDOT" token flows directly into user-facing coaching output. Use
   "Daniels-Gilbert zones" or "pace-zone index" instead. The VDOT mark is
   enforced by The Run SMART Project LLC (Runalyze precedent).
-- Internal C# identifiers (`VdotCalculator`, `IVdotCalculator`,
-  `EstimatedVdot`, test class names, variable names) are explicitly exempt
-  until DEC-042's pace-calculator rewrite lands. Do not flag those in code
-  files.
 - API response DTOs, `ProblemDetails` error messages, and any string that
   may reach a frontend or an HTTP consumer are treated as user-facing and
-  must avoid "VDOT".
+  must avoid "VDOT". Internal C# identifiers are exempt from this rule.
 
 ### LLM integration
 

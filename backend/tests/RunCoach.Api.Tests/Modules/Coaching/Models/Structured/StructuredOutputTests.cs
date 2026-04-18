@@ -86,7 +86,7 @@ public class StructuredOutputTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.Days.Should().HaveCount(7);
+        actual!.EnumerateDays().Should().HaveCount(7);
         actual.Should().BeEquivalentTo(expected);
     }
 
@@ -101,9 +101,9 @@ public class StructuredOutputTests
         var actual = JsonSerializer.Deserialize<MesoWeekOutput>(json, JsonOptions);
 
         // Assert
-        actual!.Days[0].SlotType.Should().Be(DaySlotType.Rest);
-        actual.Days[1].SlotType.Should().Be(DaySlotType.Run);
-        actual.Days[3].SlotType.Should().Be(DaySlotType.CrossTrain);
+        actual!.Sunday.SlotType.Should().Be(DaySlotType.Rest);
+        actual.Monday.SlotType.Should().Be(DaySlotType.Run);
+        actual.Wednesday.SlotType.Should().Be(DaySlotType.CrossTrain);
     }
 
     [Fact]
@@ -231,16 +231,13 @@ public class StructuredOutputTests
         WeeklyTargetKm = 35,
         IsDeloadWeek = false,
         WeekSummary = "First week of base building.",
-        Days =
-        [
-            new MesoDayOutput { DayOfWeek = 0, SlotType = DaySlotType.Rest, WorkoutType = null, Notes = "Full rest day." },
-            new MesoDayOutput { DayOfWeek = 1, SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy aerobic run." },
-            new MesoDayOutput { DayOfWeek = 2, SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy aerobic run." },
-            new MesoDayOutput { DayOfWeek = 3, SlotType = DaySlotType.CrossTrain, WorkoutType = null, Notes = "Cross-training day." },
-            new MesoDayOutput { DayOfWeek = 4, SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Tempo, Notes = "Tempo run." },
-            new MesoDayOutput { DayOfWeek = 5, SlotType = DaySlotType.Rest, WorkoutType = null, Notes = "Rest day." },
-            new MesoDayOutput { DayOfWeek = 6, SlotType = DaySlotType.Run, WorkoutType = WorkoutType.LongRun, Notes = "Long run." },
-        ],
+        Sunday = new MesoDaySlotOutput { SlotType = DaySlotType.Rest, WorkoutType = null, Notes = "Full rest day." },
+        Monday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy aerobic run." },
+        Tuesday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = "Easy aerobic run." },
+        Wednesday = new MesoDaySlotOutput { SlotType = DaySlotType.CrossTrain, WorkoutType = null, Notes = "Cross-training day." },
+        Thursday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Tempo, Notes = "Tempo run." },
+        Friday = new MesoDaySlotOutput { SlotType = DaySlotType.Rest, WorkoutType = null, Notes = "Rest day." },
+        Saturday = new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.LongRun, Notes = "Long run." },
     };
 
     private static MicroWorkoutListOutput CreateSampleMicroWorkoutList() => new()

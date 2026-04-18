@@ -86,7 +86,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         }
 
         // Sarah-specific: at least 2 rest days
-        var restDayCount = mesoWeek.Days.Count(d => d.SlotType == DaySlotType.Rest);
+        var restDayCount = mesoWeek.EnumerateDays().Count(d => d.Slot.SlotType == DaySlotType.Rest);
         restDayCount.Should().BeGreaterThanOrEqualTo(
             2,
             "beginner should have at least 2 rest days");
@@ -149,8 +149,8 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Lee-specific: easy pace within VDOT range (with 15% tolerance)
         var easyRange = paces.EasyPaceRange;
-        var minEasySec = (int)(easyRange.MinPerKm.TotalSeconds * 0.85);
-        var maxEasySec = (int)(easyRange.MaxPerKm.TotalSeconds * 1.15);
+        var minEasySec = (int)(easyRange!.Fast.SecondsPerKm * 0.85);
+        var maxEasySec = (int)(easyRange.Slow.SecondsPerKm * 1.15);
 
         foreach (var workout in workoutList.Workouts.Where(w => w.TargetPaceEasySecPerKm > 0))
         {
@@ -164,7 +164,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Lee-specific: no pace faster than repetition zone maximum
         if (paces.RepetitionPace.HasValue)
         {
-            var repFloor = (int)(paces.RepetitionPace.Value.TotalSeconds * 0.90);
+            var repFloor = (int)(paces.RepetitionPace.Value.SecondsPerKm * 0.90);
             foreach (var workout in workoutList.Workouts.Where(w => w.TargetPaceFastSecPerKm > 0))
             {
                 workout.TargetPaceFastSecPerKm.Should().BeGreaterThanOrEqualTo(
@@ -348,14 +348,12 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             },
             TestContext.Current.CancellationToken);
 
-        // Assert -- Priya-specific: exactly 4 run days and 3 rest/cross-train days
-        mesoWeek.Days.Should().HaveCount(
-            7,
-            "weekly plan should have 7 day slots");
-
-        var runDays = mesoWeek.Days.Count(d => d.SlotType == DaySlotType.Run);
-        var nonRunDays = mesoWeek.Days.Count(
-            d => d.SlotType == DaySlotType.Rest || d.SlotType == DaySlotType.CrossTrain);
+        // Assert -- Priya-specific: exactly 4 run days and 3 rest/cross-train days.
+        // 7-slot count is structurally guaranteed by named day properties (Sunday..Saturday).
+        var days = mesoWeek.EnumerateDays().ToList();
+        var runDays = days.Count(d => d.Slot.SlotType == DaySlotType.Run);
+        var nonRunDays = days.Count(
+            d => d.Slot.SlotType == DaySlotType.Rest || d.Slot.SlotType == DaySlotType.CrossTrain);
 
         runDays.Should().Be(
             4,

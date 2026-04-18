@@ -100,7 +100,37 @@ public class JsonSchemaHelperTests
         var schemaStr = schema.ToJsonString();
         schemaStr.Should().Contain("week number within the current training phase");
         schemaStr.Should().Contain("deload week");
-        schemaStr.Should().Contain("seven day slots");
+        schemaStr.Should().Contain("Activity plan for Sunday");
+    }
+
+    [Fact]
+    public void GenerateSchema_MesoWeekOutput_RequiredArrayContainsAllSevenDaysAndScalars()
+    {
+        // Arrange — the structural-enforcement guarantee for constrained
+        // decoding depends on every required property appearing in the
+        // top-level `required` array. This test pins that contract so a
+        // schema-generator regression dropping entries is caught in CI.
+        var expectedRequiredNames = new[]
+        {
+            // Seven named day slots — the whole point of the Days[] → named
+            // properties refactor (eliminates the 8-day flake).
+            "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+
+            // Scalar required fields.
+            "week_number", "phase_type", "weekly_target_km", "is_deload_week", "week_summary",
+        };
+
+        // Act
+        var schema = JsonSchemaHelper.GenerateSchema<MesoWeekOutput>();
+        var requiredArray = schema.AsObject()["required"]!.AsArray();
+        var actualRequiredNames = requiredArray
+            .Select(n => n!.GetValue<string>())
+            .ToArray();
+
+        // Assert
+        actualRequiredNames.Should().Contain(
+            expectedRequiredNames,
+            because: "MesoWeekOutput relies on constrained decoding enforcing these required fields");
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using Microsoft.Extensions.Logging.Abstractions;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Models;
 
@@ -13,8 +14,10 @@ namespace RunCoach.Api.Tests.Modules.Training.Profiles;
 /// </summary>
 public static class TestProfiles
 {
-    private static readonly VdotCalculator VdotCalc = new();
-    private static readonly PaceCalculator PaceCalc = new();
+    private static readonly PaceZoneIndexCalculator IndexCalc =
+        new(NullLogger<PaceZoneIndexCalculator>.Instance);
+
+    private static readonly HeartRateZoneCalculator HrCalc = new();
 
     private static readonly Lazy<IReadOnlyDictionary<string, TestProfile>> LazyAll = new(() =>
         new Dictionary<string, TestProfile>(StringComparer.OrdinalIgnoreCase)
@@ -68,14 +71,14 @@ public static class TestProfiles
 
         // No race history -> no VDOT, estimated paces based on beginner defaults.
         // Use estimated max HR as fallback.
-        var estimatedMaxHr = PaceCalc.EstimateMaxHr(profile.Age);
+        var estimatedMaxHr = HrCalc.EstimateMaxHr(profile.Age);
 
         var fitnessEstimate = new FitnessEstimate(
             EstimatedVdot: null,
             TrainingPaces: new TrainingPaces(
                 EasyPaceRange: new PaceRange(
-                    minPerKm: TimeSpan.FromSeconds(420),
-                    maxPerKm: TimeSpan.FromSeconds(480)),
+                    fast: Pace.FromSecondsPerKm(420),
+                    slow: Pace.FromSecondsPerKm(480)),
                 MarathonPace: null,
                 ThresholdPace: null,
                 IntervalPace: null,
@@ -108,8 +111,8 @@ public static class TestProfiles
         var today = DateOnly.FromDateTime(now);
 
         var raceTime = new RaceTime("10K", TimeSpan.FromMinutes(48), new DateOnly(2026, 2, 15), "Flat course, mild weather");
-        var vdot = VdotCalc.CalculateVdot(raceTime)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var vdot = IndexCalc.CalculateIndex(raceTime)!.Value;
+        var paces = TestPaceCalculator.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -174,8 +177,8 @@ public static class TestProfiles
             new RaceTime("Half-Marathon", new TimeSpan(1, 38, 0), new DateOnly(2025, 6, 8), "Flat course, ideal conditions"),
             new RaceTime("Marathon", new TimeSpan(3, 22, 0), new DateOnly(2024, 4, 15), "Boston, hilly, cool"));
 
-        var vdot = VdotCalc.CalculateVdot(raceTimes)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var vdot = IndexCalc.CalculateIndex(raceTimes)!.Value;
+        var paces = TestPaceCalculator.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -232,8 +235,8 @@ public static class TestProfiles
 
         // Pre-injury race time for VDOT estimation (before injury).
         var raceTime = new RaceTime("10K", new TimeSpan(0, 44, 0), new DateOnly(2025, 9, 20), "Pre-injury personal best");
-        var vdot = VdotCalc.CalculateVdot(raceTime)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var vdot = IndexCalc.CalculateIndex(raceTime)!.Value;
+        var paces = TestPaceCalculator.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -297,8 +300,8 @@ public static class TestProfiles
             new RaceTime("Half-Marathon", new TimeSpan(1, 32, 0), new DateOnly(2025, 11, 3), "PB, flat course"),
             new RaceTime("10K", TimeSpan.Parse("00:42:30", CultureInfo.InvariantCulture), new DateOnly(2025, 8, 10), null));
 
-        var vdot = VdotCalc.CalculateVdot(raceTimes)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var vdot = IndexCalc.CalculateIndex(raceTimes)!.Value;
+        var paces = TestPaceCalculator.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -355,7 +358,7 @@ public static class TestProfiles
     /// </summary>
     private static ImmutableArray<WorkoutSummary> BuildLeeTrainingHistory(DateOnly today, TrainingPaces paces)
     {
-        var easyPace = AveragePace(paces.EasyPaceRange);
+        var easyPace = AveragePace(paces.EasyPaceRange!);
         var builder = ImmutableArray.CreateBuilder<WorkoutSummary>();
 
         for (var week = 3; week >= 1; week--)
@@ -376,8 +379,8 @@ public static class TestProfiles
                 weekStart.AddDays(2),
                 "Tempo",
                 8m,
-                (int)(8m * (decimal)paces.ThresholdPace!.Value.TotalMinutes),
-                paces.ThresholdPace!.Value,
+                (int)(8m * (decimal)paces.ThresholdPace!.Value.ToTimeSpan().TotalMinutes),
+                paces.ThresholdPace!.Value.ToTimeSpan(),
                 "2km warm-up, 4km at tempo, 2km cool-down"));
 
             // Friday: easy run 6km
@@ -395,8 +398,8 @@ public static class TestProfiles
                 weekStart.AddDays(6),
                 "LongRun",
                 longRunKm,
-                (int)(longRunKm * (decimal)paces.EasyPaceRange.MaxPerKm.TotalMinutes),
-                paces.EasyPaceRange.MaxPerKm,
+                (int)(longRunKm * (decimal)paces.EasyPaceRange!.Slow.ToTimeSpan().TotalMinutes),
+                paces.EasyPaceRange.Slow.ToTimeSpan(),
                 null));
         }
 
@@ -409,7 +412,7 @@ public static class TestProfiles
     /// </summary>
     private static ImmutableArray<WorkoutSummary> BuildMariaTrainingHistory(DateOnly today, TrainingPaces paces)
     {
-        var easyPace = AveragePace(paces.EasyPaceRange);
+        var easyPace = AveragePace(paces.EasyPaceRange!);
         var builder = ImmutableArray.CreateBuilder<WorkoutSummary>();
 
         for (var week = 4; week >= 1; week--)
@@ -431,7 +434,7 @@ public static class TestProfiles
                 "Intervals",
                 10m,
                 (int)((10m * (decimal)easyPace.TotalMinutes) * 0.85m),
-                paces.IntervalPace!.Value,
+                paces.IntervalPace!.Value.ToTimeSpan(),
                 "2km warm-up, 5x1km at interval pace with 400m jog, 1.6km cool-down"));
 
             // Thursday: tempo 12km
@@ -439,8 +442,8 @@ public static class TestProfiles
                 weekStart.AddDays(3),
                 "Tempo",
                 12m,
-                (int)(12m * (decimal)paces.ThresholdPace!.Value.TotalMinutes),
-                paces.ThresholdPace!.Value,
+                (int)(12m * (decimal)paces.ThresholdPace!.Value.ToTimeSpan().TotalMinutes),
+                paces.ThresholdPace!.Value.ToTimeSpan(),
                 "2km warm-up, 8km at tempo, 2km cool-down"));
 
             // Friday: easy recovery 6km
@@ -448,8 +451,8 @@ public static class TestProfiles
                 weekStart.AddDays(4),
                 "Easy",
                 6m,
-                (int)(6m * (decimal)paces.EasyPaceRange.MaxPerKm.TotalMinutes),
-                paces.EasyPaceRange.MaxPerKm,
+                (int)(6m * (decimal)paces.EasyPaceRange!.Slow.ToTimeSpan().TotalMinutes),
+                paces.EasyPaceRange.Slow.ToTimeSpan(),
                 "Recovery run"));
 
             // Saturday: easy 8km
@@ -467,8 +470,8 @@ public static class TestProfiles
                 weekStart.AddDays(6),
                 "LongRun",
                 longRunKm,
-                (int)(longRunKm * (decimal)paces.EasyPaceRange.MaxPerKm.TotalMinutes),
-                paces.EasyPaceRange.MaxPerKm,
+                (int)(longRunKm * (decimal)paces.EasyPaceRange!.Slow.ToTimeSpan().TotalMinutes),
+                paces.EasyPaceRange.Slow.ToTimeSpan(),
                 null));
         }
 
@@ -482,7 +485,7 @@ public static class TestProfiles
     private static ImmutableArray<WorkoutSummary> BuildJamesTrainingHistory(DateOnly today, TrainingPaces paces)
     {
         // James is limited to easy pace only, 20 min max.
-        var easyPace = paces.EasyPaceRange.MaxPerKm;
+        var easyPace = paces.EasyPaceRange!.Slow.ToTimeSpan();
         var builder = ImmutableArray.CreateBuilder<WorkoutSummary>();
 
         for (var week = 2; week >= 1; week--)
@@ -530,7 +533,7 @@ public static class TestProfiles
     /// </summary>
     private static ImmutableArray<WorkoutSummary> BuildPriyaTrainingHistory(DateOnly today, TrainingPaces paces)
     {
-        var easyPace = AveragePace(paces.EasyPaceRange);
+        var easyPace = AveragePace(paces.EasyPaceRange!);
         var builder = ImmutableArray.CreateBuilder<WorkoutSummary>();
 
         for (var week = 3; week >= 1; week--)
@@ -551,14 +554,14 @@ public static class TestProfiles
                 weekStart.AddDays(3),
                 "Tempo",
                 12m,
-                (int)(12m * (decimal)paces.ThresholdPace!.Value.TotalMinutes),
-                paces.ThresholdPace!.Value,
+                (int)(12m * (decimal)paces.ThresholdPace!.Value.ToTimeSpan().TotalMinutes),
+                paces.ThresholdPace!.Value.ToTimeSpan(),
                 "3km warm-up, 6km at tempo, 3km cool-down"));
 
             // Saturday: intervals or marathon pace 14km (alternating weeks)
             var isIntervalWeek = week % 2 == 0;
             var satWorkoutType = isIntervalWeek ? "Intervals" : "MarathonPace";
-            var satPace = isIntervalWeek ? paces.IntervalPace!.Value : paces.MarathonPace!.Value;
+            var satPace = isIntervalWeek ? paces.IntervalPace!.Value.ToTimeSpan() : paces.MarathonPace!.Value.ToTimeSpan();
             var satNotes = isIntervalWeek
                 ? "3km warm-up, 6x1km at interval pace with 400m jog, 2km cool-down"
                 : "3km warm-up, 8km at marathon pace, 3km cool-down";
@@ -576,20 +579,17 @@ public static class TestProfiles
                 weekStart.AddDays(6),
                 "LongRun",
                 longRunKm,
-                (int)(longRunKm * (decimal)paces.EasyPaceRange.MaxPerKm.TotalMinutes),
-                paces.EasyPaceRange.MaxPerKm,
+                (int)(longRunKm * (decimal)paces.EasyPaceRange!.Slow.ToTimeSpan().TotalMinutes),
+                paces.EasyPaceRange.Slow.ToTimeSpan(),
                 null));
         }
 
         return builder.ToImmutable();
     }
 
-    /// <summary>
-    /// Computes the average pace from a PaceRange (midpoint between min and max per km).
-    /// </summary>
     private static TimeSpan AveragePace(PaceRange range)
     {
-        var avgSeconds = (range.MinPerKm.TotalSeconds + range.MaxPerKm.TotalSeconds) / 2.0;
+        var avgSeconds = (range.Fast.SecondsPerKm + range.Slow.SecondsPerKm) / 2.0;
         return TimeSpan.FromSeconds(avgSeconds);
     }
 }

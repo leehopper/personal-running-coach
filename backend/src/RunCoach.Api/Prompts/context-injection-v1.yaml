@@ -73,11 +73,12 @@ sections:
         token_estimate: 400
         required: true
         format: >
-          Easy pace: {EasyPaceRange.MinPerKm} - {EasyPaceRange.MaxPerKm} /km
+          Easy pace: {EasyPaceRange.Fast} - {EasyPaceRange.Slow} /km
           Marathon pace: {MarathonPace} /km
           Threshold pace: {ThresholdPace} /km
           Interval pace: {IntervalPace} /km
           Repetition pace: {RepetitionPace} /km
+          Fast-repetition pace: {FastRepetitionPace} /km
 
       - key: "current_plan_state"
         source: "MacroPlan (if exists)"

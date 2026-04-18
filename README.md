@@ -118,10 +118,12 @@ features from a product with a much larger user base. The mark is actively
 enforced, so the avoidance rule applies even though the underlying
 mathematics is public-domain.
 
-Internal code identifiers in this repository (for example the class name
-`VdotCalculator`) currently still use the term. Those identifiers are
-scheduled for rename alongside the pace-calculator rewrite captured in
-DEC-042 and are not exposed on any API surface or user-facing string.
+Public APIs, user-facing strings, and the primary calculator classes use
+trademark-neutral names (`PaceZoneIndexCalculator`, `PaceZoneCalculator`,
+`pace-zone index`). Two internal-only identifiers
+(`FitnessEstimate.EstimatedVdot` and an XML doc comment on `RaceTime`) still
+carry the legacy term and are slated for rename on next touch; they are
+out of user-facing scope.
 
 ## Attribution
 

@@ -1,6 +1,6 @@
 # Backend — .NET 10 / ASP.NET Core
 
-> **Trademark rule — VDOT.** User-facing surface (coaching prompt YAML under `src/RunCoach.Api/Prompts/`, API responses, generated plan narrative, error messages) must use "Daniels-Gilbert zones" or "pace-zone index" — **not** "VDOT". The VDOT mark is enforced by The Run SMART Project LLC (Runalyze precedent). Internal code identifiers, including `VdotCalculator`, `IVdotCalculator`, `EstimatedVdot`, and test class names, may continue to use VDOT until DEC-042's pace-calculator rewrite replaces them with `PaceZoneIndexCalculator` and friends. See root `CLAUDE.md` and `NOTICE` for full context.
+> **Trademark rule — VDOT.** User-facing surface (coaching prompt YAML under `src/RunCoach.Api/Prompts/`, API responses, generated plan narrative, error messages) must use "Daniels-Gilbert zones" or "pace-zone index" — **not** "VDOT". The VDOT mark is enforced by The Run SMART Project LLC (Runalyze precedent). Calculator classes have been renamed to `PaceZoneIndexCalculator`, `PaceZoneCalculator`, and `HeartRateZoneCalculator` per DEC-042. Three internal-only references still carry the legacy term (`FitnessEstimate.EstimatedVdot`, a doc comment on `RaceTime`, and the `"VDOT"` literal inside `TestProfiles.Lee().AssessmentBasis` — the last flows into eval-cache prompt text so scrubbing requires a Sonnet fixture re-record). Tracked as a DEC-042 follow-up in ROADMAP. See root `CLAUDE.md` and `NOTICE` for full context.
 
 ## Stack
 
@@ -24,7 +24,7 @@ backend/
             Structured/            # JSON schema types for constrained decoding
           Prompts/                 # IPromptStore, YamlPromptStore, PromptRenderer
         Training/                  # Deterministic training science
-          Computations/            # VdotCalculator, PaceCalculator (formula-based)
+          Computations/            # PaceZoneIndexCalculator, PaceZoneCalculator, HeartRateZoneCalculator, DanielsGilbertEquations (formula-based)
           Models/                  # UserProfile, TrainingPaces, WorkoutSummary, etc.
         Common/                    # Cross-cutting (BaseController)
       Infrastructure/              # ServiceCollectionExtensions (DI registration hub)
@@ -64,7 +64,7 @@ backend/
 - **Controllers** inherit from `BaseController` (`Common/`). Entry point only — delegate to services.
 - **Services** contain business logic, injected into controllers. All services have interfaces.
 - **Repositories** handle data access, injected into services. All repositories have interfaces.
-- **Computation classes** are pure/deterministic (no I/O) — `VdotCalculator`, `PaceCalculator`. Interfaces for testability.
+- **Computation classes** are pure/deterministic (no I/O) — `PaceZoneIndexCalculator`, `PaceZoneCalculator`, `HeartRateZoneCalculator`, `DanielsGilbertEquations` (internal static helper). Interfaces for the injectable services; the equations helper is static because it has no state.
 
 ## Logging
 

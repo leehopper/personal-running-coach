@@ -2,9 +2,9 @@
 
 Living project state. Read this at the start of every session.
 
-## Current Phase: POC 1 Complete — Merging to Main
+## Current Phase: DEC-042 Shipped — Pure-Equation Pace-Zone Calculator
 
-POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding removed (console app, experiment prompts, spec artifacts, poc1 naming). TestProfiles relocated to test project. Eval cache moved from `backend/poc1-eval-cache/` to `backend/tests/eval-cache/`. 290 tests passing in Replay mode (0 failures). Tag `poc1-complete` preserves full POC history.
+POC 1 productionized on `feature/poc1-context-injection-v2` (tag `poc1-complete`). DEC-042 pure-equation pace-zone calculator shipped via PR #44 — all six zones, `VdotCalculator` renamed to `PaceZoneIndexCalculator`, lookup table deleted, eval cache re-recorded, 14 deep-review findings resolved across 10 atomic fix commits. POC 2 (adaptive replanning) is next.
 
 ### Setup Steps
 
@@ -116,6 +116,25 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 - Removed `ParseCacheMode` null test case that conflicted with `EVAL_CACHE_MODE` env var in CI
 - Research: R-018 (xUnit v3 MTP filtering) — `coverlet.MTP` incompatible with xUnit v3's bundled MTP 1.x, staying on `coverlet.msbuild`
 
+**DEC-042 + DEC-041: Pure-equation pace-zone calculator + value objects (2026-04-16, complete on `refactor/dec-042-pace-zone-calculator`):**
+- `DanielsGilbertEquations` internal static helper — OxygenCost, FractionalUtilization, SolveVelocityForTargetVo2, PredictRaceTimeMinutes (Newton-Raphson)
+- `PaceZoneCalculator` / `IPaceZoneCalculator` — six zones (E, M, T, I, R, F) derived purely from equations; no lookup table
+- `PaceZoneIndexCalculator` / `IPaceZoneIndexCalculator` — replaces `VdotCalculator`; 14 race distances, duration/velocity guards, low-index Warning log
+- `HeartRateZoneCalculator` / `IHeartRateZoneCalculator` — Tanaka max-HR (208−0.7·age), %HRmax bands, optional Karvonen
+- DEC-041 value objects: `Distance`, `Pace`, `PaceRange(Fast, Slow)`, `TrainingPaces` rewrite
+- Eval cache re-recorded (10 fixtures updated for `TrainingPaces` shape change)
+- DI registered all three new calculators as singletons in `ServiceCollectionExtensions`
+- README trademark disclaimer updated: confirms public APIs, user-facing strings, and the primary calculator classes are trademark-neutral; two internal-only identifiers still carry the legacy term and are tracked as a follow-up
+- `MesoWeekOutput` structured-output schema restructured from a `Days[]` array to seven required `Sunday..Saturday` properties. Constrained decoding can't enforce array length, and the Priya constrained profile (`MaxRunDaysPerWeek: 4`) was triggering the model to hedge with an 8-day response including a placeholder entry. Named properties make the invariant structural. Un-skipped `Priya_Constrained_RespectsExactly4RunDays` — 3/3 Record-mode passes deterministically.
+- `PredictRaceTimeMinutes` Newton-Raphson bug fixed: the solver was rooting `F·VO₂ = index` instead of the Daniels relation `VO₂/F = index`. Symptom at index 50 was a 2:19 marathon M-pace and an inverted F<R ordering. Fix flipped the root condition and rewrote the derivative with the quotient rule. All 56 rows of the equation-anchored fixture regenerated; `CalculatePaces_Monotonicity_AllZonesOrderedFromSlowToFast` and `CalculatePaces_MPacePrecision_WithinPublishedTableTolerance` un-skipped; M-pace at index 50 now reproduces Daniels' published ≈ 271 s/km. Eval cache untouched — test profiles used a lookup-table bridge (`TestPaceCalculator`) that always carried the correct Daniels values, so prompt content was stable; only production runtime was affected by the bug.
+
+**PR #44 deep-review fix round (2026-04-17, complete on `refactor/dec-042-pace-zone-calculator`):**
+- Deep-review (`deep-review:deep-review`) surfaced 14 findings across 7 concern-parallel agents — 2 main + 12 suggestions after Opus blind-challenge; all resolved across 10 atomic commits.
+- Functional: (bug-1) `ContextAssembler.BuildTrainingPacesSection` now renders `FastRepetitionPace` when populated; `context-injection-v1.yaml` layout spec updated. (type-1+test-4) `PaceRange.Fast`/`.Slow` dropped `init` setters to block `with`-expression invariant bypass, matching `IntRange`; regression test added. (bug-2) `ContextAssemblerTests` asserts the real `"Pace-zone index:"` label instead of coincidental `"VDOT"` match.
+- Coverage: (test-1+test-2) HR-zone guard (`restingHr >= maxHr`) and cross-zone ordering tests across multiple maxHr values, both %HRmax and Karvonen modes. (test-3) `Distance.FromMeters` NaN/Infinity guard tests. (test-5) `MesoWeekOutput` JSON schema `required` array contents pinned (7 day names + 5 scalars) so a schema-generator regression re-opening the 8-day bug is caught in CI.
+- Quality: (simplify-1+simplify-3) 10 equation constants in `DanielsGilbertEquations` and `PaceZoneCalculator` converted `static readonly double` → `const double`. (simplify-2) unreachable `fractionalUtilization <= 0` guard removed from `PaceZoneIndexCalculator` (F(t) is strictly > 0.8 for all finite t). (conv-2+conv-3) AAA comment markers added to `PaceTests`; two two-part test names renamed to three-part `Method_Scenario_Expected`. (test-6) `SmokeTests` comment corrected — CI does not currently set `RUNCOACH_INTEGRATION_TESTS`.
+- Tests: 548 → 563 passing (+15), 0 failures, 1 opt-in skip unchanged. Security-reviewer and cross-file-impact agents both returned 0 findings.
+
 **OSS Quality Tooling Restoration (2026-04-15, complete — DEC-043):**
 - Dual-license architecture: Apache-2.0 (code) + CC-BY-NC-SA-4.0 (coaching prompts), NOTICE, THIRD-PARTY-NOTICES.md
 - VDOT trademark avoidance: user-facing surface renamed to "Daniels-Gilbert zones" / "pace-zone index" per Runalyze enforcement precedent; VDOT-avoidance rule encoded in all 3 CLAUDE.md and 3 REVIEW.md files; internal code identifier rename delegated to DEC-042
@@ -128,7 +147,7 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 - One-authority-per-signal partitioning: CodeQL=SAST, Codecov=Cobertura coverage, SonarQube Cloud=OpenCover dashboard, dependency-review-action=license+CVE gate
 - Spec: `docs/specs/09-spec-oss-tooling-restoration/09-spec-oss-tooling-restoration.md`
 
-**Branch status:** POC 1 productionized and merged to `main`. Follow-up branch `fix/daniels-pace-table` holds the 2026-04-14 integrity-fence audit work; that branch is now **discardable** — see Next Up item 2.
+**Branch status:** POC 1 productionized and merged to `main`. DEC-042 shipped to `main` via PR #44 (merged 2026-04-17). `fix/daniels-pace-table` deleted from local and remote.
 
 **Daniels pace table — DEC-040 to DEC-042 trajectory:**
 - DEC-040 row-shift patch shipped to main 2026-03-25..26 across commits `934f1de`, `0a6e813`, `fbadeda`, `54c4c9c` (row-shift correction, edition citation, eval cache re-record, `PaceRange` invariant).
@@ -138,27 +157,9 @@ POC 1 productionized on `feature/poc1-context-injection-v2`. All POC scaffolding
 
 ## Next Up
 
-### 1. DEC-042 implementation — pure-equation `PaceZoneCalculator`
+### 1. POC 2: Adaptive replanning
 
-Unblocked. Single PR, scope per `docs/decisions/decision-log.md` § DEC-042:
-- Delete current `PaceCalculator` lookup table (legally unsafe per R-034; the `fix/daniels-pace-table` integrity fence is also discarded at this point — the fence embeds book-transcribed values and was only ever a stepping stone).
-- New `PaceZoneCalculator` + internal `DanielsGilbertEquations` helper. Three Newton-Raphson call sites: 42,195 m (Marathon), 3,000 m (Repetition), 800 m (Fast Repetition).
-- Hybrid derivation: closed-form quadratic inversion for E (70% / 59%), T (88.0%), I (97.3%); Newton-Raphson race prediction for M, R (with R-200 = 0.9295 × (200/3000) × t₃ₖ, R-400 = 0.9450 × (400/3000) × t₃ₖ, R-800 = 2 × R-400), and F (F-400 = t₈₀₀ / 2, F-200 = t₈₀₀ / 4).
-- Add 5 missing race distances and input-validation guards to `VdotCalculator` (3.5–300 min duration, velocity > 50 m/min, pace-zone index 25–90 range with low-index warning).
-- Replace `EstimateMaxHr = 220 − age` with Tanaka `208 − 0.7·age`.
-- New `HeartRateZoneCalculator` (separate from pace) with Daniels' %HRmax bands.
-- Equation-derived golden fixture with provenance header citing the 1979 *Oxygen Power* monograph; replaces the old integrity fence.
-- DEC-041 value objects (`Distance`, `Pace`, `PaceRange(Fast, Slow)`) land in the same PR.
-- Trademark disclaimer in README.
-- **Internal VDOT code identifier rename** — `VdotCalculator` → `PaceZoneIndexCalculator`, field/variable/test renames, `IVdotCalculator` → `IPaceZoneIndexCalculator`. Picked up as part of the pace-calculator rewrite, not a separate pass. Landed together so the new file names are right from first commit. Scoped to internal code only; scientific and documentary citations of "VDOT" (in `NOTICE`, research artifacts, historical decisions) remain as-is per the DEC-043 user-facing rename boundary.
-
-### 2. DEC-041: Unit system value objects (lands with DEC-042)
-
-Kitchen-sink alignment: DEC-041's `Distance`/`Pace`/`PaceRange(Fast, Slow)` value objects are in scope for the DEC-042 PR. This is a deliberate cutover — DEC-042 has to replace the calculator's return types anyway, so wrapping them as typed values is essentially free at that point. See `docs/planning/unit-system-design.md` for the full design.
-
-### 3. POC 2: Adaptive replanning
-
-Next POC in the roadmap. Plan file needed. Not blocked by any of the above. Can start in parallel with DEC-042 implementation if capacity allows.
+Next POC in the roadmap. Plan file needed. No blockers.
 
 ## Plan Files
 
@@ -172,7 +173,7 @@ Next POC in the roadmap. Plan file needed. Not blocked by any of the above. Can 
 
 Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for details.
 
-- **POC 1:** Context injection & plan quality → feeds MVP-0 **(productionized, merging to main)**
+- **POC 1:** Context injection & plan quality → feeds MVP-0 **(complete, merged to main, DEC-042 PR pending)**
 - **POC 2:** Adaptive replanning → feeds MVP-1
 - **POC 3:** Tiered planning efficiency → validates architecture
 - **POC 4:** Interaction flow → validates UX
@@ -184,30 +185,26 @@ Four POCs feed into MVP-0 and MVP-1. See `docs/planning/poc-roadmap.md` for deta
 
 ## Deferred Items
 
-**Pure-equation pace zones (DEC-042) — implementation deferred pending R-035:**
-- Design direction is crystallized and captured in DEC-042. Zone-derivation methodology is pinned for E/T/I (70%/59%, 88.0%, 97.3%) and M (Newton-Raphson at 42,195 m). Only R-pace formulation is open, pending R-035.
-- Implementation scope is fully specified in DEC-042 (hybrid derivation, optional F zone, missing distances, input guards, Tanaka HR, separate `HeartRateZoneCalculator`, DEC-041 value-object integration, equation-derived fixture, trademark disclaimer).
-- R-032 (multi-methodology interface extensibility) and R-033 (LLM pace-zone consumption precision) remain deferred as non-blocking for DEC-042 correctness. R-032 is addressed proactively via `IPaceZoneCalculator` interface shape.
-
-**Unit system refactor (pre-MVP-0, DEC-041):**
-- Replace raw `decimal DistanceKm` / `TimeSpan AveragePacePerKm` with `Distance`, `Pace`, `PaceRange` value objects
-- Internal canonical storage in meters and seconds-per-km
-- `StandardRace` enum, `UnitPreference` enum, EF Core `ValueConverter` mappings
-- `PaceRange` naming: `Fast`/`Slow` instead of `Min`/`Max`
-- See `docs/planning/unit-system-design.md` for full design
+**Unit system refactor (partial — DEC-041):**
+- `Distance`, `Pace`, `PaceRange(Fast, Slow)`, and `TrainingPaces` value objects shipped with DEC-042.
+- Remaining DEC-041 scope deferred to pre-MVP-0: `StandardRace` enum, `UnitPreference` enum, EF Core `ValueConverter` mappings, full controller-layer adoption.
+- See `docs/planning/unit-system-design.md` for full design.
 
 **POC 1 cleanup (remaining items):**
-- `ContextAssembler` uses `DateTime.UtcNow` directly — inject `TimeProvider` for testability
 - `EvalTestBase` relative path navigation (`"../../../../../"`) — fragile if structure changes
 - `AsIChatClient()` not on `ICoachingLlm` interface — add to interface or mark internal
 - `WeekGroup` nested record uses mutable `List<WorkoutSummary>` — use `IReadOnlyList`
-- Nested types in `PaceCalculator` and `YamlPromptStore` — extract to own files or document as intentional
+- Nested types in `YamlPromptStore` — extract to own files or document as intentional
+
+**DEC-042 follow-ups (post-PR):**
+- `TestPaceCalculator` lookup-table bridge (`backend/tests/.../Profiles/TestPaceCalculator.cs`) is a transitional class carrying the old Daniels lookup values for test profiles. It kept eval-cache prompt content stable during the rewrite, but means the eval tests don't exercise the real `PaceZoneCalculator`. Migrate `TestProfiles` to call `PaceZoneCalculator` directly, delete the bridge, and re-record the Sonnet eval cache. The Newton-Raphson fix brought equation outputs into alignment with Daniels-published values at integer indices, so the migration should produce only minor cache-key drift.
+- Three internal identifiers still carry the legacy trademarked term: `FitnessEstimate.EstimatedVdot` property, an XML doc comment on `RaceTime`, and the `"VDOT"` literal inside `TestProfiles.Lee().AssessmentBasis` (surfaced by PR #44 deep-review). The first two are internal-code exempt per REVIEW.md carve-out and harmless. The third is test-fixture content that flows into eval-cache prompt text — scrubbing it requires a Sonnet fixture re-record, so consolidate with the `TestPaceCalculator` migration above.
 
 **Structured output post-deserialization validation (pre-MVP-0, surfaced 2026-04-15):**
-Anthropic's constrained decoding enforces property names, types, and `additionalProperties: false`, but does **not** enforce `minItems`/`maxItems` on arrays or numerical `minimum`/`maximum` on scalars. This means the `[Description]` text on structured output records is a hint to the model, not a hard gate — the model can and does violate it under non-deterministic conditions. A 2026-04-15 eval re-record caught `MesoWeekOutput.Days` returning 8 items instead of 7 for the Priya profile, producing a broken weekly plan.
-- **Scope:** This is not a one-off fix. It requires a systematic audit of every structured output record (`MesoWeekOutput`, `MacroPlanOutput`, `MicroWorkoutListOutput`, and any future additions) to identify all array-length invariants and scalar-range invariants that the schema description asserts but constrained decoding cannot enforce, then design a post-deserialization validation + retry layer that catches violations before they reach coaching output.
-- **Design considerations:** retry budget (how many times to re-call the LLM before failing), whether to surface the validation failure to the user or silently retry, whether to log violation rates for prompt-tuning feedback, whether prompt reinforcement (repeating the constraint in the system prompt body, not just the schema description) reduces violation frequency enough to make retry rare, and whether any invariant is better enforced by schema restructuring (e.g., 7 named day properties instead of an unbounded array).
-- **Eval gap audit:** Alongside the validation layer, audit the eval suite for similar gaps where assertions depend on LLM compliance with schema descriptions rather than structurally-enforced constraints. The `Priya_Constrained_RespectsExactly4RunDays` test caught this one, but other eval tests may have latent exposure to the same class of non-deterministic violation that the old cached responses happened to satisfy.
+Anthropic's constrained decoding enforces property names, types, and `additionalProperties: false`, but does **not** enforce `minItems`/`maxItems` on arrays or numerical `minimum`/`maximum` on scalars. This means the `[Description]` text on structured output records is a hint to the model, not a hard gate — the model can and does violate it under non-deterministic conditions.
+- **`MesoWeekOutput` addressed (2026-04-17, shipped with DEC-042):** The 7-day invariant was made structural by replacing `Days: MesoDaySlotOutput[]` with seven required `Sunday..Saturday` properties. The 8-day Priya flake is eliminated by construction; un-Skip'd `Priya_Constrained_RespectsExactly4RunDays` passes deterministically.
+- **Still open:** Audit `MacroPlanOutput`, `MicroWorkoutListOutput`, and any future structured outputs for similar invariants that depend on schema-description hints rather than structural guarantees. Consider either (a) schema restructuring (the `MesoWeekOutput` pattern), or (b) a post-deserialization validation + retry layer for cases where structural encoding is impractical. Design considerations: retry budget, whether to surface validation failures or silently retry, violation-rate logging for prompt-tuning feedback, and prompt reinforcement in the system prompt body.
+- **Eval gap audit:** Audit the eval suite for assertions that depend on LLM compliance with schema descriptions rather than structurally-enforced constraints. `Priya_Constrained_RespectsExactly4RunDays` surfaced this class of bug; other eval tests may have latent exposure.
 
 **Infrastructure:**
 - Kubernetes (deferred to public beta per DEC-032)

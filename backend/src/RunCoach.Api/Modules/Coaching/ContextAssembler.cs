@@ -261,6 +261,8 @@ public sealed partial class ContextAssembler : IContextAssembler
             : ts.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
 
+    private static string FormatPace(Pace pace) => FormatTimeSpan(pace.ToTimeSpan());
+
     /// <summary>
     /// Builds the START sections: user profile, goal state, fitness estimate, training paces.
     /// These are stable prefix content with high attention.
@@ -501,11 +503,11 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         if (fitness.EstimatedVdot.HasValue)
         {
-            sb.AppendLine(CultureInfo.InvariantCulture, $"VDOT: {fitness.EstimatedVdot.Value}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Pace-zone index: {fitness.EstimatedVdot.Value}");
         }
         else
         {
-            sb.AppendLine("VDOT: Not available (no race history)");
+            sb.AppendLine("Pace-zone index: Not available (no race history)");
         }
 
         sb.AppendLine(CultureInfo.InvariantCulture, $"Fitness level: {fitness.FitnessLevel}");
@@ -520,26 +522,34 @@ public sealed partial class ContextAssembler : IContextAssembler
     private PromptSection BuildTrainingPacesSection(TrainingPaces paces)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(CultureInfo.InvariantCulture, $"Easy pace: {FormatTimeSpan(paces.EasyPaceRange.MinPerKm)} - {FormatTimeSpan(paces.EasyPaceRange.MaxPerKm)} /km");
+        if (paces.EasyPaceRange is not null)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Easy pace: {FormatPace(paces.EasyPaceRange.Fast)} - {FormatPace(paces.EasyPaceRange.Slow)} /km");
+        }
 
         if (paces.MarathonPace.HasValue)
         {
-            sb.AppendLine(CultureInfo.InvariantCulture, $"Marathon pace: {FormatTimeSpan(paces.MarathonPace.Value)} /km");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Marathon pace: {FormatPace(paces.MarathonPace.Value)} /km");
         }
 
         if (paces.ThresholdPace.HasValue)
         {
-            sb.AppendLine(CultureInfo.InvariantCulture, $"Threshold pace: {FormatTimeSpan(paces.ThresholdPace.Value)} /km");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Threshold pace: {FormatPace(paces.ThresholdPace.Value)} /km");
         }
 
         if (paces.IntervalPace.HasValue)
         {
-            sb.AppendLine(CultureInfo.InvariantCulture, $"Interval pace: {FormatTimeSpan(paces.IntervalPace.Value)} /km");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Interval pace: {FormatPace(paces.IntervalPace.Value)} /km");
         }
 
         if (paces.RepetitionPace.HasValue)
         {
-            sb.AppendLine(CultureInfo.InvariantCulture, $"Repetition pace: {FormatTimeSpan(paces.RepetitionPace.Value)} /km");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Repetition pace: {FormatPace(paces.RepetitionPace.Value)} /km");
+        }
+
+        if (paces.FastRepetitionPace.HasValue)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Fast-repetition pace: {FormatPace(paces.FastRepetitionPace.Value)} /km");
         }
 
         var content = sb.ToString().TrimEnd();

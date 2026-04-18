@@ -9,96 +9,52 @@ public class PaceRangeTests
     public void Constructor_ValidRange_CreatesPaceRange()
     {
         // Arrange
-        var expectedMin = TimeSpan.FromSeconds(300); // 5:00/km
-        var expectedMax = TimeSpan.FromSeconds(360); // 6:00/km
+        var expectedFast = Pace.FromSecondsPerKm(300); // 5:00/km
+        var expectedSlow = Pace.FromSecondsPerKm(360); // 6:00/km
 
         // Act
-        var actual = new PaceRange(expectedMin, expectedMax);
+        var actual = new PaceRange(expectedFast, expectedSlow);
 
         // Assert
-        actual.MinPerKm.Should().Be(expectedMin);
-        actual.MaxPerKm.Should().Be(expectedMax);
+        actual.Fast.Should().Be(expectedFast);
+        actual.Slow.Should().Be(expectedSlow);
     }
 
     [Fact]
-    public void Constructor_EqualMinAndMax_CreatesPaceRange()
+    public void Constructor_EqualFastAndSlow_CreatesPaceRange()
     {
         // Arrange
-        var expectedPace = TimeSpan.FromSeconds(300);
+        var expectedPace = Pace.FromSecondsPerKm(300);
 
         // Act
         var actual = new PaceRange(expectedPace, expectedPace);
 
         // Assert
-        actual.MinPerKm.Should().Be(expectedPace);
-        actual.MaxPerKm.Should().Be(expectedPace);
+        actual.Fast.Should().Be(expectedPace);
+        actual.Slow.Should().Be(expectedPace);
     }
 
     [Fact]
-    public void Constructor_InvertedRange_ThrowsArgumentOutOfRangeException()
+    public void Constructor_FastSlowerThanSlow_ThrowsArgumentException()
     {
-        // Arrange — MinPerKm (slower) > MaxPerKm (faster) is invalid
-        var slower = TimeSpan.FromSeconds(360);
-        var faster = TimeSpan.FromSeconds(300);
+        // Arrange — Fast pace that is actually slower (higher sec/km) than Slow is invalid
+        var slowPace = Pace.FromSecondsPerKm(300);  // 5:00/km — faster
+        var fastPace = Pace.FromSecondsPerKm(360);  // 6:00/km — slower (invalid as Fast)
 
         // Act
-        var act = () => new PaceRange(slower, faster);
+        var act = () => new PaceRange(fastPace, slowPace);
 
         // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .Which.ParamName.Should().Be("minPerKm");
-    }
-
-    [Fact]
-    public void Constructor_ZeroMinPerKm_ThrowsArgumentOutOfRangeException()
-    {
-        // Act
-        var act = () => new PaceRange(TimeSpan.Zero, TimeSpan.FromSeconds(300));
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .Which.ParamName.Should().Be("minPerKm");
-    }
-
-    [Fact]
-    public void Constructor_ZeroMaxPerKm_ThrowsArgumentOutOfRangeException()
-    {
-        // Act
-        var act = () => new PaceRange(TimeSpan.FromSeconds(300), TimeSpan.Zero);
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .Which.ParamName.Should().Be("maxPerKm");
-    }
-
-    [Fact]
-    public void Constructor_NegativeMinPerKm_ThrowsArgumentOutOfRangeException()
-    {
-        // Act
-        var act = () => new PaceRange(TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(300));
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .Which.ParamName.Should().Be("minPerKm");
-    }
-
-    [Fact]
-    public void Constructor_NegativeMaxPerKm_ThrowsArgumentOutOfRangeException()
-    {
-        // Act
-        var act = () => new PaceRange(TimeSpan.FromSeconds(300), TimeSpan.FromSeconds(-1));
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .Which.ParamName.Should().Be("maxPerKm");
+        act.Should().Throw<ArgumentException>()
+            .Which.ParamName.Should().Be("fast");
     }
 
     [Fact]
     public void RecordEquality_SameValues_AreEqual()
     {
         // Arrange
-        var a = new PaceRange(TimeSpan.FromSeconds(300), TimeSpan.FromSeconds(360));
-        var b = new PaceRange(TimeSpan.FromSeconds(300), TimeSpan.FromSeconds(360));
+        var a = new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360));
+        var b = new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360));
 
         // Assert
         a.Should().Be(b);
@@ -108,10 +64,39 @@ public class PaceRangeTests
     public void RecordEquality_DifferentValues_AreNotEqual()
     {
         // Arrange
-        var a = new PaceRange(TimeSpan.FromSeconds(300), TimeSpan.FromSeconds(360));
-        var b = new PaceRange(TimeSpan.FromSeconds(310), TimeSpan.FromSeconds(360));
+        var a = new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360));
+        var b = new PaceRange(Pace.FromSecondsPerKm(310), Pace.FromSecondsPerKm(360));
 
         // Assert
         a.Should().NotBe(b);
+    }
+
+    [Fact]
+    public void Fast_IsFasterThanSlow()
+    {
+        // Arrange
+        var range = new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360));
+
+        // Assert
+        range.Fast.IsFasterThan(range.Slow).Should().BeTrue(
+            because: "Fast end should always be faster than Slow end");
+    }
+
+    [Fact]
+    public void WithExpression_CannotReassignFastOrSlow()
+    {
+        // Arrange — a valid range.
+        var range = new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360));
+
+        // Assert — the Fast and Slow properties are declared { get; } (no init setter),
+        // so a `with` expression that tries to reassign them is a compile-time error.
+        // This prevents invariant bypass like:
+        //     range with { Slow = Pace.FromSecondsPerKm(280) }
+        // from producing a PaceRange where Slow is faster than Fast.
+        //
+        // Compile-time error behaviour cannot be asserted at runtime; this test
+        // pins the runtime invariant and documents the compile-time guard via
+        // this comment and the XML docs on PaceRange itself.
+        range.Fast.IsFasterThan(range.Slow).Should().BeTrue();
     }
 }

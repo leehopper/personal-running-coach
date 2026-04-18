@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Models;
 using RunCoach.Api.Tests.Modules.Training.Profiles;
@@ -7,8 +8,8 @@ namespace RunCoach.Api.Tests.Modules.Training.Profiles;
 
 public class TestProfilesTests
 {
-    private readonly VdotCalculator _vdotCalc = new();
-    private readonly PaceCalculator _paceCalc = new();
+    private readonly PaceZoneIndexCalculator _indexCalc =
+        new(NullLogger<PaceZoneIndexCalculator>.Instance);
 
     [Fact]
     public void All_ContainsExactly5Profiles()
@@ -89,8 +90,8 @@ public class TestProfilesTests
 
         // Assert
         paces.EasyPaceRange.Should().NotBeNull();
-        paces.EasyPaceRange.MinPerKm.Should().Be(TimeSpan.FromSeconds(420));
-        paces.EasyPaceRange.MaxPerKm.Should().Be(TimeSpan.FromSeconds(480));
+        paces.EasyPaceRange!.Fast.Should().Be(Pace.FromSecondsPerKm(420));
+        paces.EasyPaceRange.Slow.Should().Be(Pace.FromSecondsPerKm(480));
         paces.MarathonPace.Should().BeNull();
         paces.ThresholdPace.Should().BeNull();
         paces.IntervalPace.Should().BeNull();
@@ -127,7 +128,7 @@ public class TestProfilesTests
     public void Lee_HasCorrectVdotFromRaceTime()
     {
         // Arrange
-        var expectedVdot = _vdotCalc.CalculateVdot(
+        var expectedVdot = _indexCalc.CalculateIndex(
             new RaceTime("10K", TimeSpan.FromMinutes(48), new DateOnly(2026, 2, 15), null));
 
         // Act
@@ -149,7 +150,7 @@ public class TestProfilesTests
     {
         // Arrange
         var lee = TestProfiles.Lee();
-        var expectedPaces = _paceCalc.CalculatePaces(lee.GoalState.CurrentFitnessEstimate.EstimatedVdot!.Value);
+        var expectedPaces = TestPaceCalculator.CalculatePaces(lee.GoalState.CurrentFitnessEstimate.EstimatedVdot!.Value);
 
         // Act
         var actualPaces = lee.GoalState.CurrentFitnessEstimate.TrainingPaces;
@@ -213,7 +214,7 @@ public class TestProfilesTests
     {
         // Arrange
         var maria = TestProfiles.Maria();
-        var expectedVdot = _vdotCalc.CalculateVdot(maria.UserProfile.RecentRaceTimes);
+        var expectedVdot = _indexCalc.CalculateIndex(maria.UserProfile.RecentRaceTimes);
 
         // Act
         var actualVdot = maria.GoalState.CurrentFitnessEstimate.EstimatedVdot;
@@ -305,7 +306,7 @@ public class TestProfilesTests
     public void James_HasPreInjuryVdot()
     {
         // Arrange
-        var expectedVdot = _vdotCalc.CalculateVdot(
+        var expectedVdot = _indexCalc.CalculateIndex(
             new RaceTime("10K", new TimeSpan(0, 44, 0), new DateOnly(2025, 9, 20), null));
 
         // Act
@@ -384,7 +385,7 @@ public class TestProfilesTests
     {
         // Arrange
         var priya = TestProfiles.Priya();
-        var expectedVdot = _vdotCalc.CalculateVdot(priya.UserProfile.RecentRaceTimes);
+        var expectedVdot = _indexCalc.CalculateIndex(priya.UserProfile.RecentRaceTimes);
 
         // Act
         var actualVdot = priya.GoalState.CurrentFitnessEstimate.EstimatedVdot;
@@ -523,7 +524,7 @@ public class TestProfilesTests
     {
         // Arrange
         var profile = TestProfiles.All[name];
-        var expectedPaces = _paceCalc.CalculatePaces(
+        var expectedPaces = TestPaceCalculator.CalculatePaces(
             profile.GoalState.CurrentFitnessEstimate.EstimatedVdot!.Value);
 
         // Act
