@@ -333,7 +333,7 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public async Task AssembleAsync_BeginnerProfile_FitnessEstimateShowsNoVdot()
+    public async Task AssembleAsync_BeginnerProfile_FitnessEstimateShowsNoPaceZoneIndex()
     {
         // Arrange
         var input = BuildSarahInput();
@@ -669,6 +669,36 @@ public class ContextAssemblerTests
         actualPrompt.SystemPrompt.Should().NotContain("VDOT");
         actualPrompt.SystemPrompt.Should().NotContain("Easy pace:");
         actualPrompt.SystemPrompt.Should().NotContain("40 km");
+    }
+
+    [Theory]
+    [InlineData("sarah")]
+    [InlineData("lee")]
+    [InlineData("maria")]
+    [InlineData("james")]
+    [InlineData("priya")]
+    public async Task AssembleAsync_FullAssembledPrompt_ContainsNoTrademarkedTermForAnyProfile(string profileName)
+    {
+        // Arrange — every profile must render through every positional section without
+        // leaking the trademarked term. This is the regression guard that catches a stray
+        // AssessmentBasis literal, a bad YAML token, or any future renderer that reintroduces
+        // "VDOT" into the assembled prompt for any profile.
+        var input = BuildInputFromProfile(TestProfiles.All[profileName], conversationTurns: 0);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        var fullText = string.Join(
+            "\n",
+            new[] { actualPrompt.SystemPrompt }
+                .Concat(actualPrompt.StartSections.Select(s => s.Content))
+                .Concat(actualPrompt.MiddleSections.Select(s => s.Content))
+                .Concat(actualPrompt.EndSections.Select(s => s.Content)));
+
+        // Assert
+        fullText.Should().NotContain(
+            "VDOT",
+            because: $"profile '{profileName}' assembled prompt must use 'pace-zone index' or 'Daniels-Gilbert zones' terminology per DEC-043 trademark rule");
     }
 
     [Fact]
@@ -1553,7 +1583,7 @@ public class ContextAssemblerTests
             === FITNESS ASSESSMENT ===
             {{fitness}}
 
-            === TRAINING PACES (computed from VDOT — use these exactly) ===
+            === TRAINING PACES (computed from Daniels-Gilbert zones — use these exactly) ===
             {{training_paces}}
 
             === RECENT TRAINING HISTORY ===

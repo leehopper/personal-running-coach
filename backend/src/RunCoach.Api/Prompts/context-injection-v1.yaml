@@ -62,7 +62,7 @@ sections:
         token_estimate: 300
         required: true
         format: >
-          Pace-zone index: {EstimatedVdot}
+          Pace-zone index: {EstimatedPaceZoneIndex}
           Fitness level: {FitnessLevel}
           Assessment basis: {AssessmentBasis}
           Assessed on: {AssessedOn}

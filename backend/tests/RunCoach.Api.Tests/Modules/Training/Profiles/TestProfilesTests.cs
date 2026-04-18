@@ -69,14 +69,14 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void Sarah_HasNullVdot_BecauseNoRaceHistory()
+    public void Sarah_HasNullPaceZoneIndex_BecauseNoRaceHistory()
     {
         // Arrange & Act
         var sarah = TestProfiles.Sarah();
 
         // Assert
-        sarah.GoalState.CurrentFitnessEstimate.EstimatedVdot.Should().BeNull(
-            because: "no race history means VDOT cannot be computed");
+        sarah.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex.Should().BeNull(
+            because: "no race history means pace-zone index cannot be computed");
         sarah.GoalState.CurrentFitnessEstimate.FitnessLevel.Should().Be("Beginner");
     }
 
@@ -126,24 +126,24 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void Lee_HasCorrectVdotFromRaceTime()
+    public void Lee_HasCorrectPaceZoneIndexFromRaceTime()
     {
         // Arrange
-        var expectedVdot = _indexCalc.CalculateIndex(
+        var expectedIndex = _indexCalc.CalculateIndex(
             new RaceTime("10K", TimeSpan.FromMinutes(48), new DateOnly(2026, 2, 15), null));
 
         // Act
         var lee = TestProfiles.Lee();
 
         // Assert
-        lee.GoalState.CurrentFitnessEstimate.EstimatedVdot.Should().Be(
-            expectedVdot!.Value,
-            because: "Lee's VDOT should be computed from his 10K race time of 48:00");
+        lee.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex.Should().Be(
+            expectedIndex!.Value,
+            because: "Lee's pace-zone index should be computed from his 10K race time of 48:00");
 
-        lee.GoalState.CurrentFitnessEstimate.EstimatedVdot!.Value.Should().BeApproximately(
+        lee.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex!.Value.Should().BeApproximately(
             42.0m,
             0.5m,
-            because: "10K in 48:00 corresponds to approximately VDOT 42");
+            because: "10K in 48:00 corresponds to approximately pace-zone index 42");
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public class TestProfilesTests
         // Arrange
         var lee = TestProfiles.Lee();
         var expectedPaces = new PaceZoneCalculator().CalculatePaces(
-            lee.GoalState.CurrentFitnessEstimate.EstimatedVdot!.Value);
+            lee.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex!.Value);
 
         // Act
         var actualPaces = lee.GoalState.CurrentFitnessEstimate.TrainingPaces;
@@ -214,19 +214,19 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void Maria_HasCorrectVdotFromBestRaceResult()
+    public void Maria_HasCorrectPaceZoneIndexFromBestRaceResult()
     {
         // Arrange
         var maria = TestProfiles.Maria();
-        var expectedVdot = _indexCalc.CalculateIndex(maria.UserProfile.RecentRaceTimes);
+        var expectedIndex = _indexCalc.CalculateIndex(maria.UserProfile.RecentRaceTimes);
 
         // Act
-        var actualVdot = maria.GoalState.CurrentFitnessEstimate.EstimatedVdot;
+        var actualIndex = maria.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex;
 
         // Assert
-        actualVdot.Should().Be(
-            expectedVdot!.Value,
-            because: "Maria's VDOT should be the best from her 3 race results");
+        actualIndex.Should().Be(
+            expectedIndex!.Value,
+            because: "Maria's pace-zone index should be the best from her 3 race results");
     }
 
     [Fact]
@@ -307,19 +307,19 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void James_HasPreInjuryVdot()
+    public void James_HasPreInjuryPaceZoneIndex()
     {
         // Arrange
-        var expectedVdot = _indexCalc.CalculateIndex(
+        var expectedIndex = _indexCalc.CalculateIndex(
             new RaceTime("10K", new TimeSpan(0, 44, 0), new DateOnly(2025, 9, 20), null));
 
         // Act
         var james = TestProfiles.James();
 
         // Assert
-        james.GoalState.CurrentFitnessEstimate.EstimatedVdot.Should().Be(
-            expectedVdot!.Value,
-            because: "James's VDOT is based on pre-injury 10K time");
+        james.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex.Should().Be(
+            expectedIndex!.Value,
+            because: "James's pace-zone index is based on pre-injury 10K time");
     }
 
     [Fact]
@@ -385,19 +385,19 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void Priya_HasCorrectVdotFromBestRaceResult()
+    public void Priya_HasCorrectPaceZoneIndexFromBestRaceResult()
     {
         // Arrange
         var priya = TestProfiles.Priya();
-        var expectedVdot = _indexCalc.CalculateIndex(priya.UserProfile.RecentRaceTimes);
+        var expectedIndex = _indexCalc.CalculateIndex(priya.UserProfile.RecentRaceTimes);
 
         // Act
-        var actualVdot = priya.GoalState.CurrentFitnessEstimate.EstimatedVdot;
+        var actualIndex = priya.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex;
 
         // Assert
-        actualVdot.Should().Be(
-            expectedVdot!.Value,
-            because: "Priya's VDOT should be the best from her 2 race results");
+        actualIndex.Should().Be(
+            expectedIndex!.Value,
+            because: "Priya's pace-zone index should be the best from her 2 race results");
     }
 
     [Fact]
@@ -509,14 +509,14 @@ public class TestProfilesTests
     [InlineData("maria")]
     [InlineData("james")]
     [InlineData("priya")]
-    public void ProfilesWithRaceHistory_HaveComputedVdot(string name)
+    public void ProfilesWithRaceHistory_HaveComputedPaceZoneIndex(string name)
     {
         // Arrange & Act
         var profile = TestProfiles.All[name];
 
         // Assert
-        profile.GoalState.CurrentFitnessEstimate.EstimatedVdot.Should().NotBeNull(
-            $"profile '{name}' has race history and should have a computed VDOT");
+        profile.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex.Should().NotBeNull(
+            $"profile '{name}' has race history and should have a computed pace-zone index");
     }
 
     [Theory]
@@ -529,7 +529,7 @@ public class TestProfilesTests
         // Arrange
         var profile = TestProfiles.All[name];
         var expectedPaces = new PaceZoneCalculator().CalculatePaces(
-            profile.GoalState.CurrentFitnessEstimate.EstimatedVdot!.Value);
+            profile.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex!.Value);
 
         // Act
         var actualPaces = profile.GoalState.CurrentFitnessEstimate.TrainingPaces;

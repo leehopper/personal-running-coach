@@ -33,7 +33,7 @@ public static class TestProfiles
 
     /// <summary>
     /// Gets all 5 test profiles keyed by lowercase name.
-    /// Cached on first access to avoid re-creating profiles (including VDOT/pace calculations) on every call.
+    /// Cached on first access to avoid re-creating profiles (including index and pace calculations) on every call.
     /// </summary>
     public static IReadOnlyDictionary<string, TestProfile> All => LazyAll.Value;
 
@@ -71,12 +71,12 @@ public static class TestProfiles
             createdOn: now,
             modifiedOn: now);
 
-        // No race history -> no VDOT, estimated paces based on beginner defaults.
+        // No race history -> no pace-zone index, estimated paces based on beginner defaults.
         // Use estimated max HR as fallback.
         var estimatedMaxHr = HrCalc.EstimateMaxHr(profile.Age);
 
         var fitnessEstimate = new FitnessEstimate(
-            EstimatedVdot: null,
+            EstimatedPaceZoneIndex: null,
             TrainingPaces: new TrainingPaces(
                 EasyPaceRange: new PaceRange(
                     fast: Pace.FromSecondsPerKm(420),
@@ -143,10 +143,10 @@ public static class TestProfiles
             modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
-            EstimatedVdot: vdot,
+            EstimatedPaceZoneIndex: vdot,
             TrainingPaces: paces,
             FitnessLevel: "Intermediate",
-            AssessmentBasis: $"10K race time of 48:00 (2026-02-15) -> VDOT {vdot}",
+            AssessmentBasis: $"10K race time of 48:00 (2026-02-15) -> pace-zone index {vdot}",
             AssessedOn: today);
 
         var goalState = new GoalState(
@@ -209,10 +209,10 @@ public static class TestProfiles
             modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
-            EstimatedVdot: vdot,
+            EstimatedPaceZoneIndex: vdot,
             TrainingPaces: paces,
             FitnessLevel: "Advanced",
-            AssessmentBasis: $"Best VDOT from 3 race results -> VDOT {vdot}",
+            AssessmentBasis: $"Best pace-zone index from 3 race results -> pace-zone index {vdot}",
             AssessedOn: today);
 
         var goalState = new GoalState(
@@ -235,7 +235,7 @@ public static class TestProfiles
         var now = new DateTime(2026, 3, 21, 0, 0, 0, DateTimeKind.Utc);
         var today = DateOnly.FromDateTime(now);
 
-        // Pre-injury race time for VDOT estimation (before injury).
+        // Pre-injury race time for pace-zone index estimation (before injury).
         var raceTime = new RaceTime("10K", new TimeSpan(0, 44, 0), new DateOnly(2025, 9, 20), "Pre-injury personal best");
         var vdot = IndexCalc.CalculateIndex(raceTime)!.Value;
         var paces = PaceCalc.CalculatePaces(vdot);
@@ -272,10 +272,10 @@ public static class TestProfiles
             modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
-            EstimatedVdot: vdot,
+            EstimatedPaceZoneIndex: vdot,
             TrainingPaces: paces,
             FitnessLevel: "Intermediate (returning from injury)",
-            AssessmentBasis: $"Pre-injury 10K time of 44:00 (2025-09-20) -> VDOT {vdot}. Current fitness likely lower due to injury layoff.",
+            AssessmentBasis: $"Pre-injury 10K time of 44:00 (2025-09-20) -> pace-zone index {vdot}. Current fitness likely lower due to injury layoff.",
             AssessedOn: today);
 
         var goalState = new GoalState(
@@ -333,10 +333,10 @@ public static class TestProfiles
             modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
-            EstimatedVdot: vdot,
+            EstimatedPaceZoneIndex: vdot,
             TrainingPaces: paces,
             FitnessLevel: "Advanced",
-            AssessmentBasis: $"Best VDOT from HM 1:32:00 and 10K 42:30 -> VDOT {vdot}",
+            AssessmentBasis: $"Best pace-zone index from HM 1:32:00 and 10K 42:30 -> pace-zone index {vdot}",
             AssessedOn: today);
 
         var goalState = new GoalState(
