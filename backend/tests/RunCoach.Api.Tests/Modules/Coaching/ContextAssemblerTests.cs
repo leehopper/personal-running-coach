@@ -666,7 +666,7 @@ public class ContextAssemblerTests
         actualPrompt.SystemPrompt.Should().NotContain("Lee");
         actualPrompt.SystemPrompt.Should().NotContain("34");
         actualPrompt.SystemPrompt.Should().NotContain("Half-Marathon");
-        actualPrompt.SystemPrompt.Should().NotContain("VDOT");
+        actualPrompt.SystemPrompt.Should().NotContainEquivalentOf("VDOT");
         actualPrompt.SystemPrompt.Should().NotContain("Easy pace:");
         actualPrompt.SystemPrompt.Should().NotContain("40 km");
     }
@@ -695,8 +695,8 @@ public class ContextAssemblerTests
                 .Concat(actualPrompt.MiddleSections.Select(s => s.Content))
                 .Concat(actualPrompt.EndSections.Select(s => s.Content)));
 
-        // Assert
-        fullText.Should().NotContain(
+        // Assert — case-insensitive so "vdot" / "Vdot" variants also fail.
+        fullText.Should().NotContainEquivalentOf(
             "VDOT",
             because: $"profile '{profileName}' assembled prompt must use 'pace-zone index' or 'Daniels-Gilbert zones' terminology per DEC-043 trademark rule");
     }

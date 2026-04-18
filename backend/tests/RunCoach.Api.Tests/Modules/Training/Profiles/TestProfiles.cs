@@ -113,8 +113,8 @@ public static class TestProfiles
         var today = DateOnly.FromDateTime(now);
 
         var raceTime = new RaceTime("10K", TimeSpan.FromMinutes(48), new DateOnly(2026, 2, 15), "Flat course, mild weather");
-        var vdot = IndexCalc.CalculateIndex(raceTime)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var paceZoneIndex = IndexCalc.CalculateIndex(raceTime)!.Value;
+        var paces = PaceCalc.CalculatePaces(paceZoneIndex);
 
         var profile = new UserProfile(
             userId: userId,
@@ -143,10 +143,10 @@ public static class TestProfiles
             modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
-            EstimatedPaceZoneIndex: vdot,
+            EstimatedPaceZoneIndex: paceZoneIndex,
             TrainingPaces: paces,
             FitnessLevel: "Intermediate",
-            AssessmentBasis: $"10K race time of 48:00 (2026-02-15) -> pace-zone index {vdot}",
+            AssessmentBasis: $"10K race time of 48:00 (2026-02-15) -> pace-zone index {paceZoneIndex}",
             AssessedOn: today);
 
         var goalState = new GoalState(
@@ -179,8 +179,8 @@ public static class TestProfiles
             new RaceTime("Half-Marathon", new TimeSpan(1, 38, 0), new DateOnly(2025, 6, 8), "Flat course, ideal conditions"),
             new RaceTime("Marathon", new TimeSpan(3, 22, 0), new DateOnly(2024, 4, 15), "Boston, hilly, cool"));
 
-        var vdot = IndexCalc.CalculateIndex(raceTimes)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var paceZoneIndex = IndexCalc.CalculateIndex(raceTimes)!.Value;
+        var paces = PaceCalc.CalculatePaces(paceZoneIndex);
 
         var profile = new UserProfile(
             userId: userId,
@@ -209,10 +209,10 @@ public static class TestProfiles
             modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
-            EstimatedPaceZoneIndex: vdot,
+            EstimatedPaceZoneIndex: paceZoneIndex,
             TrainingPaces: paces,
             FitnessLevel: "Advanced",
-            AssessmentBasis: $"Best pace-zone index from 3 race results -> pace-zone index {vdot}",
+            AssessmentBasis: $"Best pace-zone index from 3 race results -> pace-zone index {paceZoneIndex}",
             AssessedOn: today);
 
         var goalState = new GoalState(
@@ -237,8 +237,8 @@ public static class TestProfiles
 
         // Pre-injury race time for pace-zone index estimation (before injury).
         var raceTime = new RaceTime("10K", new TimeSpan(0, 44, 0), new DateOnly(2025, 9, 20), "Pre-injury personal best");
-        var vdot = IndexCalc.CalculateIndex(raceTime)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var paceZoneIndex = IndexCalc.CalculateIndex(raceTime)!.Value;
+        var paces = PaceCalc.CalculatePaces(paceZoneIndex);
 
         var profile = new UserProfile(
             userId: userId,
@@ -272,10 +272,10 @@ public static class TestProfiles
             modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
-            EstimatedPaceZoneIndex: vdot,
+            EstimatedPaceZoneIndex: paceZoneIndex,
             TrainingPaces: paces,
             FitnessLevel: "Intermediate (returning from injury)",
-            AssessmentBasis: $"Pre-injury 10K time of 44:00 (2025-09-20) -> pace-zone index {vdot}. Current fitness likely lower due to injury layoff.",
+            AssessmentBasis: $"Pre-injury 10K time of 44:00 (2025-09-20) -> pace-zone index {paceZoneIndex}. Current fitness likely lower due to injury layoff.",
             AssessedOn: today);
 
         var goalState = new GoalState(
@@ -302,8 +302,8 @@ public static class TestProfiles
             new RaceTime("Half-Marathon", new TimeSpan(1, 32, 0), new DateOnly(2025, 11, 3), "PB, flat course"),
             new RaceTime("10K", TimeSpan.Parse("00:42:30", CultureInfo.InvariantCulture), new DateOnly(2025, 8, 10), null));
 
-        var vdot = IndexCalc.CalculateIndex(raceTimes)!.Value;
-        var paces = PaceCalc.CalculatePaces(vdot);
+        var paceZoneIndex = IndexCalc.CalculateIndex(raceTimes)!.Value;
+        var paces = PaceCalc.CalculatePaces(paceZoneIndex);
 
         var profile = new UserProfile(
             userId: userId,
@@ -333,10 +333,10 @@ public static class TestProfiles
             modifiedOn: now);
 
         var fitnessEstimate = new FitnessEstimate(
-            EstimatedPaceZoneIndex: vdot,
+            EstimatedPaceZoneIndex: paceZoneIndex,
             TrainingPaces: paces,
             FitnessLevel: "Advanced",
-            AssessmentBasis: $"Best pace-zone index from HM 1:32:00 and 10K 42:30 -> pace-zone index {vdot}",
+            AssessmentBasis: $"Best pace-zone index from HM 1:32:00 and 10K 42:30 -> pace-zone index {paceZoneIndex}",
             AssessedOn: today);
 
         var goalState = new GoalState(
