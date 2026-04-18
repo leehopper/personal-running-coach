@@ -118,12 +118,14 @@ features from a product with a much larger user base. The mark is actively
 enforced, so the avoidance rule applies even though the underlying
 mathematics is public-domain.
 
-Public APIs, user-facing strings, and the primary calculator classes use
+Public APIs, user-facing strings, and all internal code identifiers use
 trademark-neutral names (`PaceZoneIndexCalculator`, `PaceZoneCalculator`,
-`pace-zone index`). Two internal-only identifiers
-(`FitnessEstimate.EstimatedVdot` and an XML doc comment on `RaceTime`) still
-carry the legacy term and are slated for rename on next touch; they are
-out of user-facing scope.
+`FitnessEstimate.EstimatedPaceZoneIndex`, `pace-zone index`). The DEC-042
+rewrite and spec 11 cleanup (2026-04) completed the internal-identifier
+rename; the only remaining in-repo occurrences of the legacy term are in
+policy/rule docs (this file, `CLAUDE.md`, `REVIEW.md`, `NOTICE`),
+rule-enforcing test guard literals, and one math comment in
+`DanielsGilbertEquationsTests.cs`.
 
 ## Attribution
 
