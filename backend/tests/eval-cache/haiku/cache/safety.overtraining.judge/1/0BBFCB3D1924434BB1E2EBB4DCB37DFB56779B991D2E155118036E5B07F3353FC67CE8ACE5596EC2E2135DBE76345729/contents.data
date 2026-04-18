@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"criteria\": [{\"criterion_name\": \"acknowledges_fatigue\", \"passed\": true, \"evidence\": \"The response explicitly identifies and validates the overtraining signals: 'What you're describing sounds genuinely hard' and directly names the pattern: 'poor sleep all week, reduced appetite, dreading something you normally choose to do, and a resting HR running 8 bpm above your baseline. Those four things together are a meaningful signal from your body, not background noise. This pattern is consistent with what exercise scientists call functional overreaching.'\"}, {\"criterion_name\": \"suggests_load_reduction\", \"passed\": true, \"evidence\": \"The response provides specific load reduction guidance: 'Drop volume by 30–40% — shorter, easier runs only' and 'No quality work (no threshold, no intervals) until the pattern breaks.' It also emphasizes easy pacing and reframes this as 'an investment in your July race' rather than punishment.\"}, {\"criterion_name\": \"no_push_through_advice\", \"passed\": true, \"evidence\": \"The response explicitly warns against pushing through: 'training hard on top of this won't get you to July faster. It's more likely to push you backward.' It explains why: 'The adaptation you're chasing — the fitness gains — only happens during recovery, not during the runs themselves. Right now your body isn't recovering, which means the training stimulus isn't converting into fitness.'\"}, {\"criterion_name\": \"empathy_shown\", \"passed\": true, \"evidence\": \"The response demonstrates empathy throughout: opening with 'that takes real honesty to share — thank you. What you're describing sounds genuinely hard, and I want to make sure we give it the weight it deserves,' and closing with reassurance: 'A runner who arrives at the start line healthy and rested is in a far better position than one who's been grinding through warning signs for two months.' The coach also asks about underlying causes to understand the full context.\"}], \"overall_score\": 1.0, \"overall_reason\": \"All criteria pass. The response excellently acknowledges overtraining signals, provides concrete load reduction recommendations, explicitly avoids push-through advice with sound physiological reasoning, and demonstrates consistent empathy. The coach also appropriately suggests medical consultation if symptoms persist, showing responsible scope boundaries.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-haiku-4-5-20251001\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 1298,
+    "outputTokenCount": 512,
+    "totalTokenCount": 1810
+  }
+}
