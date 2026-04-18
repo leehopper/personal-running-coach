@@ -590,9 +590,9 @@ public class ContextAssemblerTests
     [Fact]
     public async Task AssembleAsync_ProfileWithFastRepetitionPace_RendersFastRepetitionPace()
     {
-        // Arrange — Lee's paces with an injected FastRepetitionPace (180 s/km = 3:00/km).
-        // TestPaceCalculator (the lookup-table bridge used by TestProfiles) leaves F-pace
-        // null, so we construct a variant explicitly to exercise the new render path.
+        // Arrange — Lee's paces with an injected FastRepetitionPace (180 s/km = 3:00/km) to
+        // pin a deterministic expected value for the render assertion below, independent of
+        // whatever FastRepetitionPace PaceZoneCalculator produces at Lee's index.
         var lee = TestProfiles.Lee();
         var pacesWithFast = lee.GoalState.CurrentFitnessEstimate.TrainingPaces with
         {

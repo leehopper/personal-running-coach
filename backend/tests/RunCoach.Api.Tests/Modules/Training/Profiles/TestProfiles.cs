@@ -17,6 +17,8 @@ public static class TestProfiles
     private static readonly PaceZoneIndexCalculator IndexCalc =
         new(NullLogger<PaceZoneIndexCalculator>.Instance);
 
+    private static readonly PaceZoneCalculator PaceCalc = new();
+
     private static readonly HeartRateZoneCalculator HrCalc = new();
 
     private static readonly Lazy<IReadOnlyDictionary<string, TestProfile>> LazyAll = new(() =>
@@ -112,7 +114,7 @@ public static class TestProfiles
 
         var raceTime = new RaceTime("10K", TimeSpan.FromMinutes(48), new DateOnly(2026, 2, 15), "Flat course, mild weather");
         var vdot = IndexCalc.CalculateIndex(raceTime)!.Value;
-        var paces = TestPaceCalculator.CalculatePaces(vdot);
+        var paces = PaceCalc.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -178,7 +180,7 @@ public static class TestProfiles
             new RaceTime("Marathon", new TimeSpan(3, 22, 0), new DateOnly(2024, 4, 15), "Boston, hilly, cool"));
 
         var vdot = IndexCalc.CalculateIndex(raceTimes)!.Value;
-        var paces = TestPaceCalculator.CalculatePaces(vdot);
+        var paces = PaceCalc.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -236,7 +238,7 @@ public static class TestProfiles
         // Pre-injury race time for VDOT estimation (before injury).
         var raceTime = new RaceTime("10K", new TimeSpan(0, 44, 0), new DateOnly(2025, 9, 20), "Pre-injury personal best");
         var vdot = IndexCalc.CalculateIndex(raceTime)!.Value;
-        var paces = TestPaceCalculator.CalculatePaces(vdot);
+        var paces = PaceCalc.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
@@ -301,7 +303,7 @@ public static class TestProfiles
             new RaceTime("10K", TimeSpan.Parse("00:42:30", CultureInfo.InvariantCulture), new DateOnly(2025, 8, 10), null));
 
         var vdot = IndexCalc.CalculateIndex(raceTimes)!.Value;
-        var paces = TestPaceCalculator.CalculatePaces(vdot);
+        var paces = PaceCalc.CalculatePaces(vdot);
 
         var profile = new UserProfile(
             userId: userId,
