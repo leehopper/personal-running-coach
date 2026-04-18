@@ -27,7 +27,7 @@ public sealed class PlanConstraintContext : EvaluationContext
     /// <summary>Gets the workouts to evaluate.</summary>
     public WorkoutOutput[]? Workouts { get; init; }
 
-    /// <summary>Gets the VDOT-derived training paces for pace range checks.</summary>
+    /// <summary>Gets the pace-zone-index-derived training paces for pace range checks.</summary>
     public TrainingPaces? TrainingPaces { get; init; }
 
     /// <summary>Gets the current weekly km for volume ceiling checks.</summary>

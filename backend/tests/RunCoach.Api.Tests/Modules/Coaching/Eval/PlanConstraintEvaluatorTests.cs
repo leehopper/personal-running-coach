@@ -156,7 +156,7 @@ public sealed class PlanConstraintEvaluatorTests
     [Fact]
     public void Evaluate_EasyPaceOutOfRange_ReturnsViolation()
     {
-        // Arrange — easy pace is 200s/km but VDOT zone is 300-360s/km
+        // Arrange — easy pace is 200s/km but Daniels-Gilbert easy zone is 300-360s/km
         var paces = new TrainingPaces(
             new PaceRange(Pace.FromSecondsPerKm(300), Pace.FromSecondsPerKm(360)),
             MarathonPace: Pace.FromSecondsPerKm(270),

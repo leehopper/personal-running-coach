@@ -501,9 +501,9 @@ public sealed partial class ContextAssembler : IContextAssembler
     {
         var sb = new StringBuilder();
 
-        if (fitness.EstimatedVdot.HasValue)
+        if (fitness.EstimatedPaceZoneIndex.HasValue)
         {
-            sb.AppendLine(CultureInfo.InvariantCulture, $"Pace-zone index: {fitness.EstimatedVdot.Value}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Pace-zone index: {fitness.EstimatedPaceZoneIndex.Value}");
         }
         else
         {

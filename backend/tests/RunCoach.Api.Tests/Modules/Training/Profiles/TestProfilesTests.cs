@@ -2,7 +2,6 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Models;
-using RunCoach.Api.Tests.Modules.Training.Profiles;
 
 namespace RunCoach.Api.Tests.Modules.Training.Profiles;
 
@@ -70,14 +69,14 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void Sarah_HasNullVdot_BecauseNoRaceHistory()
+    public void Sarah_HasNullPaceZoneIndex_BecauseNoRaceHistory()
     {
         // Arrange & Act
         var sarah = TestProfiles.Sarah();
 
         // Assert
-        sarah.GoalState.CurrentFitnessEstimate.EstimatedVdot.Should().BeNull(
-            because: "no race history means VDOT cannot be computed");
+        sarah.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex.Should().BeNull(
+            because: "no race history means pace-zone index cannot be computed");
         sarah.GoalState.CurrentFitnessEstimate.FitnessLevel.Should().Be("Beginner");
     }
 
@@ -96,6 +95,8 @@ public class TestProfilesTests
         paces.ThresholdPace.Should().BeNull();
         paces.IntervalPace.Should().BeNull();
         paces.RepetitionPace.Should().BeNull();
+        paces.FastRepetitionPace.Should().BeNull(
+            because: "Sarah has no race history and therefore no equation-derived fast-repetition pace");
     }
 
     [Fact]
@@ -125,32 +126,33 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void Lee_HasCorrectVdotFromRaceTime()
+    public void Lee_HasCorrectPaceZoneIndexFromRaceTime()
     {
         // Arrange
-        var expectedVdot = _indexCalc.CalculateIndex(
+        var expectedIndex = _indexCalc.CalculateIndex(
             new RaceTime("10K", TimeSpan.FromMinutes(48), new DateOnly(2026, 2, 15), null));
 
         // Act
         var lee = TestProfiles.Lee();
 
         // Assert
-        lee.GoalState.CurrentFitnessEstimate.EstimatedVdot.Should().Be(
-            expectedVdot!.Value,
-            because: "Lee's VDOT should be computed from his 10K race time of 48:00");
+        lee.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex.Should().Be(
+            expectedIndex!.Value,
+            because: "Lee's pace-zone index should be computed from his 10K race time of 48:00");
 
-        lee.GoalState.CurrentFitnessEstimate.EstimatedVdot!.Value.Should().BeApproximately(
+        lee.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex!.Value.Should().BeApproximately(
             42.0m,
             0.5m,
-            because: "10K in 48:00 corresponds to approximately VDOT 42");
+            because: "10K in 48:00 corresponds to approximately pace-zone index 42");
     }
 
     [Fact]
-    public void Lee_HasTrainingPacesDerivedFromVdot()
+    public void Lee_HasTrainingPacesDerivedFromPaceZoneCalculator()
     {
         // Arrange
         var lee = TestProfiles.Lee();
-        var expectedPaces = TestPaceCalculator.CalculatePaces(lee.GoalState.CurrentFitnessEstimate.EstimatedVdot!.Value);
+        var expectedPaces = new PaceZoneCalculator().CalculatePaces(
+            lee.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex!.Value);
 
         // Act
         var actualPaces = lee.GoalState.CurrentFitnessEstimate.TrainingPaces;
@@ -158,13 +160,15 @@ public class TestProfilesTests
         // Assert
         actualPaces.Should().Be(
             expectedPaces,
-            because: "paces should be derived from the same VDOT via PaceCalculator");
+            because: "paces should be derived on-the-fly from PaceZoneCalculator at the same index");
 
         actualPaces.EasyPaceRange.Should().NotBeNull();
         actualPaces.MarathonPace.Should().NotBeNull();
         actualPaces.ThresholdPace.Should().NotBeNull();
         actualPaces.IntervalPace.Should().NotBeNull();
         actualPaces.RepetitionPace.Should().NotBeNull();
+        actualPaces.FastRepetitionPace.Should().NotBeNull(
+            because: "PaceZoneCalculator populates FastRepetitionPace for any positive index");
     }
 
     [Fact]
@@ -210,19 +214,19 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void Maria_HasCorrectVdotFromBestRaceResult()
+    public void Maria_HasCorrectPaceZoneIndexFromBestRaceResult()
     {
         // Arrange
         var maria = TestProfiles.Maria();
-        var expectedVdot = _indexCalc.CalculateIndex(maria.UserProfile.RecentRaceTimes);
+        var expectedIndex = _indexCalc.CalculateIndex(maria.UserProfile.RecentRaceTimes);
 
         // Act
-        var actualVdot = maria.GoalState.CurrentFitnessEstimate.EstimatedVdot;
+        var actualIndex = maria.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex;
 
         // Assert
-        actualVdot.Should().Be(
-            expectedVdot!.Value,
-            because: "Maria's VDOT should be the best from her 3 race results");
+        actualIndex.Should().Be(
+            expectedIndex!.Value,
+            because: "Maria's pace-zone index should be the best from her 3 race results");
     }
 
     [Fact]
@@ -303,19 +307,19 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void James_HasPreInjuryVdot()
+    public void James_HasPreInjuryPaceZoneIndex()
     {
         // Arrange
-        var expectedVdot = _indexCalc.CalculateIndex(
+        var expectedIndex = _indexCalc.CalculateIndex(
             new RaceTime("10K", new TimeSpan(0, 44, 0), new DateOnly(2025, 9, 20), null));
 
         // Act
         var james = TestProfiles.James();
 
         // Assert
-        james.GoalState.CurrentFitnessEstimate.EstimatedVdot.Should().Be(
-            expectedVdot!.Value,
-            because: "James's VDOT is based on pre-injury 10K time");
+        james.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex.Should().Be(
+            expectedIndex!.Value,
+            because: "James's pace-zone index is based on pre-injury 10K time");
     }
 
     [Fact]
@@ -381,19 +385,19 @@ public class TestProfilesTests
     }
 
     [Fact]
-    public void Priya_HasCorrectVdotFromBestRaceResult()
+    public void Priya_HasCorrectPaceZoneIndexFromBestRaceResult()
     {
         // Arrange
         var priya = TestProfiles.Priya();
-        var expectedVdot = _indexCalc.CalculateIndex(priya.UserProfile.RecentRaceTimes);
+        var expectedIndex = _indexCalc.CalculateIndex(priya.UserProfile.RecentRaceTimes);
 
         // Act
-        var actualVdot = priya.GoalState.CurrentFitnessEstimate.EstimatedVdot;
+        var actualIndex = priya.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex;
 
         // Assert
-        actualVdot.Should().Be(
-            expectedVdot!.Value,
-            because: "Priya's VDOT should be the best from her 2 race results");
+        actualIndex.Should().Be(
+            expectedIndex!.Value,
+            because: "Priya's pace-zone index should be the best from her 2 race results");
     }
 
     [Fact]
@@ -505,14 +509,14 @@ public class TestProfilesTests
     [InlineData("maria")]
     [InlineData("james")]
     [InlineData("priya")]
-    public void ProfilesWithRaceHistory_HaveComputedVdot(string name)
+    public void ProfilesWithRaceHistory_HaveComputedPaceZoneIndex(string name)
     {
         // Arrange & Act
         var profile = TestProfiles.All[name];
 
         // Assert
-        profile.GoalState.CurrentFitnessEstimate.EstimatedVdot.Should().NotBeNull(
-            $"profile '{name}' has race history and should have a computed VDOT");
+        profile.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex.Should().NotBeNull(
+            $"profile '{name}' has race history and should have a computed pace-zone index");
     }
 
     [Theory]
@@ -520,12 +524,12 @@ public class TestProfilesTests
     [InlineData("maria")]
     [InlineData("james")]
     [InlineData("priya")]
-    public void ProfilesWithRaceHistory_HaveVdotDerivedPaces(string name)
+    public void ProfilesWithRaceHistory_HavePaceZoneCalculatorDerivedPaces(string name)
     {
         // Arrange
         var profile = TestProfiles.All[name];
-        var expectedPaces = TestPaceCalculator.CalculatePaces(
-            profile.GoalState.CurrentFitnessEstimate.EstimatedVdot!.Value);
+        var expectedPaces = new PaceZoneCalculator().CalculatePaces(
+            profile.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex!.Value);
 
         // Act
         var actualPaces = profile.GoalState.CurrentFitnessEstimate.TrainingPaces;
@@ -533,7 +537,44 @@ public class TestProfilesTests
         // Assert
         actualPaces.Should().Be(
             expectedPaces,
-            $"profile '{name}' paces should be derived from its VDOT via PaceCalculator");
+            $"profile '{name}' paces should be derived on-the-fly from PaceZoneCalculator at its computed index");
+    }
+
+    [Theory]
+    [InlineData("lee")]
+    [InlineData("maria")]
+    [InlineData("james")]
+    [InlineData("priya")]
+    public void ProfilesWithRaceHistory_HaveStructurallyOrderedZones(string name)
+    {
+        // Arrange
+        var profile = TestProfiles.All[name];
+        var paces = profile.GoalState.CurrentFitnessEstimate.TrainingPaces;
+
+        // Act & Assert — structural invariants (survive future equation tweaks)
+        paces.EasyPaceRange.Should().NotBeNull($"profile '{name}' must have an easy pace range");
+        paces.MarathonPace.Should().NotBeNull($"profile '{name}' must have a marathon pace");
+        paces.ThresholdPace.Should().NotBeNull($"profile '{name}' must have a threshold pace");
+        paces.IntervalPace.Should().NotBeNull($"profile '{name}' must have an interval pace");
+        paces.RepetitionPace.Should().NotBeNull($"profile '{name}' must have a repetition pace");
+        paces.FastRepetitionPace.Should().NotBeNull(
+            $"profile '{name}' must have a fast-repetition pace (populated by PaceZoneCalculator)");
+
+        paces.EasyPaceRange!.Fast.IsFasterThan(paces.EasyPaceRange.Slow).Should().BeTrue(
+            because: $"profile '{name}' easy range Fast must be faster (lower sec/km) than Slow");
+
+        paces.EasyPaceRange.Slow.IsSlowerThan(paces.MarathonPace!.Value).Should().BeTrue(
+            $"profile '{name}' easy slow end is slower than marathon pace");
+        paces.EasyPaceRange.Fast.IsSlowerThan(paces.MarathonPace!.Value).Should().BeTrue(
+            $"profile '{name}' easy fast end is slower than marathon pace");
+        paces.MarathonPace!.Value.IsSlowerThan(paces.ThresholdPace!.Value).Should().BeTrue(
+            $"profile '{name}' marathon pace is slower than threshold");
+        paces.ThresholdPace!.Value.IsSlowerThan(paces.IntervalPace!.Value).Should().BeTrue(
+            $"profile '{name}' threshold is slower than interval");
+        paces.IntervalPace!.Value.IsSlowerThan(paces.RepetitionPace!.Value).Should().BeTrue(
+            $"profile '{name}' interval is slower than repetition");
+        paces.RepetitionPace!.Value.IsSlowerThan(paces.FastRepetitionPace!.Value).Should().BeTrue(
+            $"profile '{name}' repetition is slower than fast-repetition");
     }
 
     [Theory]

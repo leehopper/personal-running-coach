@@ -7,15 +7,15 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 
 /// <summary>
 /// Deterministic evaluator for training plan constraints.
-/// Checks typed plan records against VDOT-derived pace zones, volume limits,
+/// Checks typed plan records against pace-zone-index-derived pace zones, volume limits,
 /// rest day counts, workout type restrictions, and duration limits.
 /// Does NOT make any API calls — all checks are local computation.
 /// </summary>
 public sealed class PlanConstraintEvaluator : IEvaluator
 {
     /// <summary>
-    /// Tolerance percentage applied to VDOT-derived pace ranges.
-    /// Allows a 15% margin above/below the strict VDOT zone boundaries to account for
+    /// Tolerance percentage applied to pace-zone-index-derived pace ranges.
+    /// Allows a 15% margin above/below the strict pace-zone boundaries to account for
     /// LLM rounding and minor variations in pace prescription.
     /// </summary>
     public const double PaceTolerancePercent = 0.15;

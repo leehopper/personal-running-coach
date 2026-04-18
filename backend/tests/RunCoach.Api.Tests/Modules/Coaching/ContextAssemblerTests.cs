@@ -333,7 +333,7 @@ public class ContextAssemblerTests
     }
 
     [Fact]
-    public async Task AssembleAsync_BeginnerProfile_FitnessEstimateShowsNoVdot()
+    public async Task AssembleAsync_BeginnerProfile_FitnessEstimateShowsNoPaceZoneIndex()
     {
         // Arrange
         var input = BuildSarahInput();
@@ -590,9 +590,9 @@ public class ContextAssemblerTests
     [Fact]
     public async Task AssembleAsync_ProfileWithFastRepetitionPace_RendersFastRepetitionPace()
     {
-        // Arrange — Lee's paces with an injected FastRepetitionPace (180 s/km = 3:00/km).
-        // TestPaceCalculator (the lookup-table bridge used by TestProfiles) leaves F-pace
-        // null, so we construct a variant explicitly to exercise the new render path.
+        // Arrange — Lee's paces with an injected FastRepetitionPace (180 s/km = 3:00/km) to
+        // pin a deterministic expected value for the render assertion below, independent of
+        // whatever FastRepetitionPace PaceZoneCalculator produces at Lee's index.
         var lee = TestProfiles.Lee();
         var pacesWithFast = lee.GoalState.CurrentFitnessEstimate.TrainingPaces with
         {
@@ -666,9 +666,39 @@ public class ContextAssemblerTests
         actualPrompt.SystemPrompt.Should().NotContain("Lee");
         actualPrompt.SystemPrompt.Should().NotContain("34");
         actualPrompt.SystemPrompt.Should().NotContain("Half-Marathon");
-        actualPrompt.SystemPrompt.Should().NotContain("VDOT");
+        actualPrompt.SystemPrompt.Should().NotContainEquivalentOf("VDOT");
         actualPrompt.SystemPrompt.Should().NotContain("Easy pace:");
         actualPrompt.SystemPrompt.Should().NotContain("40 km");
+    }
+
+    [Theory]
+    [InlineData("sarah")]
+    [InlineData("lee")]
+    [InlineData("maria")]
+    [InlineData("james")]
+    [InlineData("priya")]
+    public async Task AssembleAsync_FullAssembledPrompt_ContainsNoTrademarkedTermForAnyProfile(string profileName)
+    {
+        // Arrange — every profile must render through every positional section without
+        // leaking the trademarked term. This is the regression guard that catches a stray
+        // AssessmentBasis literal, a bad YAML token, or any future renderer that reintroduces
+        // "VDOT" into the assembled prompt for any profile.
+        var input = BuildInputFromProfile(TestProfiles.All[profileName], conversationTurns: 0);
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        var fullText = string.Join(
+            "\n",
+            new[] { actualPrompt.SystemPrompt }
+                .Concat(actualPrompt.StartSections.Select(s => s.Content))
+                .Concat(actualPrompt.MiddleSections.Select(s => s.Content))
+                .Concat(actualPrompt.EndSections.Select(s => s.Content)));
+
+        // Assert — case-insensitive so "vdot" / "Vdot" variants also fail.
+        fullText.Should().NotContainEquivalentOf(
+            "VDOT",
+            because: $"profile '{profileName}' assembled prompt must use 'pace-zone index' or 'Daniels-Gilbert zones' terminology per DEC-043 trademark rule");
     }
 
     [Fact]
@@ -1553,7 +1583,7 @@ public class ContextAssemblerTests
             === FITNESS ASSESSMENT ===
             {{fitness}}
 
-            === TRAINING PACES (computed from VDOT — use these exactly) ===
+            === TRAINING PACES (computed from Daniels-Gilbert zones — use these exactly) ===
             {{training_paces}}
 
             === RECENT TRAINING HISTORY ===

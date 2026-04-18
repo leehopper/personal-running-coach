@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"18–20 km at easy pace (5:24–6:11/km). Keep it comfortable and conversational — this is aerobic foundation work, not a test. Stay toward the easier end if your legs feel heavy from last week's reduced load.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. After your long run, this is active recovery time. Sleep, hydrate, and let the adaptation happen — rest is where fitness is actually built.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"10 km easy (5:24–6:11/km). A gentle return to volume mid-week. Focus on relaxed form and comfortable breathing — this should feel almost effortless.\"},\"wednesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"10 km total with 5 km at threshold pace (4:29/km). Warm up 2.5 km easy, run 5 km comfortably hard, cool down 2.5 km easy. This is your key quality session of the week — threshold work maintains your aerobic ceiling without heavy fatigue accumulation.\"},\"thursday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"8 km easy (5:24–6:11/km). A recovery-flavored run to shake out Wednesday's effort. If your legs feel flat, stay at the slower end of easy pace — there's no benefit in pushing here.\"},\"friday\":{\"slot_type\":\"CrossTrain\",\"workout_type\":null,\"notes\":\"30–45 min low-impact cross-training — cycling, swimming, or yoga. This keeps your aerobic engine ticking while giving your tendons and joints (especially that left Achilles) a break from impact. Non-negotiable recovery tool.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"9 km easy (5:24–6:11/km). The final run before Sunday's long effort. Keep it easy and save your legs. Think of this as pre-loading good form, not burning energy.\"},\"week_summary\":\"Welcome to your maintenance plan, Maria. This first week targets 55 km — right in line with your current fitness — and sets a sustainable, repeatable rhythm. The structure is intentionally simple: one quality session (Wednesday tempo), one long run (Sunday), and easy aerobic volume filling the rest. Your Achilles history is front of mind, which is why Friday is cross-training rather than a sixth run day. Maintenance training is about holding the fitness you've earned from Chicago and Boston without the grind of a build phase. Think of this as running well, not running more. How does this structure feel for your current schedule and energy levels?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 3879,
+    "outputTokenCount": 667,
+    "totalTokenCount": 4546
+  }
+}

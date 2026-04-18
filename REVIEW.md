@@ -102,9 +102,12 @@ frontier
   payloads, generated plan narrative, error messages, and commit messages.
   The VDOT mark is enforced by The Run SMART Project LLC (Runalyze
   precedent). Use "Daniels-Gilbert zones" or "pace-zone index" instead.
-- Internal code identifiers (class names like `VdotCalculator`, field names
-  like `EstimatedVdot`, test class names) are explicitly exempt until
-  DEC-042's pace-calculator rewrite replaces them. Do not flag those.
+- All internal code identifiers were renamed to trademark-neutral names in
+  DEC-042 and spec 11 (`PaceZoneIndexCalculator`, `PaceZoneCalculator`,
+  `FitnessEstimate.EstimatedPaceZoneIndex`). The only remaining in-repo
+  occurrences of the literal term are carve-out-exempt: rule-enforcing test
+  guard literals (`ContextAssemblerTests.cs` VDOT-absence assertions) and
+  one math comment in `DanielsGilbertEquationsTests.cs`. Do not flag those.
 - Historical research artifacts under `docs/research/artifacts/` and
   historical DEC entries in `docs/decisions/decision-log.md` are also exempt
   — they are append-only records preserved as-is with a top-of-file rename

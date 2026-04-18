@@ -100,7 +100,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
     }
 
     [Fact]
-    public async Task Lee_Intermediate_GeneratesPacesWithinVdotZones()
+    public async Task Lee_Intermediate_GeneratesPacesWithinDanielsGilbertZones()
     {
         if (!CanRunEvals)
         {
@@ -147,7 +147,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         violations.Should().BeEmpty(
             "intermediate plan should satisfy all constraints: " + string.Join("; ", violations));
 
-        // Lee-specific: easy pace within VDOT range (with 15% tolerance)
+        // Lee-specific: easy pace within Daniels-Gilbert easy range (with 15% tolerance)
         var easyRange = paces.EasyPaceRange;
         var minEasySec = (int)(easyRange!.Fast.SecondsPerKm * 0.85);
         var maxEasySec = (int)(easyRange.Slow.SecondsPerKm * 1.15);
@@ -157,7 +157,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             workout.TargetPaceEasySecPerKm.Should().BeInRange(
                 minEasySec,
                 maxEasySec,
-                "workout '{0}' easy pace should be within VDOT easy range",
+                "workout '{0}' easy pace should be within the Daniels-Gilbert easy range",
                 workout.Title);
         }
 

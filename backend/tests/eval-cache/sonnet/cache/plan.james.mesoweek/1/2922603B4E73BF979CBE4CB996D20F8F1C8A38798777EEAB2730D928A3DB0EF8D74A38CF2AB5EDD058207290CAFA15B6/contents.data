@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":10,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week ahead. Gentle stretching or mobility work is fine if it feels good.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Recovery is doing real work right now — this is training, not time off.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20-min easy run at 5:25–6:12/km. Walk breaks welcome at any sign of foot discomfort — listen closely to your right foot. No heroics today.\"},\"wednesday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. If the foot felt good yesterday, that's a win worth sitting with. If not, note what you felt for Saturday's run.\"},\"thursday\":{\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Optional low-impact cross-training — pool walking, gentle cycling, or upper body work. Keep it easy and zero foot stress if any soreness is lingering.\"},\"friday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day ahead of your long run day. Light mobility or foam rolling is welcome.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Your long run day — but this week it's simply a second easy 20-min run at 5:25–6:12/km. Walk breaks as needed. Focus is time on feet, not pace or distance.\"},\"week_summary\":\"Welcome back, James. This first week is about re-establishing a safe, sustainable rhythm with your physio-cleared 20-minute easy runs. Your recent training history shows you've been building carefully — 2.4 km, then 8.5 km, then 6.1 km — so your body is starting to re-engage. Right now, the most important thing isn't pace or mileage; it's keeping that right foot happy and rebuilding your confidence. Two easy runs with a cross-training option in the middle gives you structure without overloading the plantar fascia. Walk breaks are a tool, not a setback — use them freely. A great week looks like finishing both runs feeling comfortable, not depleted.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 3842,
+    "outputTokenCount": 551,
+    "totalTokenCount": 4393
+  }
+}
