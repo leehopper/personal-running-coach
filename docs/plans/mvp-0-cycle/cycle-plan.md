@@ -80,7 +80,20 @@ These are explicitly not built in this cycle, but the architecture leaves room s
 
 Each slice ships top-to-bottom through every layer (DB → repo → controller → frontend → tests) and is usable when done. The product is stoppable after any slice.
 
+**Tier-3 requirements docs live alongside this file** — one per slice, ~90 lines each. They elaborate requirements without crossing into implementation. When a slice's implementation session starts, that session reads the per-slice requirements doc + this cycle plan + the referenced research artifacts, then writes a spec under `docs/specs/`.
+
+| # | Name | Requirements doc |
+|---|---|---|
+| 0 | Foundation | [`./slice-0-foundation.md`](./slice-0-foundation.md) |
+| 1 | Onboarding → Plan | [`./slice-1-onboarding.md`](./slice-1-onboarding.md) |
+| 2 | Workout Logging | [`./slice-2-logging.md`](./slice-2-logging.md) |
+| 3 | Adaptation Loop | [`./slice-3-adaptation.md`](./slice-3-adaptation.md) |
+| 4 | Open Conversation | [`./slice-4-conversation.md`](./slice-4-conversation.md) |
+
 ### Slice 0 — Foundation
+
+**Requirements:** [`./slice-0-foundation.md`](./slice-0-foundation.md)
+
 
 **Acceptance — "I can…"**
 
@@ -113,6 +126,8 @@ Each slice ships top-to-bottom through every layer (DB → repo → controller �
 
 ### Slice 1 — Onboarding → Plan
 
+**Requirements:** [`./slice-1-onboarding.md`](./slice-1-onboarding.md)
+
 **Acceptance — "I can…"**
 
 - [ ] …complete a multi-turn chat-driven onboarding flow that builds my user profile.
@@ -144,6 +159,8 @@ Each slice ships top-to-bottom through every layer (DB → repo → controller �
 
 ### Slice 2 — Workout Logging
 
+**Requirements:** [`./slice-2-logging.md`](./slice-2-logging.md)
+
 **Acceptance — "I can…"**
 
 - [ ] …see today's prescribed workout on the home page.
@@ -173,6 +190,8 @@ Each slice ships top-to-bottom through every layer (DB → repo → controller �
 ---
 
 ### Slice 3 — Adaptation Loop
+
+**Requirements:** [`./slice-3-adaptation.md`](./slice-3-adaptation.md)
 
 **Acceptance — "I can…"**
 
@@ -204,6 +223,8 @@ Each slice ships top-to-bottom through every layer (DB → repo → controller �
 ---
 
 ### Slice 4 — Open Conversation
+
+**Requirements:** [`./slice-4-conversation.md`](./slice-4-conversation.md)
 
 **Acceptance — "I can…"**
 
