@@ -78,7 +78,7 @@ When this slice is complete:
 When Slice 3 implementation begins in a fresh session:
 
 1. Read this doc + the cycle plan + research artifacts above + what shipped in Slices 1-2 (plan projection shape, `WorkoutLog` entity, `ContextAssembler` extensions).
-2. Brainstorm with the user (or `cw-spec`) to resolve open items — the adaptation-triggering rule and structured-output schema are the biggest.
+2. Brainstorm with the user to resolve open items — the adaptation-triggering rule and structured-output schema are the biggest.
 3. Write the spec under `docs/specs/slice-3-adaptation/`.
 4. User reviews before implementation.
 5. Implement against the spec.

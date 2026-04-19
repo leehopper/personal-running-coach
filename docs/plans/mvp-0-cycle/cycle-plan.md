@@ -5,10 +5,12 @@
 ## Status
 
 - **Current Cycle:** MVP-0 + Adaptation Loop
-- **Active Slice:** None yet — pre-slice-0 housekeeping pending
-- **Next Step:** Pre-slice-0 housekeeping (compact `ROADMAP.md`, update `/catchup`, this doc becomes the front door), then Slice 0 (Foundation)
+- **Active Slice:** None yet — ready to start Slice 0 (Foundation)
+- **Next Step:** Write the Slice 0 spec under `docs/specs/` using `docs/plans/mvp-0-cycle/slice-0-foundation.md` as the requirements input, then decompose into tasks and execute. Preliminary codebase research is optional — add it only if the requirements doc lacks enough context. Pick the skills that fit (DEC-008 plan-first discipline applies — spec reviewed before implementation).
 - **Blockers:** None
 - **Cycle Plan:** `docs/plans/mvp-0-cycle/cycle-plan.md` (this file)
+
+Pre-slice-0 housekeeping landed in PR #46 (commit `9d4c51e`): `ROADMAP.md` compacted, `.claude/commands/catchup.md` updated to the new walk order, cycle plan and per-slice requirements docs in place.
 
 This status block is the single source of truth for "where are we?" — mirrored into `ROADMAP.md` so `/catchup` finds it. Update both whenever a slice completes or the active slice changes.
 
@@ -386,9 +388,19 @@ The 200-line "What's Been Done" narrative currently in `ROADMAP.md` moves out �
 
 Lives for the cycle duration at `docs/plans/{cycle-name}/cycle-plan.md`. Declares the active slice. Tracks slice acceptance criteria with checkboxes. When the cycle completes, it becomes a historical artifact (referenced from `ROADMAP.md` Cycle History).
 
-### Tier 3 — Per-Slice Plan Files
+### Tier 3 — Per-Slice Spec + Tasks
 
-`docs/plans/{cycle-name}/slice-N-{name}.md`. Written via the `superpowers:writing-plans` skill when each slice starts. Contains step-by-step implementation plan, test specs (BDD acceptance from this cycle plan), architectural decisions specific to the slice. DEC-008 plan-first rule applies — no slice implementation before the slice plan is written and reviewed.
+Each slice moves through a conceptual pipeline. The durable parts are the **artifact shapes and locations** and the **ordering discipline** — not the specific tools used to produce them. Pick the skills that fit the moment; the structure below is what the docs commit to.
+
+1. **(Optional) Preliminary codebase research** — only when the slice's requirements doc + the cycle-plan Slice N section + the named research artifacts don't give enough codebase-grounded context. Output lives under `docs/specs/research-{topic}/`.
+2. **Spec** — inputs: the slice's requirements doc (`./slice-N-{name}.md`), this cycle plan's Slice N section, and any relevant research artifacts. Output: `docs/specs/{NN}-spec-{topic}/spec.md` with demoable units, acceptance criteria, and proof-artifact definitions. Existing project precedent: see `docs/specs/05-spec-*` through `09-spec-*`.
+3. **Task decomposition** — break the spec into dependency-aware tasks on a task board (or equivalent tracker). Independent tasks are marked for parallel execution.
+4. **Execution** — tasks are implemented, tested, and committed per the project's normal conventions (see `backend/CLAUDE.md`, `frontend/CLAUDE.md`).
+5. **Validation** — coverage matrix against the spec's acceptance criteria, then code review, before merge.
+
+The `docs/specs/{NN}-spec-{topic}/` convention was adopted from the `claude-workflow` plugin's output shape — that attribution is the only reason the plugin is named here. How each step is actually executed (which skill, which tool, whether a skill at all) is a per-slice judgment call. A small slice can use a hand-written spec and skip the task board; a larger one benefits from more structure. Don't encode the tool choice in these docs.
+
+DEC-008 plan-first rule applies — no slice implementation until the spec has been reviewed. The requirements doc at `./slice-N-{name}.md` is durable across implementation churn; the spec under `docs/specs/` is allowed to churn as implementation reveals detail.
 
 ### Per-Slice Hygiene Rule
 
@@ -399,7 +411,7 @@ Each slice's "done" criteria include:
 - [ ] `ROADMAP.md` Status block synced from this doc.
 - [ ] Follow-ups discovered during the slice captured in the **Captured During Cycle** section. The slice PR description must include a `### Follow-ups found` checklist (empty is fine; omission is not).
 - [ ] If the slice produced durable architecture decisions, record them in `docs/decisions/decision-log.md`.
-- [ ] Completed slice plan file stays in place (historical reference) — not deleted, not moved.
+- [ ] Completed slice spec directory under `docs/specs/` stays in place (historical reference) — not deleted, not moved.
 
 ### `/catchup` Update
 
@@ -407,20 +419,15 @@ Each slice's "done" criteria include:
 
 1. `ROADMAP.md` Status block — current cycle + active slice pointers.
 2. The active cycle plan (path from Status block) — slice structure and progress.
-3. The active slice plan if one exists (path from cycle plan Active Slice).
+3. The active slice spec under `docs/specs/` if one exists (path from cycle plan Active Slice).
 4. Last 5-10 commits on current branch.
 5. Working-tree changes vs. `main` (if any).
 
 Summarize in 3-5 sentences: current cycle, active slice, last shipped work, recommended next action.
 
-### GitHub Issues vs. Plan Files (open process question)
+### Tracking shape
 
-Two reasonable tracking shapes for per-slice work:
-
-- **Plan files** (current project precedent from POC 1): version-controlled, richer context, can include diagrams, closer to DEC-008 practice, private to the repo.
-- **GitHub Issues + sub-issues**: better for atomic tracking, public visibility, integrates with PR-review tooling (`/review-pr`, CodeRabbit comments can reference issues).
-
-**Default for this cycle: plan files.** Revisit at the slice-0/slice-1 boundary — by then slice 0 will have exposed whether the tracking granularity needs issue-level atomicity or plan-file-level connected reasoning. Decision deferred.
+Per-slice work is tracked on a task board (dependency-aware, atomic tasks) with the slice spec under `docs/specs/` holding the connected reasoning. GitHub Issues remain available for cross-cycle items (bugs found in main, cross-repo coordination) but are not the primary per-slice tracker. Revisit at the slice-0/slice-1 boundary if the granularity proves insufficient.
 
 ---
 
@@ -457,7 +464,7 @@ When writing a deep-research prompt, follow the existing `docs/research/prompts/
 2. Add the entry to `docs/research/research-queue.md` following the existing table format (next `R-XXX` number, Status = `Queued`, Artifact = `(pending)`).
 3. Return control to the user: *"I encountered X in slice N, needs research before I proceed. Prompt at `docs/research/prompts/{file}.md`. Please run it in a separate research agent and provide the artifact."*
 4. Wait for the artifact to land at `docs/research/artifacts/{file}.md`.
-5. Integrate findings into the relevant planning doc, decision-log entry, or slice plan before resuming implementation.
+5. Integrate findings into the relevant planning doc, decision-log entry, or active slice spec before resuming implementation.
 
 ### Unknowns likely to surface in this cycle
 
