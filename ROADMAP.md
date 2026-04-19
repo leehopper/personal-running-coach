@@ -1,8 +1,8 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** None yet — pre-slice-0 housekeeping pending, then Slice 0 (Foundation)
-**Next step:** Begin Slice 0 plan via `superpowers:writing-plans` once housekeeping commits land
+**Active slice:** None yet — ready to start Slice 0 (Foundation)
+**Next step:** Write the Slice 0 plan via `superpowers:writing-plans` at `docs/plans/mvp-0-cycle/slice-0-plan.md`
 **Blockers:** None
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.

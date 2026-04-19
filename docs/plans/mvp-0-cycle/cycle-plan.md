@@ -5,10 +5,12 @@
 ## Status
 
 - **Current Cycle:** MVP-0 + Adaptation Loop
-- **Active Slice:** None yet — pre-slice-0 housekeeping pending
-- **Next Step:** Pre-slice-0 housekeeping (compact `ROADMAP.md`, update `/catchup`, this doc becomes the front door), then Slice 0 (Foundation)
+- **Active Slice:** None yet — ready to start Slice 0 (Foundation)
+- **Next Step:** Write the Slice 0 plan via `superpowers:writing-plans` at `docs/plans/mvp-0-cycle/slice-0-plan.md`
 - **Blockers:** None
 - **Cycle Plan:** `docs/plans/mvp-0-cycle/cycle-plan.md` (this file)
+
+Pre-slice-0 housekeeping landed in PR #46 (commit `9d4c51e`): `ROADMAP.md` compacted, `.claude/commands/catchup.md` updated to the new walk order, cycle plan and per-slice requirements docs in place.
 
 This status block is the single source of truth for "where are we?" — mirrored into `ROADMAP.md` so `/catchup` finds it. Update both whenever a slice completes or the active slice changes.
 
