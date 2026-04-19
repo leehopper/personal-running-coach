@@ -77,7 +77,7 @@ When this slice is complete:
 When Slice 2 implementation begins in a fresh session:
 
 1. Read this doc + the cycle plan + research artifacts above + the `ContextAssembler` code shipped after Slice 1.
-2. Brainstorm with the user (or `cw-spec`) to nail down the open items.
+2. Brainstorm with the user to nail down the open items.
 3. Write the spec under `docs/specs/slice-2-logging/`.
 4. User reviews before implementation.
 5. Implement against the spec.

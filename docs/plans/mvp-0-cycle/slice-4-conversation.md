@@ -76,7 +76,7 @@ When this slice is complete:
 When Slice 4 implementation begins in a fresh session:
 
 1. Read this doc + the cycle plan + research artifacts above + the `ContextAssembler` / `ConversationTurn` / chat-panel work shipped in Slices 1-3.
-2. Brainstorm with the user (or `cw-spec`) — streaming transport and intent classification are the biggest open questions.
+2. Brainstorm with the user — streaming transport and intent classification are the biggest open questions.
 3. Write the spec under `docs/specs/slice-4-conversation/`.
 4. User reviews before implementation.
 5. Implement against the spec.

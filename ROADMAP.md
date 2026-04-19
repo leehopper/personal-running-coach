@@ -2,7 +2,7 @@
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
 **Active slice:** None yet — ready to start Slice 0 (Foundation)
-**Next step:** Write the Slice 0 plan via `superpowers:writing-plans` at `docs/plans/mvp-0-cycle/slice-0-plan.md`
+**Next step:** Write the Slice 0 spec under `docs/specs/` using `docs/plans/mvp-0-cycle/slice-0-foundation.md` as the requirements input, then decompose into tasks and execute. Preliminary codebase research is optional — add it only if the requirements doc lacks enough context. Pick the skills that fit (DEC-008 plan-first discipline applies — spec reviewed before implementation).
 **Blockers:** None
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
@@ -14,7 +14,7 @@ This is the front door. For the full picture on session start, run `/catchup`. F
 Agents arriving cold should resolve intent to a file before reading:
 
 - **"What should I work on?"** → active cycle plan (pointer above).
-- **"What's the active slice doing?"** → active slice plan (pointer in cycle plan's Status section).
+- **"What's the active slice doing?"** → active slice spec under `docs/specs/` (pointer in cycle plan's Status section, once a slice is underway).
 - **"How does X work?"** → `docs/planning/{topic}.md` + the relevant module under `backend/src/RunCoach.Api/Modules/` or `frontend/src/app/modules/`.
 - **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-043).
 - **"Has this been researched?"** → `docs/research/research-queue.md` + `docs/research/artifacts/`.
