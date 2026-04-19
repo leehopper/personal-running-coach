@@ -76,7 +76,19 @@ No implementation without a reviewed plan file. Every plan file includes BDD acc
 
 ### Research Protocol
 
-Never ad-hoc web search for planning decisions. Always: add topic to research queue → generate prompt → hand off to deep research agent → store artifact → integrate findings. See `docs/research/research-queue.md`.
+**Never guess at implementation.** When you encounter any of:
+
+- A library, framework, or tool not already used elsewhere in this repo
+- A pattern with multiple reasonable choices where the tradeoffs aren't obvious from the existing code
+- A security or compatibility question
+- A performance trade-off that affects architecture
+- A breaking-change migration path
+
+You MUST stop, write a deep-research prompt at `docs/research/prompts/{topic}.md`, add the topic to `docs/research/research-queue.md`, and return control to the user with: *"Found X, needs research before I proceed. Prompt at `docs/research/prompts/{file}.md`. Please run it in a separate research agent and provide the artifact."* Resume only after the artifact lands at `docs/research/artifacts/{file}.md` and is integrated into the relevant planning doc, decision-log entry, or active slice plan.
+
+This applies to both planning decisions AND implementation decisions. Ad-hoc web searches for "quick questions" are not a substitute. See `docs/research/research-queue.md` for the queue format and `docs/research/prompts/` for existing prompt examples.
+
+Within an active cycle, the cycle plan's **When Agents Encounter Unknowns** section lists pre-flagged research triggers and holds the prompt template.
 
 ## Security Rules
 
