@@ -11,15 +11,30 @@ var builder = WebApplication.CreateBuilder(args);
 // will later flow DB-credential rotation through every consumer without restart.
 builder.AddNpgsqlDataSource("runcoach");
 
-// Minimal Wolverine host bootstrap so `AddDbContextWithWolverineIntegration`
-// can register its transactional middleware; outbox + CritterStack defaults
-// land in T01.2.
-builder.Host.UseWolverine();
+// Marten store + CritterStack defaults (production-shape registration; no
+// documents or streams are written in Slice 0). `.IntegrateWithWolverine()`
+// composes the Wolverine outbox session with Marten on save.
+builder.Services.AddRunCoachMarten();
 
-// Primary relational DbContext — owns Identity + DataProtection keys +
-// Wolverine envelope storage tables in a single migration stream.
-builder.Services.AddDbContextWithWolverineIntegration<RunCoachDbContext>(
-    options => options.UseNpgsql());
+// The Wolverine outbox must bind to the shared `NpgsqlDataSource` — NOT to a
+// raw connection string (wolverine#691 / DEC-046). `WolverineOptions` is
+// configured before the ServiceProvider is built, so we hand the resolver to
+// Wolverine via an `IWolverineExtension` it picks up from DI at bootstrap.
+builder.Services.AddSingleton<IWolverineExtension, WolverinePostgresqlDataSourceExtension>();
+
+// Wolverine host — EF Core DbContext registration lives inside this callback
+// (the idiomatic placement per WolverineFx.EntityFrameworkCore docs so
+// `AddDbContextWithWolverineIntegration` and `AutoApplyTransactions` are
+// declared together, guaranteeing the DbContext is wired before
+// `Policies.AutoApplyTransactions()` flips Wolverine handlers into one
+// transaction that spans the Marten session, EF DbContext, and outbox envelope).
+builder.Host.UseWolverine(opts =>
+{
+    opts.Services.AddDbContextWithWolverineIntegration<RunCoachDbContext>(
+        options => options.UseNpgsql());
+
+    opts.Policies.AutoApplyTransactions();
+});
 
 // Thin DbContext exposing the DataProtection key entity set. Schema for the
 // table is materialized by RunCoachDbContext's initial migration; registration
