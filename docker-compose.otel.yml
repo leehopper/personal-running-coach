@@ -11,7 +11,10 @@
 
 services:
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    # Pin the Collector to a specific release for reproducibility — devs on
+    # different machines get the same receivers / exporters / processor set.
+    # Bump deliberately when upstream ships a feature/fix worth adopting.
+    image: otel/opentelemetry-collector-contrib:0.150.1
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
       - ./infra/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
@@ -23,7 +26,8 @@ services:
         condition: service_started
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    # Pinned to the current stable — see https://github.com/jaegertracing/jaeger/releases.
+    image: jaegertracing/all-in-one:1.76.0
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
