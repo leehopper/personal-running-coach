@@ -3,6 +3,7 @@ using JasperFx.CodeGeneration;
 using JasperFx.Events;
 using JasperFx.Events.Daemon;
 using Marten;
+using Marten.Services;
 using Marten.Storage;
 using Weasel.Core;
 using Wolverine.Marten;
@@ -41,6 +42,14 @@ public static class MartenConfiguration
                 opts.Policies.AllDocumentsAreMultiTenanted();
 
                 opts.Projections.Errors.SkipUnknownEvents = true;
+
+                // Surface Marten connection-use spans (`marten.connection`) and
+                // the appended-event counter to the OTel pipeline wired in
+                // Program.cs. `TrackLevel.Normal` is the spec default; bump to
+                // `Verbose` temporarily when chasing N+1 or write-amplification
+                // regressions in dev.
+                opts.OpenTelemetry.TrackConnections = TrackLevel.Normal;
+                opts.OpenTelemetry.TrackEventCounters();
             })
             .UseLightweightSessions()
             .UseNpgsqlDataSource()

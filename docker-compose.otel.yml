@@ -1,0 +1,43 @@
+# Opt-in OpenTelemetry observability overlay for the RunCoach dev stack.
+#
+# Launch:  docker compose -f docker-compose.yml -f docker-compose.otel.yml up
+# Jaeger UI: http://localhost:16686
+#
+# Per DEC-045 / R-050, MVP-0 stays on Compose + Tilt and defers Aspire
+# adoption. This overlay adds an OTel Collector + Jaeger so Marten / Wolverine
+# / RunCoach.Llm traces surfaced by Program.cs's ActivitySource registrations
+# are visible during inner-loop dev work. All sources/meters are fully
+# transferable to Aspire later at MVP-1 with zero rework.
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./infra/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+    depends_on:
+      jaeger:
+        condition: service_started
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14317:4317"   # Jaeger's own OTLP gRPC (exposed to host for ad-hoc use;
+                       # the collector talks to Jaeger over the docker network,
+                       # so remapping avoids collision with the collector's 4317)
+
+  api:
+    environment:
+      # Overrides the base docker-compose.yml's default (Aspire dashboard) so
+      # spans flow through the Collector → Jaeger pipeline while this overlay
+      # is active.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      otel-collector:
+        condition: service_started

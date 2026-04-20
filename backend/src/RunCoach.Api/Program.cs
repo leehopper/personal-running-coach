@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using Wolverine;
@@ -53,6 +56,29 @@ builder.Services.AddDataProtection()
     .SetApplicationName("runcoach")
     .PersistKeysToDbContext<DpKeysContext>()
     .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
+
+// OpenTelemetry tracing + metrics. The OTLP exporter reads its endpoint from
+// the standard `OTEL_EXPORTER_OTLP_ENDPOINT` env var (honored automatically by
+// the SDK), so the same registration works against the dev Aspire dashboard
+// (base docker-compose.yml) and the Compose + Jaeger overlay
+// (docker-compose.otel.yml) without code changes. Marten / Wolverine /
+// RunCoach.Llm ActivitySources are added explicitly; ASP.NET Core + HttpClient
+// instrumentation cover inbound and outbound HTTP automatically.
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(
+        serviceName: "runcoach-api",
+        serviceVersion: "0.1.0",
+        serviceInstanceId: Environment.MachineName))
+    .WithTracing(tracing => tracing
+        .AddSource("Marten", "Wolverine", "RunCoach.Llm")
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter())
+    .WithMetrics(metrics => metrics
+        .AddMeter("Marten", "Wolverine", "RunCoach.Llm")
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter());
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
