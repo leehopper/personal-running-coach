@@ -47,6 +47,7 @@ Required before the product is available to anyone beyond the founder and truste
 | LLC formation | Form LLC + separate bank account before any public exposure. ~$500. |
 | Privacy policy | Data collection, storage, breach notification procedures. Required for FTC HBNR compliance. See DEC-020. |
 | Full Terms of Service | Mandatory arbitration + class action waiver, AI disclosure, health disclaimer, liability cap. See DEC-017. |
+| Passkeys (WebAuthn / FIDO2) | .NET 10 ships first-party passkey support in ASP.NET Core Identity (`SignInManager.PasskeySignInAsync`, `UserManager.AddOrUpdatePasskeyAsync`, `IdentityPasskeyOptions`). HTTP endpoints are NOT exposed by `MapIdentityApi` — Blazor template wires them; SPAs must expose `PasskeyCreationOptions`/`PasskeyRequestOptions` manually and call `SignInManager.SignInWithPasskeyAsync`. Phishing-resistant credential; works alongside the cookie session (DEC-044). Public-beta differentiator candidate per R-044. Defer until pre-public-release. |
 
 ## Future
 

@@ -55,12 +55,95 @@
 - CRITICAL: Never modify an existing event record's properties. Add a new
   event type for schema changes and register upcasters for old events. Events
   are immutable contracts.
+- CRITICAL: Renaming a CLR event type without `opts.Events.MapEventType<NewName>("old_alias")`
+  silently returns zero rows on replay — no exception, just mystery empty
+  streams. Every event-type rename must register the old type name as an
+  alias in the same change.
 - Use inline projections for aggregate state (transactional consistency). Use
   async projections for read models (eventual consistency). Flag complex read
   model projections running inline — they slow every append.
 - Flag CRUD entities forced into event sourcing. Simple create/update/delete
   data (user profiles, settings) should use EF Core relational tables, not
   event streams.
+
+### HTTP verbs and state changes
+
+- CRITICAL: Never use GET (or any safe-by-spec verb) for endpoints that mutate
+  state. SameSite=Lax cookies are sent on top-level GET navigations; using GET
+  for a mutation re-opens the CSRF attack surface that the antiforgery
+  middleware is designed to close. State-changing operations are POST / PUT /
+  PATCH / DELETE only.
+- State-changing endpoints must require antiforgery validation via
+  `[RequireAntiforgeryToken]` (NOT `[ValidateAntiForgeryToken]`, which does
+  not integrate with the .NET 10 `UseAntiforgery()` middleware) or by
+  explicitly calling `IAntiforgery.ValidateRequestAsync`. Endpoints that bind
+  `IFormFile` auto-enforce; JSON body endpoints must opt in.
+
+### Secrets and DataProtection
+
+- CRITICAL: Never commit plaintext secrets. `.env` files are not used in this
+  repo — shared/CI/prod secrets go in SOPS-encrypted YAML (`secrets/<env>.enc.yaml`)
+  with the age key stored as `secrets.SOPS_AGE_KEY` in GitHub. Local dev uses
+  `dotnet user-secrets`.
+- CRITICAL: ASP.NET Core Data Protection keys MUST persist via
+  `PersistKeysToDbContext<DpKeysContext>` against the project's Postgres —
+  NOT `PersistKeysToFileSystem`. File-system persistence is single-instance
+  only and silently invalidates every cookie on container rebuild.
+- CRITICAL: GitHub Actions workflows must use `pull_request` (NOT
+  `pull_request_target` combined with a checkout of `head.sha` — GitHub
+  Security Lab's "pwn request" anti-pattern). Sensitive keys live in a GitHub
+  Environment with required-reviewer protection. Pin every third-party action
+  by 40-character commit SHA (tj-actions/changed-files CVE-2025-30066
+  precedent — every version tag was retagged to a malicious commit).
+
+### Wolverine and shared NpgsqlDataSource
+
+- CRITICAL: `PersistMessagesWithPostgresql` MUST take an `NpgsqlDataSource`
+  overload, not a connection-string overload (`wolverine#691`). Without this,
+  Postgres password rotation manifests as `28P01` errors until the API is
+  restarted. Pair with `NpgsqlDataSourceBuilder.UsePeriodicPasswordProvider`
+  on the data-source registration.
+- The same shared `NpgsqlDataSource` (registered via
+  `builder.AddNpgsqlDataSource("runcoach")`) is consumed by EF Core, Marten
+  (`UseNpgsqlDataSource()`), Wolverine outbox, and DataProtection. Flag any
+  registration that bypasses the shared data source by calling `Connection(...)`
+  with a raw connection string.
+
+### Marten event-stream identity
+
+- For aggregates that are 1:1 with the user (e.g., onboarding), derive the
+  Marten stream id deterministically:
+  `DeterministicGuid(userId, "onboarding")` via UUID-v5 shape (SHA-1 of
+  `userId + ":" + streamPurpose` truncated to 16 bytes). This makes
+  `StartStream<T>(deterministicId, ...)` naturally idempotent — retries hit
+  a primary-key violation and are handled as "already started."
+- For aggregates that are 1:many per user (e.g., Plan), use
+  `CombGuidIdGeneration.NewGuid()` per instance and store the current id on
+  the EF projection row.
+- Onboarding events live in a SEPARATE stream from Plan events. Never
+  commingle event types on a single per-user stream — `SingleStreamProjection<TDoc, TId>`
+  assumes one stream per aggregate instance.
+
+### Anthropic prompt caching and content-block serialization
+
+- For any LLM call that uses Anthropic prompt caching, the request `messages[]`
+  MUST reconstruct byte-identically turn after turn — caching is a pure
+  prefix-hash mechanism. Reconstruct messages by replaying events from the
+  onboarding (or conversation) stream, not by serializing a mutable snapshot.
+- CRITICAL: Serialize Anthropic typed content blocks
+  (`UserTurnRecorded.ContentBlocks`, `AssistantTurnRecorded.ContentBlocks`)
+  via `System.Text.Json` with declared property-order records — NOT
+  `Dictionary<string, object>`. Dictionary-based serialization can produce
+  non-deterministic key ordering (per language: Swift/Go failures documented),
+  invalidating the cache prefix. Records with a fixed property order are safe.
+- Store `tool_use`, `tool_result`, `thinking`, and `redacted_thinking` blocks
+  including their `signature` fields verbatim in the event payload — Anthropic
+  requires verbatim echo when these features are used. Cheap insurance even
+  if Slice 1 doesn't use them.
+- Enable automatic prompt caching from day one with
+  `cache_control: { type: "ephemeral", ttl: "1h" }` at the top of the request
+  body. Add a second explicit breakpoint on the system prompt for longer-lived
+  independent caching.
 
 ### Trademark: VDOT on prompt content
 

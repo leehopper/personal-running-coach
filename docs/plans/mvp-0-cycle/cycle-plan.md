@@ -5,12 +5,12 @@
 ## Status
 
 - **Current Cycle:** MVP-0 + Adaptation Loop
-- **Active Slice:** None yet — ready to start Slice 0 (Foundation)
-- **Next Step:** Write the Slice 0 spec under `docs/specs/` using `docs/plans/mvp-0-cycle/slice-0-foundation.md` as the requirements input, then decompose into tasks and execute. Preliminary codebase research is optional — add it only if the requirements doc lacks enough context. Pick the skills that fit (DEC-008 plan-first discipline applies — spec reviewed before implementation).
+- **Active Slice:** Slice 0 (Foundation) — spec amended with Batch 15 + Batch 16 findings; ready for task decomposition and implementation
+- **Active Slice Spec:** `docs/specs/12-spec-slice-0-foundation/`
+- **Next Step:** Decompose the Slice 0 spec into a task graph and start execution. Three demoable units (Persistence Foundation + Compose-Healthy Stack with Postgres-backed DataProtection + OTel overlay; Auth API with cookie session + antiforgery; Frontend Auth UX with no token storage) are independently demonstrable. Slice 1 requirements doc (`./slice-1-onboarding.md`) was also amended with R-048 / DEC-047 integration so the next slice's spec session has pre-resolved architecture.
 - **Blockers:** None
-- **Cycle Plan:** `docs/plans/mvp-0-cycle/cycle-plan.md` (this file)
 
-Pre-slice-0 housekeeping landed in PR #46 (commit `9d4c51e`): `ROADMAP.md` compacted, `.claude/commands/catchup.md` updated to the new walk order, cycle plan and per-slice requirements docs in place.
+Pre-slice-0 housekeeping landed in PR #46 (commit `9d4c51e`). Slice 0 spec written 2026-04-19. Batch 15 research (R-044 through R-047) and Batch 16 research (R-048 through R-050) landed and integrated 2026-04-19 across two passes — the headline architectural pivots are: DEC-044 (cookie-not-JWT browser auth), DEC-045 (Aspire deferred to MVP-1, stay on Compose + Tilt with `docker-compose.otel.yml` overlay), DEC-046 (SOPS + age + Postgres-backed DataProtection + dotnet user-secrets), DEC-047 (onboarding event-sourcing pattern locked for Slice 1).
 
 This status block is the single source of truth for "where are we?" — mirrored into `ROADMAP.md` so `/catchup` finds it. Update both whenever a slice completes or the active slice changes.
 
@@ -34,6 +34,12 @@ Running log of "we should also do this" items found during the cycle but intenti
 | Found | In slice | Item | Triage disposition |
 |---|---|---|---|
 | 2026-04-19 | (cycle-plan) | Frontend/backend breakdown pass on cycle-plan organization — sections currently mix layers, may read cleaner with explicit F/E vs B/E separation | Deferred; re-evaluate after Slice 1 when the shape of per-slice plans clarifies whether a layer-split would help |
+| 2026-04-19 | Slice 0 (Batch 15 audit) | LLM context assembly for the projected `Plan` document — R-047 covers Marten's `WriteLatest<Plan>` zero-copy HTTP streaming, but RunCoach's `ContextAssembler` builds prompts internally (not over HTTP). The Plan-projection-to-prompt-tokens shape is undefined. | **Partially answered by R-048 / DEC-047** — `ContextAssembler.ComposeForClaude(view, appendUser: ...)` event-replay pattern is the shape; finalize the Plan-side projection→prompt at Slice 1 spec-writing time. Open. |
+| 2026-04-19 | Slice 0 (Batch 15 audit) | Production deployment topology — single VPS / managed PaaS / container orchestrator / managed Postgres / CDN. R-046's bundle-as-Job production migration assumes *some* target. No env exists yet. | **Partially answered by R-049 / DEC-046** — secrets bootstrap layer is per-target (systemd-creds for VPS, native PaaS, ACA Key Vault references). Target choice itself still open. Pre-MVP-1 research prompt when target is committed. |
+| 2026-04-19 | Slice 0 (Batch 15 audit) | Observability strategy — OTel exporter + collector + dashboard. R-047 listed Marten daemon metrics worth alerting on; zero observability infrastructure decided. | **Resolved for Slice 0 by R-050 / DEC-045** — `docker-compose.otel.yml` overlay (Collector + Jaeger) wired with Marten / Wolverine / `RunCoach.Llm` ActivitySource + Meter sources; transferable to Aspire later. Production observability remains a pre-MVP-1 prompt. |
+| 2026-04-19 | Slice 0 (Batch 15 audit) | Database backup / restore / data lifecycle — Plan adaptation history is irreplaceable once real users exist. | Pre-MVP-1 research prompt; coordinate with the production-deployment-topology decision. Disposition (c) — research prompt. |
+| 2026-04-19 | Slice 0 (Batch 16 integration) | FTC HBNR pre-public-release escalation point — R-049 confirmed the rule applies to RunCoach as a PHR vendor the moment any Apple Health / Strava / Garmin ingest exists; the migration to Azure Key Vault + Managed Identity wrapping `ProtectKeysWithAzureKeyVault` happens before the first non-alpha user. | Captured in DEC-046 cross-reference. Promote to a concrete pre-public-release task list (rotation runbook, breach runbook, DPAs with Anthropic + analytics, formal program against ASVS L1 V13.3) at MVP-1 cycle start. |
+| 2026-04-19 | Slice 0 (Batch 17 audit) | Batch 17 research queued (R-051 LLM observability, R-052 Anthropic SDK choice, R-053 multi-turn eval pattern). All three target Slice 1's LLM call sites; **none block Slice 0**. | Slice 0 implementation can begin in parallel with Batch 17 research. Slice 1 spec session awaits the three artifacts. Disposition (c) — research prompts at `docs/research/prompts/batch-17{a,b,c}-*.md`. |
 
 ---
 
@@ -515,7 +521,7 @@ This cycle is built on top of real work that's already landed. Preserved pattern
 - `docs/planning/planning-architecture.md` — macro/meso/micro tiers, event-sourced plan state.
 - `docs/planning/memory-and-architecture.md` — context injection strategy, five-layer summarization.
 - `docs/planning/safety-and-legal.md` — safety guardrails (pre-public-release items live here).
-- `docs/decisions/decision-log.md` — all architectural decisions (DEC-001 through DEC-043).
+- `docs/decisions/decision-log.md` — all architectural decisions (DEC-001 through DEC-044).
 - `docs/features/backlog.md` — feature backlog by priority tier.
 - `backend/CLAUDE.md` — backend conventions, module-first organization, testing patterns.
 - `frontend/CLAUDE.md` — frontend conventions.
