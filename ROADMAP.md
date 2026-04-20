@@ -1,8 +1,8 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** None yet — ready to start Slice 0 (Foundation)
-**Next step:** Write the Slice 0 spec under `docs/specs/` using `docs/plans/mvp-0-cycle/slice-0-foundation.md` as the requirements input, then decompose into tasks and execute. Preliminary codebase research is optional — add it only if the requirements doc lacks enough context. Pick the skills that fit (DEC-008 plan-first discipline applies — spec reviewed before implementation).
+**Active slice:** Slice 0 (Foundation) — spec amended with Batch 15 + Batch 16 findings; ready for task decomposition and implementation
+**Next step:** Decompose `docs/specs/12-spec-slice-0-foundation/12-spec-slice-0-foundation.md` into a task graph and start execution. The spec's three demoable units (Persistence Foundation + Compose-Healthy Stack; Auth API; Frontend Auth UX) are independently demonstrable. DEC-044 (cookie-not-JWT browser auth), DEC-045 (Aspire deferred to MVP-1), DEC-046 (SOPS + Postgres-DataProtection secrets), DEC-047 (onboarding event-source pattern, Slice 1 prep) capture the architecture pivots from the foundation research.
 **Blockers:** None
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
@@ -16,7 +16,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - **"What should I work on?"** → active cycle plan (pointer above).
 - **"What's the active slice doing?"** → active slice spec under `docs/specs/` (pointer in cycle plan's Status section, once a slice is underway).
 - **"How does X work?"** → `docs/planning/{topic}.md` + the relevant module under `backend/src/RunCoach.Api/Modules/` or `frontend/src/app/modules/`.
-- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-043).
+- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-047).
 - **"Has this been researched?"** → `docs/research/research-queue.md` + `docs/research/artifacts/`.
 - **"What are the rules for code changes?"** → root `CLAUDE.md`, `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `REVIEW.md` files (root / backend / frontend).
 - **"I found an unknown — can I just pick one and move on?"** → No. See `CLAUDE.md` § Research Protocol and the active cycle plan's "When Agents Encounter Unknowns" section.
@@ -34,7 +34,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - Safety & legal: `docs/planning/safety-and-legal.md`
 - Self-optimization: `docs/planning/self-optimization.md`
 - Unit system design: `docs/planning/unit-system-design.md`
-- Decision log: `docs/decisions/decision-log.md` (43 entries)
+- Decision log: `docs/decisions/decision-log.md` (47 entries)
 - Feature backlog: `docs/features/backlog.md`
 - Research queue & artifacts: `docs/research/research-queue.md`, `docs/research/artifacts/`
 - POC roadmap (historical framing, superseded by cycle plans): `docs/planning/poc-roadmap.md`
@@ -89,6 +89,7 @@ Anthropic's constrained decoding enforces property names, types, and `additional
 - Kubernetes — deferred to public beta per DEC-032.
 - Garmin Connect integration — deferred to post-MVP-1; Apple Health prioritized per DEC-033.
 - Frontend visual design planning — flagged, not yet started.
+- **Marten 9 upgrade** — current pin is Marten 8.28; Marten 9 (undated) drops sync LINQ ops (tied to Npgsql 10), flips Conjoined PK ordering to `TenantId_Then_Id`, and will formally certify .NET 10. Both changes are mechanical — sync removal is a pass with `LoadAsync`-style replacements, PK reorder is a one-time index-rebuild migration. No load-bearing rewrite risk. Monitor `JasperFx/marten` repo; revisit when v9 ships. If a `.net10`-specific Marten 8 bug surfaces before v9 lands, the escape hatch is targeting the test assembly at `net9.0` while keeping the SUT on `net10.0`. Captured per R-047.
 
 ### Cost optimization (post-MVP-0, DEC-038)
 

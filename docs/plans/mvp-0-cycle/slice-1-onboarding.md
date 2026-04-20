@@ -42,20 +42,35 @@ When this slice is complete:
 - Pre-public-release safety scaffolding: extended health screening (PAR-Q+), expanded medical keyword triggers, population-adjusted guardrails. Onboarding asks about injury history for planning context; it does NOT yet enforce the pre-public-release safety gates (see `docs/planning/safety-and-legal.md`).
 - Proactive coaching messages (later).
 
-## Pragmatic defaults for deferred decisions
+## Pre-resolved by R-048 / DEC-047
 
-- **Onboarding completion criterion:** profile completeness across a defined set of fields. The spec picks the exact set.
-- **State management:** the spec decides whether in-progress onboarding lives in a `UserProfile` status column, in the Marten stream, or is passed by the client each turn. Default bias: simplest option that allows a user to close the browser mid-onboarding and resume.
+The following decisions were locked by R-048 (`docs/research/artifacts/batch-16a-onboarding-conversation-state.md`) and DEC-047. The spec MUST honor them; per-spec amendment is allowed only if implementation surfaces a contradicting constraint.
+
+- **State persistence:** Pattern (d) — dedicated Marten event stream per user for onboarding (`onboarding-{DeterministicGuid(userId, "onboarding")}` via UUID-v5 shape), inline `SingleStreamProjection<OnboardingView, Guid>` for the in-flight read model, separate `EfCoreSingleStreamProjection<UserProfile, AppDbContext>` (via `Marten.EntityFrameworkCore`) materializing user-facing fields into the EF `UserProfile` row in the same transaction. **Onboarding events live in their own stream** — NOT commingled with the Plan stream. On `OnboardingCompleted`, a Wolverine event subscription opens a fresh Plan stream with `CombGuidIdGeneration.NewGuid()` and stores `CurrentPlanId` on the EF `UserProfile`.
+- **"Next question" ownership:** Hybrid, deterministic-led. A static topic list (`PrimaryGoal`, `TargetEvent`, `CurrentFitness`, `WeeklySchedule`, `InjuryHistory`, `Preferences`) controls slot order; the LLM phrases questions, handles follow-ups, and extracts structured answers per turn via Anthropic structured outputs.
+- **Completion criterion:** Deterministic gate (all required fields present, all validate, no outstanding `needs_clarification` flag) with an LLM ambiguity pre-check (per-turn `needs_clarification: bool`, final `ready_for_plan` structured output).
+- **Anthropic prompt caching:** Enabled from day one with `cache_control: { type: "ephemeral", ttl: "1h" }` at the top of the request body and a second explicit breakpoint on the system prompt. Per-turn `messages[]` is reconstructed by replaying onboarding events, NOT by snapshot — replay is byte-stable, snapshot is not.
+- **Content-block serialization:** typed Anthropic content blocks carried verbatim in `UserTurnRecorded.ContentBlocks` and `AssistantTurnRecorded.ContentBlocks` (including future `thinking` / `tool_use` / `tool_result` / `signature` fields). `System.Text.Json` with declared property-order records — NOT `Dictionary<string, object>` — to guarantee byte-stable replay and cache-prefix stability.
+- **Re-trigger plan generation from settings:** Reads `UserProfile` (or `OnboardingView`) — no replay needed; optionally accepts `RegenerationIntent`; calls `ContextAssembler.ComposeForPlanGeneration(userId, intent)`; starts a new Plan stream. Re-running onboarding from scratch is NOT required. If the user wants to *edit* specific answers, that's a separate `ReviseAnswer(Topic, NewValue)` command appending `AnswerCaptured` to the existing onboarding stream — preserving audit.
+- **Per-turn handler:** Wolverine `[AggregateHandler]` over the onboarding stream. Idempotency via a client-supplied `IdempotencyKey` (UUID per user action, retained 24–48h in an `IdempotencyStore` EF row). Handler returns `(events, OutgoingMessages)`; Wolverine handles `FetchForWriting`, optimistic concurrency, transactional append + projection update.
+- **GDPR erasability:** `store.Advanced.DeleteAllTenantDataAsync(userId.ToString(), ct)` wipes every Marten stream + projection doc for the tenant; pair with an EF `UserProfile` delete. Discipline: keep PII out of event payloads where feasible (`AnswerCaptured { Topic, NormalizedValue }` not free-text); use Marten's `AddMaskingRuleForProtectedInformation<T>` and `ApplyEventDataMasking()` where embedding PII is unavoidable.
+- **Library pins:** Marten ≥ 8.20 (current 8.28) + `Marten.EntityFrameworkCore` for the EF projection; first-party `Anthropic` NuGet (v12.x as of April 2026) implementing `Microsoft.Extensions.AI.IChatClient` so the existing `ICoachingLlm` adapter sits over either the raw client or M.E.AI with a config switch.
+
+## Pragmatic defaults for the remaining open decisions
+
 - **Plan generation invocation:** use the existing brain layer (`ContextAssembler` + `ClaudeCoachingLlm` + prompt store + training-science calculators). Do not introduce a parallel coaching path.
 - **Plan projection schema:** structured enough that the frontend can render without LLM calls; evolvable enough that later slices can add fields (adaptations, logs) without a projection rebuild.
+- **`UserProfile.OnboardingCompletedAt` column** is set by the EF projection's `Apply(OnboardingCompleted)` handler — replaces a separate `OnboardingStatus` enum.
 
 ## Research to consult before writing the spec
 
+- `docs/research/artifacts/batch-16a-onboarding-conversation-state.md` — **PRIMARY** input. Pattern (d), wiring sketch, completion gate, prompt-cache argument.
+- `docs/research/artifacts/batch-15d-marten-per-user-aggregate-patterns.md` — Marten registration shape (already locked in Slice 0).
 - `docs/research/artifacts/batch-2a-training-methodologies.md` — what the AI needs to know about plan structure and methodology selection.
 - `docs/research/artifacts/batch-2b-planning-architecture.md` — macro/meso/micro tier semantics, event-sourcing patterns, event-driven recomposition.
 - `docs/research/artifacts/batch-4a-coaching-conversation-design.md` — onboarding tone, question ordering, OARS / GROW-style patterns, trust-building.
 - `docs/research/artifacts/batch-6a-llm-eval-strategies.md` + `batch-6b-dotnet-llm-testing-tooling.md` — eval patterns to apply to onboarding scenarios.
-- `docs/research/artifacts/batch-7a-ichatclient-structured-output-bridge.md` — structured output via Anthropic constrained decoding (each onboarding turn has a structured schema for the next-question decision).
+- `docs/research/artifacts/batch-7a-ichatclient-structured-output-bridge.md` — structured output via Anthropic constrained decoding.
 - `docs/research/artifacts/batch-4b-special-populations-safety.md` — what onboarding can reasonably surface (injury history, pregnancy, chronic conditions) even though the pre-public-release safety gates are deferred.
 - `docs/planning/interaction-model.md` — the "guided onboarding" interaction mode.
 - `docs/planning/coaching-persona.md` — voice and register for the onboarding experience.
@@ -63,12 +78,12 @@ When this slice is complete:
 ## Open items for the spec-writing session to resolve
 
 - Exact onboarding question set and ordering (the spec picks based on `interaction-model.md` topics + `coaching-persona.md` voice).
-- In-progress onboarding state persistence strategy (column vs. Marten stream vs. client-held).
 - Plan projection schema — structure that frontend renders directly, that adaptation slices can append to, and that survives re-projection from the event stream.
 - Whether the macro plan is generated in one LLM call or tiered into separate macro/meso/micro calls (research artifact 2b covers the tradeoff; spec decides).
 - Where "regenerate plan" lives in the UI — settings action, home-page action, or chat-panel command.
-- What happens if plan generation fails (retry, fallback, error surface).
-- Whether `UserProfile.OnboardingStatus` (or equivalent) is needed given the Marten event stream records `PlanGenerated`.
+- What happens if plan generation fails (retry policy, fallback, error surface).
+- The shape of the `OnboardingView` projection (which fields, which validation rules, which `needs_clarification` semantics).
+- Eval-suite extension pattern — which onboarding scenarios become eval fixtures and how cache-replay works for multi-turn flows.
 
 ## How this feeds the spec
 

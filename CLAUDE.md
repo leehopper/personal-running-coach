@@ -33,7 +33,7 @@ backend/               # .NET API (has its own CLAUDE.md)
 frontend/              # React SPA (has its own CLAUDE.md)
 docs/
   planning/            # Vision, architecture, safety, coaching persona
-  decisions/           # Decision log (DEC-001 through DEC-039)
+  decisions/           # Decision log (DEC-001 through DEC-047)
   features/            # Feature backlog
   research/            # Research queue, prompts, and artifacts
 ```
@@ -131,7 +131,7 @@ Five-layer pipeline: pre-commit (Lefthook), PR review (CodeRabbit + local `/revi
 
 ## Key References
 
-- `docs/decisions/decision-log.md` — all 39 decisions with rationale
+- `docs/decisions/decision-log.md` — all 47 decisions with rationale
 - `docs/planning/vision-and-principles.md` — why this exists, design principles
 - `docs/planning/safety-and-legal.md` — legal landscape, safety guardrails
 - `docs/research/artifacts/` — full research outputs (11 integrated topics)

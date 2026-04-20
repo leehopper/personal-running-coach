@@ -1249,4 +1249,171 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 
 ---
 
+## DEC-044: Browser auth uses ASP.NET Core Identity application cookie, not JWT
+
+**Date:** 2026-04-19
+**Status:** Final
+**Category:** Authentication architecture
+**Informed by:** R-044 (`batch-15a-spa-jwt-storage-refresh.md`), R-045 (`batch-15b-mapidentityapi-vs-custom-controller.md`).
+**Supersedes:** Slice 0 cycle-plan pragmatic-default ("long-lived ~30d JWT in browser-side storage, no refresh token, bearer-header pattern") and the requirements doc's "JWT-based authentication (stateless)" framing.
+
+**Decision:** RunCoach's web SPA authenticates against the .NET 10 API via the **ASP.NET Core Identity application cookie**, not a JWT. The cookie is `__Host-RunCoach`, `HttpOnly`, `Secure`, `SameSite=Lax`, with 14-day sliding expiration. Anti-CSRF is mitigated by ASP.NET Core's built-in `UseAntiforgery()` middleware exposing an `XSRF-TOKEN` cookie that the SPA echoes in an `X-XSRF-TOKEN` header on state-changing requests. **No token of any kind is stored in JavaScript-accessible storage** (no localStorage, no sessionStorage, no in-memory token in Redux). `AddJwtBearer` is registered as a non-default opt-in scheme reserved for the future iOS shim; a `CookieOrBearer` authorization policy is wired on day one so iOS-bearer support lands additively. Auth endpoints live in a hand-rolled `Modules/Identity/AuthController.cs`; `MapIdentityApi<TUser>()` is NOT used.
+
+**Rationale:**
+
+- **OWASP / IETF / Microsoft 2026 consensus.** OWASP ASVS v5 (May 2025) fails any verification that puts sensitive secrets in Web Storage. The IETF `draft-ietf-oauth-browser-based-apps-26` (December 2025) explicitly carves a same-origin SPA + API out of OAuth scope and directs such apps to maintain authentication state via a traditional session. Microsoft's .NET 10 Learn article "Use Identity to secure a Web API backend for SPAs" recommends cookies verbatim. Practitioner consensus (Philippe De Ryck, Duende, Curity) has moved firmly against JS-accessible token storage since 2023.
+- **Lowest XSS exposure** of the patterns evaluated. A cookie cannot be exfiltrated for offline abuse; XSS can still abuse the live session, but the damage is bounded to tab lifetime rather than weeks of harvested-token reuse.
+- **Operational simplicity.** Sliding expiration on the cookie renews the session per request, so 401 means "logged out" rather than "access token stale." No `baseQueryWithReauth` mutex, no refresh-storm coordination across tabs, no `BroadcastChannel` requirement, no refresh-token rotation table, no reuse-detection-revokes-family logic.
+- **iOS-future preserves cleanly.** The dual-scheme `CookieOrBearer` policy is declared in Slice 0; when DEC-033's iOS shim lands, it adds bearer endpoints (`POST /api/v1/auth/login-bearer`, `POST /api/v1/auth/refresh-bearer`) without touching the React SPA or any business controller. The cookie-now / bearer-later split costs ~2 days of additional server work; the localStorage-now / cookie-later flip would have cost ~1 day of client rewrite plus full re-test of every protected route.
+- **Stack already is a BFF.** ASP.NET Core Identity holds the session, the .NET API serves the resources, both are in the same process — every BFF security property is captured without a separate proxy project.
+- **Custom AuthController over `MapIdentityApi`.** Four hard limits per R-045: (1) `MapIdentityApi` issues an opaque `IDataProtector` blob, not a JWT — incompatible with the iOS-bearer future and with sharing tokens across services that don't share the DataProtection key ring; (2) `RegisterRequest` is sealed, blocking atomic `UserProfile` creation in Slice 1; (3) endpoints can't be selectively excluded — `/refresh`, `/forgotPassword`, `/confirmEmail` always mount even though all three are deferred; (4) `/manage/info` returns only email + isEmailConfirmed, not the DB-enriched `/me` shape RunCoach needs. Microsoft's own reference architecture (`dotnet/eShop`) skips `MapIdentityApi`; David Fowler stated publicly it is "not ideal" for SPA setups. Custom controller is ~200 LOC, preserves the module-first pattern, and avoids a likely later migration.
+
+**Alternatives considered (and rejected):**
+
+- **(a) localStorage + bearer header (cycle-plan pragmatic default).** Catastrophic XSS exposure; OWASP-flagged; forces refresh-token machinery later and a client rewrite. Rejected.
+- **(c) In-memory access + httpOnly refresh-token cookie ("BFF-lite").** Ranked least secure of the three IETF browser-app architectures; multi-tab requires real distributed-systems-lite engineering; F5 shows a 200–500 ms flash of unauth; provides no benefit over the Identity cookie for a same-origin SPA. Rejected.
+- **(d) Full BFF (separate YARP proxy, opaque session).** Endorsed by IETF for cross-origin OAuth scenarios but adds a separate project with no security benefit over the Identity-cookie path for a same-origin stack. Deferred — adopt only if the SPA later moves to a CDN edge in a different administrative zone from the API.
+- **`MapIdentityApi<TUser>()` for the auth endpoints.** Rejected per the four hard limits above. May be reintroduced under a distinct prefix as a scaffold when password-reset / email-confirmation slices land (`MapGroup("/api/v1/auth/identity").MapIdentityApi<ApplicationUser>()` per R-045's rollback path).
+- **DPoP / sender-constrained tokens, passkeys.** Additive hardening, not a session-storage substitute. Defer; passkeys are a public-beta differentiator candidate.
+
+**Cross-references:**
+
+- Spec: `docs/specs/12-spec-slice-0-foundation/` (Technical Considerations § Auth wiring captures the wiring-sketch detail).
+- Research artifacts: `docs/research/artifacts/batch-15a-spa-jwt-storage-refresh.md`, `docs/research/artifacts/batch-15b-mapidentityapi-vs-custom-controller.md`.
+- Operational foot-gun: ASP.NET Core Data Protection keys MUST persist across container rebuilds — mount a named Docker volume to `/keys` (covered in spec). Without this, every container rebuild logs everyone out.
+- Related: DEC-033 (client-agnostic API for future iOS support) is what made the dual-scheme `CookieOrBearer` policy a Slice 0 concern rather than a future retrofit.
+
+---
+
+## DEC-045: Defer .NET Aspire to MVP-1; stay on Docker Compose + Tilt for MVP-0
+
+**Date:** 2026-04-19
+**Status:** Final
+**Category:** Local-dev orchestration / deployment trajectory
+**Informed by:** R-050 (`batch-16c-dotnet-aspire-vs-compose.md`).
+**Deepens:** DEC-032 (Docker Compose + Tilt for local dev, K8s deferred to public beta) — re-validates the original choice under updated information (Aspire 13.2 maturity).
+
+**Decision:** RunCoach stays on Docker Compose + Tilt for MVP-0 local dev orchestration, **conditionally adopting .NET Aspire at MVP-1** if and only if specific triggers fire: (a) MVP-1 commits to Azure Container Apps as the deploy target, (b) a second .NET service or genuine cross-service tracing need exists, or (c) JasperFx ships first-class `Aspire.Hosting.Marten` / `Aspire.Hosting.Wolverine` packages. Until then, the March-2026 DEC-032 commitment to Compose + Tilt stands. To close the one observability gap that Aspire would have provided for free, Slice 0 adds an opt-in `docker-compose.otel.yml` overlay (OTel Collector + Jaeger) and wires Marten's `TrackConnections` + `TrackEventCounters` plus `"Marten"`/`"Wolverine"`/`"RunCoach.Llm"` ActivitySource/Meter sources. This work is fully transferable to Aspire later.
+
+**Rationale:**
+
+- **Seven of seven decision-trigger dimensions point at defer.** Service count (1 API + SPA + Postgres, below the 4+ Aspire threshold), team size (solo, below 3+), deployment target (uncommitted, neutral), tracing (marginal, addressable in Compose), dev/prod parity (strongly desired — anti-signal because Aspire is dev-only and prod is codegen), stack composition (mixed .NET + JS — neutral), existing orchestration (Compose + Tilt committed — anti-signal). Marginal cases don't flip independently.
+- **JasperFx (Marten + Wolverine maintainer) is publicly negative on Aspire integration.** Jeremy Miller, January 2025: *"Aspire doesn't really play nicely with frameworks like Wolverine right now. My strong preference right now is to just use Docker Compose for local development."* `wolverine#635` (Aspire support) was closed `wontfix`. There is no `Aspire.Hosting.Marten` or `Aspire.Hosting.Wolverine` package on NuGet in April 2026.
+- **The strategic unlock at Aspire 13.2 is the stable Docker Compose publisher.** A future Aspire pivot at MVP-1 does not force a cloud-target choice — Aspire can publish a deployable `docker-compose.yaml` for a VPS, Railway, Coolify, etc. The "decide later" window is preserved.
+- **The DataProtection `/keys` volume was the largest pivot-cost driver in R-050's analysis.** R-049's Postgres-backed DataProtection answer (DEC-046) eliminates that friction entirely — making the future-pivot scope smaller, not larger.
+- **Aspire 13.x has no LTS** (Modern Lifecycle, only the latest minor supported); .NET 10 itself is LTS through Nov 2028. Adopting Aspire commits the project to a quarterly minor-version upgrade treadmill independent of the .NET LTS cadence — non-trivial overhead for a single-developer project.
+- **Aspire's most defensible MVP-0 win is the OTel dashboard for Marten observability.** That win is reproducible in Compose with an OTel Collector + Jaeger overlay for ~half a day of work, fully transferable to Aspire later. Adopting Aspire just for the dashboard is disproportionate.
+
+**Alternatives considered (and rejected):**
+
+- **Pivot now during Slice 0.** Estimated 15–25 hours, dominated by the DataProtection variance (4–12 hours) which is now moot post-DEC-046, and by AppHost + ServiceDefaults + fixture rework. Would commit cycles before any hosted-target choice exists — exactly the kind of decision Aspire is meant to inform.
+- **Pivot at the start of MVP-1 unconditionally.** Reasonable but couples the decision to a release boundary rather than to actual triggers. Conditional adoption captures the same upside without the commitment.
+- **Adopt Aspire AND keep Compose for prod.** Aspire's value is unified dev + publish; running both is the worst of both.
+- **Replace Tilt with `tilt up` alternatives (Skaffold, Garden).** Out of scope; Tilt is working and the question is Aspire vs not, not Tilt vs alternatives.
+
+**Cross-references:**
+
+- DEC-032 — original Compose + Tilt + K8s-deferred decision (March 2026); deepened, not superseded.
+- DEC-046 — secrets management decision that eliminates the DataProtection volume friction R-050 flagged.
+- Spec: `docs/specs/12-spec-slice-0-foundation/` (Slice 0 spec amendment for the OTel Collector + Jaeger overlay).
+- Standing re-trigger conditions documented in `ROADMAP.md` § Deferred Items > Infrastructure.
+- Pin guidance: `Aspire.AppHost.Sdk` 13.2.2 if/when adopted; avoid 13.2.0 (IDE-execution regressions); upgrade quarterly.
+
+---
+
+## DEC-046: Production secrets management — SOPS + age + Postgres-backed DataProtection + dotnet user-secrets
+
+**Date:** 2026-04-19
+**Status:** Final
+**Category:** Secrets management / persistence / DataProtection
+**Informed by:** R-049 (`batch-16b-secrets-management-net10.md`).
+**Supersedes:** Slice 0 spec's `/keys` Docker volume mount for DataProtection key persistence.
+
+**Decision:** RunCoach uses a four-layer secrets-management approach across the dev → CI → MVP-1 hosted → pre-public-release trajectory:
+
+1. **DataProtection master key:** `PersistKeysToDbContext<DpKeysContext>` (the `Microsoft.AspNetCore.DataProtection.EntityFrameworkCore` provider) backed by the same Postgres RunCoach already runs for Marten and EF Core relational state. Inherits Postgres's backup, disk encryption, connection-string bootstrap, and multi-instance consistency at zero new-infrastructure cost. `SetDefaultKeyLifetime(TimeSpan.FromDays(90))` for built-in rotation. `ProtectKeysWithCertificate(...)` lands once the project leaves dev (deferred to MVP-1). **The `/keys` Docker volume from the Slice 0 spec is removed** — it was a single-instance-only solution and Postgres-backed wins on every axis.
+2. **Local dev:** `dotnet user-secrets` (unchanged). Stays the lowest-friction inner-loop option; integrates via `AddUserSecrets()` automatically in Development.
+3. **Shared / CI / MVP-1 hosted:** SOPS-encrypted YAML committed to the repo (`secrets/<env>.enc.yaml`), with the age key stored as `secrets.SOPS_AGE_KEY` in GitHub and decrypted at deploy time via `getsops/sops-install` + `sops -d`. SOPS + age was selected over Doppler / Infisical / self-hosted Vault because it has no runtime dependency, the encrypted file IS the commit, and the project is public OSS — the encrypted-on-commit posture is ideal.
+4. **Pre-public-release (FTC HBNR escalation point):** migrate to cloud-native KMS (Azure Key Vault + Managed Identity preferred; AWS Secrets Manager equivalent). Wrap DataProtection keys with `ProtectKeysWithAzureKeyVault` (or equivalent) keeping the Postgres `DpKeysContext` as a fallback for a drain window. Adopt dynamic Postgres credentials via Managed Identity token provider. The migration is a single config block, not a rewrite.
+
+**Operational specifics:**
+
+- **GitHub Actions hygiene:** use `pull_request` (NOT `pull_request_target`) for PR validation so fork PRs never see `secrets.*`. Use a `workflow_run`-after-`pull_request` pattern for tests that need the eval-cache record key. Place the Anthropic API key in a GitHub Environment named `eval` with required-reviewer protection. SHA-pin every third-party action (tj-actions/changed-files CVE-2025-30066 precedent — every version tag `v1..v46` retagged to a malicious commit; hash-pinned consumers were unaffected). Required-permissions block: `permissions: { id-token: write, contents: read }`.
+- **Wolverine outbox + Postgres password rotation:** use the `NpgsqlDataSource` overload for `PersistMessagesWithPostgresql` (issue `wolverine#691`, closed). Pair with `NpgsqlDataSourceBuilder.UsePeriodicPasswordProvider(...)` so the durability agent survives DB-credential rotation without a restart. **Without this, password rotation manifests as `28P01` errors until restart.**
+- **Bootstrap-credential by deploy target:** single VPS uses `systemd-creds encrypt` + `LoadCredentialEncrypted=` + Compose `secrets:` `file:`; PaaS (Render / Fly / Railway) uses native secret injection; Azure Container Apps uses Key Vault references with user-assigned Managed Identity; Kubernetes uses ServiceAccount token projection.
+- **Rotation cadences (per OWASP / NIST):** DataProtection master 90 days (framework default); JWT signing key ≤ 6 months; Postgres role passwords 90 days static or short-lived dynamic; Anthropic / third-party API keys 90 days; OAuth client secrets 6 months. Mean-time-to-rotate on suspected compromise: ≤ 1 hour for high-impact, ≤ 24 hours for medium, ≤ 72 hours for the rest. **Rotation runbooks are written in MVP-0, not when something leaks in MVP-1.**
+
+**Rationale:**
+
+- **The DataProtection-key location is the single load-bearing secrets decision.** Losing the key invalidates every Identity cookie and every antiforgery token on every restart. `PersistKeysToDbContext<T>` paired with Marten's Postgres is materially better than file-system-plus-volume — eliminates the named-volume dependency, makes container rebuilds safe, and is a literal six-line `Program.cs` change.
+- **SOPS + age has no runtime dependency.** For a public OSS solo-dev project, the encrypted-file-IS-the-commit posture beats SaaS secret managers (Doppler, Infisical) and self-hosted Vault. Free, CNCF-sandbox-backed, easy rotation by re-encrypting.
+- **HCP Vault Secrets is disqualified.** HashiCorp announced end-of-sale June 30 2025 and full EOL July 1 2026.
+- **FTC HBNR applicability is not optional.** The July 2024 amendment explicitly covers fitness apps that ingest from Apple Health / Strava / Garmin ("multiple sources" prong). RunCoach is a PHR vendor under the Rule before it ships; the pre-public-release escalation is a regulatory event, not a marketing one. The 2023 enforcement trio (GoodRx $1.5M, BetterHelp $7.8M, Premom $200K) define what "reasonable security" means in practice.
+- **OWASP ASVS v5.0.0 V13.3 (May 2025)** L1 is met by software vaults including SOPS + age + Postgres-DP — no HSM required until L3. The recommended combination is compliant today.
+- **Migration map is additive at every step.** MVP-0 dev → MVP-1 VPS → PaaS / ACA → pre-public-release escalation each adds a config block, never a rewrite.
+
+**Alternatives considered (and rejected):**
+
+- **`/keys` Docker volume (original Slice 0 spec).** Single-instance only; doesn't survive the multi-instance MVP-1 trajectory. Eliminated.
+- **Self-hosted HashiCorp Vault.** Operationally disproportionate for one developer (unseal, Raft backups, upgrades, policy management). 3–5 hours/month vs SOPS's ~0.5 hours/month.
+- **Doppler.** No first-party .NET configuration provider in 2026 — only the `doppler run` CLI wrapper. Commits to a SaaS dependency at runtime.
+- **HCP Vault Secrets.** Disqualified by EOL.
+- **Sealed Secrets.** Kubernetes-only; not a candidate until/unless RunCoach runs K8s.
+- **`PersistKeysToStackExchangeRedis`** for DataProtection. Fine for multi-instance, but Redis persistence must be explicitly turned on or the keys vanish on restart — canonical production foot-gun. RunCoach doesn't run Redis; not adding a service for DataProtection alone.
+- **`PersistKeysToAzureBlobStorage` + `ProtectKeysWithAzureKeyVault` from day one.** Microsoft-blessed pattern but commits to Azure before any deployment exists. Deferred to pre-public-release as the natural escalation target.
+
+**Cross-references:**
+
+- DEC-044 — cookie-not-JWT browser auth that made the DataProtection key load-bearing.
+- DEC-045 — Aspire deferral; the `/keys` volume removal eliminates the largest Aspire-pivot-cost driver.
+- Spec: `docs/specs/12-spec-slice-0-foundation/` § Persistence Foundation (DataProtection wiring) and § Security Considerations (SOPS handoff for shared/CI secrets, rotation procedures).
+- Pre-public-release escalation tracked in `ROADMAP.md` § Deferred Items.
+- DEC-020 — FTC HBNR compliance from day one; this decision provides the secrets-handling foundation for that compliance work.
+
+---
+
+## DEC-047: Onboarding state — Marten event stream + EF projection (pattern d), deterministic stream id, hybrid LLM+controller
+
+**Date:** 2026-04-19
+**Status:** Final
+**Category:** Conversation state / event sourcing / Slice 1 architecture
+**Informed by:** R-048 (`batch-16a-onboarding-conversation-state.md`).
+
+**Decision:** Slice 1 multi-turn LLM onboarding uses **pattern (d)**: a dedicated Marten event stream per user for onboarding (`onboarding-{DeterministicGuid(userId, "onboarding")}`), with a Marten inline `SingleStreamProjection<OnboardingView, Guid>` for the in-flight read model and a separate `EfCoreSingleStreamProjection<UserProfile, AppDbContext>` (via `Marten.EntityFrameworkCore`) materializing user-facing fields into the EF `UserProfile` row in the same transaction. Onboarding events live in **a separate stream from the Plan stream** — they are never commingled. On `OnboardingCompleted`, a Wolverine event subscription opens a fresh Plan stream with `CombGuidIdGeneration.NewGuid()` and stores `CurrentPlanId` on the EF `UserProfile`.
+
+**"Next question" ownership is hybrid, deterministic-led**: a static topic list (`PrimaryGoal`, `TargetEvent`, `CurrentFitness`, `WeeklySchedule`, `InjuryHistory`, `Preferences`) controls slot order; the LLM phrases questions, handles follow-ups, and extracts structured answers via Anthropic structured outputs. **Completion is a deterministic gate** (all required fields present, all validate, no outstanding `needs_clarification` flag) with an LLM ambiguity pre-check (per-turn `needs_clarification: bool`, final `ready_for_plan` structured output).
+
+**Anthropic prompt caching is enabled from day one** with `cache_control: { type: "ephemeral", ttl: "1h" }` at the top of the request body and a second explicit breakpoint on the system prompt. The event log carries **typed Anthropic content blocks verbatim** in `UserTurnRecorded.ContentBlocks` and `AssistantTurnRecorded.ContentBlocks` (including any future `thinking` / `tool_use` / `tool_result` / `signature` fields), serialized via `System.Text.Json` with declared property-order records — **not `Dictionary<string,object>`** — to guarantee byte-stable replay and cache-prefix stability.
+
+**Rationale:**
+
+- **Pattern (d) is the only candidate with no ❌ and no ⚠ on any dimension Slice 1's acceptance criteria require.** Resumability, multi-tab (stream version), cross-device handoff, idempotency on LLM retry, replay audit ("what did the AI know?"), re-derivable `UserProfile`, GDPR erasability via `store.Advanced.DeleteAllTenantDataAsync(userId.ToString())`, `ContextAssembler` integration, prompt-cache friendliness, alignment with the existing Plan aggregate, clean seam for Slice 4's `ConversationTurn`.
+- **The decisive new argument is Anthropic's prompt-cache mechanism.** Caching is a pure prefix-hash mechanism — cache hits cost 0.1× base input; cache writes cost 1.25× (5-min TTL) or 2× (1-h TTL). On a realistic MVP-0 workload (50 users × 30 turns × Sonnet 4.5, ~8k input tokens/turn), caching drops cost from ~$43 to ~$13 — ~70% savings for one line of configuration. Caching only helps if `messages[]` reconstructs byte-identically turn after turn. **An append-only event log with a deterministic projection function guarantees this**; a mutable snapshot does not. When tool use or extended thinking lands later, Anthropic requires verbatim echo of `tool_use` / `tool_result` / `thinking` blocks including `signature` fields — the event log where each event carries the typed content-block JSON is the storage model that matches without special cases.
+- **Onboarding events go in a SEPARATE stream from Plan events.** Marten's documented idiom is one-stream-per-aggregate-instance; `SingleStreamProjection<TDoc, TId>` assumes this. Commingling would force both projections to event-filter, block future stream-type snapshots, and confuse archival.
+- **Stream id is `DeterministicGuid(userId, "onboarding")` (UUID-v5 shape).** Onboarding is 1:1 with the user; `StartStream<Onboarding>(deterministicId, ...)` becomes naturally idempotent — a retry hits a primary-key violation handled as "already started." Plan is 1:many per user, so it uses `CombGuidIdGeneration.NewGuid()` per plan.
+- **Hybrid deterministic-led "next question."** Anthropic's *Building effective agents* explicitly recommends workflows over agents for fixed-schema tasks. The six topics are textbook workflow territory; LangGraph, Vercel AI SDK 6's `ToolLoopAgent`, and every production intake bot examined converge on this pattern. Code picks the slot, model phrases the question, structured output extracts, code advances.
+- **Deterministic completion gate.** Completion triggers a significant, user-visible action (full plan generation). LLM-judged completion is too uncertain. The LLM surfaces ambiguity *before* the gate via `needs_clarification` and `ready_for_plan`; the gate itself is code.
+- **Re-trigger plan generation from settings is supported trivially.** The settings handler reads `UserProfile` (or `OnboardingView`), optionally accepts a `RegenerationIntent`, calls `ContextAssembler.ComposeForPlanGeneration(userId, intent)`, and starts a new Plan stream. No onboarding re-run required. If the user wants to *edit* specific answers, that's a separate `ReviseAnswer(Topic, NewValue)` command appending `AnswerCaptured` to the existing onboarding stream — preserving audit.
+- **GDPR erasability via Marten's tenant wipe.** `store.Advanced.DeleteAllTenantDataAsync(userId.ToString(), ct)` wipes every stream, every event, and every Marten-owned projection doc for that tenant in one call. Pair with EF `UserProfile` delete; done. Discipline: keep PII out of event payloads where feasible (`AnswerCaptured { Topic, NormalizedValue }`, not free-text user messages); use Marten's `AddMaskingRuleForProtectedInformation<T>` and `ApplyEventDataMasking()` where embedding PII is unavoidable.
+- **Slice 4's `ConversationTurn` is intentionally simpler.** Open-conversation chat is free-form, has no completion, has no structural projection requirement. EF append-only rows match Vercel AI SDK's `Message_v2` shape and are the mainstream pattern. `ContextAssembler` absorbs the difference between event-sourced onboarding and EF-backed open chat. Slice 1's choice does not constrain Slice 4.
+
+**Alternatives considered (and rejected):**
+
+- **(a) EF column on `UserProfile`** — destroys audit on every edit; fights prompt-cache (every snapshot reconstruction changes the prefix hash). Rejected.
+- **(b) Dedicated `OnboardingSession` EF table** — pattern (a) with better isolation; same core weaknesses (no replay, no audit, fights caching unless you reinvent pattern (d) in EF). Rejected.
+- **(c) Pure Marten with `UserProfile` purely derived** — wins on audit/replay but forces ASP.NET Identity's `UserProfile` through a Marten projection only, colliding with Identity-touching code paths and complicating GDPR. Pattern (d) preserves the EF `UserProfile` as authoritative AND gets the event log. Rejected.
+- **(e) Client-side accumulation** — excluded by DEC-044 (SPA is untrusted, refresh-prone) and by multi-device resume requirements. Rejected.
+- **(f) Per-property hybrid** — pattern (d) IS a hybrid (events in Marten, derived state in EF). No coherent case for splitting which answers go event-sourced vs column-mutated.
+
+**Cross-references:**
+
+- R-047 — Marten patterns landed in Batch 15; this decision applies the same pattern shape (per-user stream, Conjoined tenancy, Inline projection) to onboarding.
+- DEC-013 — original event-sourced plan state decision; this extends the pattern to onboarding rather than introducing a new architecture.
+- Slice 1 requirements: `docs/plans/mvp-0-cycle/slice-1-onboarding.md` (updated with R-048 integration notes; several previously-open items now resolved).
+- Spec home (when written): `docs/specs/{NN}-spec-slice-1-onboarding/`.
+- `Marten.EntityFrameworkCore` is the 2025–2026 first-class path for projecting events into EF entities; pin alongside Marten ≥ 8.20.
+- First-party `Anthropic` NuGet (v12.x as of April 2026) implements `Microsoft.Extensions.AI.IChatClient` — `ICoachingLlm` adapter sits over either the raw Anthropic client or M.E.AI with a config switch.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
