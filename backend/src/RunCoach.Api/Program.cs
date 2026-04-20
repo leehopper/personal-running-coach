@@ -46,6 +46,17 @@ builder.Host.UseWolverine(opts =>
 // reads and writes the `DataProtectionKeys` table through this context.
 builder.Services.AddDbContext<DpKeysContext>(options => options.UseNpgsql());
 
+// Apply pending EF migrations as an IHostedService on startup in Development.
+// Hosted services run inside `StartAsync` rather than between `Build()` and
+// `RunAsync()`, which keeps WebApplicationFactory integration tests happy
+// (the host is captured cleanly at Build time instead of racing migration
+// work happening in the entry-point). Prod migrations ship separately as
+// an efbundle deploy step (R-046, deferred to MVP-1).
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<DevelopmentMigrationService>();
+}
+
 // DataProtection persists the application-cookie / antiforgery signing keys to
 // Postgres via DpKeysContext — NEVER to the filesystem. Persisting to DB (DEC-046)
 // eliminates the single-instance-only `/keys`-volume failure mode and survives
@@ -97,16 +108,6 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
-
-// Apply pending EF migrations on Development startup. EF Core 10's
-// `IMigrationsDatabaseLock` makes this safe under concurrent starts; prod
-// migrations ship as a bundled step per R-046 (deferred to MVP-1).
-if (app.Environment.IsDevelopment())
-{
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<RunCoachDbContext>();
-    await db.Database.MigrateAsync();
-}
 
 // Fail fast at startup if any configured prompt YAML files are missing on disk.
 var promptStore = app.Services.GetRequiredService<IPromptStore>();
