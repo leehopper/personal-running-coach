@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Prompts;
@@ -37,9 +39,20 @@ builder.Host.UseWolverine(opts =>
 });
 
 // Thin DbContext exposing the DataProtection key entity set. Schema for the
-// table is materialized by RunCoachDbContext's initial migration; registration
-// of `PersistKeysToDbContext<DpKeysContext>` lands in T01.3.
+// table is materialized by RunCoachDbContext's initial migration; DataProtection
+// reads and writes the `DataProtectionKeys` table through this context.
 builder.Services.AddDbContext<DpKeysContext>(options => options.UseNpgsql());
+
+// DataProtection persists the application-cookie / antiforgery signing keys to
+// Postgres via DpKeysContext — NEVER to the filesystem. Persisting to DB (DEC-046)
+// eliminates the single-instance-only `/keys`-volume failure mode and survives
+// every container rebuild. Default 90-day rotation per framework defaults +
+// OWASP / NIST cadence. `ProtectKeysWithCertificate` / `ProtectKeysWithAzureKeyVault`
+// wrap this registration at MVP-1 pre-public-release.
+builder.Services.AddDataProtection()
+    .SetApplicationName("runcoach")
+    .PersistKeysToDbContext<DpKeysContext>()
+    .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -84,7 +97,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 app.MapControllers();
-app.MapHealthChecks("/health");
+
+// Process-liveness probe only — DB connectivity is covered by Marten / EF Core
+// startup probes, not by /health. Returns HTTP 200 with {"status":"ok"}.
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = static (context, _) =>
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+        return context.Response.WriteAsync("""{"status":"ok"}""");
+    },
+});
 
 await app.RunAsync();
 
