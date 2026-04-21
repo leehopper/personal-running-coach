@@ -2,6 +2,7 @@ using JasperFx;
 using JasperFx.CodeGeneration;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using OpenTelemetry.Metrics;
@@ -9,6 +10,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Prompts;
+using RunCoach.Api.Modules.Identity.Entities;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 
@@ -92,6 +94,27 @@ builder.Services.AddDataProtection()
     .SetApplicationName("runcoach")
     .PersistKeysToDbContext<DpKeysContext>()
     .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
+
+// ASP.NET Core Identity (core services only — NOT `AddIdentityApiEndpoints` or
+// `AddIdentity`). `AddIdentityCore` avoids the auto-mounted `/register` +
+// `/login` endpoints `AddIdentityApiEndpoints` ships; Slice 0 hand-rolls those
+// in `Modules/Identity/AuthController` so the contract stays under project
+// control and lands the `CookieOrBearer`-ready dual-scheme seam (R-045).
+// `AddRoles` brings the role-store services `UserManager.IsInRoleAsync` and
+// downstream authorization policies require. Password policy meets OWASP
+// ASVS L1 composition guidance (≥ 12 chars, four character classes).
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.Password.RequiredLength = 12;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireDigit = true;
+        options.Password.RequireNonAlphanumeric = true;
+    })
+    .AddRoles<IdentityRole<Guid>>()
+    .AddEntityFrameworkStores<RunCoachDbContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
 
 // OpenTelemetry tracing + metrics. ActivitySources + Meters are registered
 // unconditionally so instrumentation is always wired; the OTLP exporter is

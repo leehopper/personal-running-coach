@@ -8,6 +8,8 @@
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.7" />
     <!-- Console / Hosting -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
+    <!-- Auth — ASP.NET Core authentication -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.6" />
     <!-- Persistence — EF Core + Identity + DataProtection + Npgsql -->
     <PackageVersion Include="Aspire.Npgsql" Version="13.2.2" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.6" />
