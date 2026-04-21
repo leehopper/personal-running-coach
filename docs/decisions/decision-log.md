@@ -1494,4 +1494,95 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 
 ---
 
+## DEC-050: `UseHttpsRedirection` ungated + explicit `__Host-` cookie `Path = "/"` + pinned `https_port` in test fixture
+
+**Date:** 2026-04-21
+**Status:** Final
+**Category:** Auth substrate / Slice 0 / HTTPS contract / integration-test harness
+**Informed by:** R-056 (`batch-19a-httpsredirection-webapplicationfactory.md`).
+
+**Decision:**
+
+1. `app.UseHttpsRedirection()` is called unconditionally in `Program.cs` (no `!IsDevelopment()` gate), matching the .NET 10 MVC / Razor Pages / Blazor / Identity template idiom. The `HttpsRedirectionMiddleware` safely no-ops when it cannot resolve an HTTPS port — it logs a warning and passes the request through as HTTP rather than redirect-looping.
+2. `services.AddHttpsRedirection(o => o.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect)` is registered explicitly so a later contributor cannot flip to 308 (aggressively cached by browsers and intermediates; Microsoft docs warn against permanent redirects).
+3. The `__Host-RunCoach` application cookie sets `options.Cookie.Path = "/"` explicitly. RFC 6265bis §5.6 requires the `Path` attribute to be *present* for the `__Host-` prefix, not merely defaulted; omitting the explicit assignment silently drops the cookie in Chrome and Safari.
+4. `RunCoachAppFactory.ConfigureWebHost` calls `builder.UseSetting("https_port", "443")` so the in-memory `TestServer` — which has no `IServerAddressesFeature` — no longer emits `HttpsRedirectionMiddleware[3] "Failed to determine the https port for redirect."` on every request.
+5. When T02.5's auth-endpoint integration tests land, each `HttpClient` is created with `BaseAddress = new Uri("https://localhost")` + `AllowAutoRedirect = false` + `HandleCookies = false`. The HTTPS base flips `Request.IsHttps = true` inside the pipeline so `UseHttpsRedirection` short-circuits without any redirect and the handler emits `Secure` cookies against a request that is semantically HTTPS. Auto-redirect-off + no `CookieContainer` lets tests assert the raw `Set-Cookie` string.
+
+**Rationale:**
+
+- **Ungated `UseHttpsRedirection` is the .NET 10 template idiom.** Verified in `github.com/dotnet/aspnetcore/blob/main/src/ProjectTemplates/Web.ProjectTemplates/content/` and the reference `Program.cs` in the .NET 10 fundamentals doc. The middleware is designed to self-disable on unresolvable ports; the previous `!IsDevelopment()` gate added cognitive load without correctness gain.
+- **`__Host-` prefix without an explicit `Path` is a silent footgun.** RFC 6265bis §5.6 is strict about attribute presence. The bug is invisible in server logs and silent in tests — only a real browser catches it. Shipping the explicit `Path = "/"` before T02.4 writes login ensures the first end-to-end browser test of the login flow works on Chrome and Safari, not just Firefox.
+- **`UseSetting("https_port", "443")` in the test fixture** silences a warning log on every integration-test request without materially changing SUT behavior. The test client's `BaseAddress = https://localhost` (coming in T02.5) short-circuits the middleware anyway; the setting is belt-and-suspenders for any test that omits the HTTPS base.
+- **Forward-compat.** `AddHttpsRedirection(...)` with an explicit `HttpsPort` is the hook for pinning port `443` under a reverse proxy (Nginx / Azure Linux App Service / K8s ingress / YARP). MVP-1 deployment commits the actual port; until then the default resolution chain (`ASPNETCORE_HTTPS_PORT` → `https_port` host setting → `IServerAddressesFeature`) is good enough.
+- **`dotnet dev-certs https --trust` becomes a documented contributor prerequisite** (follow-up in the cycle plan). `__Host-` + `Secure` is functionally broken on `http://localhost` in Chrome and Safari — only Firefox tolerates it. Every major .NET OSS reference (eShop, Ardalis / jasontaylordev CleanArchitecture, Duende quickstarts, damienbod samples) keeps cookie attributes stable across environments and requires `dev-certs --trust`. Dev-only cookie weakening was considered and rejected.
+
+**Alternatives considered (and rejected):**
+
+- **Keep the `!IsDevelopment()` gate.** Defensible but non-idiomatic and adds one mental hop when reading `Program.cs`. Rejected in favor of template conformance.
+- **`IsProduction()`-only gate** (Staging also skips redirect). Rejected — Staging must behave like Production for security invariants; the whole point of Staging is catching HTTPS-related bugs before they ship.
+- **Drop `__Host-` prefix in Development, keep in Production.** Rejected. Every significant .NET OSS project keeps cookie attributes stable; divergence silently hides the attack classes the prefix closes (subdomain cookie-tossing, path-scoped overwrite).
+- **`WebApplicationFactory.UseKestrel()` for integration tests** (.NET 10 added this). Rejected as default for auth tests — set-cookie header assertions don't need real TLS; in-memory `TestServer` + HTTPS base address is faster, requires no port allocation, and has no certificate story. Reserve `UseKestrel()` for Playwright / Selenium E2E in T03.x.
+- **Local reverse proxy (YARP / Nginx / Caddy / Traefik) terminating TLS for dev.** Rejected as default for a single-service pre-Alpha app; .NET Aspire 13.1's `WithHttpsDeveloperCertificate` is the better path if RunCoach ever grows into a multi-service Aspire topology.
+- **mkcert as recommended dev default.** Rejected — .NET 10 `dotnet dev-certs --trust` now matches mkcert on SANs, WSL passthrough, and cross-platform support; introducing a second trust chain is unnecessary friction. Document mkcert as the escape hatch for corporate Linux machines where `dev-certs --trust` cannot run.
+
+**Cross-references:**
+
+- R-056 artifact: `docs/research/artifacts/batch-19a-httpsredirection-webapplicationfactory.md`.
+- DEC-044 — cookie-not-JWT browser auth; `__Host-` prefix contract.
+- Cycle plan: `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle — Forwarded Headers middleware deferred to MVP-1; `CONTRIBUTING.md` HTTPS-cert prerequisite captured for Slice 0 close-out.
+- RFC 6265bis §5.6 — `__Host-` prefix requirements.
+- dotnet/aspnetcore#27951 — `HttpsRedirectionMiddleware` silent-no-op footgun on unresolvable port (open).
+
+---
+
+## DEC-051: Strict-always JWT validation with env-gated `ValidateOnStart`; HS256 pin; source-generated options validator
+
+**Date:** 2026-04-21
+**Status:** Final
+**Category:** Auth substrate / Slice 0 / JWT holding-pattern posture
+**Informed by:** R-057 (`batch-19b-jwtbearer-opt-in-registration.md`).
+
+**Decision:**
+
+1. `TokenValidationParameters` for the JWT bearer scheme sets `ValidateIssuer`, `ValidateAudience`, `ValidateLifetime`, `ValidateIssuerSigningKey`, and `RequireSignedTokens` to `true` **unconditionally** — not gated on whether the corresponding config value is populated. When `Auth:Jwt` is absent, `IssuerSigningKey` is `null` and every incoming token fails closed with `IDX10500: No security keys were provided to validate the signature.` The handler registers regardless so the iOS-shim PR remains purely additive.
+2. `ValidAlgorithms` is pinned to `[SecurityAlgorithms.HmacSha256]`. This closes the historical HS/RS key-confusion attack class (attacker swaps the algorithm header to one the verifier applies to the wrong key material).
+3. `MapInboundClaims = false` on `JwtBearerOptions` — works with raw JWT claim names (`sub`, `role`) instead of the SOAP-style claim rewriting `JwtSecurityTokenHandler` inherits by default. This aligns with `JsonWebTokenHandler` (the .NET 8+ default) and is the 2026 idiom.
+4. HS256 is the chosen signing algorithm for first-party token issuance when the iOS shim lands. The iOS app is a token *carrier*, not a verifier; the backend is the only verifier. In this single-trust-boundary topology WorkOS and OpenIddict both recommend symmetric signing over RS256. RS256 / asymmetric keys are the right call only for multi-party / federated scenarios that RunCoach will not enter in MVP-0 or MVP-1.
+5. `JwtAuthOptions` is a `sealed class` with `[Required]` + `[MinLength]` DataAnnotations and a `string? KeyId` for the two-overlapping-keys rotation story. `JwtAuthOptionsValidator : IValidateOptions<JwtAuthOptions>` is generated by the `[OptionsValidator]` source generator (stable in .NET 8+, AOT-safe, reflection-free).
+6. `services.AddOptions<JwtAuthOptions>().BindConfiguration(JwtAuthOptions.SectionName).ValidateOnStart()` is called only outside `builder.Environment.IsDevelopment()`. Development and CI tolerate absent config (validator never fires). Production / Staging fail startup fast if any required value is missing. The test fixture runs under `UseEnvironment("Development")`, so `ValidateOnStart` is skipped and the existing test suite continues to boot without `Auth:Jwt` configured.
+
+**Rationale:**
+
+- **Gating `Validate*` on `!string.IsNullOrEmpty(config)` inverts "secure by default."** The previous T02.2 shape was narrowly safe today (no bearer endpoint; `RequireSignedTokens = true` default forces `IDX10500` fail-closed on any malformed or unsigned token), but it was a latent landmine. Under a future `Authority = "..."` edit with JWKS auto-discovery, any token signed by that authority would be accepted because `ValidateIssuer` / `ValidateAudience` would silently short-circuit to `false`. Under a leaked-HMAC-secret scenario, any attacker-crafted token would validate. RFC 8725 §2.1 / §3.9 and OWASP's JWT Cheat Sheet explicitly warn against the anti-pattern.
+- **`RequireSignedTokens = true` blocks `alg: none` independently of `ValidateIssuerSigningKey`.** Confirmed via `Microsoft.IdentityModel.Tokens.TokenValidationParameters` source (AzureAD/identitymodel repo) and Microsoft Learn's `RequireSignedTokens` docs (v8.15.0). `JsonWebTokenHandler.ValidateJWSAsync` rejects an unsigned token before the signing-key validators run.
+- **`PolicyEvaluator` iterates every scheme in `policy.AuthenticationSchemes` with no short-circuit** (aspnetcore `PolicyEvaluator.cs`). For `CookieOrBearer`, a bogus `Authorization: Bearer ...` header + a valid cookie merges cleanly: Bearer fails silently, Cookie succeeds, the authenticated principal is the cookie user. The JWT scheme registered with null keys cannot subvert the policy.
+- **HS256 for first-party single-trust-boundary issuance.** WorkOS's 2024 article states the principle directly: *"Use HS256 when your signing and verification happen in the same trust boundary, typically a single application or a small cluster of services that already share secrets through a secure channel."* OpenIddict: *"symmetric keys are always chosen first [for access tokens], except for identity tokens."* The Auth0 / SuperTokens / Supabase "RS256 is universally better" line applies to multi-tenant / multi-party systems; it over-applies here.
+- **Not `AddBearerToken`.** Per Andrew Lock's November 2023 post *"Should you use the .NET 8 Identity API endpoints?"* and Tore Nestenius's `BearerToken: The new Authentication handler in .NET 8`, `AddBearerToken` produces opaque Data-Protection-encrypted tokens that are *not* JWTs, cannot be parsed by any JWT library, cannot be decoded by iOS inspection tooling or Postman, and are intentionally coupled to `MapIdentityApi<TUser>()` — the non-standard ROPC grant implementation. For an iOS shim wanting inspectable JWT claims, `AddJwtBearer` + issue JWTs yourself via `JsonWebTokenHandler` is the correct path.
+- **`[OptionsValidator]` is the 2026 canonical replacement for `ValidateDataAnnotations`** (Microsoft Learn's "Compile-time options validation source generation"). Rewrites the DataAnnotation attributes into reflection-free validators so `PublishAot` stops warning IL2025 / IL3050 when RunCoach later adopts AOT.
+- **`ValidateOnStart` is hosted-service-driven** (`dotnet/aspnetcore#56453`). It only fires when `IHost.StartAsync` runs. Tests and CI naturally skip it under `UseEnvironment("Development")`. Production startup genuinely fails fast.
+- **No public CVE indicts permissive `TokenValidationParameters` as a library bug** — it's treated as a configuration defect. Package pins already satisfy CVE-2024-21319 / 21643 / 30105 (Microsoft.IdentityModel.* ≥ 7.1.2; current 8.x; `Microsoft.AspNetCore.Authentication.JwtBearer` 10.0.6).
+
+**Alternatives considered (and rejected):**
+
+- **Don't register `AddJwtBearer` until the iOS shim actually needs it** (YAGNI). Equally idiomatic. Rejected because it pushes a `Program.cs` + authorization-policy diff into the iOS-shim PR instead of keeping that PR purely additive (new endpoint + new appsettings section only). Keeping the `CookieOrBearer` policy shape-stable across the iOS transition was an explicit cycle-plan-level goal of T02.2.
+- **Keep permissive validation** (current T02.2 shape, before research). Not currently exploitable but inverts secure-by-default. Rejected for latent-landmine reasons above.
+- **`UseEnvironment("Testing")` + `ValidateOnStart` gated on `!IsDevelopment() && !IsEnvironment("Testing")`.** The artifact's recommended test-host environment. Rejected for now because switching to `Testing` would require adding a separate migration trigger for the test env (`DevelopmentMigrationService` is currently gated on `IsDevelopment()`). The `Development`-gate is clean and correct as long as Dev and Test share the migration behavior — which they do today.
+- **RS256 with `RsaSecurityKey`.** Rejected for this topology; HS256 is simpler, faster, AOT-friendly, and correct for a single-trust-boundary backend-only verifier. Revisit only if RunCoach federates or exposes a JWKS endpoint.
+- **`AddBearerToken`.** Rejected as above — opaque tokens, coupled to `MapIdentityApi`, not JWTs.
+- **`NetDevPack.Security.Jwt` for auto-rotation + JWKS.** Out of scope for Slice 0 (no real issuance yet). Revisit if RunCoach ever needs JWKS or federation.
+
+**Cross-references:**
+
+- R-057 artifact: `docs/research/artifacts/batch-19b-jwtbearer-opt-in-registration.md`.
+- DEC-033 — iOS companion deferred to MVP-1; bearer scheme registers now so the iOS PR is additive.
+- DEC-044 — browser auth uses the cookie, not a bearer.
+- Cycle plan: `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle — test-host `UseEnvironment("Testing")` migration captured as Slice 0 close-out follow-up.
+- RFC 8725 — JWT Best Current Practices.
+- OWASP JWT Cheat Sheet.
+- dotnet/aspnetcore#56453 — `ValidateOnStart` hosted-service trigger.
+- dotnet/aspnetcore#49469 — aspnetcore on `JsonWebTokenHandler` (the .NET 8+ default).
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
