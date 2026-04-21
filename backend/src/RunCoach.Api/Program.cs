@@ -1,9 +1,13 @@
+using System.Text;
 using JasperFx;
 using JasperFx.CodeGeneration;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -116,6 +120,69 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
+builder.Services.Configure<JwtAuthOptions>(
+    builder.Configuration.GetSection(JwtAuthOptions.SectionName));
+
+// The bearer scheme is registered as a non-default handler so an iOS client
+// (DEC-033) can authenticate against the same authorization policies without
+// further changes. `AddJwtBearer` hangs off `AuthenticationBuilder`, whereas
+// `AddIdentityCookies` returns an `IdentityCookiesBuilder`, so the two calls
+// cannot be chained. `TokenValidationParameters` are composed by the options
+// pipeline below, not here, so env-var overrides applied at test-init time
+// are picked up.
+var authBuilder = builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme);
+authBuilder.AddIdentityCookies(options =>
+{
+    options.ApplicationCookie?.Configure(cookie =>
+    {
+        cookie.Cookie.Name = "__Host-RunCoach";
+        cookie.Cookie.HttpOnly = true;
+        cookie.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        cookie.Cookie.SameSite = SameSiteMode.Lax;
+        cookie.ExpireTimeSpan = TimeSpan.FromDays(14);
+        cookie.SlidingExpiration = true;
+    });
+});
+authBuilder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, _ => { });
+
+builder.Services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtAuthOptions>>((bearer, jwt) =>
+    {
+        var o = jwt.Value;
+        var hasSigningKey = !string.IsNullOrEmpty(o.SigningKey);
+        bearer.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = !string.IsNullOrEmpty(o.Issuer),
+            ValidIssuer = o.Issuer,
+            ValidateAudience = !string.IsNullOrEmpty(o.Audience),
+            ValidAudience = o.Audience,
+            ValidateIssuerSigningKey = hasSigningKey,
+            IssuerSigningKey = hasSigningKey
+                ? new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.SigningKey!))
+                : null,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(
+        AuthPolicies.CookieOrBearer,
+        policy => policy
+            .AddAuthenticationSchemes(
+                IdentityConstants.ApplicationScheme,
+                JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser());
+});
+
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-XSRF-TOKEN";
+    options.Cookie.Name = "__Host-Xsrf";
+});
+
 // OpenTelemetry tracing + metrics. ActivitySources + Meters are registered
 // unconditionally so instrumentation is always wired; the OTLP exporter is
 // gated on `OTEL_EXPORTER_OTLP_ENDPOINT` being set so test runs without a
@@ -159,11 +226,19 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
 builder.Services.AddApplicationModules(builder.Configuration);
 
+// CORS — explicit origin is mandatory because `AllowCredentials()` is
+// incompatible with `AllowAnyOrigin()` (per the CORS spec, and ASP.NET Core
+// throws at the first preflight). HTTPS-only because the `__Host-RunCoach`
+// application cookie is `Secure`-flagged and only transmitted over TLS.
+// `AllowCredentials` is required so the browser includes the cookie (and
+// echoes the `X-XSRF-TOKEN` header) on cross-origin API calls from the Vite
+// dev server.
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins("https://localhost:5173")
+            .AllowCredentials()
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -196,7 +271,29 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// HTTPS redirect runs outside Development so the `WebApplicationFactory`
+// HTTP test server + local `dotnet run` without an HTTPS profile do not
+// redirect-loop. Production and Staging enforce HTTPS end-to-end; the
+// `__Host-RunCoach` cookie's Secure + SameSite=Lax + __Host- prefix is
+// contingent on that transport.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+// Middleware order (Microsoft guidance + R-044 auth pipeline):
+//   Routing → CORS → Authentication → Authorization → Antiforgery → Endpoints.
+// `UseAntiforgery` must run after `UseAuthorization` so the antiforgery
+// middleware sees the authenticated principal (spec 12 §Unit 2). Static
+// files + SPA fallback are not wired in Slice 0 — the Vite dev server
+// serves the SPA; when the API eventually hosts the built SPA those two
+// slots land between `UseHttpsRedirection` and `UseRouting` / after
+// `MapControllers` respectively.
+app.UseRouting();
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseAntiforgery();
 app.MapControllers();
 
 // Process-liveness probe — DB connectivity is covered by Marten /
