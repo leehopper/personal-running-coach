@@ -1,9 +1,9 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 0 (Foundation) — Unit 1 persistence substrate PR (#49) open. DEC-048 composition corrections and DEC-049 startup unblock both applied; full `WebApplicationFactory<Program>` fixture + six SUT-host smoke tests green locally (581 passing / 0 failing / 1 skipped before the PR #49 review pass; after review changes: 582 passing / 0 failing / 0 skipped).
-**Next step:** Resolve CI checks on PR #49 (Linux-only backend test failure, license-review false positives), then address CodeRabbit review findings and merge. After merge, begin Unit 2 (Auth API — T02.x). DEC-044 (cookie-not-JWT browser auth), DEC-045 (Aspire deferred to MVP-1), DEC-046 (SOPS + Postgres-DataProtection secrets), DEC-047 (onboarding event-source pattern), DEC-048 (Marten `IntegrateWithWolverine` as sole envelope-storage wiring), and DEC-049 (disable host-config reload on macOS arm64 + drop manual `MapWolverineEnvelopeStorage`) capture the architecture pivots and the R-055 fix.
-**Blockers:** None. R-055 resolved 2026-04-20 — artifact at `docs/research/artifacts/batch-18b-webapplication-createbuilder-hang-followup.md`, fix captured in DEC-049.
+**Active slice:** Slice 0 (Foundation) — Unit 1 persistence substrate shipped (PR #49 merged 2026-04-21, commit `46348fc`; all 14 CI checks green on merge). DEC-048 (Marten `IntegrateWithWolverine` as sole envelope-storage wiring) and DEC-049 (disable host-config reload on macOS arm64 + drop manual `MapWolverineEnvelopeStorage`) both landed with the merge; full `WebApplicationFactory<Program>` fixture + six SUT-host smoke tests carry 582 passing / 0 failing / 0 skipped locally.
+**Next step:** Begin Unit 2 (T02.x — Auth API) starting with T02.1 (JwtBearer package + Identity Core registration + password policy + `CookieOrBearer` name), then T02.2 → T02.5 (auth schemes + antiforgery + middleware, global exception handler, `AuthController`, integration-test matrix). Slice 0 acceptance remains gated on Unit 2 (auth endpoints) + Unit 3 (frontend auth UX). DEC-044 (cookie-not-JWT browser auth), DEC-045 (Aspire deferred to MVP-1), DEC-046 (SOPS + Postgres-DataProtection secrets), and DEC-047 (onboarding event-source pattern) remain the architectural anchors for subsequent slices.
+**Blockers:** None.
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 
