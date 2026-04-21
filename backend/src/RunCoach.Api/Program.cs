@@ -226,6 +226,14 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
 builder.Services.AddApplicationModules(builder.Configuration);
 
+// Enables the RFC 7807 problem-details writer (IProblemDetailsService) for
+// every unhandled status code + for responses written via UseExceptionHandler.
+// [ApiController] already produces ValidationProblemDetails on 400s; this
+// registration extends the ProblemDetails shape to 500s and the built-in
+// status-code middleware without further configuration.
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ErrorHandlingMiddleware>();
+
 // CORS — explicit origin is mandatory because `AllowCredentials()` is
 // incompatible with `AllowAnyOrigin()` (per the CORS spec, and ASP.NET Core
 // throws at the first preflight). HTTPS-only because the `__Host-RunCoach`
@@ -264,6 +272,13 @@ if (promptStore is YamlPromptStore yamlStore)
 {
     yamlStore.ValidateConfiguredVersions();
 }
+
+// Global exception handler runs first so it catches anything thrown by
+// downstream middleware or endpoint handlers. Combined with AddProblemDetails
+// every uncaught exception surfaces as an RFC 7807 application/problem+json
+// response rather than an HTML error page. The Development detail is verbose;
+// other environments return a generic detail (handled inside ErrorHandlingMiddleware).
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
