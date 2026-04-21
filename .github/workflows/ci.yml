@@ -58,9 +58,19 @@ jobs:
       - name: Build
         run: dotnet build backend/RunCoach.slnx --no-restore
       - name: Test
-        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true
+        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true -- --report-trx
         env:
           EVAL_CACHE_MODE: Replay
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
+        with:
+          name: backend-test-results
+          path: |
+            backend/tests/**/TestResults/**/*.trx
+            backend/tests/**/TestResults/**/*.log
+          retention-days: 7
+          if-no-files-found: warn
       - name: Upload coverage
         uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad  # v5.5.3
         with:
