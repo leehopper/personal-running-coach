@@ -26,11 +26,16 @@ namespace RunCoach.Api.Tests.Infrastructure;
 public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private const string ReuseLabel = "runcoach-tests";
+    private const string ConnectionStringEnvVar = "ConnectionStrings__runcoach";
+    private const string OtlpEndpointEnvVar = "OTEL_EXPORTER_OTLP_ENDPOINT";
     private static readonly bool IsCi =
         string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
 
     private readonly PostgreSqlContainer _container;
     private Respawner? _respawner;
+    private string? _priorConnectionString;
+    private string? _priorOtlpEndpoint;
+    private bool _envVarsOverridden;
 
     public RunCoachAppFactory()
     {
@@ -50,24 +55,32 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
     {
         await _container.StartAsync();
 
-        // Override the SUT's connection string via an environment variable so
-        // every consumer (EF, Marten, Wolverine outbox, DataProtection) resolves
-        // the Testcontainers Postgres instead of whatever user-secrets / env
-        // var the host would otherwise pick up for local `dotnet run`. Env vars
-        // take precedence over the JSON config providers in .NET's default
-        // chain, which `ConfigureAppConfiguration` overrides do not reliably
-        // beat on this stack.
-        Environment.SetEnvironmentVariable("ConnectionStrings__runcoach", ConnectionString);
-        Environment.SetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT", null);
+        // Override the SUT's connection string via process-wide environment
+        // variables so every consumer (EF, Marten, Wolverine outbox,
+        // DataProtection) resolves the Testcontainers Postgres instead of
+        // whatever user-secrets / env var the host would otherwise pick up for
+        // local `dotnet run`. Env vars take precedence over the JSON config
+        // providers in .NET's default chain, which `ConfigureAppConfiguration`
+        // and `IWebHostBuilder.UseSetting` overrides did not reliably beat on
+        // this stack per R-055.
+        //
+        // The mutation is scoped: prior values are captured here and restored
+        // in DisposeAsync so the process state after the fixture disposes is
+        // indistinguishable from before it ran. This guards against leaking
+        // into any adjacent `WebApplicationFactory` instance that might later
+        // land in the same test assembly.
+        _priorConnectionString = Environment.GetEnvironmentVariable(ConnectionStringEnvVar);
+        _priorOtlpEndpoint = Environment.GetEnvironmentVariable(OtlpEndpointEnvVar);
+        Environment.SetEnvironmentVariable(ConnectionStringEnvVar, ConnectionString);
+        Environment.SetEnvironmentVariable(OtlpEndpointEnvVar, null);
+        _envVarsOverridden = true;
 
         // Apply the Slice 0 EF migration against the container before the SUT
         // boots, so any test that resolves the SUT's host finds the schema
-        // ready. Using a throwaway DbContext bypasses the SUT's startup path —
-        // keeps migration time outside the WebApplicationFactory boot window.
-        var options = new DbContextOptionsBuilder<RunCoachDbContext>()
-            .UseNpgsql(ConnectionString)
-            .Options;
-        await using (var db = new RunCoachDbContext(options))
+        // ready. Using CreateDbContext() bypasses the SUT's startup path —
+        // keeps migration time outside the WebApplicationFactory boot window —
+        // and reuses the same options-builder wiring the public helper exposes.
+        await using (var db = CreateDbContext())
         {
             await db.Database.MigrateAsync();
         }
@@ -86,6 +99,12 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
     {
         await base.DisposeAsync();
         await _container.DisposeAsync();
+
+        if (_envVarsOverridden)
+        {
+            Environment.SetEnvironmentVariable(ConnectionStringEnvVar, _priorConnectionString);
+            Environment.SetEnvironmentVariable(OtlpEndpointEnvVar, _priorOtlpEndpoint);
+        }
     }
 
     /// <summary>

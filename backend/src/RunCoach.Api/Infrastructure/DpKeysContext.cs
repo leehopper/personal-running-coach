@@ -12,5 +12,5 @@ namespace RunCoach.Api.Infrastructure;
 public class DpKeysContext(DbContextOptions<DpKeysContext> options)
     : DbContext(options), IDataProtectionKeyContext
 {
-    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 }
