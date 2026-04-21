@@ -151,5 +151,14 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         // that add extra reloadable config sources) from re-enabling the
         // watchers.
         builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
+
+        // The in-memory TestServer has no IServerAddressesFeature, so the
+        // HttpsRedirectionMiddleware cannot resolve the HTTPS port on its own
+        // and logs "[3] Failed to determine the https port for redirect." on
+        // every request. Pinning it here silences the warning (R-056). Auth
+        // tests additionally set `BaseAddress = https://localhost` on the
+        // client so `Request.IsHttps = true` and the middleware short-circuits
+        // without any redirect.
+        builder.UseSetting("https_port", "443");
     }
 }

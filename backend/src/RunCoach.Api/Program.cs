@@ -120,8 +120,19 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.Configure<JwtAuthOptions>(
-    builder.Configuration.GetSection(JwtAuthOptions.SectionName));
+var jwtAuthOptions = builder.Services
+    .AddOptions<JwtAuthOptions>()
+    .BindConfiguration(JwtAuthOptions.SectionName);
+builder.Services.AddSingleton<IValidateOptions<JwtAuthOptions>, JwtAuthOptionsValidator>();
+
+// Fail-fast in Production / Staging if Auth:Jwt is missing or malformed.
+// Development and CI tolerate absence — the scheme still registers so the
+// iOS shim PR is additive, and the JWT handler fails every incoming token
+// closed (IDX10500) until real config lands.
+if (!builder.Environment.IsDevelopment())
+{
+    jwtAuthOptions.ValidateOnStart();
+}
 
 // The bearer scheme is registered as a non-default handler so an iOS client
 // (DEC-033) can authenticate against the same authorization policies without
@@ -136,6 +147,11 @@ authBuilder.AddIdentityCookies(options =>
     options.ApplicationCookie?.Configure(cookie =>
     {
         cookie.Cookie.Name = "__Host-RunCoach";
+
+        // RFC 6265bis §5.6 requires the Path attribute to be present (not merely
+        // defaulted) for the __Host- prefix to satisfy the browser storage check
+        // (R-056). Omitting it silently drops the cookie in Chrome / Safari.
+        cookie.Cookie.Path = "/";
         cookie.Cookie.HttpOnly = true;
         cookie.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         cookie.Cookie.SameSite = SameSiteMode.Lax;
@@ -145,23 +161,36 @@ authBuilder.AddIdentityCookies(options =>
 });
 authBuilder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, _ => { });
 
+// Strict-always validation per R-057. With config absent, IssuerSigningKey is
+// null and every token fails closed with IDX10500; when config lands the same
+// flags stay on. Gating Validate* on config presence (the previous shape)
+// inverts "secure by default" and becomes a latent landmine under future
+// Authority= / HMAC-only edits (RFC 8725 §2.1 / §3.9, OWASP JWT Cheat Sheet).
+// ValidAlgorithms pinned to HS256 closes the HS/RS key-confusion attack class.
+// MapInboundClaims = false keeps raw JWT claim names (sub / role) instead of
+// the SOAP-style claim rewriting JwtSecurityTokenHandler inherits by default.
 builder.Services
     .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
     .Configure<IOptions<JwtAuthOptions>>((bearer, jwt) =>
     {
         var o = jwt.Value;
-        var hasSigningKey = !string.IsNullOrEmpty(o.SigningKey);
+        bearer.MapInboundClaims = false;
         bearer.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = !string.IsNullOrEmpty(o.Issuer),
-            ValidIssuer = o.Issuer,
-            ValidateAudience = !string.IsNullOrEmpty(o.Audience),
-            ValidAudience = o.Audience,
-            ValidateIssuerSigningKey = hasSigningKey,
-            IssuerSigningKey = hasSigningKey
-                ? new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.SigningKey!))
-                : null,
+            ValidateIssuer = true,
+            ValidateAudience = true,
             ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            RequireSignedTokens = true,
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+            ValidIssuer = o.Issuer,
+            ValidAudience = o.Audience,
+            IssuerSigningKey = string.IsNullOrEmpty(o.SigningKey)
+                ? null
+                : new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.SigningKey))
+                {
+                    KeyId = o.KeyId ?? "current",
+                },
             ClockSkew = TimeSpan.FromSeconds(30),
         };
     });
@@ -181,6 +210,18 @@ builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "X-XSRF-TOKEN";
     options.Cookie.Name = "__Host-Xsrf";
+});
+
+// 307 is the HttpsRedirectionMiddleware default; pinning it explicitly avoids
+// a later contributor flipping to 308 (aggressively cached by browsers /
+// intermediates — dotnet/aspnetcore docs warn against permanent HTTPS
+// redirects). HttpsPort is resolved from `ASPNETCORE_HTTPS_PORT`, the
+// `https_port` host setting, or `IServerAddressesFeature` in that order — the
+// RunCoachAppFactory sets the host setting so the warning log stays silent
+// under the in-memory TestServer (R-056).
+builder.Services.AddHttpsRedirection(options =>
+{
+    options.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect;
 });
 
 // OpenTelemetry tracing + metrics. ActivitySources + Meters are registered
@@ -286,15 +327,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// HTTPS redirect runs outside Development so the `WebApplicationFactory`
-// HTTP test server + local `dotnet run` without an HTTPS profile do not
-// redirect-loop. Production and Staging enforce HTTPS end-to-end; the
-// `__Host-RunCoach` cookie's Secure + SameSite=Lax + __Host- prefix is
-// contingent on that transport.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+// Ungated per .NET 10 template idiom (R-056). The middleware safely no-ops
+// when it cannot resolve an HTTPS port — `HttpsRedirectionMiddleware` logs
+// `[3] "Failed to determine the https port for redirect."` and passes through
+// as HTTP, rather than redirect-looping. Under `WebApplicationFactory` the
+// test client's `BaseAddress = https://localhost` flips `Request.IsHttps=true`
+// so the middleware short-circuits without any redirect at all.
+app.UseHttpsRedirection();
 
 // Middleware order (Microsoft guidance + R-044 auth pipeline):
 //   Routing → CORS → Authentication → Authorization → Antiforgery → Endpoints.

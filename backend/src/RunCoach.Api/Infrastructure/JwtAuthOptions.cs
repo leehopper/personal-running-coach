@@ -1,39 +1,55 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace RunCoach.Api.Infrastructure;
 
 /// <summary>
 /// Strongly-typed configuration for the JWT bearer scheme registered as an
-/// opt-in, non-default handler reserved for the future iOS shim. Bound from
-/// the <c>Auth:Jwt</c> section: user-secrets locally, environment variables
-/// in CI/prod (never committed). In Slice 0 no endpoint accepts the bearer
-/// scheme, so absent configuration is tolerated — the scheme still registers
-/// so the iOS addition lands as a purely additive change.
+/// opt-in, non-default handler reserved for the future iOS shim (DEC-033).
+/// Bound from the <c>Auth:Jwt</c> section: user-secrets locally, environment
+/// variables in CI/prod (never committed).
 /// </summary>
-public sealed record JwtAuthOptions
+/// <remarks>
+/// Slice 0 has no endpoint that accepts the bearer scheme. Absent values are
+/// tolerated in Development and CI because <c>ValidateOnStart</c> is only
+/// called outside <c>IsDevelopment()</c>; the JWT handler's strict-always
+/// validation (R-057) then rejects every incoming token with
+/// <c>IDX10500</c> until real config lands. In Production / Staging,
+/// startup fails fast if any required value is missing.
+/// </remarks>
+public sealed class JwtAuthOptions
 {
     /// <summary>
-    /// Configuration section name, kept alongside the type so binding sites
-    /// reference the constant instead of a magic string.
+    /// Gets the configuration section name, kept alongside the type so
+    /// binding sites reference the constant instead of a magic string.
     /// </summary>
     public const string SectionName = "Auth:Jwt";
 
     /// <summary>
-    /// Gets token issuer (<c>iss</c> claim). When absent, issuer validation is
-    /// disabled — acceptable while no endpoint accepts bearer tokens.
+    /// Gets the token issuer (<c>iss</c> claim).
     /// </summary>
+    [Required]
+    [MinLength(1)]
     public string? Issuer { get; init; }
 
     /// <summary>
-    /// Gets expected audience (<c>aud</c> claim). When absent, audience validation
-    /// is disabled.
+    /// Gets the expected audience (<c>aud</c> claim).
     /// </summary>
+    [Required]
+    [MinLength(1)]
     public string? Audience { get; init; }
 
     /// <summary>
-    /// Gets symmetric HMAC signing key. Must be ≥ 32 bytes for HS256 to satisfy
-    /// RFC 7518 §3.2. When absent, signature validation is disabled — the
-    /// handler still registers but any bearer token that reaches it will
-    /// fail authentication, which is fine until the iOS shim wires a real
-    /// token-issuance endpoint.
+    /// Gets the symmetric HMAC signing key. Must be ≥ 32 bytes for HS256 to
+    /// satisfy RFC 7518 §3.2.
     /// </summary>
+    [Required]
+    [MinLength(32)]
     public string? SigningKey { get; init; }
+
+    /// <summary>
+    /// Gets the key identifier emitted in the JWT <c>kid</c> header. Optional
+    /// today, load-bearing for the two-overlapping-keys rotation story when
+    /// the iOS shim lands.
+    /// </summary>
+    public string? KeyId { get; init; }
 }
