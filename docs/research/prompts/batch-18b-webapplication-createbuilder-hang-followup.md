@@ -35,7 +35,7 @@ I instrumented `Program.cs` with `File.AppendAllText("/tmp/rc-startup.log", ...)
 
 After a full 5-minute timeout, the trace file contained **exactly one line**:
 
-```
+```text
 [2026-04-20T20:07:28.2260750-05:00] Main started pid=49765
 ```
 
@@ -48,7 +48,7 @@ Supporting observations:
 - The hang is **fully synchronous** — no visible `async` sandwich before it.
 - Timeout stack (captured after 5:00):
 
-  ```
+  ```text
   System.InvalidOperationException : Timed out waiting for the entry point to build the IHost after 00:05:00.
       at Microsoft.Extensions.Hosting.HostFactoryResolver.HostingListener.CreateHost()
       at Microsoft.Extensions.Hosting.HostFactoryResolver.<>c__DisplayClass10_0.<ResolveHostFactory>b__0(String[] args)
