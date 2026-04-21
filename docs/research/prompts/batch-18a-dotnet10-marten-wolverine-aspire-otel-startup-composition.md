@@ -41,7 +41,7 @@ The SUT boot appears to deadlock reproducibly. The proof file at `docs/specs/12-
 >
 > Under `WebApplicationFactory`, this manifests as:
 >
-> ```
+> ```text
 > System.InvalidOperationException : Timed out waiting for the entry point
 >   to build the IHost after 00:05:00.
 >     at Microsoft.Extensions.Hosting.HostFactoryResolver.HostingListener.CreateHost()

@@ -52,10 +52,11 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
 
         // Override the SUT's connection string via an environment variable so
         // every consumer (EF, Marten, Wolverine outbox, DataProtection) resolves
-        // the Testcontainers Postgres, not the localhost:5432 fallback in
-        // appsettings.Development.json. Env vars take precedence over the JSON
-        // config providers in .NET's default chain, which `ConfigureAppConfiguration`
-        // overrides do not reliably beat on this stack.
+        // the Testcontainers Postgres instead of whatever user-secrets / env
+        // var the host would otherwise pick up for local `dotnet run`. Env vars
+        // take precedence over the JSON config providers in .NET's default
+        // chain, which `ConfigureAppConfiguration` overrides do not reliably
+        // beat on this stack.
         Environment.SetEnvironmentVariable("ConnectionStrings__runcoach", ConnectionString);
         Environment.SetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT", null);
 
