@@ -62,9 +62,20 @@ jobs:
         run: dotnet build backend/RunCoach.slnx --no-restore --no-incremental
 
       - name: Test with coverage
-        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true
+        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true -- --report-trx
         env:
           EVAL_CACHE_MODE: Replay
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
+        with:
+          name: backend-analysis-test-results
+          path: |
+            backend/tests/**/TestResults/**/*.trx
+            backend/tests/**/TestResults/**/*.log
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: SonarScanner end
         if: env.SONAR_PRESENT == 'true'

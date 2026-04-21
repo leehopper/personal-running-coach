@@ -52,7 +52,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:5000
-      ConnectionStrings__PostgreSQL: "Host=postgres;Port=5432;Database=runcoach;Username=runcoach;Password=runcoach_dev"
+      ConnectionStrings__runcoach: "Host=postgres;Port=5432;Database=runcoach;Username=runcoach;Password=runcoach_dev"
       ConnectionStrings__Redis: "redis:6379"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
     depends_on:
@@ -76,7 +76,8 @@ services:
     volumes:
       - ./frontend/src:/app/src
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:

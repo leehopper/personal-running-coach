@@ -36,7 +36,14 @@ commit-msg:
       run: npx commitlint --edit {1}
 
 pre-push:
-  parallel: true
+  # Serial execution: dotnet-test and eval-cache-replay both invoke
+  # `dotnet test RunCoach.slnx`, and concurrent MSBuild invocations race on
+  # incremental-target stamp files (e.g. GenerateMvcTestManifestTask writing
+  # obj/Debug/net10.0/MvcTestingAppManifest.json → IOException under parallel
+  # execution). `parallel: false` serializes the hooks so any future pre-push
+  # command that also builds stays safe by default. typescript-check is
+  # frontend-only and does not race, but is cheap enough to run serially.
+  parallel: false
   commands:
     dotnet-test:
       root: "backend/"

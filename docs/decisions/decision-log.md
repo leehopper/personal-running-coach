@@ -1416,4 +1416,82 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 
 ---
 
+## DEC-048: Marten `IntegrateWithWolverine()` is the sole envelope-storage wiring path; Wolverine's `PersistMessagesWithPostgresql` is prohibited
+
+**Date:** 2026-04-20
+**Status:** Final
+**Category:** Persistence / host composition / Slice 0 substrate
+**Informed by:** R-054 (`batch-18a-dotnet10-marten-wolverine-aspire-otel-startup-composition.md`).
+
+**Decision:** In every RunCoach project that registers both Marten and Wolverine against the same Postgres, the Wolverine envelope-storage tables shall be installed by **Marten's `.IntegrateWithWolverine()`** alone. `opts.PersistMessagesWithPostgresql(...)` inside `UseWolverine` is **prohibited** — the two call sites double-wire envelope storage and are the leading suspected cause of the 2026-04-20 startup hang. The shared `NpgsqlDataSource` is registered once via `builder.AddNpgsqlDataSource("runcoach")` (the `Aspire.Npgsql` extension on `IHostApplicationBuilder`, not the `Npgsql.DependencyInjection` extension on `IServiceCollection` — dotnet/aspire#1515). Every downstream consumer — EF Core `DbContext`s, Marten via `.UseNpgsqlDataSource()`, Wolverine's EF integration via `opts.Services.AddDbContextWithWolverineIntegration<T>((sp, o) => o.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>()))`, DataProtection via `DpKeysContext` — resolves that singleton from DI. **Hand-built `new NpgsqlDataSourceBuilder(...)` is prohibited**; it forks DEC-046's rotation seam. `AddDbContextWithWolverineIntegration<T>` must live inside the `UseWolverine(opts => ...)` callback so Wolverine's handler-discovery codegen can see the DbContext; top-level placement silently disables `AutoApplyTransactions`.
+
+`builder.Host.ApplyJasperFxExtensions()` shall be called before `AddMarten` and `UseWolverine` so `CritterStackDefaults` apply to both code generators. `DaemonMode.Solo` (Marten async daemon) must pair with `opts.Durability.Mode = DurabilityMode.Solo` (Wolverine durability) — `HotCold` takes advisory locks that collide with `ApplyAllDatabaseChangesOnStartup`. The OpenTelemetry OTLP exporter shall be registered conditionally on `OTEL_EXPORTER_OTLP_ENDPOINT` being non-empty so test runs without a collector never block on the 30 s shutdown flush. `ValidateScopes = true` in Development always; `ValidateOnBuild` stays `false` until Wolverine handler types are pre-generated via `dotnet run -- codegen write`. The `public partial class Program;` trailer is prohibited on .NET 10 (analyzer ASP0027; Web SDK source generator emits it automatically).
+
+**Rationale:**
+
+- **The double-wire is the hang.** R-054's primary finding: the original Slice 0 composition registered both `Marten.IntegrateWithWolverine()` AND an `IWolverineExtension` that called `PersistMessagesWithPostgresql(NpgsqlDataSource)`. Every JasperFx reference sample (`WebApiWithMarten`, `OrderSagaSample`, `DiagnosticsApp`) uses `IntegrateWithWolverine` alone. The `wolverine_envelopes` / `wolverine_nodes` / `wolverine_dead_letters` tables get created twice under `ApplyAllDatabaseChangesOnStartup` — usually loud, but in racing startup conditions advisory-lock-waits silently and never yields control back to `builder.Build()`, tripping the 5-minute `HostFactoryResolver` timeout with zero log output.
+- **DEC-046's rotation seam depends on exactly one `NpgsqlDataSource` instance.** `NpgsqlDataSourceBuilder.UsePeriodicPasswordProvider(...)` rotates credentials for every consumer bound to that builder. A second data source forked inside `UseWolverine` (the uncommitted working-tree workaround before this decision landed) means half the consumers see rotated credentials and half don't — manifests as `28P01` errors on the Wolverine outbox only, persisting until process restart.
+- **`AddDbContextWithWolverineIntegration` placement is non-obvious and undocumented.** Top-level `builder.Services.AddDbContextWithWolverineIntegration<T>(...)` registers the DbContext and appears to work, but Wolverine's codegen runs inside `UseWolverine` composition and only discovers DbContexts registered via `opts.Services`. `Policies.AutoApplyTransactions()` silently no-ops for contexts registered at the top level — a bug that only surfaces when a handler that should open a transaction doesn't.
+- **Conditional OTLP exporter keeps `dotnet test` fast.** OTel 1.15.x does zero synchronous network I/O at startup, so the exporter can't cause the startup hang, but at process shutdown the `BatchExportProcessor.ForceFlush` waits up to 30 s for the collector to acknowledge. In CI with no collector listening, every integration-test shutdown eats 30 s. Gating `AddOtlpExporter`/`UseOtlpExporter` on the env var being set removes the cost without a code branch.
+- **.NET 10's Web SDK source generator emits `public partial class Program`** — the manual trailer the test project needs to see is already generated. Leaving the manual declaration triggers ASP0027; removing it is a single-line cleanup with zero functional effect.
+- **The single-source-of-wisdom failure mode of this stack.** Aspire.Npgsql, Marten, Wolverine, EF Core, Identity, DataProtection, and OpenTelemetry each document their own "correct" wiring. The composition where all seven coexist is documented nowhere authoritative; each sample assumes the others aren't present. This decision records the composed recipe so future-us (or another contributor) rediscovering it gets the answer from the decision log instead of from a trial-and-error debugging detour.
+
+**Alternatives considered (and rejected):**
+
+- **`IWolverineExtension` + `sp.GetRequiredService<NpgsqlDataSource>()` inside `Configure`.** The shape the original Slice 0 spec prescribed. R-054 verdict: `IWolverineExtension.Configure` fires during `UseWolverine` composition before the root `IServiceProvider` exists; calling `sp.BuildServiceProvider()` creates a second container with duplicate singletons and breaks identity-equality invariants. Rejected.
+- **Hand-built second `NpgsqlDataSource` inside `UseWolverine`** (the uncommitted workaround). Violates the single-data-source rotation seam (DEC-046) and — more immediately — opens a connection against a not-yet-ready Testcontainers instance on a retry loop that never returns to `builder.Build()`. Rejected.
+- **`options.UseNpgsql(connectionString)` everywhere** instead of DI-based `NpgsqlDataSource` resolution. Builds one pool per `DbContext` with identical config but different identity. Silent doubling of pool count and test-visibility of the "these two aren't the same object" bug. Rejected.
+- **Skip Aspire.Npgsql, use `NpgsqlDependencyInjectionExtensions.AddNpgsqlDataSource` on `IServiceCollection` directly.** Loses the Aspire-added health check, Aspire OTel source registration, and the `IHostApplicationBuilder` integration. The name collision with the Aspire extension (dotnet/aspire#1515) also means a future contributor might silently call the wrong overload. Rejected — the Aspire.Npgsql path is strictly additive and safe without an AppHost.
+- **`DaemonMode.HotCold`** for the Marten async daemon. Only correct in multi-instance deployments; takes an advisory lock that contends with `ApplyAllDatabaseChangesOnStartup` on single-node boot. MVP-0 is single-instance; Solo is correct. Revisit at MVP-1 deployment target decision.
+
+**Cross-references:**
+
+- R-054 artifact: `docs/research/artifacts/batch-18a-dotnet10-marten-wolverine-aspire-otel-startup-composition.md`.
+- Slice 0 spec: `docs/specs/12-spec-slice-0-foundation/12-spec-slice-0-foundation.md` § Unit 1 Functional Requirements and § Technical Considerations (amended 2026-04-20).
+- DEC-046 — Postgres-backed DataProtection + `UsePeriodicPasswordProvider` rotation seam this decision preserves.
+- DEC-045 — Aspire deferred to MVP-1; this decision shows Aspire.Npgsql is safe to use without the AppHost.
+- R-047 — Marten per-user aggregate patterns; the `IntegrateWithWolverine` path here is the outbox composition that makes R-047's `[AggregateHandler]` workflow atomic across Marten + EF.
+- Cycle plan: `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle entry dated 2026-04-20.
+
+---
+
+## DEC-049: Disable host-config reload at process start to unblock `WebApplication.CreateBuilder` on macOS arm64; remove manual `MapWolverineEnvelopeStorage` from `OnModelCreating`
+
+**Date:** 2026-04-20
+**Status:** Final
+**Category:** Host composition / Slice 0 substrate / cross-platform startup / Wolverine–EF integration
+**Informed by:** R-055 (`batch-18b-webapplication-createbuilder-hang-followup.md`).
+
+**Decision:** Every RunCoach ASP.NET Core 10 host shall set `DOTNET_hostBuilder__reloadConfigOnChange=false` before `WebApplication.CreateBuilder(args)` is evaluated. `Program.cs` sets it via `Environment.SetEnvironmentVariable(...)` as the first executable statement; the `RunCoachAppFactory : WebApplicationFactory<Program>` test fixture re-asserts it via `builder.UseSetting("hostBuilder:reloadConfigOnChange", "false")` in `ConfigureWebHost` as belt-and-suspenders. Additionally, `RunCoachDbContext.OnModelCreating` shall **not** call `builder.MapWolverineEnvelopeStorage()` — Wolverine's `WolverineModelCustomizer` (registered via the DEC-048-prescribed `opts.Services.AddDbContextWithWolverineIntegration<T>(...)` inside `UseWolverine`) calls that method at runtime; the two call sites collide by double-adding the `WolverineEnabled` annotation and prevent the SUT host from booting.
+
+**Rationale:**
+
+- **FileSystemWatcher init stalls `CreateBuilder` on macOS arm64 / Darwin 25.x.** With `<UserSecretsId>` set and `appsettings.Development.json` present, `WebApplication.CreateBuilder` registers three JSON config sources (`appsettings.json`, `appsettings.{Env}.json`, user-secrets) with default `reloadOnChange: true`, each installing a `PhysicalFilesWatcher`. On macOS, `FileSystemWatcher.StartRaisingEvents` synchronously calls `Interop.Sys.Sync()` — a full `sync(2)` flush that is a known unbounded stall point (dotnet/runtime#77793) — then `FSEventStreamCreate/Schedule/Start`. Darwin 25.x (macOS 26 "Tahoe") is on `runtime-extra-platforms` only (dotnet/runtime#118610), so regressions here are systematically under-reported. Disabling host-config reload elides the watchers and `CreateBuilder` returns in under a second. Verified by the prescribed §7.1 / §7.2 reduction experiments: without the env var, plain `dotnet RunCoach.Api.dll` produces zero stdout within 10 s; with the env var, `CreateBuilder` completes and Program.cs proceeds to the next statement within ~3 s.
+- **Config reload on change is a dev-loop nicety, not a runtime contract.** Disabling it costs nothing operationally. CI and production do not edit config files in-place; dev-loop editing of `appsettings.Development.json` restarts the host via `dotnet watch` file-save semantics rather than relying on in-process hot-reload.
+- **Belt-and-suspenders in the fixture** protects future fixture evolutions (e.g. overrides that add extra reloadable config sources) from inadvertently re-enabling watchers.
+- **The Wolverine envelope-storage double-mapping was a dormant bug unmasked by R-055's fix.** The `MapWolverineEnvelopeStorage()` call in `OnModelCreating` was originally intended to include envelope entities in the EF migration snapshot at design-time. `AddDbContextWithWolverineIntegration<T>` registers `WolverineModelCustomizer` which calls the same method at runtime. Once the SUT host booted under `WebApplicationFactory<Program>`, both paths fired and the second `modelBuilder.Model.AddAnnotation("WolverineEnabled", true)` threw `InvalidOperationException: The annotation 'WolverineEnabled' cannot be added because an annotation with the same name already exists`. The collision had been masked because no test exercised SUT-host boot. With `MapWolverineEnvelopeStorage` removed from `OnModelCreating`, the customizer is the sole wiring path; envelope entities are still in the runtime model, migrations are still `ExcludeFromMigrations`-safe (Wolverine provisions the actual tables via `ApplyAllDatabaseChangesOnStartup`), and the EF migration snapshot remains in sync (`dotnet ef migrations has-pending-model-changes` reports no pending changes).
+- **Test suite goes from 575/0/1 (scope-reduced fixture) to 581/0/1 (full SUT-host fixture with six new smoke tests).** The six new SUT-host smoke tests (`IDocumentStore` resolves + opens session, `RunCoachDbContext` resolves + queries Identity schema, `DpKeysContext` resolves + `DataProtectionKeys` reachable, `IDataProtectionProvider` round-trips a payload, `GET /health` returns `{"status":"ok"}`, `NpgsqlDataSource` is identity-equal across scopes) run in ≤ 2 s cold against the Testcontainers Postgres.
+
+**Alternatives considered (and rejected):**
+
+- **Guard the env-var set with `OperatingSystem.IsMacOS()`.** Adds a platform branch for negligible benefit — reload-on-change is not load-bearing on any platform for this project. Rejected as over-engineering.
+- **Delete `<UserSecretsId>` from the API csproj and move `Anthropic:ApiKey` to an environment variable.** Removes only one of the three `PhysicalFilesWatcher` instances; the two `appsettings.*.json` watchers still install. Rejected as partial.
+- **Delete `appsettings.Development.json` and migrate to env-var-only dev config.** Loses the local `dotnet run` ergonomics documented in `backend/CLAUDE.md`. Rejected.
+- **Wait for a .NET 10 servicing release that fixes the FSW stall.** No such release is shipping; the behavior is Darwin 25.x platform-level with no tracked fix. Rejected (null option).
+- **Switch SUT TFM to `net9.0`** (the R-047 escape hatch). Last resort; would sacrifice .NET 10's broader Darwin 25.x exposure. Rejected because the config-level fix lands cleanly.
+- **Guard `MapWolverineEnvelopeStorage` in `OnModelCreating` with a `FindAnnotation("WolverineEnabled")` check.** `WolverineModelCustomizer` runs AFTER `OnModelCreating`, so at that point the annotation is never yet set; the guard always passes, never prevents the collision. Rejected as ineffective.
+- **Swap to plain `AddDbContext<T>(...)` and retain the `OnModelCreating` call.** Loses `Policies.AutoApplyTransactions` discovery (DEC-048) — Wolverine handlers silently skip the Marten + EF + outbox single-transaction invariant. Rejected.
+
+**Cross-references:**
+
+- R-055 artifact: `docs/research/artifacts/batch-18b-webapplication-createbuilder-hang-followup.md`.
+- DEC-048 — R-054 composition corrections this decision builds on; every DEC-048 invariant is preserved.
+- DEC-046 — single `NpgsqlDataSource` rotation seam; unaffected. Fixture routes the Testcontainers connection string through the shared singleton via the `ConnectionStrings__runcoach` environment variable rather than a second data-source builder.
+- .NET 10 runtime pin: Host ≥ 10.0.5 (the OOB fix for the vsdbg × macOS arm64 debugger-handshake deadlock, 2026-03-12 — a separate platform regression but on the same Darwin 25.x surface; currently satisfied by the 10.0.6 servicing release).
+- Cycle plan: `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle entry dated 2026-04-20.
+- dotnet/runtime#77793 — FileSystemWatcher startup performance on macOS (`Interop.Sys.Sync()`).
+- dotnet/runtime#118610 — Darwin 25.x on `runtime-extra-platforms` only.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

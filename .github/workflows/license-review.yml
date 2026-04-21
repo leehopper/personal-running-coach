@@ -31,15 +31,22 @@ jobs:
           # Allowlist approach per R-043 recommendation (deny-licenses is
           # deprecated in v4, removed in future v5). Fail-closed: any license
           # not listed here blocks the PR. Covers Apache-2.0 compatibility.
+          # PostgreSQL is an OSI-approved permissive license (same class as
+          # MIT/BSD) — required by the Npgsql family, compatible with
+          # Apache-2.0 output licensing.
           allow-licenses: >-
             MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD,
             Unlicense, CC0-1.0, CC-BY-4.0, Zlib, BSL-1.0,
-            Python-2.0, PSF-2.0, Artistic-2.0, MPL-2.0, WTFPL
+            Python-2.0, PSF-2.0, Artistic-2.0, MPL-2.0, WTFPL,
+            PostgreSQL
           # LGPL-3.0 CI tools (SonarQube scan action, SonarAnalyzer.CSharp,
           # eslint-plugin-sonarjs) are build-time only — never shipped in the
-          # binary. Exempt by purl so the allowlist stays strict.
+          # binary. runcoach-frontend is the monorepo's own private root
+          # package with no published license. Exempt by purl so the allowlist
+          # stays strict.
           allow-dependencies-licenses: >-
-            pkg:githubactions/SonarSource/sonarqube-scan-action
+            pkg:githubactions/SonarSource/sonarqube-scan-action,
+            pkg:npm/runcoach-frontend
           comment-summary-in-pr: always
           retry-on-snapshot-warnings: true
           retry-on-snapshot-warnings-timeout: 180

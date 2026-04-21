@@ -1,0 +1,63 @@
+# Opt-in OpenTelemetry observability overlay for the RunCoach dev stack.
+#
+# Launch:  docker compose -f docker-compose.yml -f docker-compose.otel.yml up
+# Jaeger UI: http://localhost:16686
+#
+# Per DEC-045 / R-050, MVP-0 stays on Compose + Tilt and defers Aspire
+# adoption. This overlay adds an OTel Collector + Jaeger so Marten / Wolverine
+# / RunCoach.Llm traces surfaced by Program.cs's ActivitySource registrations
+# are visible during inner-loop dev work. All sources/meters are fully
+# transferable to Aspire later at MVP-1 with zero rework.
+
+services:
+  otel-collector:
+    # Pin the Collector to a specific release for reproducibility — devs on
+    # different machines get the same receivers / exporters / processor set.
+    # Bump deliberately when upstream ships a feature/fix worth adopting.
+    image: otel/opentelemetry-collector-contrib:0.150.1
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./infra/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+    # The contrib image is built `FROM scratch` with only the `otelcol-contrib`
+    # binary — no shell, no wget/curl/nc — so a CMD-SHELL healthcheck is not
+    # runnable in-container. The Collector binds its OTLP ports synchronously
+    # during `start` so `service_started` is effectively readiness for this
+    # configuration; the exporter retries on transient failure anyway.
+    # Revisit if upstream ships a shell-capable variant.
+    depends_on:
+      jaeger:
+        condition: service_healthy
+
+  jaeger:
+    # Pinned to the current stable — see https://github.com/jaegertracing/jaeger/releases.
+    image: jaegertracing/all-in-one:1.76.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14317:4317"   # Jaeger's own OTLP gRPC (exposed to host for ad-hoc use;
+                       # the collector talks to Jaeger over the docker network,
+                       # so remapping avoids collision with the collector's 4317)
+    # Jaeger all-in-one is Alpine-based (BusyBox wget available). Probe the
+    # admin HTTP endpoint on 14269; it comes up once the OTLP ingest pipeline
+    # is ready to accept spans, so it is a true readiness signal for the
+    # collector's dependency gate.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:14269/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  api:
+    environment:
+      # Overrides the base docker-compose.yml's default (Aspire dashboard) so
+      # spans flow through the Collector → Jaeger pipeline while this overlay
+      # is active.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      otel-collector:
+        condition: service_started  # collector image is distroless; see comment above
