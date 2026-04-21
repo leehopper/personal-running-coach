@@ -21,9 +21,15 @@ services:
     ports:
       - "4317:4317"  # OTLP gRPC
       - "4318:4318"  # OTLP HTTP
+    # The contrib image is built `FROM scratch` with only the `otelcol-contrib`
+    # binary — no shell, no wget/curl/nc — so a CMD-SHELL healthcheck is not
+    # runnable in-container. The Collector binds its OTLP ports synchronously
+    # during `start` so `service_started` is effectively readiness for this
+    # configuration; the exporter retries on transient failure anyway.
+    # Revisit if upstream ships a shell-capable variant.
     depends_on:
       jaeger:
-        condition: service_started
+        condition: service_healthy
 
   jaeger:
     # Pinned to the current stable — see https://github.com/jaegertracing/jaeger/releases.
@@ -35,6 +41,16 @@ services:
       - "14317:4317"   # Jaeger's own OTLP gRPC (exposed to host for ad-hoc use;
                        # the collector talks to Jaeger over the docker network,
                        # so remapping avoids collision with the collector's 4317)
+    # Jaeger all-in-one is Alpine-based (BusyBox wget available). Probe the
+    # admin HTTP endpoint on 14269; it comes up once the OTLP ingest pipeline
+    # is ready to accept spans, so it is a true readiness signal for the
+    # collector's dependency gate.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:14269/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
   api:
     environment:
@@ -44,4 +60,4 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     depends_on:
       otel-collector:
-        condition: service_started
+        condition: service_started  # collector image is distroless; see comment above
