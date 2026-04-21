@@ -11,12 +11,11 @@ using Wolverine.Marten;
 namespace RunCoach.Api.Infrastructure;
 
 /// <summary>
-/// Registers the Marten document store with the production-shape configuration
-/// called out in Slice 0 (R-047 / DEC-044): stream-per-user Guid identity,
-/// conjoined multitenancy on the <c>runcoach_events</c> schema, Quick append
-/// mode, Solo async daemon, and Wolverine outbox integration. No documents or
-/// streams are written in Slice 0 — this is registration-only so Slice 1 can
-/// introduce the <c>Plan</c> aggregate without refactoring.
+/// Registers the Marten document store with the production-shape configuration:
+/// stream-per-user Guid identity, conjoined multitenancy on the
+/// <c>runcoach_events</c> schema, Quick append mode, Solo async daemon, and
+/// Wolverine outbox integration via <c>IntegrateWithWolverine()</c>.
+/// Registration-only for Slice 0; no documents or streams are written yet.
 /// </summary>
 public static class MartenConfiguration
 {
@@ -37,8 +36,11 @@ public static class MartenConfiguration
                 opts.Events.TenancyStyle = TenancyStyle.Conjoined;
                 opts.Events.AppendMode = EventAppendMode.Quick;
                 opts.Events.UseIdentityMapForAggregates = true;
-                opts.Events.EnableAdvancedAsyncTracking = true;
 
+                // `EnableAdvancedAsyncTracking` intentionally left at its
+                // default (`false`) — it adds per-session cost with no current
+                // load-bearing value. Flip on only when a concrete test-side
+                // `WaitForNonStaleData` assertion needs it.
                 opts.Policies.AllDocumentsAreMultiTenanted();
 
                 opts.Projections.Errors.SkipUnknownEvents = true;
