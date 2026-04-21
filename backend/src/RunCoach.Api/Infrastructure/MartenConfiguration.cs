@@ -5,7 +5,6 @@ using JasperFx.Events.Daemon;
 using Marten;
 using Marten.Services;
 using Marten.Storage;
-using Weasel.Core;
 using Wolverine.Marten;
 
 namespace RunCoach.Api.Infrastructure;

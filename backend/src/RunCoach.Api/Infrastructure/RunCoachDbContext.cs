@@ -19,5 +19,5 @@ namespace RunCoach.Api.Infrastructure;
 public class RunCoachDbContext(DbContextOptions<RunCoachDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
-    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 }
