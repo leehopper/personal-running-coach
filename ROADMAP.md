@@ -1,7 +1,7 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 0 (Foundation) — Unit 1 persistence substrate PR (#49) open. DEC-048 composition corrections and DEC-049 startup unblock both applied; full `WebApplicationFactory<Program>` fixture + six SUT-host smoke tests green at 581/0/1 locally.
+**Active slice:** Slice 0 (Foundation) — Unit 1 persistence substrate PR (#49) open. DEC-048 composition corrections and DEC-049 startup unblock both applied; full `WebApplicationFactory<Program>` fixture + six SUT-host smoke tests green locally (581 passing / 0 failing / 1 skipped before the PR #49 review pass; after review changes: 582 passing / 0 failing / 0 skipped).
 **Next step:** Resolve CI checks on PR #49 (Linux-only backend test failure, license-review false positives), then address CodeRabbit review findings and merge. After merge, begin Unit 2 (Auth API — T02.x). DEC-044 (cookie-not-JWT browser auth), DEC-045 (Aspire deferred to MVP-1), DEC-046 (SOPS + Postgres-DataProtection secrets), DEC-047 (onboarding event-source pattern), DEC-048 (Marten `IntegrateWithWolverine` as sole envelope-storage wiring), and DEC-049 (disable host-config reload on macOS arm64 + drop manual `MapWolverineEnvelopeStorage`) capture the architecture pivots and the R-055 fix.
 **Blockers:** None. R-055 resolved 2026-04-20 — artifact at `docs/research/artifacts/batch-18b-webapplication-createbuilder-hang-followup.md`, fix captured in DEC-049.
 
