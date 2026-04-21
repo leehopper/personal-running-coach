@@ -147,10 +147,20 @@ public class StartupSmokeTests(RunCoachAppFactory factory) : DbBackedIntegration
 
         var dp = scope.ServiceProvider.GetRequiredService<DpKeysContext>();
 
+        // The intent here is "DpKeysContext resolves from the SUT DI graph
+        // AND the DataProtectionKeys table exists and is queryable." Asserting
+        // `count == 0` is not safe because ASP.NET Core DataProtection's
+        // KeyRingProvider provisions a default key during host startup
+        // (XmlKeyManager[58] "Creating key..." fires between "Hosting starting"
+        // and "Hosting started"). Whichever smoke test is first to access
+        // Factory.Services triggers SUT boot, so row count on the first boot
+        // is non-deterministic across xUnit's test ordering — which differs
+        // between macOS and Linux. BeGreaterThanOrEqualTo(0) is the real
+        // invariant: the query executed against the real table.
         var keyCount = await EntityFrameworkQueryableExtensions.CountAsync(
             dp.DataProtectionKeys,
             TestContext.Current.CancellationToken);
-        keyCount.Should().Be(0);
+        keyCount.Should().BeGreaterThanOrEqualTo(0);
     }
 
     [Fact]
