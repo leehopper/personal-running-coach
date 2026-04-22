@@ -123,14 +123,18 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 var jwtAuthOptions = builder.Services
     .AddOptions<JwtAuthOptions>()
     .BindConfiguration(JwtAuthOptions.SectionName);
-builder.Services.AddSingleton<IValidateOptions<JwtAuthOptions>, JwtAuthOptionsValidator>();
 
 // Fail-fast in Production / Staging if Auth:Jwt is missing or malformed.
-// Development and CI tolerate absence — the scheme still registers so the
-// iOS shim PR is additive, and the JWT handler fails every incoming token
-// closed (IDX10500) until real config lands.
+// The validator registration itself is gated — not just ValidateOnStart —
+// because IValidateOptions<T> fires lazily on every IOptions<T>.Value
+// access, and the JwtBearer handler resolves IOptions<JwtAuthOptions>.Value
+// whenever PolicyEvaluator iterates the CookieOrBearer policy's scheme
+// list (even on requests with no bearer token). Registering the validator
+// only outside Development keeps Dev / CI tests booting with an unset
+// Auth:Jwt section while keeping Prod / Staging fail-fast.
 if (!builder.Environment.IsDevelopment())
 {
+    builder.Services.AddSingleton<IValidateOptions<JwtAuthOptions>, JwtAuthOptionsValidator>();
     jwtAuthOptions.ValidateOnStart();
 }
 
