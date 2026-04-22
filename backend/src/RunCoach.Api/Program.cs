@@ -223,6 +223,19 @@ builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "X-XSRF-TOKEN";
     options.Cookie.Name = "__Host-Xsrf";
+
+    // `__Host-` prefix contract per RFC 6265bis §4.1.3.2 requires `Secure`,
+    // `Path=/`, and no `Domain`. Browsers reject any `__Host-`-prefixed
+    // cookie that violates this (silently — no console warning), which
+    // manifests as every antiforgery-gated POST returning 400 because the
+    // internal cookie never lands in the jar. `AntiforgeryOptions` defaults
+    // `Cookie.Path` to `"/"` and leaves `Cookie.SecurePolicy` at
+    // `CookieSecurePolicy.SameAsRequest` — the latter emits `Secure` only
+    // when the request itself was HTTPS, which is fine in production but
+    // breaks any HTTP-over-localhost probe (test harness or a dev running
+    // the API on the HTTP listener). Pinning `Always` is the invariant
+    // we actually want: the cookie only rides on TLS, period.
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
 // 307 is the HttpsRedirectionMiddleware default; pinning it explicitly avoids
@@ -339,20 +352,29 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
-        // Browser-side helper attaches the antiforgery header on unsafe
-        // methods so the Swagger click-through matches a real SPA
+        // Browser-side helper that (a) forces every Swagger UI request to
+        // ride along with cookies and (b) attaches the antiforgery header on
+        // unsafe methods so the Swagger click-through matches a real SPA
         // request without the developer hand-copying the cookie value.
-        // Swagger UI's public requestInterceptor extension point runs
-        // this JavaScript in the browser; it reads the antiforgery
-        // request cookie and, when present, sets the header. The
-        // interceptor safely no-ops on first page load (before the xsrf
-        // endpoint has been called), so the token-issuing endpoint is
-        // never corrupted. Host-prefixed Secure cookies only travel
-        // over HTTPS, so this whole path only works against the
+        //
+        // (a) `request.credentials = 'include'` is the load-bearing line for
+        // the auth round-trip. Swagger UI's default fetch `credentials` is
+        // `same-origin` in theory but empirically ships as `omit` under the
+        // Swashbuckle 10.x bundle — without this override the browser
+        // never sends the HttpOnly `__Host-Xsrf` antiforgery cookie or the
+        // `__Host-RunCoach` session cookie, so every authenticated or
+        // antiforgery-gated request fails 400/401 even though the header is
+        // present. (b) reads the SPA-readable `__Host-Xsrf-Request` cookie
+        // (written by `/xsrf`) and echoes it into `X-XSRF-TOKEN` on unsafe
+        // methods. The interceptor safely no-ops on first page load
+        // (before the xsrf endpoint has been called), so the token-issuing
+        // endpoint is never corrupted. Host-prefixed Secure cookies only
+        // travel over HTTPS, so this whole path only works against the
         // https listener — see CONTRIBUTING.md for the browser cookie
         // contract and why plain HTTP cannot round-trip auth.
         options.UseRequestInterceptor(
             "(request) => {" +
+            "  request.credentials = 'include';" +
             "  const method = (request.method || '').toUpperCase();" +
             "  if (['POST','PUT','PATCH','DELETE'].includes(method)) {" +
             "    const cookie = document.cookie.split('; ')" +

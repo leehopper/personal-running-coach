@@ -55,19 +55,7 @@ public sealed partial class AuthController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public IActionResult Xsrf()
     {
-        var tokens = antiforgery.GetAndStoreTokens(HttpContext);
-
-        Response.Cookies.Append(
-            RequestTokenCookieName,
-            tokens.RequestToken!,
-            new CookieOptions
-            {
-                HttpOnly = false,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Path = "/",
-            });
-
+        IssueAntiforgeryTokens();
         return NoContent();
     }
 
@@ -127,6 +115,7 @@ public sealed partial class AuthController(
 
         if (result.Succeeded)
         {
+            IssueAntiforgeryTokens();
             return Ok(new AuthResponse(user.Id, user.Email!));
         }
 
@@ -166,6 +155,7 @@ public sealed partial class AuthController(
     public async Task<IActionResult> Logout()
     {
         await signInManager.SignOutAsync();
+        IssueAntiforgeryTokens();
         return NoContent();
     }
 
@@ -186,4 +176,28 @@ public sealed partial class AuthController(
             type: InvalidCredentialsType,
             title: "Invalid email or password.",
             statusCode: StatusCodes.Status401Unauthorized);
+
+    // Writes fresh `__Host-Xsrf` (framework, HttpOnly) + `__Host-Xsrf-Request`
+    // (SPA-readable) cookies bound to the current authentication identity.
+    // Called from `/xsrf` (initial app-boot seed) and from `/login` / `/logout`
+    // immediately after the auth state changes. Antiforgery tokens are bound
+    // to the Identity security stamp at issue time; rotating in lockstep with
+    // sign-in / sign-out prevents stale tokens from failing the next unsafe
+    // request, which otherwise forces the SPA to call `/xsrf` explicitly
+    // between every auth transition and the first state-changing request.
+    private void IssueAntiforgeryTokens()
+    {
+        var tokens = antiforgery.GetAndStoreTokens(HttpContext);
+
+        Response.Cookies.Append(
+            RequestTokenCookieName,
+            tokens.RequestToken!,
+            new CookieOptions
+            {
+                HttpOnly = false,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+            });
+    }
 }
