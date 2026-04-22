@@ -1,6 +1,7 @@
 using System.Text;
 using JasperFx;
 using JasperFx.CodeGeneration;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -273,15 +274,7 @@ builder.Services.AddOpenTelemetry()
         }
     });
 
-// `AddControllersWithViews` (not `AddControllers`) because the
-// `[ValidateAntiForgeryToken]` MVC filter on `AuthController` resolves its
-// backing `ValidateAntiforgeryTokenAuthorizationFilter` from DI, and that
-// type is only registered by `AddViews()` (brought in by the `WithViews`
-// variant). `AddControllers()` alone throws at request time with
-// "No service for type … ValidateAntiforgeryTokenAuthorizationFilter has been
-// registered." We don't render server-side Razor views; the extra view-engine
-// services are dormant but unblock the antiforgery filter in the MVC pipeline.
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
@@ -368,6 +361,28 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+
+// .NET 10's AntiforgeryMiddleware marks validation failures on
+// IAntiforgeryValidationFeature but does NOT short-circuit — Minimal API
+// form-binding converts that to a 400 automatically; MVC controllers do
+// not. Without this bridge, a state-changing POST with a missing or
+// stale token either 500s (form-binding path hits
+// HandleUncheckedAntiforgeryValidationFeature) or silently succeeds
+// (no-body POST has nothing to trigger the check). See
+// dotnet/AspNetCore.Docs#33740. Per-endpoint `[RequireAntiforgeryToken]`
+// metadata is the canonical attribute; this middleware is the matching
+// gate for the MVC pipeline.
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Features.Get<IAntiforgeryValidationFeature>() is { IsValid: false })
+    {
+        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    await next(ctx);
+});
+
 app.MapControllers();
 
 // Process-liveness probe — DB connectivity is covered by Marten /

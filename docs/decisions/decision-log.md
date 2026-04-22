@@ -1723,4 +1723,79 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 
 ---
 
+## DEC-055: Adopt `[RequireAntiforgeryToken]` + `AddControllers()` + bridge middleware for MVC antiforgery on ASP.NET Core 10
+
+**Date:** 2026-04-22
+**Status:** Final
+**Category:** Auth substrate / Slice 0 / T02 post-implementation correction
+**Informed by:** R-062 research artifact (`docs/research/artifacts/batch-19e-antiforgery-attribute-net10.md`) + direct verification of `aspnetcore release/10.0` source.
+
+**Decision:** State-changing MVC controller actions use `[RequireAntiforgeryToken]` from `Microsoft.AspNetCore.Antiforgery` (NOT `[ValidateAntiForgeryToken]` from `Microsoft.AspNetCore.Mvc`), paired with plain `AddControllers()` (NOT `AddControllersWithViews()`), and a three-line bridge middleware immediately after `UseAntiforgery()` that converts `IAntiforgeryValidationFeature.IsValid == false` → `400 BadRequest`. `/xsrf` needs no explicit carve-out because `GET` is already exempt via the middleware's `IsValidHttpMethodForForm` check.
+
+The final wiring:
+
+```csharp
+// Program.cs
+builder.Services.AddControllers();            // not AddControllersWithViews
+// ...
+app.UseAntiforgery();
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Features.Get<IAntiforgeryValidationFeature>() is { IsValid: false })
+    {
+        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+    await next(ctx);
+});
+app.MapControllers();
+```
+
+```csharp
+// AuthController.cs
+[HttpPost("register"), AllowAnonymous, RequireAntiforgeryToken]
+public Task<IActionResult> Register(...) { ... }
+
+[HttpPost("logout"), Authorize(Policy = AuthPolicies.CookieOrBearer), RequireAntiforgeryToken]
+public Task<IActionResult> Logout() { ... }
+```
+
+**What this supersedes in DEC-054 bullet 3:** DEC-054 was correct that `[ValidateAntiForgeryToken]` is not "broken" per se — it works with `AddControllersWithViews()`. It was *incorrect* that `[RequireAntiforgeryToken]` "also works because `UseAntiforgery` middleware is already wired." On MVC controllers in .NET 10, the middleware alone is insufficient (see rationale). DEC-055 corrects the mechanism and picks the opposite attribute as canonical.
+
+**Rationale:**
+
+- **The middleware does not short-circuit on validation failure.** `AntiforgeryMiddleware.InvokeAwaited` in `aspnetcore release/10.0` catches `AntiforgeryValidationException`, sets `IAntiforgeryValidationFeature(IsValid: false, error)` on the feature collection, and unconditionally calls `_next(context)`. Verified directly against the source file at `src/Antiforgery/src/AntiforgeryMiddleware.cs`. Consequence: Minimal API form-binding bridges the failed feature to a `400` automatically, MVC controllers do not.
+- **Without the bridge, MVC state-changing POSTs have two broken shapes.** (1) Request with a body: MVC's `FormValueProviderFactory` runs during model binding, its `HasFormContentType` accessor invokes `HandleUncheckedAntiforgeryValidationFeature`, which throws `InvalidOperationException` — `ErrorHandlingMiddleware` translates that to a `500`. (2) Request with no body (`POST /logout`): no form-binding, no exception, the action runs as if validation passed, returns `204`. Both observed in T02.5's integration matrix (cases 5 and 13) before DEC-055 was applied.
+- **The bridge middleware is the minimum correct fix.** Three lines, one `Features.Get` call per request, closes both shapes with a clean `400` before the endpoint executes. No ProblemDetails body is written — matches the existing `[ValidateAntiForgeryToken]` filter's `BadRequestResult` behavior that T02.5's tests previously pinned.
+- **`[RequireAntiforgeryToken]` is the canonical forward path.** Lives in `Microsoft.AspNetCore.Antiforgery` (R-062 corrected the assumed `Microsoft.AspNetCore.Http` location — primary source `dotnet/aspnetcore#49237`). Emits `IAntiforgeryMetadata`, which is the metadata contract the framework expects state-changing endpoints to declare. Works identically for MVC controllers, Minimal APIs, and future Razor Pages without a view-engine dependency. `[AttributeUsage(Class | Method)]` legally covers controller classes and action methods.
+- **`AddControllers()` drops the Razor view engine** we weren't using. The T02.5 workaround (`AddControllersWithViews()`) pulled in `IViewEngine`, `IViewComponentDescriptorProvider`, `IHtmlGenerator`, tag helpers, `TempData`, partial-view services, and the authorization-filter registrations for `ValidateAntiforgeryTokenAuthorizationFilter` + `AutoValidateAntiforgeryTokenAuthorizationFilter`. Steady-state CPU is negligible (view services are DI-lazy), but the registration graph expands startup memory and — more important — signals "pure JSON API" incorrectly. `AddControllers()` is Microsoft's own recommendation for API projects per `Program.cs` templates and the `AddControllers()` Learn doc ("This method will not register services used for views or pages").
+- **`[IgnoreAntiforgeryToken]` was never needed on `/xsrf`.** It is an MVC filter attribute (`IAntiforgeryPolicy, IOrderedFilter`) that does NOT implement `IAntiforgeryMetadata`, so `UseAntiforgery()` would ignore it regardless. `GET` is already exempt via the middleware's `HttpExtensions.IsValidHttpMethodForForm` predicate. The attribute is removed.
+- **No dual validation occurs.** `UseAntiforgery()` validates via metadata; the MVC filter is no longer on the pipeline (we dropped `[ValidateAntiForgeryToken]`). The bridge middleware does not call `ValidateRequestAsync` — it only inspects the feature that `UseAntiforgery()` populated.
+- **The research artifact got the framework mechanism partly wrong.** R-062 asserted the middleware "short-circuits with a 400 on failure." Verification against the `release/10.0` source invalidated that claim — the middleware sets the feature and continues. The rest of R-062's analysis (attribute selection, namespace correction, view-features gap, test-host pattern) remains sound. The bridge-middleware addition is the delta between what the artifact claimed and what the framework actually does. Captured as errata inline on the artifact via this DEC's cross-reference.
+
+**Retrospective — why this drifted:**
+
+T02.4 shipped `[ValidateAntiForgeryToken]` against the parent task's `[RequireAntiforgeryToken]` guidance without surfacing the deviation. T02.5's integration matrix caught the DI error (`ValidateAntiforgeryTokenAuthorizationFilter` not registered), and the fix — flipping to `AddControllersWithViews()` — resolved the symptom while cementing the deviation. Both moves passed local build + tests and would have passed code review; what prevented the drift from shipping was the decision to run the research protocol before opening the T02 PR. Future pattern: when a sub-task diverges from its parent's prescribed shape, surface the deviation in the task's commit message or in a `Follow-up` entry rather than making the change silently.
+
+**Alternatives considered (and rejected):**
+
+- **Keep T02.5's `[ValidateAntiForgeryToken]` + `AddControllersWithViews()` shape.** Works, but (1) contradicts the parent task's stated guidance, (2) carries a Razor view engine this JSON-only API does not use, (3) relies on an architectural seam (dotnet/aspnetcore#22189) Microsoft has chosen not to close because the middleware path supersedes it. Net cost to switch is ~15 lines; cost of not switching is technical debt that every future controller inherits.
+- **Write a named middleware class (`AntiforgeryValidationBridgeMiddleware.cs`) instead of the inline `app.Use` delegate.** Rejected for 3 lines; inline is clearer. Promote to a named class if the middleware grows beyond writing `StatusCode = 400` (e.g., if we want to emit a ProblemDetails body or log the validation failure for auditing).
+- **Emit a ProblemDetails body from the bridge middleware via `IProblemDetailsService.TryWriteAsync`.** Rejected for consistency — the pre-DEC-055 shape returned a plain `400` with no body (from `BadRequestResult` inside `ValidateAntiforgeryTokenAuthorizationFilter`), and T02.5's tests pin that contract. Revisit if T03.x frontend wants a structured error payload for antiforgery failures.
+- **Apply `[RequireAntiforgeryToken]` at the controller class level.** Rejected for the auth controller specifically — `/xsrf`, `/login`, and `/me` don't need it (the first two are `AllowAnonymous` POSTs-or-safe-methods-that-issue-the-token, `/me` is `GET`). Per-action placement is clearer for this controller. Reconsider as the default for Slice 1+ controllers that have a larger state-changing surface.
+- **Bridge via an MVC authorization filter instead of middleware.** Rejected — the failed-antiforgery feature needs to be converted to `400` BEFORE the MVC filter pipeline runs its form-binding, otherwise the `HandleUncheckedAntiforgeryValidationFeature` path still throws. A filter runs too late.
+
+**Cross-references:**
+
+- `docs/research/artifacts/batch-19e-antiforgery-attribute-net10.md` — R-062 research artifact. Errata: the "short-circuits with 400" claim is incorrect; the middleware sets `IAntiforgeryValidationFeature` and calls `_next`. DEC-055's bridge middleware is the MVC-side adapter the artifact's recommended pattern implicitly relies on.
+- `aspnetcore release/10.0` — `src/Antiforgery/src/AntiforgeryMiddleware.cs` (51 lines; the full `Invoke` + `InvokeAwaited` is in the R-062 artifact).
+- `dotnet/aspnetcore#49237` — API-approval issue that introduced `RequireAntiforgeryTokenAttribute` + `IAntiforgeryMetadata` + `UseAntiforgery`.
+- `dotnet/aspnetcore#22189` — "Antiforgery should be useable without views" (open since May 2020) — the ViewFeatures filter-registration seam that makes `[ValidateAntiForgeryToken]` require `AddControllersWithViews()`.
+- `dotnet/AspNetCore.Docs#33740` — open Learn docs gap asking Microsoft to document `[RequireAntiforgeryToken]` on API controllers.
+- DEC-050 — `__Host-RunCoach` session-cookie posture (the cookie the POST `/logout` route is bound to).
+- DEC-054 bullet 3 — the original assertion DEC-055 corrects.
+- Commits — T02.5 (`7506c8a`) introduced the `AddControllersWithViews()` workaround; DEC-055 application commit reverts it and wires the bridge middleware.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

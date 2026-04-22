@@ -52,7 +52,6 @@ public sealed partial class AuthController(
 
     [HttpGet("xsrf")]
     [AllowAnonymous]
-    [IgnoreAntiforgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public IActionResult Xsrf()
     {
@@ -74,7 +73,7 @@ public sealed partial class AuthController(
 
     [HttpPost("register")]
     [AllowAnonymous]
-    [ValidateAntiForgeryToken]
+    [RequireAntiforgeryToken]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -161,7 +160,7 @@ public sealed partial class AuthController(
 
     [HttpPost("logout")]
     [Authorize(Policy = AuthPolicies.CookieOrBearer)]
-    [ValidateAntiForgeryToken]
+    [RequireAntiforgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Logout()
