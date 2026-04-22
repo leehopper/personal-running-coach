@@ -1585,4 +1585,104 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 
 ---
 
+## DEC-052: `IdentityResult.Errors` → `ValidationProblemDetails` via per-action `ModelState.AddModelError` loop + DTO pre-validation
+
+**Date:** 2026-04-21
+**Status:** Final
+**Category:** Auth substrate / Slice 0 / error-contract pattern / SPA binding
+**Informed by:** R-058 (`batch-19c-identity-result-to-validationproblemdetails.md`).
+
+**Decision:**
+
+1. The `AuthController.Register` endpoint (landing in T02.4) shall translate a failed `IdentityResult` to the RunCoach error contract via a per-action loop: `foreach (var error in result.Errors) ModelState.AddModelError(propertyKey, error.Description);` followed by `return ValidationProblem(ModelState);`. This routes through `ProblemDetailsFactory.CreateValidationProblemDetails`, emits `Content-Type: application/problem+json`, and produces the exact shape the spec §Unit 2 line 84 prescribes (DTO-property-keyed `errors` dictionary).
+2. `RegisterRequest` DTO shall carry DataAnnotations (`[Required, EmailAddress, MaxLength(254)]` on email; `[Required, MinLength(12), MaxLength(128)]` on password) so the common "too short" / malformed-email path short-circuits through `[ApiController]` auto-400 before hitting `UserManager.CreateAsync`. Identity remains source-of-truth for character-class rules (upper / lower / digit / non-alphanumeric) and uniqueness.
+3. `Modules/Identity/IdentityErrorCodeMapper.cs` shall ship a reusable mapper keying the 22 stable `IdentityError.Code` values (stable across Identity 6–10 via `nameof(...)`) to DTO buckets (`password` / `email` / `username` / `role` / `general`) plus a `Kind` enum (`Validation` / `Conflict` / `Unauthorized` / `Unknown`). The mapper is the single source of code→bucket truth for every controller that translates an `IdentityResult`.
+4. `Modules/Identity/IdentityResultExtensions.cs` shall expose `ToRegistrationActionResult(this IdentityResult, ControllerBase, RegisterRequest)` which walks `result.Errors`, splits the 409 conflict path (`DuplicateEmail` / `DuplicateUserName`) off as a plain `ProblemDetails` via `controller.Problem(...)`, and routes everything else through `ModelState.AddModelError` + `ValidationProblem(ModelState)`. The 409 path emits a `ProblemDetails` (NOT a `ValidationProblemDetails`) because the conflict is not a field-level validation error; title is intentionally generic to preserve enumeration-resistance posture.
+5. Frontend parity (T03.x) is enforced by colocating Zod schemas that mirror the DataAnnotation rules in a `shared-contracts` folder + a contract-test that asserts equivalence (e.g., `"A1a!bcdefghij"` passes both; `"short"` fails both). FluentValidation is deferred until rules become conditional (cross-field, async, feature-flagged); the 2026 successor package is `SharpGrip.FluentValidation.AutoValidation.Mvc`.
+
+**Rationale:**
+
+- **`ControllerBase.ValidationProblem(ModelStateDictionary)` is the canonical .NET 10 entry point** for DTO-property-keyed `ValidationProblemDetails`. It routes through `ProblemDetailsFactory.CreateValidationProblemDetails` (in `DefaultProblemDetailsFactory`), auto-populates `title = "One or more validation errors occurred."`, `type = ApiBehaviorOptions.ClientErrorMapping[400].Link`, `status = 400`, and adds a `traceId` extension from `Activity.Current?.Id ?? HttpContext.TraceIdentifier`. Result is wrapped in `BadRequestObjectResult` with `application/problem+json`. Identical shape to `[ApiController]` auto-400 — the contract is uniform across validation failure sources.
+- **`CustomizeProblemDetails` does NOT fire for `ValidationProblemDetails` produced via MVC's `ValidationProblem(ModelState)`** — confirmed in `dotnet/aspnetcore#62723` (.NET 10 preview). This is the single most misunderstood item in the ProblemDetails landscape. Centralizing translation through `AddProblemDetails(o => o.CustomizeProblemDetails = ...)` was considered and rejected as silently broken. Translation must live in the controller (or in a typed-exception + `IExceptionHandler` — deferred pattern for service-layer failures in later slices).
+- **`IdentityError.Code` is stable across Identity 6, 7, 8, 9, and 10.** Each code is produced by `nameof(...)` in `IdentityErrorDescriber.cs`, so codes are invariant to localization and unchanged by the .NET 10 passkey work. The mapper captures the full 22-code surface area once; future Identity versions add codes that fall through to the `_ => new(General, Unknown)` default.
+- **DTO-property keying is a deliberate departure from `MapIdentityApi`**, which keys the `errors` dictionary by `IdentityError.Code`. `MapIdentityApi`'s shape serves a minimal-API scaffolding flow that doesn't know the DTO shape; RunCoach hand-rolls the controller specifically to bind to SPA form-library conventions (React Hook Form / Zod keying). The shift trades one line of spec-level discipline (use the bucket map) for a cleaner frontend binding.
+- **409 split for duplicates.** RFC 9110 §15.5.10 scopes 409 to conflicts that can be resolved by the user's retry. `DuplicateEmail` and `DuplicateUserName` are conflicts, not validation errors — returning them as `ValidationProblemDetails.errors[email]` under a 400 would conflate "the input violates the schema" with "the input conflicts with existing state," and forces the SPA to branch on `errors.email` content to distinguish the two cases. Plain `ProblemDetails` + 409 is the clean split.
+- **Deliberate enumeration-resistance posture on 409 `title`.** The spec §Non-Goals explicitly defers full enumeration hardening to pre-public-release. For MVP-0 (personal use + trusted friends), a generic `"The account could not be created."` title is the chosen posture — preserves UX without leaking existence via the body, and the 409 status code itself is the enumeration signal that OWASP ASVS 5.0 V6.3 flags. A follow-up pattern (202 Accepted + email to existing account) eliminates the status-code leak entirely and is captured as an MVP-1 consideration.
+
+**Alternatives considered (and rejected):**
+
+- **Throw `IdentityFailureException` + dedicated `IExceptionHandler`.** Centralized; coexists cleanly with T02.3's 500 handler; works from service-layer code that has no `ControllerBase`. Rejected as primary for `AuthController` because exceptions-for-control-flow is 100×–1000× slower than returns and harder to trace in logs; the .NET 10 default `SuppressDiagnosticsCallback` also now hides handled exceptions. Good fallback for service-layer failures in later slices.
+- **Custom `ProblemDetailsFactory` subclass.** Intercepts all MVC-produced ProblemDetails but does not intercept `IdentityResult` directly — the controller still needs the `AddModelError` loop first. No extra value.
+- **`AddProblemDetails(o => o.CustomizeProblemDetails = ...)` callback.** Does NOT fire for MVC `ValidationProblem(ModelState)`. Load-bearing misunderstanding — rejected.
+- **Middleware-based translator.** Reads response body after the fact — brittle, and `[ApiController]` already did the right thing upstream.
+- **`Result<T>` functional pattern (Ardalis.Result / FluentResults / OneOf).** Cited in `jasontaylordev/CleanArchitecture` as the Clean-Architecture idiom. Adds a dependency and still needs a `Result → IActionResult` translator internally. Re-evaluate at Slice 1+ when the service layer expands.
+
+**Cross-references:**
+
+- R-058 artifact: `docs/research/artifacts/batch-19c-identity-result-to-validationproblemdetails.md`.
+- Spec: `docs/specs/12-spec-slice-0-foundation/12-spec-slice-0-foundation.md` §Unit 2 lines 82–90 (functional requirements for register / login / error contracts).
+- DEC-051 — strict-always JWT validation (the sibling auth-contract decision landing with T02.2).
+- DEC-053 — timing-safety mitigation on login (pairs with this decision for the register/login error-contract story).
+- `dotnet/aspnetcore` — `DefaultProblemDetailsFactory.cs` + `ControllerBase.ValidationProblem` for the canonical emit path.
+- `dotnet/aspnetcore#62723` — `CustomizeProblemDetails` bypassed by MVC validation path.
+- Kevin Smith, "Extra Validation Errors In ASP.NET Core" (2022) — reference for the `AddModelError("propertyName", description)` pattern.
+- OWASP ASVS 5.0 V6.3 — enumeration-resistance requirements.
+- RFC 9110 §15.5.10 — 409 Conflict semantics.
+
+---
+
+## DEC-053: `AuthController.Login` manual timing-safety mitigation via cached `VerifyHashedPassword` dummy hash
+
+**Date:** 2026-04-21
+**Status:** Final
+**Category:** Auth substrate / Slice 0 / login security / enumeration resistance
+**Informed by:** R-059 (`batch-19d-signinmanager-timing-safety.md`).
+
+**Decision:**
+
+1. `AuthController.Login` (landing in T02.4) shall NOT use the string overload of `SignInManager.PasswordSignInAsync(userName, password, ...)`. Instead it calls `UserManager.FindByEmailAsync(request.Email)` first; on `user is null`, burns one `IPasswordHasher<ApplicationUser>.VerifyHashedPassword(new ApplicationUser(), DummyHash, request.Password)` pass to equalize timing, then returns `Unauthorized` with a generic `ProblemDetails`; on `user is not null`, delegates to `SignInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false)` and branches on the result.
+2. `DummyHash` shall be a `static readonly string` field initialized once at type load via `new PasswordHasher<ApplicationUser>().HashPassword(new ApplicationUser(), "__runcoach_dummy__")`. The hash value is irrelevant — only its parse-ability and cost parity matter. Caching statically avoids paying an extra PBKDF2 pass (40–80 ms) on every unknown-user request, which would flip the timing leak rather than close it.
+3. Every non-success `SignInResult` — `Failed`, `IsLockedOut`, `IsNotAllowed`, `RequiresTwoFactor` — collapses to an identical generic 401 `ProblemDetails` body. Distinctions are logged server-side (`ILogger.LogInformation("Login failed for {UserId}: {Result}", user.Id, result)`) but never surface to the HTTP response.
+4. The 401 body is byte-identical across all failure causes, including the unknown-user branch. No conditional `detail` field, no error-specific `type` URI, no `extensions` members that vary by cause — any content variance re-opens the enumeration channel on a content side-channel and renders timing mitigation moot.
+5. The mitigation is documented with a `TODO` tag tracking this DEC ID, so if Microsoft eventually ships built-in timing-safety in `SignInManager` (no such PR tracked as of April 2026) the manual mitigation can be retired cleanly.
+
+**Rationale:**
+
+- **`SignInManager.PasswordSignInAsync(string, ...)` in .NET 10 IS NOT timing-safe** on the unknown-user branch. Primary-source evidence: `dotnet/aspnetcore` `main`, `src/Identity/Core/src/SignInManager.cs` — the string overload returns `SignInResult.Failed` immediately when `FindByNameAsync` returns null, with no call to `VerifyHashedPassword` / `CheckPasswordAsync` / any dummy-hash helper. The user-found branch runs `PasswordHasher.VerifyHashedPassword` → PBKDF2-HMAC-SHA512 / 100 000 iterations (V3 defaults, unchanged since .NET 7), ~40–80 ms on server hardware. Remotely observable timing delta; textbook user-enumeration side-channel.
+- **The spec's "or" clause is resolved by the source code.** Slice 0 §Unit 2 line 86 presents two implementation paths — `SignInManager.PasswordSignInAsync(userName, ...)` or `UserManager.FindByEmailAsync` + dummy-hash — as if either satisfies the timing-safety requirement. R-059's source trace confirms only the second option actually achieves it. The spec is amended to remove the "or" and mandate the manual mitigation.
+- **`VerifyHashedPassword(default, DummyHash, password)` chosen over `HashPassword(default, password)`** because it traverses the same code path as a real-user failure (parse V3 header → derive key → constant-time compare), giving tighter timing parity at the same PBKDF2 cost. `HashPassword` additionally calls `RandomNumberGenerator.Fill` for the salt — sub-microsecond, negligible vs PBKDF2, but avoiding the asymmetry is the cleaner posture. Both OWASP, Andrew Lock, and Cyberis converge on `VerifyHashedPassword` as the idiomatic mitigation.
+- **`IPasswordHasher<TUser>` exposes only synchronous `HashPassword` and `VerifyHashedPassword`.** The R-059 artifact corrects a factual error in the spec snippet (`PasswordHasher.HashPasswordAsync` does not exist). Production call is synchronous — do not `await` it.
+- **Defense-in-depth limits.** Rate limiting (per-IP fixed window) is the second line of defense — it caps enumeration throughput but does not change the timing signal. OWASP considers rate limiting alone insufficient; the timing mitigation is the primary control.
+- **`RequiresTwoFactor` / `IsLockedOut` / `IsNotAllowed` collapse to 401 Unauthorized, not 423 Locked.** RFC 4918 §11.3 scopes 423 to WebDAV resource locking; reusing it for auth lockout is non-idiomatic and also leaks enumeration information. Microsoft's own `MapIdentityApi` `/login` handler collapses every failing `SignInResult` into a single 401 — this matches that precedent.
+- **Test coverage is a code-path assertion, not wall-clock timing.** T02.5 registers a counting `IPasswordHasher<ApplicationUser>` test double via `ConfigureTestServices`, submits one `POST /api/v1/auth/login` with an unknown email and one with a known user + wrong password, asserts the counter is ≥ 1 in both cases. Proves the `user is null` branch executed a hash. Deterministic, runs in milliseconds. A statistical wall-clock benchmark (gated behind an env var, computing median / p95 over N=200 requests per case, asserting `|median(unknown) − median(known)| < 15 ms`) is a security-audit harness test — ships with the audit bundle, not the PR.
+
+**Alternatives considered (and rejected):**
+
+- **Trust `SignInManager.PasswordSignInAsync` alone, rely on rate limiting.** Rejected — rate limiting caps attack throughput but does not change the timing signal; an enumerator with one probe per minute still succeeds, just slowly. OWASP explicitly considers this insufficient.
+- **Override `SignInManager<ApplicationUser>` with a custom subclass adding the dummy hash internally.** Architecturally cleaner — automatically covers any future caller of `PasswordSignInAsync`. Rejected for Slice 0 because the scope is a single controller; an override creates a maintenance burden that tracks Microsoft's internal method changes (e.g. `Stopwatch.GetTimestamp` / metrics calls added in .NET 9). Revisit for MVP-2 if more login surfaces emerge (passkey, social login, API token exchange).
+- **Random-duration wrapper (Cofoundry-style `Task.Delay(Random.Shared.Next(minMs, maxMs))`).** Masks the symptom without fixing the cause; the jitter window must exceed the PBKDF2 delta to be effective, which degrades login UX. Valuable as secondary defense-in-depth for the MVP-1 lockout path.
+- **Pre-hash the password on the client.** Shifts PBKDF2 to the browser; requires schema change to `AspNetUsers.PasswordHash`; incompatible with stock `PasswordHasher` and future passkey/WebAuthn migration. Out of scope.
+- **Skip the lookup; always call `CheckPasswordSignInAsync` on a sentinel user.** `PasswordHasher.VerifyHashedPassword(user, null, password)` short-circuits and returns `Failed` without running PBKDF2. Doesn't achieve the goal.
+
+**Known limitations (captured as MVP-1 follow-ups):**
+
+- **Lockout path re-opens the leak on a secondary axis.** When `lockoutOnFailure: true` lands (deferred per spec Non-Goals), the known-user failure branch gains a DB write (`UserManager.AccessFailedAsync`) that the unknown-user branch does not. Options for MVP-1: (a) override `SignInManager` to track a "failed attempt" counter keyed by submitted-email-normalized-hash so both branches write; (b) uniform-delay envelope wrapping the whole login action; (c) accept the residual leak with per-IP rate limiting. Option (b) is simplest and aligns with OWASP's "make responses uniform" posture. Revisit when lockout is re-enabled.
+- **Registration endpoint** has a separate enumeration vector through the 409 DuplicateEmail branch (see DEC-052). MVP-1 consideration: migrate to a "202 Accepted + email-to-existing-account" pattern that eliminates the status-code leak.
+- **Password-reset endpoint** (post-Slice 0) must return the same 200 whether the email exists or not; always execute token-generation work (or a dummy equivalent) to equalize timing. Captured for the password-reset workstream.
+- **ModelState binding 400s** are sub-millisecond and distinguishable from 401 by status code. Acceptable — 400 indicates malformed input, not "user exists" — but do NOT add custom server-side format checks (e.g., email-syntax validation) that fire only for the login action; they create a third timing class. Keep validation strictly in DTO DataAnnotations.
+
+**Cross-references:**
+
+- R-059 artifact: `docs/research/artifacts/batch-19d-signinmanager-timing-safety.md`.
+- Spec: `docs/specs/12-spec-slice-0-foundation/12-spec-slice-0-foundation.md` §Unit 2 line 86 (amended with this DEC to remove the "or").
+- DEC-052 — sibling decision on the register-endpoint error-contract shape.
+- OWASP Authentication Cheat Sheet — "login goes through the same process no matter what the user or password is."
+- OWASP ASVS 5.0 V6.3 — enumeration-resistance requirements.
+- OWASP WSTG §Account Enumeration — timing deltas as a first-class discovery vector.
+- `dotnet/aspnetcore` — `src/Identity/Core/src/SignInManager.cs` (string-overload source).
+- `dotnet/aspnetcore` — `src/Identity/Extensions.Core/src/PasswordHasherOptions.cs` (V3 defaults: PBKDF2-HMAC-SHA512 / 100k iterations).
+- `dotnet/aspnetcore#54542` — related lockout-based enumeration (closed as design-proposal, no shipped fix).
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
