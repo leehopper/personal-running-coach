@@ -34,13 +34,9 @@ public sealed partial class AuthController(
     private const string InvalidCredentialsType =
         "https://runcoach.app/problems/invalid-credentials";
 
-    // Additional SPA-readable antiforgery cookie written alongside the
-    // framework-managed `__Host-Xsrf` cookie (configured via
-    // AntiforgeryOptions.Cookie.Name in T02.2). The SPA reads this value and
-    // echoes it in the X-XSRF-TOKEN request header. Named `__Host-Xsrf-Request`
-    // rather than the Angular-convention `XSRF-TOKEN` to match the `__Host-`
-    // posture already on `__Host-RunCoach` and `__Host-Xsrf` (DEC-054).
-    private const string RequestTokenCookieName = "__Host-Xsrf-Request";
+    // Aliased for readability at the cookie-write site. The SPA-readable
+    // antiforgery cookie name is owned by AuthCookieNames (DEC-054).
+    private const string RequestTokenCookieName = AuthCookieNames.AntiforgeryRequest;
 
     // Single PBKDF2-HMAC-SHA512 / 100k-iteration V3 hash computed once at
     // type load — the unknown-user login branch burns one VerifyHashedPassword

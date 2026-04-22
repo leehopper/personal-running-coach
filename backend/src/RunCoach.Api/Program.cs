@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -159,7 +160,7 @@ authBuilder.AddIdentityCookies(options =>
 {
     options.ApplicationCookie?.Configure(cookie =>
     {
-        cookie.Cookie.Name = "__Host-RunCoach";
+        cookie.Cookie.Name = AuthCookieNames.Session;
 
         // RFC 6265bis §5.6 requires the Path attribute to be present (not merely
         // defaulted) for the __Host- prefix to satisfy the browser storage check
@@ -221,8 +222,8 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddAntiforgery(options =>
 {
-    options.HeaderName = "X-XSRF-TOKEN";
-    options.Cookie.Name = "__Host-Xsrf";
+    options.HeaderName = AuthCookieNames.AntiforgeryHeader;
+    options.Cookie.Name = AuthCookieNames.Antiforgery;
 
     // `__Host-` prefix contract per RFC 6265bis §4.1.3.2 requires `Secure`,
     // `Path=/`, and no `Domain`. Browsers reject any `__Host-`-prefixed
@@ -378,9 +379,9 @@ if (app.Environment.IsDevelopment())
             "  const method = (request.method || '').toUpperCase();" +
             "  if (['POST','PUT','PATCH','DELETE'].includes(method)) {" +
             "    const cookie = document.cookie.split('; ')" +
-            "      .find(c => c.startsWith('__Host-Xsrf-Request='));" +
+            "      .find(c => c.startsWith('" + AuthCookieNames.AntiforgeryRequest + "='));" +
             "    if (cookie) {" +
-            "      request.headers['X-XSRF-TOKEN'] = decodeURIComponent(cookie.split('=')[1]);" +
+            "      request.headers['" + AuthCookieNames.AntiforgeryHeader + "'] = decodeURIComponent(cookie.split('=')[1]);" +
             "    }" +
             "  }" +
             "  return request;" +
@@ -424,7 +425,24 @@ app.Use(async (ctx, next) =>
 {
     if (ctx.Features.Get<IAntiforgeryValidationFeature>() is { IsValid: false })
     {
+        // Write an RFC 7807 ProblemDetails rather than a bare 400 so the
+        // antiforgery surface matches every other 4xx path in the auth
+        // stack (register validation, login 401, logout 401). The SPA
+        // can handle every error response uniformly instead of needing a
+        // special case for missing/stale XSRF tokens.
         ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+        var problemDetailsService = ctx.RequestServices.GetRequiredService<IProblemDetailsService>();
+        await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = ctx,
+            ProblemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Antiforgery validation failed.",
+                Type = "https://runcoach.app/problems/antiforgery-validation-failed",
+                Detail = "The antiforgery cookie or header was missing or did not match. Call GET /api/v1/auth/xsrf to seed fresh tokens and retry.",
+            },
+        });
         return;
     }
 

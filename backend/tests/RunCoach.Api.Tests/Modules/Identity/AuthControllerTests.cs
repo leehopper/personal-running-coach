@@ -30,10 +30,10 @@ namespace RunCoach.Api.Tests.Modules.Identity;
 public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {
     private const string StrongPassword = "Str0ngTestPassw0rd!";
-    private const string SessionCookieName = "__Host-RunCoach";
-    private const string AntiforgeryCookieName = "__Host-Xsrf";
-    private const string AntiforgeryRequestCookieName = "__Host-Xsrf-Request";
-    private const string AntiforgeryHeaderName = "X-XSRF-TOKEN";
+    private const string SessionCookieName = AuthCookieNames.Session;
+    private const string AntiforgeryCookieName = AuthCookieNames.Antiforgery;
+    private const string AntiforgeryRequestCookieName = AuthCookieNames.AntiforgeryRequest;
+    private const string AntiforgeryHeaderName = AuthCookieNames.AntiforgeryHeader;
     private const string InvalidCredentialsType = "https://runcoach.app/problems/invalid-credentials";
     private const string RegistrationConflictType = "https://runcoach.app/problems/registration-conflict";
 
@@ -142,12 +142,14 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
 
     /// <summary>
     /// Case 5 — POST <c>/register</c> with a missing antiforgery token returns
-    /// 400. ASP.NET Core's <c>ValidateAntiForgeryToken</c> authorization filter
-    /// surfaces as <see cref="HttpStatusCode.BadRequest"/> when the token is
-    /// missing or malformed.
+    /// 400 as a standardized RFC 7807 ProblemDetails body (the antiforgery
+    /// bridge middleware in <c>Program.cs</c> translates
+    /// <c>IAntiforgeryValidationFeature.IsValid == false</c> into
+    /// ProblemDetails so the SPA handles every 4xx uniformly instead of
+    /// needing a special case for missing/stale XSRF tokens).
     /// </summary>
     [Fact]
-    public async Task Register_MissingAntiforgeryToken_Returns_400()
+    public async Task Register_MissingAntiforgeryToken_Returns_400_ProblemDetails()
     {
         // Arrange
         var (client, _) = CreateCookieClient(Factory);
@@ -162,6 +164,12 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        problem.Should().NotBeNull();
+        problem!.Status.Should().Be(StatusCodes.Status400BadRequest);
+        problem.Type.Should().Be("https://runcoach.app/problems/antiforgery-validation-failed");
     }
 
     /// <summary>
