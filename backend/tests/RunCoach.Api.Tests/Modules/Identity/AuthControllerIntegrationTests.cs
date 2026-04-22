@@ -268,21 +268,21 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         unknownUserResponse.StatusCode.Should().Be(wrongPasswordResponse.StatusCode)
             .And.Be(HttpStatusCode.Unauthorized);
 
-        // … and identical ProblemDetails contract (type / title / status / detail).
-        // The serialized body also contains a per-request `traceId` under
-        // ProblemDetails.Extensions, which is expected to differ. Compare the
-        // typed contract instead of raw bytes so the traceId noise is excluded.
-        var wrongPasswordProblem = await wrongPasswordResponse.Content.ReadFromJsonAsync<ProblemDetails>(
-            cancellationToken: TestContext.Current.CancellationToken);
-        var unknownUserProblem = await unknownUserResponse.Content.ReadFromJsonAsync<ProblemDetails>(
-            cancellationToken: TestContext.Current.CancellationToken);
-        wrongPasswordProblem.Should().NotBeNull();
-        unknownUserProblem.Should().NotBeNull();
-        unknownUserProblem!.Type.Should().Be(wrongPasswordProblem!.Type);
-        unknownUserProblem.Title.Should().Be(wrongPasswordProblem.Title);
-        unknownUserProblem.Status.Should().Be(wrongPasswordProblem.Status);
-        unknownUserProblem.Detail.Should().Be(wrongPasswordProblem.Detail);
-        unknownUserProblem.Type.Should()
+        // … and byte-equivalent JSON bodies after stripping the per-request
+        // `traceId` extension. Field-by-field comparison on the typed
+        // ProblemDetails surface would let any future ProblemDetails
+        // extension (a role flag, a retry-after hint) diverge between
+        // branches unnoticed — deep equality on the normalized JSON catches
+        // every property the serializer produces, not just the four the
+        // type surface knows about.
+        var expectedBody = await ReadNormalizedProblemJsonAsync(wrongPasswordResponse);
+        var actualBody = await ReadNormalizedProblemJsonAsync(unknownUserResponse);
+        actualBody.Should().Be(
+            expectedBody,
+            "unknown-user and wrong-password responses must be indistinguishable after traceId removal");
+
+        var actualType = System.Text.Json.Nodes.JsonNode.Parse(actualBody)!["type"]?.GetValue<string>();
+        actualType.Should()
             .Be(InvalidCredentialsType, because: "the single InvalidCredentials helper must drive both branches");
     }
 
@@ -607,4 +607,19 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
     }
 
     private static string GenerateEmail() => $"user-{Guid.NewGuid():N}@example.test";
+
+    /// <summary>
+    /// Reads a ProblemDetails response body as JSON, strips the per-request
+    /// <c>traceId</c> extension (which intentionally differs between calls),
+    /// and returns the serialized remainder. Keying the deep-equality
+    /// comparison off the full JSON rather than the typed surface catches
+    /// branch-specific extensions the type model does not know about.
+    /// </summary>
+    private static async Task<string> ReadNormalizedProblemJsonAsync(HttpResponseMessage response)
+    {
+        var raw = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var obj = System.Text.Json.Nodes.JsonNode.Parse(raw)!.AsObject();
+        obj.Remove("traceId");
+        return obj.ToJsonString();
+    }
 }
