@@ -12,7 +12,7 @@ namespace RunCoach.Api.Modules.Identity;
 /// </summary>
 public static class IdentityErrorCodeMapper
 {
-    public static Mapping Map(IdentityError error)
+    public static IdentityErrorMapping Map(IdentityError error)
     {
         ArgumentNullException.ThrowIfNull(error);
         return error.Code switch
@@ -64,6 +64,4 @@ public static class IdentityErrorCodeMapper
             _ => new(IdentityErrorBuckets.General, IdentityErrorKind.Unknown),
         };
     }
-
-    public readonly record struct Mapping(string PropertyName, IdentityErrorKind Kind);
 }

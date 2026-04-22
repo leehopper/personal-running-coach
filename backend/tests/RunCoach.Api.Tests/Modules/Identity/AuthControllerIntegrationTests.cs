@@ -27,7 +27,7 @@ namespace RunCoach.Api.Tests.Modules.Identity;
 /// lifecycle is observable end-to-end.
 /// </summary>
 [Trait("Category", "Integration")]
-public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
+public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {
     private const string StrongPassword = "Str0ngTestPassw0rd!";
     private const string SessionCookieName = AuthCookieNames.Session;
@@ -60,9 +60,9 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         requestCookie!.Value.Should().NotBeNullOrEmpty();
     }
 
-    /// <summary>Case 2 — POST <c>/register</c> happy path returns 201 with AuthResponse.</summary>
+    /// <summary>Case 2 — POST <c>/register</c> happy path returns 201 with AuthResponseDto.</summary>
     [Fact]
-    public async Task Register_HappyPath_Returns_201_WithAuthResponse()
+    public async Task Register_HappyPath_Returns_201_WithAuthResponseDto()
     {
         // Arrange
         var (client, container) = CreateCookieClient(Factory);
@@ -71,12 +71,12 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
 
         // Act
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/register", token);
-        request.Content = JsonContent.Create(new RegisterRequest(email, StrongPassword));
+        request.Content = JsonContent.Create(new RegisterRequestDto(email, StrongPassword));
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
-        var body = await response.Content.ReadFromJsonAsync<AuthResponse>(
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
         body!.Email.Should().Be(email);
@@ -97,7 +97,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
 
         // Act
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/register", token);
-        request.Content = JsonContent.Create(new RegisterRequest(email, StrongPassword));
+        request.Content = JsonContent.Create(new RegisterRequestDto(email, StrongPassword));
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
@@ -113,7 +113,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
     /// <summary>
     /// Case 4 — POST <c>/register</c> with a weak password returns 400
     /// ValidationProblemDetails with the <c>password</c> error bucket populated.
-    /// <c>RegisterRequest</c> uses <c>[MinLength(12)]</c> so a 5-char password
+    /// <c>RegisterRequestDto</c> uses <c>[MinLength(12)]</c> so a 5-char password
     /// is rejected by <c>[ApiController]</c> auto-400 before reaching Identity.
     /// </summary>
     [Fact]
@@ -125,7 +125,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
 
         // Act
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/register", token);
-        request.Content = JsonContent.Create(new RegisterRequest(GenerateEmail(), "short"));
+        request.Content = JsonContent.Create(new RegisterRequestDto(GenerateEmail(), "short"));
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
@@ -158,7 +158,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         // cookie nor the header is attached.
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/register")
         {
-            Content = JsonContent.Create(new RegisterRequest(GenerateEmail(), StrongPassword)),
+            Content = JsonContent.Create(new RegisterRequestDto(GenerateEmail(), StrongPassword)),
         };
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
@@ -191,7 +191,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         // Act — capture the raw Set-Cookie header so attribute asserts don't
         // depend on CookieContainer's attribute-stripping behavior.
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
-        request.Content = JsonContent.Create(new LoginRequest(email, StrongPassword));
+        request.Content = JsonContent.Create(new LoginRequestDto(email, StrongPassword));
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
@@ -226,7 +226,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
 
         // Act
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
-        request.Content = JsonContent.Create(new LoginRequest(email, "Wr0ngTestPassw0rd!"));
+        request.Content = JsonContent.Create(new LoginRequestDto(email, "Wr0ngTestPassw0rd!"));
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
@@ -257,11 +257,11 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
 
         // Act
         using var wrongPasswordRequest = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
-        wrongPasswordRequest.Content = JsonContent.Create(new LoginRequest(knownEmail, "Wr0ngTestPassw0rd!"));
+        wrongPasswordRequest.Content = JsonContent.Create(new LoginRequestDto(knownEmail, "Wr0ngTestPassw0rd!"));
         var wrongPasswordResponse = await client.SendAsync(wrongPasswordRequest, TestContext.Current.CancellationToken);
 
         using var unknownUserRequest = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
-        unknownUserRequest.Content = JsonContent.Create(new LoginRequest(GenerateEmail(), StrongPassword));
+        unknownUserRequest.Content = JsonContent.Create(new LoginRequestDto(GenerateEmail(), StrongPassword));
         var unknownUserResponse = await client.SendAsync(unknownUserRequest, TestContext.Current.CancellationToken);
 
         // Assert — identical status codes …
@@ -306,7 +306,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         // cookie nor the header is attached to the login POST.
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
         {
-            Content = JsonContent.Create(new LoginRequest(email, StrongPassword)),
+            Content = JsonContent.Create(new LoginRequestDto(email, StrongPassword)),
         };
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
@@ -350,7 +350,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<AuthResponse>(
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
         body!.UserId.Should().Be(registeredUserId);
@@ -438,7 +438,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<AuthResponse>(
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
         body!.UserId.Should().Be(userId);
@@ -515,11 +515,11 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
     {
         var token = await PrimeAntiforgeryAsync(client, container);
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/register", token);
-        request.Content = JsonContent.Create(new RegisterRequest(email, password));
+        request.Content = JsonContent.Create(new RegisterRequestDto(email, password));
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         response.StatusCode.Should()
             .Be(HttpStatusCode.Created, because: $"register helper must succeed — got {(int)response.StatusCode}");
-        var body = await response.Content.ReadFromJsonAsync<AuthResponse>(
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
         return body!.UserId;
@@ -529,7 +529,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
     {
         var token = await PrimeAntiforgeryAsync(client, container);
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
-        request.Content = JsonContent.Create(new LoginRequest(email, password));
+        request.Content = JsonContent.Create(new LoginRequestDto(email, password));
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         response.StatusCode.Should()
             .Be(HttpStatusCode.OK, because: $"login helper must succeed — got {(int)response.StatusCode}");

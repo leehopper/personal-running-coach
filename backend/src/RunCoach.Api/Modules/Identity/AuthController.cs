@@ -59,10 +59,10 @@ public sealed partial class AuthController(
     [HttpPost("register")]
     [AllowAnonymous]
     [RequireAntiforgeryToken]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
     {
         var user = new ApplicationUser
         {
@@ -77,16 +77,16 @@ public sealed partial class AuthController(
             return result.ToRegistrationActionResult(this, request);
         }
 
-        var response = new AuthResponse(user.Id, user.Email!);
+        var response = new AuthResponseDto(user.Id, user.Email!);
         return StatusCode(StatusCodes.Status201Created, response);
     }
 
     [HttpPost("login")]
     [AllowAnonymous]
     [RequireAntiforgeryToken]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {
         var user = await userManager.FindByEmailAsync(request.Email);
 
@@ -114,7 +114,7 @@ public sealed partial class AuthController(
         if (result.Succeeded)
         {
             IssueAntiforgeryTokens();
-            return Ok(new AuthResponse(user.Id, user.Email!));
+            return Ok(new AuthResponseDto(user.Id, user.Email!));
         }
 
         // IsLockedOut / IsNotAllowed / RequiresTwoFactor collapse to the same
@@ -126,7 +126,7 @@ public sealed partial class AuthController(
 
     [HttpGet("me")]
     [Authorize(Policy = AuthPolicies.CookieOrBearer)]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Me()
     {
@@ -151,7 +151,7 @@ public sealed partial class AuthController(
             return Unauthorized();
         }
 
-        return Ok(new AuthResponse(user.Id, user.Email!));
+        return Ok(new AuthResponseDto(user.Id, user.Email!));
     }
 
     [HttpPost("logout")]

@@ -189,6 +189,16 @@ builder.Services
     {
         var o = jwt.Value;
         bearer.MapInboundClaims = false;
+        SymmetricSecurityKey? signingKey = null;
+        if (!string.IsNullOrEmpty(o.SigningKey))
+        {
+            var keyId = string.IsNullOrEmpty(o.KeyId) ? "current" : o.KeyId;
+            signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.SigningKey))
+            {
+                KeyId = keyId,
+            };
+        }
+
         bearer.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -199,12 +209,7 @@ builder.Services
             ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
             ValidIssuer = o.Issuer,
             ValidAudience = o.Audience,
-            IssuerSigningKey = string.IsNullOrEmpty(o.SigningKey)
-                ? null
-                : new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.SigningKey))
-                {
-                    KeyId = o.KeyId ?? "current",
-                },
+            IssuerSigningKey = signingKey,
             ClockSkew = TimeSpan.FromSeconds(30),
         };
     });

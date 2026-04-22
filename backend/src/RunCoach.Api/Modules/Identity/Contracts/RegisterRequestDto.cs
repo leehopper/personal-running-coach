@@ -9,7 +9,7 @@ namespace RunCoach.Api.Modules.Identity.Contracts;
 /// Identity (DEC-052). Identity remains source-of-truth for character-class
 /// rules and uniqueness.
 /// </summary>
-public sealed record RegisterRequest(
+public sealed record RegisterRequestDto(
     [Required, EmailAddress, MaxLength(254)]
     string Email,
     [Required, MinLength(12), MaxLength(128)]

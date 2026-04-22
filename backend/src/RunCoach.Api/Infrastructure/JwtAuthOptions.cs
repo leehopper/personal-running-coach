@@ -16,7 +16,7 @@ namespace RunCoach.Api.Infrastructure;
 /// <c>IDX10500</c> until real config lands. In Production / Staging,
 /// startup fails fast if any required value is missing.
 /// </remarks>
-public sealed class JwtAuthOptions
+public sealed record JwtAuthOptions
 {
     /// <summary>
     /// Gets the configuration section name, kept alongside the type so
@@ -29,14 +29,14 @@ public sealed class JwtAuthOptions
     /// </summary>
     [Required]
     [MinLength(1)]
-    public string? Issuer { get; init; }
+    public string Issuer { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the expected audience (<c>aud</c> claim).
     /// </summary>
     [Required]
     [MinLength(1)]
-    public string? Audience { get; init; }
+    public string Audience { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the symmetric HMAC signing key. Must be ≥ 32 bytes for HS256 to
@@ -44,12 +44,12 @@ public sealed class JwtAuthOptions
     /// </summary>
     [Required]
     [MinLength(32)]
-    public string? SigningKey { get; init; }
+    public string SigningKey { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the key identifier emitted in the JWT <c>kid</c> header. Optional
     /// today, load-bearing for the two-overlapping-keys rotation story when
     /// the iOS shim lands.
     /// </summary>
-    public string? KeyId { get; init; }
+    public string KeyId { get; init; } = string.Empty;
 }

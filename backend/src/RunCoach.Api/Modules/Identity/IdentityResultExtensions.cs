@@ -28,7 +28,7 @@ public static class IdentityResultExtensions
     public static IActionResult ToRegistrationActionResult(
         this IdentityResult result,
         ControllerBase controller,
-        RegisterRequest request)
+        RegisterRequestDto request)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(controller);
@@ -65,9 +65,9 @@ public static class IdentityResultExtensions
             // vanish under an empty ModelState key (DEC-052).
             var key = IdentityErrorCodeMapper.Map(error).PropertyName switch
             {
-                IdentityErrorBuckets.Password => nameof(RegisterRequest.Password).ToCamelCase(),
-                IdentityErrorBuckets.Email => nameof(RegisterRequest.Email).ToCamelCase(),
-                IdentityErrorBuckets.UserName => nameof(RegisterRequest.Email).ToCamelCase(),
+                IdentityErrorBuckets.Password => nameof(RegisterRequestDto.Password).ToCamelCase(),
+                IdentityErrorBuckets.Email => nameof(RegisterRequestDto.Email).ToCamelCase(),
+                IdentityErrorBuckets.UserName => nameof(RegisterRequestDto.Email).ToCamelCase(),
                 _ => IdentityErrorBuckets.General,
             };
             controller.ModelState.AddModelError(key, error.Description);

@@ -10,7 +10,7 @@ namespace RunCoach.Api.Modules.Identity.Contracts;
 /// Only <c>[Required]</c> is applied to reject missing fields via model
 /// binding before the timing-mitigation path runs.
 /// </summary>
-public sealed record LoginRequest(
+public sealed record LoginRequestDto(
     [Required]
     string Email,
     [Required]

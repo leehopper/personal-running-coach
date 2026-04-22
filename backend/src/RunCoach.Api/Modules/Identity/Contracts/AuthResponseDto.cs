@@ -5,4 +5,4 @@ namespace RunCoach.Api.Modules.Identity.Contracts;
 /// and <c>GET /api/v1/auth/me</c>. No token field — the session IS the
 /// <c>__Host-RunCoach</c> application cookie set by <c>SignInManager</c>.
 /// </summary>
-public sealed record AuthResponse(Guid UserId, string Email);
+public sealed record AuthResponseDto(Guid UserId, string Email);

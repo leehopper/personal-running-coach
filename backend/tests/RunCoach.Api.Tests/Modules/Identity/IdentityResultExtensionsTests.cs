@@ -19,7 +19,7 @@ namespace RunCoach.Api.Tests.Modules.Identity;
 [Trait("Category", "Unit")]
 public sealed class IdentityResultExtensionsTests
 {
-    private static readonly RegisterRequest AnyRequest = new(
+    private static readonly RegisterRequestDto AnyRequest = new(
         Email: "user@example.test",
         Password: "Str0ngTestPassw0rd!");
 
