@@ -11,7 +11,7 @@ namespace RunCoach.Api.Modules.Identity.Contracts;
 /// binding before the timing-mitigation path runs.
 /// </summary>
 public sealed record LoginRequest(
-    [property: Required]
+    [Required]
     string Email,
-    [property: Required]
+    [Required]
     string Password);

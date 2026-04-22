@@ -10,7 +10,7 @@ namespace RunCoach.Api.Modules.Identity.Contracts;
 /// rules and uniqueness.
 /// </summary>
 public sealed record RegisterRequest(
-    [property: Required, EmailAddress, MaxLength(254)]
+    [Required, EmailAddress, MaxLength(254)]
     string Email,
-    [property: Required, MinLength(12), MaxLength(128)]
+    [Required, MinLength(12), MaxLength(128)]
     string Password);

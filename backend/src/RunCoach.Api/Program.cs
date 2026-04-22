@@ -273,7 +273,15 @@ builder.Services.AddOpenTelemetry()
         }
     });
 
-builder.Services.AddControllers();
+// `AddControllersWithViews` (not `AddControllers`) because the
+// `[ValidateAntiForgeryToken]` MVC filter on `AuthController` resolves its
+// backing `ValidateAntiforgeryTokenAuthorizationFilter` from DI, and that
+// type is only registered by `AddViews()` (brought in by the `WithViews`
+// variant). `AddControllers()` alone throws at request time with
+// "No service for type … ValidateAntiforgeryTokenAuthorizationFilter has been
+// registered." We don't render server-side Razor views; the extra view-engine
+// services are dormant but unblock the antiforgery filter in the MVC pipeline.
+builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
