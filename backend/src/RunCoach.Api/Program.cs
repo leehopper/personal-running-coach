@@ -114,6 +114,14 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
         options.Password.RequireLowercase = true;
         options.Password.RequireDigit = true;
         options.Password.RequireNonAlphanumeric = true;
+
+        // Identity's default is false; without this flag email uniqueness is
+        // only enforced incidentally via `RequireUniqueUserName = true` +
+        // `user.UserName = user.Email` at register time. Duplicates then fire
+        // `DuplicateUserName` instead of `DuplicateEmail`, and any future
+        // decoupling of UserName from Email silently drops email uniqueness.
+        // Setting it true closes the latent bug (DEC-054 / R-058).
+        options.User.RequireUniqueEmail = true;
     })
     .AddRoles<IdentityRole<Guid>>()
     .AddEntityFrameworkStores<RunCoachDbContext>()
