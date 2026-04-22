@@ -1798,4 +1798,108 @@ T02.4 shipped `[ValidateAntiForgeryToken]` against the parent task's `[RequireAn
 
 ---
 
+## DEC-056: Containerized API build is CI-only on Apple Silicon until .NET 11 — Path B (host-run) is the sole Apple-Silicon dev loop
+
+**Date:** 2026-04-22
+**Status:** Final
+**Category:** Developer environment / Slice 0 / T02.6 follow-up
+**Informed by:** R-063 research artifact (`docs/research/artifacts/batch-20a-dotnet10-sdk-container-sigill-apple-silicon.md`) + direct empirical verification of every documented workaround on an Apple M4 Pro host.
+
+**Decision:** The `backend/Dockerfile` remains the CI image-build path for x86_64 GitHub Actions runners but is **not** usable for the local dev loop on Apple Silicon (M3 / M4 / M5). `CONTRIBUTING.md` promotes Path B (host `dotnet run` + `docker compose up -d postgres redis`) as the primary inner loop on all hosts and explicitly flags Path A (`tilt up`) as "x86_64 Linux only, until .NET 11." SDK + aspnet runtime base images are pinned by digest (SDK 10.0.203 / runtime 10.0.7, 2026-04-21 OOB, digests `sha256:8a90a47…3982fc` / `sha256:55e37c7…d9741d4`) to hold the CI build stable against silent upstream regressions. On the first .NET 11 SDK bump, revisit: most likely we bump both digests and lift the Apple-Silicon embargo in one pass. No ENV-based JIT workarounds ship in the Dockerfile — they were probed exhaustively and none cleared the fault deterministically on the reference hardware.
+
+**Root cause (summary — full analysis in R-063 artifact):**
+
+`dotnet/runtime#122608` (open, milestoned 11.0.0, label `arm-sve`): .NET 10's CoreCLR RyuJIT emits non-streaming SVE2 opcodes whose Apple M3/M4/M5 silicon implements **only** inside SME streaming mode. Linux guest kernels under macOS Virtualization.framework synthesize `HWCAP2_SVE2` from `ID_AA64ZFR0_EL1` without filtering, so `Sve2.IsSupported` returns `true`, the JIT emits opcodes like `ptrue p0.b`, the CPU raises UNDEF, and the kernel delivers `SIGILL` / `ILL_ILLOPC` / exit 132. Intermittency scales with restore graph size — the RunCoach solution (Marten + Wolverine + M.E.AI + OTel + Anthropic + Testcontainers) reproduces 100%; a `dotnet new console` is sporadic. Microsoft triaged the fix to .NET 11; no 10.0.x servicing backport is planned. This is not a NuGet bug, not a package bug, not an image-tag regression — every shipped .NET 10 SDK since PR #115117 (pre-GA) contains the flaw.
+
+**What was tried and failed on the reference hardware (Apple M4 Pro, Colima 0.10.1, aarch64, SDK 10.0.203):**
+
+| Workaround | Result | Notes |
+|---|---|---|
+| `DOTNET_EnableArm64Sve=0` + `_Sve2=0` | 5/5 FAIL, exit 132 | R-063's primary recommendation. ENV propagation verified via diagnostic `RUN` step. |
+| `DOTNET_EnableArm64Sve=0` + `_Sve2=0` + `_Sme=0` + `_Sme2=0` | 5/5 FAIL, exit 132 | Additional SME narrow knobs (R-063's "lower-probability secondary" hypothesis). |
+| `DOTNET_EnableHWIntrinsic=0` (master switch, via `docker run -e`) | 1 lucky success, then 5/5 FAIL | R-063 estimated "5-20% slowdown" as the acceptable cost; moot since it doesn't actually clear it. |
+| `DOTNET_EnableHWIntrinsic=0` via Dockerfile `ENV` | 1/1 FAIL | Same knob as above via different surface. |
+| `--platform=linux/amd64` (Rosetta emulation) | 3/3 FAIL, exit 134 (SIGABRT) | Colima profile lacks a working `binfmt_misc` handler; cross-arch emulation crashes in a different phase. |
+| Colima `--vm-type=qemu` (vs VZ) | unchanged — still SIGILL | Both drivers passthrough the same physical ID registers. |
+| Colima 4 CPU / 8 GiB (vs 2/2 default) | unchanged | Not a resource-pressure fault. |
+
+The R-063 artifact's confidence was explicitly conditional: *"The SVE2 diagnosis is strongly supported by circumstantial evidence but has not been definitively proven by opcode disassembly for this specific RunCoach crash."* Our empirical pass confirms the probabilistic quality of the JIT knobs and rejects the narrow-knob recommendation as a reliable fix on this hardware. Disassembling the faulting opcode (via the `ulimit -c unlimited` + gdb procedure in R-063 §3) would nail down the exact ISA family but does not change the posture: until an upstream fix exists, no ENV is the deterministic path.
+
+**What shipped:**
+
+1. **`backend/Dockerfile`** — digest-pinned both stages (SDK `8a90a47…3982fc`, runtime `55e37c7…d9741d4`). No ENV JIT knobs. Big block comment at the top of the build stage capturing (a) that the pinning is durability infrastructure, (b) that the file is CI-only on Apple Silicon, (c) the upstream bug reference, (d) the empirical workaround log, (e) the .NET 11 re-enablement trigger. The runtime stage is unchanged beyond the digest pin — the `EnableHWIntrinsic` ENV that briefly lived there is removed because it's a net-negative (5–20% pessimisation on x86_64 CI and on healthy arm64 production like Graviton / Ampere) for zero benefit anywhere this Dockerfile actually runs.
+2. **`CONTRIBUTING.md` § Running the stack** — rewritten. Path B is documented first and called out as "the only supported dev loop on Apple Silicon"; Path A moves below, labeled "x86_64 Linux only, until .NET 11," with an inline explanation pointing at `dotnet/runtime#122608`, the research artifact, and this DEC. The earlier "bump Colima resources to clear SIGILL" paragraph (added speculatively before the research landed) is removed — it was wrong and misleading.
+3. **`docker-compose.yml`** — unchanged. The `api` service stays declared so x86_64 contributors + CI can build it; Apple-Silicon contributors use Path B's `docker compose up -d postgres redis` subset, which already skips `api`.
+4. **`docs/research/artifacts/batch-20a-…md`** — landed; R-063 marked Done in the queue.
+
+**Alternatives considered (and rejected):**
+
+- **Ship `DOTNET_EnableHWIntrinsic=0` in the Dockerfile as a hopeful mitigation.** Rejected. It doesn't reliably clear the fault on the reference hardware (empirically 1 out of many). Ships a 5–20% perf tax to x86_64 CI and to Graviton/Ampere production for no reliable benefit. Also signals "this is fixed" in a way contributors will trust, only to hit the same SIGILL a week later and re-open the investigation. Honest posture is "broken upstream; use Path B."
+- **Delete `backend/Dockerfile` and remove Path A entirely.** Rejected per R-063 §4.2: the Dockerfile is the CI image-build path for x86_64 runners, catches Dockerfile drift regressions on every PR, and will be the Apple-Silicon dev-loop path again once .NET 11 lands. Deleting it would re-introduce a future restoration cost for zero saving today.
+- **Force Rosetta (`--platform=linux/amd64`) in the Dockerfile.** Rejected per R-063 §5(ii) AND because it also fails on this machine (SIGABRT 134 — separate Colima binfmt issue). Even if it worked, it imposes 1.5–3× CPU tax, violates the DEC-045 / R-050 native-arm64 constraint for the test path, and silently hides real arm64 incompatibilities until production Linux arm64 (Graviton) surfaces them.
+- **Pin to an older SDK digest (e.g., 10.0.202 / 10.0.101).** Rejected per R-063 §5(iii): SVE2 detection shipped in pre-GA PR #115117; every .NET 10 SDK contains the flaw. Pinning 10.0.202 also loses the CVE-2026-40372 DataProtection HMAC-bypass fix in 10.0.203.
+- **Switch base variant (alpine / chiseled / jammy / azurelinux).** Rejected per R-063 §5(iv): all Linux variants ship the same CoreCLR binary; variant choice does not affect HWCAP detection or JIT codegen.
+- **Add `packages.lock.json` + `--locked-mode` to the restore step.** Deferred. R-063 recommended this as defense-in-depth for NuGet content-hash tampering independent of signature verification. Orthogonal to the SIGILL — worth doing but is its own workflow change (regenerate and commit the lockfile, verify Dependabot integration). Captured as a follow-up in the cycle plan, not gated on this DEC.
+- **Add a `scripts/verify-container-restore.sh` smoke + CI matrix + Dependabot ignore rule.** Deferred. R-063 §6 sketched a three-artifact verification harness. The smoke script is only useful when an Apple-Silicon CI runner becomes available (GitHub Actions currently has only `macos-latest` M1 — which does not reproduce #122608 — and the M3/M4/M5 runners are not yet GA). The Dependabot ignore rule is low-risk insurance but blocks Dependabot's security-relevant SDK bumps too; a simpler "read the Dockerfile comment and run the verification manually on next bump" runbook suffices for a solo-dev project at this scale. Captured as a follow-up.
+
+**Retrospective — why the research's primary fix didn't work on the reference hardware:**
+
+The R-063 artifact was assembled from public bug reports and CoreCLR source. Those reports include success cases for the narrow ISA knobs, but the cases are not consistently reproducible across SDK version × chip × VM-driver × package-graph combinations — #122608 explicitly notes "intermittency." The artifact correctly flagged that uncertainty in §8 ("honest uncertainty: the SVE2 diagnosis is strongly supported by circumstantial evidence but has not been definitively proven by opcode disassembly for this specific RunCoach crash"). Empirical testing is always the tiebreaker; this DEC records the empirical result and the strategic re-posture it forces.
+
+**Re-enablement trigger:**
+
+When Microsoft ships the first .NET 11 SDK (expected GA Q4 2026 per the dotnet/core roadmap):
+
+1. Bump both base image digests to the matching `.NET 11` tags.
+2. Run `docker build -f backend/Dockerfile backend/` on an Apple M4 / M5 host five times; expect all five to pass.
+3. Remove the "x86_64 Linux only" labelling in `CONTRIBUTING.md` Path A and in the Dockerfile comment; mark this DEC superseded with a reference to the replacement entry.
+4. Delete this DEC's workaround-log table — the R-063 artifact stays as historical record.
+
+**Cross-references:**
+
+- `docs/research/artifacts/batch-20a-dotnet10-sdk-container-sigill-apple-silicon.md` — R-063 research artifact. Diagnosis is sound; the narrow-knob primary recommendation did not hold on the reference hardware; the strategic (a)+(c) recommendation (fix Path A + demote it) collapses to (c) alone for the duration of the .NET 10 line.
+- `docs/research/artifacts/batch-20b-sve2-sigill-second-opinion-verification.md` — R-064 second-opinion verification. All 15 candidate workarounds rejected on the reference hardware. See "Post-R-064 verification" supplement below.
+- `dotnet/runtime#122608` — upstream bug, milestone 11.0.0.
+- `dotnet/runtime#112605` — closed precursor (.NET 9 + M4 Max), same root cause pattern.
+- `dotnet/runtime#121787` — SME intrinsics work item, milestone 11.0 (confirms no .NET 10 SME knob surface exists).
+- `containers/podman#28312` — identical root-cause class on Podman Machine applehv, closed "not planned" 2026-03-17 per maintainer analysis.
+- DEC-045 — Aspire deferred to MVP-1; Compose + Tilt is the MVP-0 story. Path B was already the primary inner loop there; DEC-056 makes it the sole loop on Apple Silicon.
+- DEC-046 — SOPS + Postgres DataProtection + `dotnet user-secrets`. Path B's user-secrets setup (`ConnectionStrings:runcoach`, `Anthropic:ApiKey`) is the local dev posture DEC-046 already describes.
+- DEC-049 — host-config reload disabled on macOS arm64. Same kind of "macOS-arm64-specific .NET 10 papercut, worked around in repo rather than upstream" pattern; both get lifted on the .NET 11 bump.
+
+### Post-R-064 verification (2026-04-22)
+
+R-064 is a second-opinion research pass commissioned specifically to rule out that R-063 missed a deterministic workaround. Bottom line: **no deterministic workaround preserves the reference constraints** (Apple M4 Pro + Colima 0.10.1 default VZ profile + SDK 10.0.203, no Rosetta, no .NET 11 wait). Every one of 15 enumerated candidates was rejected with primary-source citations. Three findings change the mental model recorded above:
+
+1. **The env-var names were correct all along.** R-063's `DOTNET_EnableArm64Sve` / `_Sve2` are verbatim quotes from `src/coreclr/jit/jitconfigvalues.h` `RELEASE_CONFIG_INTEGER` entries on both `main` and `release/10.0`. The earlier empirical 5/5 FAIL wasn't a naming bug. The fault lives somewhere the env-var layer can't reach — most likely the `src/native/minipal/cpufeatures.c` detection probe (runs before CLRConfig is wired; no gate), or an SME2 instruction (no `DOTNET_EnableArm64Sme*` family exists in .NET 10 at all — it's a .NET 11 work item per `dotnet/runtime#121787`), or an R2R-compiled BCL method that already has SVE2 opcodes baked into disk. Disabling JIT-layer codegen doesn't reach any of those.
+2. **Podman is dead on this path too.** `containers/podman#28312` (pgib, 2026-03-17) was closed "not planned" — Podman Machine on applehv fails identically and the maintainers won't patch.
+3. **Apple VZ itself has no escape.** `developer.apple.com/documentation/virtualization` as of macOS 15/26 exposes no CPU-feature-mask API on `VZGenericPlatformConfiguration`. Lima's `cpuType` field is QEMU-only per `lima-vm#3486`. So "fix Colima default VZ to mask SVE2" is architecturally blocked — it would require an Apple-side API addition.
+
+**Partial escapes (documented, not adopted):**
+
+- **Docker Desktop ≥ 4.39** — the only primary-source-confirmed container runtime that masks the offending features at the LinuxKit layer (`docs.docker.com/desktop/release-notes/` 4.38.0 changelog for the Java-side analog; `docker/for-mac#7583` closed `status/3-fixed` `version/4.39.0`; corroborated by `containers/podman#28312` maintainer analysis). Reject as project posture because Docker Business licensing applies to orgs >250 employees or >$10M revenue, the telemetry posture is on-by-default, and the product is proprietary. Mentioned in CONTRIBUTING.md as an opt-in escape hatch if policy allows.
+- **Colima `--vm-type=qemu` + `cpuType.aarch64=cortex-a72`** — primary-source verified (`lima-vm#3032` maintainer guidance + `qemu-project.gitlab.io/qemu/system/arm/cpu-features.html`). Reject because HVF-accelerated QEMU aarch64 is materially slower than VZ for multi-core I/O, and the reference profile is Colima default VZ. Mentioned as a second opt-in escape hatch.
+
+**Defensive belt-and-suspenders landed:** an `ENV` block disabling every SVE/SVE2 knob enumerated in `jitconfigvalues.h` has been added to `backend/Dockerfile`. This is a no-op on x86_64 (the intended CI path) and does not clear the fault on arm64 (per the empirical 5/5 FAIL + R-064's analysis), but reduces JIT-side SVE2 emission surface if the image is ever accidentally built on arm64 — closes the one sub-path the env-var layer can reach, leaving the minipal-probe and R2R paths as the residual faults. Zero cost on the supported platform; small hedge against future regressions in an adjacent ISA class.
+
+**Re-check triggers (R-064 §D, 13 events):**
+
+1. `mcr.microsoft.com/dotnet/sdk:10.0.204` or `:10.0.108` pushed (expected ~2026-05-12 Patch Tuesday) — diff release notes for SVE / `cpufeatures.c` / #122608 mentions.
+2. New comment on `dotnet/runtime#122608`, especially from @AndyAyersMS or @kunalspathak.
+3. PR linked in #122608 Development panel, or any PR in `dotnet/runtime` referencing #122608, SVE2, `cpufeatures.c`, `PF_ARM_SVE2_INSTRUCTIONS_AVAILABLE`, `HWCAP2_SVE2`, or SME detection hardening on `main`, `release/10.0-staging`, or `release/10.0`.
+4. Revert or substantive follow-up of `dotnet/runtime#115117` (the regression-introducing PR).
+5. New label on #122608: `Servicing-consider`, `Servicing-approved`, or milestone change off `11.0.0`.
+6. `devblogs.microsoft.com/dotnet/dotnet-and-dotnet-framework-*-2026-servicing-updates` post for May/June/July 2026 listing a JIT/SIGILL or ARM64 fix.
+7. `mcr.microsoft.com/dotnet/sdk:10.0.300` or any `10.0.3xx` tag pushed (next minor-band SDK).
+8. `.NET 11 Preview 4+` pushed to `mcr.microsoft.com/dotnet/nightly/sdk` — confirm whether `cpufeatures.c` heuristic has been refined to prctl-tolerant actual-execution verification (analogous to OpenJDK JDK-8345296 pattern).
+9. New issue on `dotnet/runtime` filtered by `label:arm-sve` mentioning Apple M, Colima, Hypervisor.framework, or SME2.
+10. Maintainer-authored comment on `containers/podman#28312` or `docker/for-mac#7583` documenting the exact LinuxKit/seccomp mask applied in Docker Desktop 4.39 — would inform what Colima/Lima need to patch.
+11. New release of Colima or Lima documenting VZ CPU-feature masking or CPU-type override (watch `abiosoft/colima/releases` and `lima-vm/lima/releases`).
+12. Blog or release-notes post from Apple documenting a `Virtualization.framework` CPU-feature-mask API on macOS 26+.
+13. If constraints are ever relaxed: one `docker context use desktop-linux && dotnet restore RunCoach.slnx` × 10 pass confirms or refutes the Docker Desktop ≥ 4.39 claim on this exact repo.
+
+Re-running R-064 when any of the above fires is the mechanism by which DEC-056 un-demotes itself.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
