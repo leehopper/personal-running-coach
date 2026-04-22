@@ -54,12 +54,21 @@ public static class IdentityResultExtensions
 
         foreach (var error in result.Errors)
         {
+            // Mapper bucket names (password / email / username / general /
+            // role) → DTO-property JSON keys the frontend Zod schema binds
+            // field errors against. `UserName` errors surface on the `email`
+            // DTO property because Register sets `UserName = Email` — there
+            // is no separate UserName field on the wire. `General` surfaces
+            // as the canonical `"general"` bucket the SPA renders in a
+            // non-field notice panel; anything unknown collapses to the
+            // same bucket so non-field Identity errors never silently
+            // vanish under an empty ModelState key (DEC-052).
             var key = IdentityErrorCodeMapper.Map(error).PropertyName switch
             {
                 IdentityErrorBuckets.Password => nameof(RegisterRequest.Password).ToCamelCase(),
                 IdentityErrorBuckets.Email => nameof(RegisterRequest.Email).ToCamelCase(),
                 IdentityErrorBuckets.UserName => nameof(RegisterRequest.Email).ToCamelCase(),
-                _ => string.Empty,
+                _ => IdentityErrorBuckets.General,
             };
             controller.ModelState.AddModelError(key, error.Description);
         }
