@@ -1,13 +1,17 @@
 using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Identity.Contracts;
 using RunCoach.Api.Tests.Infrastructure;
@@ -173,14 +177,14 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         var (registerClient, registerContainer) = CreateCookieClient(Factory);
         await RegisterAsync(registerClient, registerContainer, email, StrongPassword);
 
-        var (client, _) = CreateCookieClient(Factory);
+        var (client, container) = CreateCookieClient(Factory);
+        var token = await PrimeAntiforgeryAsync(client, container);
 
         // Act — capture the raw Set-Cookie header so attribute asserts don't
         // depend on CookieContainer's attribute-stripping behavior.
-        var response = await client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new LoginRequest(email, StrongPassword),
-            TestContext.Current.CancellationToken);
+        using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
+        request.Content = JsonContent.Create(new LoginRequest(email, StrongPassword));
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -209,13 +213,13 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         var (registerClient, registerContainer) = CreateCookieClient(Factory);
         await RegisterAsync(registerClient, registerContainer, email, StrongPassword);
 
-        var (client, _) = CreateCookieClient(Factory);
+        var (client, container) = CreateCookieClient(Factory);
+        var token = await PrimeAntiforgeryAsync(client, container);
 
         // Act
-        var response = await client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new LoginRequest(email, "Wr0ngTestPassw0rd!"),
-            TestContext.Current.CancellationToken);
+        using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
+        request.Content = JsonContent.Create(new LoginRequest(email, "Wr0ngTestPassw0rd!"));
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -240,18 +244,17 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         var (seedClient, seedContainer) = CreateCookieClient(Factory);
         await RegisterAsync(seedClient, seedContainer, knownEmail, StrongPassword);
 
-        var (client, _) = CreateCookieClient(Factory);
+        var (client, container) = CreateCookieClient(Factory);
+        var token = await PrimeAntiforgeryAsync(client, container);
 
         // Act
-        var wrongPasswordResponse = await client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new LoginRequest(knownEmail, "Wr0ngTestPassw0rd!"),
-            TestContext.Current.CancellationToken);
+        using var wrongPasswordRequest = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
+        wrongPasswordRequest.Content = JsonContent.Create(new LoginRequest(knownEmail, "Wr0ngTestPassw0rd!"));
+        var wrongPasswordResponse = await client.SendAsync(wrongPasswordRequest, TestContext.Current.CancellationToken);
 
-        var unknownUserResponse = await client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new LoginRequest(GenerateEmail(), StrongPassword),
-            TestContext.Current.CancellationToken);
+        using var unknownUserRequest = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
+        unknownUserRequest.Content = JsonContent.Create(new LoginRequest(GenerateEmail(), StrongPassword));
+        var unknownUserResponse = await client.SendAsync(unknownUserRequest, TestContext.Current.CancellationToken);
 
         // Assert — identical status codes …
         unknownUserResponse.StatusCode.Should().Be(wrongPasswordResponse.StatusCode)
@@ -276,6 +279,34 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
     }
 
     /// <summary>
+    /// Case 8b — POST <c>/login</c> without an antiforgery token returns 400.
+    /// Login establishes the session cookie, so it must enforce the same
+    /// antiforgery gate as register / logout to prevent login-CSRF /
+    /// session-swap attacks.
+    /// </summary>
+    [Fact]
+    public async Task Login_MissingAntiforgeryToken_Returns_400()
+    {
+        // Arrange
+        var email = GenerateEmail();
+        var (registerClient, registerContainer) = CreateCookieClient(Factory);
+        await RegisterAsync(registerClient, registerContainer, email, StrongPassword);
+
+        var (client, _) = CreateCookieClient(Factory);
+
+        // Act — deliberately skip PrimeAntiforgeryAsync so neither the
+        // cookie nor the header is attached to the login POST.
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(email, StrongPassword)),
+        };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    /// <summary>
     /// Case 9 — GET <c>/me</c> returns 200 with the DB-backed row. Mutating
     /// the row in place and asserting the new email proves <c>Me()</c> reads
     /// from UserManager / DbContext rather than from cookie-baked claims.
@@ -287,7 +318,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         var originalEmail = GenerateEmail();
         var (client, container) = CreateCookieClient(Factory);
         var registeredUserId = await RegisterAsync(client, container, originalEmail, StrongPassword);
-        await LoginAsync(client, originalEmail, StrongPassword);
+        await LoginAsync(client, container, originalEmail, StrongPassword);
 
         // Mutate the row directly via the SUT's DbContext so the claim
         // (unchanged) and the DB (new email) disagree. A claim-reading Me()
@@ -348,7 +379,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         var email = GenerateEmail();
         var (client, container) = CreateCookieClient(Factory);
         await RegisterAsync(client, container, email, StrongPassword);
-        await LoginAsync(client, email, StrongPassword);
+        await LoginAsync(client, container, email, StrongPassword);
         var token = await PrimeAntiforgeryAsync(client, container);
 
         // Act
@@ -364,6 +395,46 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
             sessionClear.Contains("max-age=0", StringComparison.OrdinalIgnoreCase);
         isCleared.Should().BeTrue(
             $"cookie-clear must use an epoch expires attribute or max-age=0, got: {sessionClear}");
+    }
+
+    /// <summary>
+    /// Case 10b — GET <c>/me</c> with a raw JWT bearer token whose subject is
+    /// in the <c>sub</c> claim (not <c>ClaimTypes.NameIdentifier</c>) resolves
+    /// to the expected user. Program.cs disables inbound claim mapping, so
+    /// JWT callers arrive with <c>sub</c> only; the controller's fallback
+    /// from <c>ClaimTypes.NameIdentifier</c> to <c>sub</c> keeps the bearer
+    /// branch of <see cref="AuthPolicies.CookieOrBearer"/> functional.
+    /// </summary>
+    [Fact]
+    public async Task Me_WithBearerSubClaim_Returns_200_WithExpectedEmail()
+    {
+        // Arrange
+        var email = GenerateEmail();
+        var (registerClient, registerContainer) = CreateCookieClient(Factory);
+        var userId = await RegisterAsync(registerClient, registerContainer, email, StrongPassword);
+
+        // Build a fresh HttpClient with NO cookie container so the request is
+        // authenticated purely by the bearer header — the cookie branch of
+        // CookieOrBearer cannot contaminate the assertion.
+        var bearerClient = Factory.CreateClient();
+        bearerClient.BaseAddress = BaseUri;
+        bearerClient.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json"));
+        bearerClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", MintBearerToken(userId));
+
+        // Act
+        var response = await bearerClient.GetAsync(
+            "/api/v1/auth/me",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponse>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        body.Should().NotBeNull();
+        body!.UserId.Should().Be(userId);
+        body.Email.Should().Be(email);
     }
 
     /// <summary>Case 12 — POST <c>/logout</c> without a session returns 401.</summary>
@@ -392,7 +463,7 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         var email = GenerateEmail();
         var (client, container) = CreateCookieClient(Factory);
         await RegisterAsync(client, container, email, StrongPassword);
-        await LoginAsync(client, email, StrongPassword);
+        await LoginAsync(client, container, email, StrongPassword);
 
         // Act — deliberately omit the X-XSRF-TOKEN header.
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/logout");
@@ -446,14 +517,37 @@ public class AuthControllerTests(RunCoachAppFactory factory) : DbBackedIntegrati
         return body!.UserId;
     }
 
-    private static async Task LoginAsync(HttpClient client, string email, string password)
+    private static async Task LoginAsync(HttpClient client, CookieContainer container, string email, string password)
     {
-        var response = await client.PostAsJsonAsync(
-            "/api/v1/auth/login",
-            new LoginRequest(email, password),
-            TestContext.Current.CancellationToken);
+        var token = await PrimeAntiforgeryAsync(client, container);
+        using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
+        request.Content = JsonContent.Create(new LoginRequest(email, password));
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         response.StatusCode.Should()
             .Be(HttpStatusCode.OK, because: $"login helper must succeed — got {(int)response.StatusCode}");
+    }
+
+    private static string MintBearerToken(Guid userId)
+    {
+        // Signed with the same HS256 material the SUT's JwtBearer handler is
+        // configured with (RunCoachAppFactory.TestJwt*). `MapInboundClaims=false`
+        // in Program.cs keeps the JWT claim names verbatim, so `sub` lands as
+        // `sub` — not `ClaimTypes.NameIdentifier` — which is precisely the
+        // fallback path Me() needs to honor.
+        var now = DateTime.UtcNow;
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(RunCoachAppFactory.TestJwtSigningKey))
+        {
+            KeyId = RunCoachAppFactory.TestJwtKeyId,
+        };
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(
+            issuer: RunCoachAppFactory.TestJwtIssuer,
+            audience: RunCoachAppFactory.TestJwtAudience,
+            claims: [new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())],
+            notBefore: now,
+            expires: now.AddMinutes(5),
+            signingCredentials: credentials);
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private static Cookie? GetCookie(CookieContainer container, string name)

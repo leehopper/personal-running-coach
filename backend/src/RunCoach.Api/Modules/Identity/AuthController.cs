@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
@@ -86,6 +87,7 @@ public sealed partial class AuthController(
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [RequireAntiforgeryToken]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
@@ -132,7 +134,16 @@ public sealed partial class AuthController(
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Me()
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        // Cookie auth writes `ClaimTypes.NameIdentifier`; raw JWTs carry the
+        // subject as `sub` (`JwtRegisteredClaimNames.Sub`). Program.cs disables
+        // inbound claim mapping (so JWT claim types land verbatim rather than
+        // being translated to the ClaimTypes.* longhand), which means the
+        // bearer-authenticated branch of `CookieOrBearer` resolves through
+        // `sub` only. Falling back preserves both call sites without widening
+        // the claim-mapping surface.
+        var userId =
+            User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
         if (string.IsNullOrEmpty(userId))
         {
             return Unauthorized();
@@ -185,6 +196,29 @@ public sealed partial class AuthController(
     // sign-in / sign-out prevents stale tokens from failing the next unsafe
     // request, which otherwise forces the SPA to call `/xsrf` explicitly
     // between every auth transition and the first state-changing request.
+    //
+    // `HttpOnly=false` on the `__Host-Xsrf-Request` cookie is intentional and
+    // is the entire point of the SPA double-submit pattern (DEC-054): the
+    // framework-managed `__Host-Xsrf` cookie is `HttpOnly=true` and holds the
+    // server-bound secret; this companion is the token-echo channel the SPA
+    // reads and copies into the `X-XSRF-TOKEN` request header. Making this
+    // cookie `HttpOnly=true` would break every antiforgery-gated POST from
+    // the browser. Both cookies carry `__Host-` + `Secure` + `Path=/` per
+    // RFC 6265bis, and antiforgery validation requires the header to match
+    // the server-held token — so an XSS that reads this cookie value still
+    // cannot forge a request because the framework cookie is unreadable.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Security",
+        "CA5395:Miss HttpVerb attribute for action methods",
+        Justification = "Not a controller action — see below suppression.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Security",
+        "S2092:\"HttpOnly\" should be set on cookie",
+        Justification = "SPA-readable companion cookie in the antiforgery double-submit pattern. The framework-managed `__Host-Xsrf` cookie is HttpOnly=true; this one must be JS-readable so the SPA can echo the token into X-XSRF-TOKEN. See DEC-054.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Security",
+        "cs/web/cookie-httponly-not-set",
+        Justification = "SPA-readable companion cookie in the antiforgery double-submit pattern. See DEC-054.")]
     private void IssueAntiforgeryTokens()
     {
         var tokens = antiforgery.GetAndStoreTokens(HttpContext);
