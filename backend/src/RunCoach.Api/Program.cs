@@ -337,7 +337,33 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        // Browser-side helper attaches the antiforgery header on unsafe
+        // methods so the Swagger click-through matches a real SPA
+        // request without the developer hand-copying the cookie value.
+        // Swagger UI's public requestInterceptor extension point runs
+        // this JavaScript in the browser; it reads the antiforgery
+        // request cookie and, when present, sets the header. The
+        // interceptor safely no-ops on first page load (before the xsrf
+        // endpoint has been called), so the token-issuing endpoint is
+        // never corrupted. Host-prefixed Secure cookies only travel
+        // over HTTPS, so this whole path only works against the
+        // https listener — see CONTRIBUTING.md for the browser cookie
+        // contract and why plain HTTP cannot round-trip auth.
+        options.UseRequestInterceptor(
+            "(request) => {" +
+            "  const method = (request.method || '').toUpperCase();" +
+            "  if (['POST','PUT','PATCH','DELETE'].includes(method)) {" +
+            "    const cookie = document.cookie.split('; ')" +
+            "      .find(c => c.startsWith('__Host-Xsrf-Request='));" +
+            "    if (cookie) {" +
+            "      request.headers['X-XSRF-TOKEN'] = decodeURIComponent(cookie.split('=')[1]);" +
+            "    }" +
+            "  }" +
+            "  return request;" +
+            "}");
+    });
 }
 
 // Ungated per .NET 10 template idiom (R-056). The middleware safely no-ops
