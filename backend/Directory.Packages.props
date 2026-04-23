@@ -26,8 +26,8 @@
     <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="5.31.1" />
     <PackageVersion Include="WolverineFx.Marten" Version="5.31.1" />
     <!-- Observability — OpenTelemetry -->
-    <PackageVersion Include="OpenTelemetry" Version="1.15.2" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.2" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.0" />
