@@ -17,8 +17,10 @@ public static class AuthCookieNames
 {
     /// <summary>
     /// The Identity application session cookie. Written on successful
-    /// login, rotated on logout, carries the encrypted authentication
-    /// ticket. <c>HttpOnly=true</c>.
+    /// login, cleared (expired) on logout, carries the encrypted
+    /// authentication ticket. <c>HttpOnly=true</c>. Antiforgery tokens
+    /// are re-issued via <c>IssueAntiforgeryTokens()</c> on logout to
+    /// prevent stale tokens from failing the next unsafe request.
     /// </summary>
     public const string Session = "__Host-RunCoach";
 

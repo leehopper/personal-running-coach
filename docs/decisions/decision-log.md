@@ -1785,6 +1785,13 @@ T02.4 shipped `[ValidateAntiForgeryToken]` against the parent task's `[RequireAn
 - **Apply `[RequireAntiforgeryToken]` at the controller class level.** Rejected for the auth controller specifically — `/xsrf`, `/login`, and `/me` don't need it (the first two are `AllowAnonymous` POSTs-or-safe-methods-that-issue-the-token, `/me` is `GET`). Per-action placement is clearer for this controller. Reconsider as the default for Slice 1+ controllers that have a larger state-changing surface.
 - **Bridge via an MVC authorization filter instead of middleware.** Rejected — the failed-antiforgery feature needs to be converted to `400` BEFORE the MVC filter pipeline runs its form-binding, otherwise the `HandleUncheckedAntiforgeryValidationFeature` path still throws. A filter runs too late.
 
+**Addendum (2026-04-23, pre-merge):** the shipped code supersedes two of the rejected alternatives above:
+
+- **ProblemDetails body is written from the bridge.** The bridge calls `IProblemDetailsService.TryWriteAsync` with a populated `ProblemDetails` (`type = https://runcoach.app/problems/antiforgery-validation-failed`, `title = "Antiforgery validation failed."`, `detail` pointing the SPA back at `/xsrf`). Rationale: the SPA handles every 4xx as a `ProblemDetails` — making this endpoint the one exception forced a special case in the RTK Query base query. T02.5's Case 5 is updated to pin the new body shape and `type` URI. The "plain 400 no body" posture the original DEC rejected this move *for* is no longer the test contract.
+- **Bridge is a named static class, not an inline `app.Use` delegate.** `Infrastructure/AntiforgeryBridgeMiddleware.cs` with an `UseAntiforgeryProblemDetailsBridge()` extension method. Rationale: once the middleware grew past three lines (feature check + ProblemDetails body emission via `IProblemDetailsService`), the inline form became harder to read in `Program.cs` than a named type. The "promote to a named class if it grows past 3 lines" trigger the original DEC named has fired.
+
+No behavior change to `[RequireAntiforgeryToken]` selection, `AddControllers()` choice, `/xsrf` GET-exemption, or middleware pipeline position — those pillars of DEC-055 are unchanged. The addendum only updates the bridge shape to match what actually shipped.
+
 **Cross-references:**
 
 - `docs/research/artifacts/batch-19e-antiforgery-attribute-net10.md` — R-062 research artifact. Errata: the "short-circuits with 400" claim is incorrect; the middleware sets `IAntiforgeryValidationFeature` and calls `_next`. DEC-055's bridge middleware is the MVC-side adapter the artifact's recommended pattern implicitly relies on.
