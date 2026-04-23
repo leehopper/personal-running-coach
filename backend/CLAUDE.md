@@ -26,8 +26,7 @@ backend/
         Training/                  # Deterministic training science
           Computations/            # PaceZoneIndexCalculator, PaceZoneCalculator, HeartRateZoneCalculator, DanielsGilbertEquations (formula-based)
           Models/                  # UserProfile, TrainingPaces, WorkoutSummary, etc.
-        Common/                    # Cross-cutting (BaseController)
-      Infrastructure/              # ServiceCollectionExtensions (DI registration hub)
+      Infrastructure/              # ServiceCollectionExtensions (DI registration hub), auth middleware, cross-cutting primitives
   tests/
     RunCoach.Api.Tests/
       Modules/                     # Mirrors src structure
@@ -61,7 +60,7 @@ backend/
 
 ## Architecture Layers
 
-- **Controllers** inherit from `BaseController` (`Common/`). Entry point only — delegate to services.
+- **Controllers** inherit from `ControllerBase` directly and carry their own `[ApiController]` + `[Route("api/v1/<literal-or-template>")]` attributes. Entry point only — delegate to services. (A `BaseController` abstract class was considered but never gained a second user — new controllers keep the attributes inline rather than inheriting an empty base.)
 - **Services** contain business logic, injected into controllers. All services have interfaces.
 - **Repositories** handle data access, injected into services. All repositories have interfaces.
 - **Computation classes** are pure/deterministic (no I/O) — `PaceZoneIndexCalculator`, `PaceZoneCalculator`, `HeartRateZoneCalculator`, `DanielsGilbertEquations` (internal static helper). Interfaces for the injectable services; the equations helper is static because it has no state.

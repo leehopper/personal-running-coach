@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Npgsql;
 using Respawn;
 using RunCoach.Api.Infrastructure;
@@ -25,9 +24,27 @@ namespace RunCoach.Api.Tests.Infrastructure;
 /// </summary>
 public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    /// <summary>
+    /// Deterministic JWT signing material used by bearer-path integration
+    /// tests. Safe to commit because it only unlocks the in-process
+    /// TestServer — Production / Staging fail fast via
+    /// <see cref="JwtAuthOptionsValidator"/> if real config is absent.
+    /// 48 printable bytes satisfy <c>JwtAuthOptions.SigningKey</c>'s
+    /// <c>[MinLength(32)]</c> and RFC 7518 §3.2 for HS256.
+    /// </summary>
+    public const string TestJwtIssuer = "runcoach-tests";
+    public const string TestJwtAudience = "runcoach-tests-client";
+    public const string TestJwtSigningKey = "test-hs256-signing-key-0123456789-abcdef0123456789";
+    public const string TestJwtKeyId = "test-kid";
+
     private const string ReuseLabel = "runcoach-tests";
     private const string ConnectionStringEnvVar = "ConnectionStrings__runcoach";
     private const string OtlpEndpointEnvVar = "OTEL_EXPORTER_OTLP_ENDPOINT";
+    private const string JwtIssuerEnvVar = "Auth__Jwt__Issuer";
+    private const string JwtAudienceEnvVar = "Auth__Jwt__Audience";
+    private const string JwtSigningKeyEnvVar = "Auth__Jwt__SigningKey";
+    private const string JwtKeyIdEnvVar = "Auth__Jwt__KeyId";
+
     private static readonly bool IsCi =
         string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
 
@@ -35,6 +52,10 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
     private Respawner? _respawner;
     private string? _priorConnectionString;
     private string? _priorOtlpEndpoint;
+    private string? _priorJwtIssuer;
+    private string? _priorJwtAudience;
+    private string? _priorJwtSigningKey;
+    private string? _priorJwtKeyId;
     private bool _envVarsOverridden;
 
     public RunCoachAppFactory()
@@ -71,8 +92,25 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         // land in the same test assembly.
         _priorConnectionString = Environment.GetEnvironmentVariable(ConnectionStringEnvVar);
         _priorOtlpEndpoint = Environment.GetEnvironmentVariable(OtlpEndpointEnvVar);
+        _priorJwtIssuer = Environment.GetEnvironmentVariable(JwtIssuerEnvVar);
+        _priorJwtAudience = Environment.GetEnvironmentVariable(JwtAudienceEnvVar);
+        _priorJwtSigningKey = Environment.GetEnvironmentVariable(JwtSigningKeyEnvVar);
+        _priorJwtKeyId = Environment.GetEnvironmentVariable(JwtKeyIdEnvVar);
         Environment.SetEnvironmentVariable(ConnectionStringEnvVar, ConnectionString);
         Environment.SetEnvironmentVariable(OtlpEndpointEnvVar, null);
+
+        // Seed deterministic JWT bearer config so tests that exercise the
+        // bearer path of `CookieOrBearer` can mint tokens against a known key.
+        // Cookie-flow tests are unaffected — the bearer scheme only engages
+        // when an incoming request carries `Authorization: Bearer …`. In Dev
+        // the `JwtAuthOptionsValidator` is not registered (Program.cs gates it
+        // on `!IsDevelopment()`), so an unset section would still boot, but
+        // seeding fixed values keeps all bearer-auth behavior deterministic
+        // across runs and makes the token-minting helper in tests trivial.
+        Environment.SetEnvironmentVariable(JwtIssuerEnvVar, TestJwtIssuer);
+        Environment.SetEnvironmentVariable(JwtAudienceEnvVar, TestJwtAudience);
+        Environment.SetEnvironmentVariable(JwtSigningKeyEnvVar, TestJwtSigningKey);
+        Environment.SetEnvironmentVariable(JwtKeyIdEnvVar, TestJwtKeyId);
         _envVarsOverridden = true;
 
         // Apply the Slice 0 EF migration against the container before the SUT
@@ -104,6 +142,10 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         {
             Environment.SetEnvironmentVariable(ConnectionStringEnvVar, _priorConnectionString);
             Environment.SetEnvironmentVariable(OtlpEndpointEnvVar, _priorOtlpEndpoint);
+            Environment.SetEnvironmentVariable(JwtIssuerEnvVar, _priorJwtIssuer);
+            Environment.SetEnvironmentVariable(JwtAudienceEnvVar, _priorJwtAudience);
+            Environment.SetEnvironmentVariable(JwtSigningKeyEnvVar, _priorJwtSigningKey);
+            Environment.SetEnvironmentVariable(JwtKeyIdEnvVar, _priorJwtKeyId);
         }
     }
 
@@ -151,5 +193,14 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         // that add extra reloadable config sources) from re-enabling the
         // watchers.
         builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
+
+        // The in-memory TestServer has no IServerAddressesFeature, so the
+        // HttpsRedirectionMiddleware cannot resolve the HTTPS port on its own
+        // and logs "[3] Failed to determine the https port for redirect." on
+        // every request. Pinning it here silences the warning (R-056). Auth
+        // tests additionally set `BaseAddress = https://localhost` on the
+        // client so `Request.IsHttps = true` and the middleware short-circuits
+        // without any redirect.
+        builder.UseSetting("https_port", "443");
     }
 }

@@ -20,7 +20,7 @@ services:
     ports:
       - "5050:80"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@runcoach.local
+      PGADMIN_DEFAULT_EMAIL: admin@runcoach.dev
       PGADMIN_DEFAULT_PASSWORD: admin
     depends_on:
       postgres:
@@ -49,19 +49,24 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
+      - "5001:5001"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://+:5000
+      ASPNETCORE_URLS: "https://+:5001;http://+:5000"
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/aspnetapp.pfx
+      ASPNETCORE_Kestrel__Certificates__Default__Password: ${ASPNETCORE_HTTPS_PASSWORD:?set ASPNETCORE_HTTPS_PASSWORD in .env}
       ConnectionStrings__runcoach: "Host=postgres;Port=5432;Database=runcoach;Username=runcoach;Password=runcoach_dev"
       ConnectionStrings__Redis: "redis:6379"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+    volumes:
+      - ~/.aspnet/https:/https:ro
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "curl", "-kf", "https://localhost:5001/health"]
       interval: 10s
       timeout: 5s
       retries: 5
