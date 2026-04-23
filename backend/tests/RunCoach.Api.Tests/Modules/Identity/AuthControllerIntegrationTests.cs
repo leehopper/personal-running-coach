@@ -40,6 +40,18 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
     private static readonly Uri BaseUri = new("https://localhost");
 
     /// <summary>
+    /// Which JWT <c>TokenValidationParameters</c> flag the negative-path
+    /// bearer tests target. See <see cref="Me_WithInvalidBearerToken_Returns_401"/>.
+    /// </summary>
+    public enum BearerRejectionCase
+    {
+        WrongSigningKey,
+        WrongIssuer,
+        WrongAudience,
+        Expired,
+    }
+
+    /// <summary>
     /// Case 1 — GET <c>/xsrf</c> returns 204 with the SPA-readable request-token
     /// cookie. Spec wording used <c>XSRF-TOKEN</c>; DEC-054 renamed the cookie
     /// to <c>__Host-Xsrf-Request</c>, which is what AuthController emits.
@@ -58,6 +70,19 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var requestCookie = GetCookie(container, AntiforgeryRequestCookieName);
         requestCookie.Should().NotBeNull("the SPA-readable antiforgery request token must be issued by /xsrf");
         requestCookie!.Value.Should().NotBeNullOrEmpty();
+
+        // Raw Set-Cookie assertions for __Host-Xsrf-Request: the CookieContainer
+        // strips attributes, so the DEC-054 contract (Secure + Path=/ + no
+        // Domain + HttpOnly=false) must be verified off the wire. HttpOnly=false
+        // is the whole point — the SPA has to read this cookie's value and
+        // echo it into X-XSRF-TOKEN.
+        var requestSetCookie = GetRawSetCookie(response, AntiforgeryRequestCookieName);
+        requestSetCookie.Should().NotBeNull($"{AntiforgeryRequestCookieName} must appear in a raw Set-Cookie header");
+        var requestLowered = requestSetCookie!.ToLowerInvariant();
+        requestLowered.Should().Contain("secure");
+        requestLowered.Should().Contain("path=/");
+        requestLowered.Should().NotContain("domain=");
+        requestLowered.Should().NotContain("httponly", "the SPA must be able to read this cookie (DEC-054)");
     }
 
     /// <summary>Case 2 — POST <c>/register</c> happy path returns 201 with AuthResponseDto.</summary>
@@ -210,6 +235,14 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         lowered.Should().Contain("httponly");
         lowered.Should().Contain("secure");
         lowered.Should().Contain("samesite=lax");
+
+        // `__Host-` prefix requires Path=/ + no Domain attribute per RFC
+        // 6265bis; browsers silently reject the cookie otherwise, which the
+        // in-memory CookieContainer does not simulate. Assert both invariants
+        // here so a future drop of `cookie.Cookie.Path = "/"` in Program.cs
+        // fails the suite instead of shipping a cookie no browser accepts.
+        lowered.Should().Contain("path=/");
+        lowered.Should().NotContain("domain=");
 
         // 14-day expiry: parse the `expires=` attribute and assert it is
         // between 13.5 and 14.5 days from now. Identity emits an RFC 1123
@@ -424,20 +457,13 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
     [Fact]
     public async Task Me_WithBearerSubClaim_Returns_200_WithExpectedEmail()
     {
-        // Arrange
+        // Arrange — no cookie container so the request is authenticated purely
+        // by the bearer header; the cookie branch of CookieOrBearer cannot
+        // contaminate the assertion.
         var email = GenerateEmail();
         var (registerClient, registerContainer) = CreateCookieClient(Factory);
         var userId = await RegisterAsync(registerClient, registerContainer, email, StrongPassword);
-
-        // Build a fresh HttpClient with NO cookie container so the request is
-        // authenticated purely by the bearer header — the cookie branch of
-        // CookieOrBearer cannot contaminate the assertion.
-        var bearerClient = Factory.CreateClient();
-        bearerClient.BaseAddress = BaseUri;
-        bearerClient.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/json"));
-        bearerClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", MintBearerToken(userId));
+        var bearerClient = CreateBearerClient(Factory, MintBearerToken(userId));
 
         // Act
         var response = await bearerClient.GetAsync(
@@ -465,12 +491,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
     public async Task Me_WithNonGuidBearerSubClaim_Returns_401()
     {
         // Arrange
-        var bearerClient = Factory.CreateClient();
-        bearerClient.BaseAddress = BaseUri;
-        bearerClient.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/json"));
-        bearerClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", MintBearerTokenWithRawSub("not-a-guid"));
+        var bearerClient = CreateBearerClient(Factory, MintBearerTokenWithRawSub("not-a-guid"));
 
         // Act
         var response = await bearerClient.GetAsync(
@@ -480,6 +501,82 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         // Assert
         response.StatusCode.Should()
             .Be(HttpStatusCode.Unauthorized, because: "a malformed sub claim must fail cleanly, not escape as 500");
+    }
+
+    /// <summary>
+    /// Case 10d — negative-path coverage for the six <c>Validate*</c> flags
+    /// <see cref="RunCoach.Api.Infrastructure.JwtBearerOptionsSetup"/> sets on
+    /// <see cref="Microsoft.IdentityModel.Tokens.TokenValidationParameters"/>:
+    /// <c>ValidateIssuer</c>, <c>ValidateAudience</c>, <c>ValidateLifetime</c>,
+    /// <c>ValidateIssuerSigningKey</c>. Each case mints a token that is valid
+    /// except for one dimension and asserts <c>/me</c> returns 401 — so if any
+    /// flag were silently flipped off during debugging, the regression fails
+    /// the suite instead of landing in production. <c>RequireSignedTokens</c>
+    /// and the <c>ValidAlgorithms=[HS256]</c> pin ride on
+    /// <c>ValidateIssuerSigningKey</c> — the kid/key mismatch exercises the
+    /// same validator path.
+    /// </summary>
+    [Theory]
+    [InlineData(BearerRejectionCase.WrongSigningKey)]
+    [InlineData(BearerRejectionCase.WrongIssuer)]
+    [InlineData(BearerRejectionCase.WrongAudience)]
+    [InlineData(BearerRejectionCase.Expired)]
+    public async Task Me_WithInvalidBearerToken_Returns_401(BearerRejectionCase rejection)
+    {
+        // Arrange — register a real user so the only reason /me can reject is
+        // the JWT validator itself, not "user not found."
+        var email = GenerateEmail();
+        var (client, container) = CreateCookieClient(Factory);
+        var userId = await RegisterAsync(client, container, email, StrongPassword);
+
+        var signingKey = RunCoachAppFactory.TestJwtSigningKey;
+        var issuer = RunCoachAppFactory.TestJwtIssuer;
+        var audience = RunCoachAppFactory.TestJwtAudience;
+        var notBefore = DateTime.UtcNow;
+        var expires = DateTime.UtcNow.AddMinutes(5);
+
+        switch (rejection)
+        {
+            case BearerRejectionCase.WrongSigningKey:
+                // 48 printable bytes, distinct from TestJwtSigningKey — must
+                // satisfy HS256's 256-bit minimum so rejection is unambiguously
+                // due to the signature check, not a key-length fallback.
+                signingKey = "different-hs256-signing-key-abcdef0123456789-zzz";
+                break;
+            case BearerRejectionCase.WrongIssuer:
+                issuer = "https://evil.example";
+                break;
+            case BearerRejectionCase.WrongAudience:
+                audience = "other-audience";
+                break;
+            case BearerRejectionCase.Expired:
+                // ClockSkew = 30s in JwtBearerOptionsSetup — push expiry well
+                // past that window so skew cannot accidentally validate the
+                // token on a slow runner.
+                notBefore = DateTime.UtcNow.AddMinutes(-5);
+                expires = DateTime.UtcNow.AddMinutes(-2);
+                break;
+            default:
+                throw new InvalidOperationException($"Unhandled {nameof(BearerRejectionCase)}: {rejection}");
+        }
+
+        var token = MintBearerToken(
+            sub: userId.ToString(),
+            signingKey: signingKey,
+            issuer: issuer,
+            audience: audience,
+            notBefore: notBefore,
+            expires: expires);
+        var bearerClient = CreateBearerClient(Factory, token);
+
+        // Act
+        var response = await bearerClient.GetAsync(
+            "/api/v1/auth/me",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should()
+            .Be(HttpStatusCode.Unauthorized, because: $"rejection case {rejection} must not yield a 200 — the JWT validator flag it exercises would be silently off");
     }
 
     /// <summary>Case 12 — POST <c>/logout</c> without a session returns 401.</summary>
@@ -574,29 +671,53 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
 
     private static string MintBearerToken(Guid userId) => MintBearerTokenWithRawSub(userId.ToString());
 
-    private static string MintBearerTokenWithRawSub(string sub)
+    private static string MintBearerToken(
+        string sub,
+        string signingKey,
+        string issuer,
+        string audience,
+        DateTime notBefore,
+        DateTime expires)
     {
         // Signed with the same HS256 material the SUT's JwtBearer handler is
-        // configured with (RunCoachAppFactory.TestJwt*). `MapInboundClaims=false`
-        // in Program.cs keeps the JWT claim names verbatim, so `sub` lands as
-        // `sub` — not `ClaimTypes.NameIdentifier` — which is precisely the
-        // fallback path Me() needs to honor. The sub is written verbatim so
-        // tests can exercise both the happy path (GUID string) and the
-        // malformed-claim guard (any other string).
-        var now = DateTime.UtcNow;
-        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(RunCoachAppFactory.TestJwtSigningKey))
+        // configured with (RunCoachAppFactory.TestJwt*) by default.
+        // `MapInboundClaims=false` in Program.cs keeps the JWT claim names
+        // verbatim, so `sub` lands as `sub` — not `ClaimTypes.NameIdentifier` —
+        // which is precisely the fallback path Me() needs to honor. The
+        // negative-path tests override signingKey/issuer/audience/expires to
+        // exercise the Validate* flags in JwtBearerOptionsSetup individually.
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey))
         {
             KeyId = RunCoachAppFactory.TestJwtKeyId,
         };
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(
-            issuer: RunCoachAppFactory.TestJwtIssuer,
-            audience: RunCoachAppFactory.TestJwtAudience,
+            issuer: issuer,
+            audience: audience,
             claims: [new Claim(JwtRegisteredClaimNames.Sub, sub)],
-            notBefore: now,
-            expires: now.AddMinutes(5),
+            notBefore: notBefore,
+            expires: expires,
             signingCredentials: credentials);
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private static string MintBearerTokenWithRawSub(string sub) =>
+        MintBearerToken(
+            sub: sub,
+            signingKey: RunCoachAppFactory.TestJwtSigningKey,
+            issuer: RunCoachAppFactory.TestJwtIssuer,
+            audience: RunCoachAppFactory.TestJwtAudience,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddMinutes(5));
+
+    private static HttpClient CreateBearerClient(RunCoachAppFactory factory, string token)
+    {
+        var client = factory.CreateClient();
+        client.BaseAddress = BaseUri;
+        client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     private static Cookie? GetCookie(CookieContainer container, string name)
