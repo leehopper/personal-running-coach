@@ -9,12 +9,16 @@
     <!-- Console / Hosting -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
     <!-- Auth — ASP.NET Core authentication -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.6" />
-    <!-- Persistence — EF Core + Identity + DataProtection + Npgsql -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
+    <!-- Persistence — EF Core + Identity + DataProtection + Npgsql.
+         The DataProtection.EntityFrameworkCore 10.0.7 bump pulls DataProtection
+         10.0.7 transitively, which clears GHSA-9mv3-2cwr-p262 / CVE-2026-40372
+         (affected <= 10.0.6). The runtime-shared DataProtection is intentionally
+         not referenced directly (NU1510: redundant with the shared framework). -->
     <PackageVersion Include="Aspire.Npgsql" Version="13.2.2" />
-    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.6" />
-    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.6" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.6" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
     <!-- Persistence — Marten + Wolverine (event-sourcing + outbox) -->
     <PackageVersion Include="Marten" Version="8.31.0" />
@@ -31,9 +35,9 @@
     <PackageVersion Include="Anthropic" Version="12.16.0" />
     <PackageVersion Include="YamlDotNet" Version="17.0.1" />
     <!-- Configuration (eval tests) -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.6" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.6" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.7" />
     <!-- AI Evaluation -->
     <PackageVersion Include="Microsoft.Extensions.AI.Evaluation" Version="10.5.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.5.0" />
@@ -41,7 +45,7 @@
     <!-- Testing -->
     <PackageVersion Include="coverlet.msbuild" Version="8.0.1" />
     <PackageVersion Include="FluentAssertions" Version="8.9.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.5" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="1.9.1" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="Respawn" Version="7.0.0" />
