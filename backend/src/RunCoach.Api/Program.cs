@@ -1,4 +1,3 @@
-using System.Text;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -7,7 +6,6 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -173,44 +171,11 @@ authBuilder.AddIdentityCookies(options =>
 });
 authBuilder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, _ => { });
 
-// Strict-always validation per R-057. With config absent, IssuerSigningKey is
-// null and every token fails closed with IDX10500; when config lands the same
-// flags stay on. Gating Validate* on config presence (the previous shape)
-// inverts "secure by default" and becomes a latent landmine under future
-// Authority= / HMAC-only edits (RFC 8725 §2.1 / §3.9, OWASP JWT Cheat Sheet).
-// ValidAlgorithms pinned to HS256 closes the HS/RS key-confusion attack class.
-// MapInboundClaims = false keeps raw JWT claim names (sub / role) instead of
-// the SOAP-style claim rewriting JwtSecurityTokenHandler inherits by default.
-builder.Services
-    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-    .Configure<IOptions<JwtAuthOptions>>((bearer, jwt) =>
-    {
-        var o = jwt.Value;
-        bearer.MapInboundClaims = false;
-        SymmetricSecurityKey? signingKey = null;
-        if (!string.IsNullOrEmpty(o.SigningKey))
-        {
-            var keyId = string.IsNullOrEmpty(o.KeyId) ? "current" : o.KeyId;
-            signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.SigningKey))
-            {
-                KeyId = keyId,
-            };
-        }
-
-        bearer.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            RequireSignedTokens = true,
-            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
-            ValidIssuer = o.Issuer,
-            ValidAudience = o.Audience,
-            IssuerSigningKey = signingKey,
-            ClockSkew = TimeSpan.FromSeconds(30),
-        };
-    });
+// Strict-always JwtBearerOptions per R-057. See `JwtBearerOptionsSetup` for
+// the TokenValidationParameters shape + rationale.
+builder.Services.AddSingleton<
+    IConfigureOptions<JwtBearerOptions>,
+    JwtBearerOptionsSetup>();
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(
