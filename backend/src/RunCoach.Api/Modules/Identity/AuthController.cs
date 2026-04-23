@@ -137,10 +137,17 @@ public sealed partial class AuthController(
         // bearer-authenticated branch of `CookieOrBearer` resolves through
         // `sub` only. Falling back preserves both call sites without widening
         // the claim-mapping surface.
+        //
+        // `Guid.TryParse` guards `UserManager.FindByIdAsync` against a
+        // malformed claim value — `UserManager` calls
+        // `ConvertIdFromString` internally, which throws `FormatException`
+        // on non-GUID input BEFORE the EF Core store sees it. Without the
+        // guard a signed token whose `sub` isn't a GUID escapes as an
+        // unhandled 500 instead of the 401 the contract requires.
         var userId =
             User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        if (string.IsNullOrEmpty(userId))
+        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out _))
         {
             return Unauthorized();
         }
@@ -200,16 +207,18 @@ public sealed partial class AuthController(
     // reads and copies into the `X-XSRF-TOKEN` request header. Making this
     // cookie `HttpOnly=true` would break every antiforgery-gated POST from
     // the browser. Both cookies carry `__Host-` + `Secure` + `Path=/` per
-    // RFC 6265bis, and antiforgery validation requires the header to match
-    // the server-held token — so an XSS that reads this cookie value still
-    // cannot forge a request because the framework cookie is unreadable.
-    [System.Diagnostics.CodeAnalysis.SuppressMessage(
-        "Security",
-        "CA5395:Miss HttpVerb attribute for action methods",
-        Justification = "Not a controller action — see below suppression.")]
+    // RFC 6265bis. This pattern defends against CSRF, not XSS — an injected
+    // same-origin script can still issue a request and the browser will
+    // attach the framework-managed antiforgery cookie automatically.
+    // XSS mitigation is the SPA's problem (CSP, input sanitisation,
+    // dependency hygiene), not this cookie's.
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Security",
         "S2092:\"HttpOnly\" should be set on cookie",
+        Justification = "SPA-readable companion cookie in the antiforgery double-submit pattern. The framework-managed `__Host-Xsrf` cookie is HttpOnly=true; this one must be JS-readable so the SPA can echo the token into X-XSRF-TOKEN. See DEC-054.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Security",
+        "S3330:Creating cookies without the \"HttpOnly\" flag is security-sensitive",
         Justification = "SPA-readable companion cookie in the antiforgery double-submit pattern. The framework-managed `__Host-Xsrf` cookie is HttpOnly=true; this one must be JS-readable so the SPA can echo the token into X-XSRF-TOKEN. See DEC-054.")]
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Security",

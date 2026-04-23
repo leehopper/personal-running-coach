@@ -1,12 +1,10 @@
 using System.Text;
 using JasperFx;
 using JasperFx.CodeGeneration;
-using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -214,16 +212,14 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy(
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(
         AuthPolicies.CookieOrBearer,
         policy => policy
             .AddAuthenticationSchemes(
                 IdentityConstants.ApplicationScheme,
                 JwtBearerDefaults.AuthenticationScheme)
             .RequireAuthenticatedUser());
-});
 
 builder.Services.AddAntiforgery(options =>
 {
@@ -426,33 +422,7 @@ app.UseAntiforgery();
 // dotnet/AspNetCore.Docs#33740. Per-endpoint `[RequireAntiforgeryToken]`
 // metadata is the canonical attribute; this middleware is the matching
 // gate for the MVC pipeline.
-app.Use(async (ctx, next) =>
-{
-    if (ctx.Features.Get<IAntiforgeryValidationFeature>() is { IsValid: false })
-    {
-        // Write an RFC 7807 ProblemDetails rather than a bare 400 so the
-        // antiforgery surface matches every other 4xx path in the auth
-        // stack (register validation, login 401, logout 401). The SPA
-        // can handle every error response uniformly instead of needing a
-        // special case for missing/stale XSRF tokens.
-        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
-        var problemDetailsService = ctx.RequestServices.GetRequiredService<IProblemDetailsService>();
-        await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = ctx,
-            ProblemDetails = new ProblemDetails
-            {
-                Status = StatusCodes.Status400BadRequest,
-                Title = "Antiforgery validation failed.",
-                Type = "https://runcoach.app/problems/antiforgery-validation-failed",
-                Detail = "The antiforgery cookie or header was missing or did not match. Call GET /api/v1/auth/xsrf to seed fresh tokens and retry.",
-            },
-        });
-        return;
-    }
-
-    await next(ctx);
-});
+app.UseAntiforgeryProblemDetailsBridge();
 
 app.MapControllers();
 

@@ -111,13 +111,21 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
     }
 
     /// <summary>
-    /// Case 4 — POST <c>/register</c> with a weak password returns 400
-    /// ValidationProblemDetails with the <c>password</c> error bucket populated.
-    /// <c>RegisterRequestDto</c> uses <c>[MinLength(12)]</c> so a 5-char password
-    /// is rejected by <c>[ApiController]</c> auto-400 before reaching Identity.
+    /// Case 4 — POST <c>/register</c> with a password that clears the DTO
+    /// DataAnnotations but fails ASP.NET Core Identity's complexity policy
+    /// returns 400 ValidationProblemDetails with the <c>password</c> bucket
+    /// populated. This exercises the <see cref="IdentityResult"/> →
+    /// <c>ValidationProblemDetails</c> translation in
+    /// <see cref="RunCoach.Api.Modules.Identity.IdentityResultExtensions"/>
+    /// (DEC-052) rather than the <c>[ApiController]</c> auto-400 path a
+    /// DTO-length failure would hit. The chosen password is ≥ 12 chars so
+    /// <c>[MinLength(12)]</c> passes, but lacks uppercase / digit /
+    /// non-alphanumeric so Identity's policy rejects it with three
+    /// <see cref="IdentityError"/>s — all of which must land under the
+    /// <c>password</c> DTO-property key via the mapper.
     /// </summary>
     [Fact]
-    public async Task Register_WeakPassword_Returns_400_WithPasswordBucket()
+    public async Task Register_IdentityPolicyFailure_Returns_400_WithPasswordBucket()
     {
         // Arrange
         var (client, container) = CreateCookieClient(Factory);
@@ -125,7 +133,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
 
         // Act
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/register", token);
-        request.Content = JsonContent.Create(new RegisterRequestDto(GenerateEmail(), "short"));
+        request.Content = JsonContent.Create(new RegisterRequestDto(GenerateEmail(), "alllowercase12"));
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Assert
@@ -137,7 +145,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var errorKeys = errors.EnumerateObject().Select(p => p.Name).ToArray();
         var hasPasswordBucket = errorKeys.Any(k => string.Equals(k, "password", StringComparison.OrdinalIgnoreCase));
         hasPasswordBucket.Should()
-            .BeTrue($"weak-password errors must surface under the DTO-property bucket — got keys: [{string.Join(", ", errorKeys)}]");
+            .BeTrue($"Identity complexity errors must surface under the DTO-property bucket — got keys: [{string.Join(", ", errorKeys)}]");
     }
 
     /// <summary>
@@ -445,6 +453,35 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         body.Email.Should().Be(email);
     }
 
+    /// <summary>
+    /// Case 10c — GET <c>/me</c> with a signed bearer carrying a malformed
+    /// (non-GUID) <c>sub</c> claim returns 401, not 500. Without the
+    /// <c>Guid.TryParse</c> guard, <c>UserManager.FindByIdAsync</c> calls
+    /// <c>ConvertIdFromString</c> which throws <see cref="FormatException"/>
+    /// on non-GUID input before the EF Core store runs — the exception
+    /// escapes as an unhandled 500 instead of the 401 the contract requires.
+    /// </summary>
+    [Fact]
+    public async Task Me_WithNonGuidBearerSubClaim_Returns_401()
+    {
+        // Arrange
+        var bearerClient = Factory.CreateClient();
+        bearerClient.BaseAddress = BaseUri;
+        bearerClient.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json"));
+        bearerClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", MintBearerTokenWithRawSub("not-a-guid"));
+
+        // Act
+        var response = await bearerClient.GetAsync(
+            "/api/v1/auth/me",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should()
+            .Be(HttpStatusCode.Unauthorized, because: "a malformed sub claim must fail cleanly, not escape as 500");
+    }
+
     /// <summary>Case 12 — POST <c>/logout</c> without a session returns 401.</summary>
     [Fact]
     public async Task Logout_Anonymous_Returns_401()
@@ -535,13 +572,17 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
             .Be(HttpStatusCode.OK, because: $"login helper must succeed — got {(int)response.StatusCode}");
     }
 
-    private static string MintBearerToken(Guid userId)
+    private static string MintBearerToken(Guid userId) => MintBearerTokenWithRawSub(userId.ToString());
+
+    private static string MintBearerTokenWithRawSub(string sub)
     {
         // Signed with the same HS256 material the SUT's JwtBearer handler is
         // configured with (RunCoachAppFactory.TestJwt*). `MapInboundClaims=false`
         // in Program.cs keeps the JWT claim names verbatim, so `sub` lands as
         // `sub` — not `ClaimTypes.NameIdentifier` — which is precisely the
-        // fallback path Me() needs to honor.
+        // fallback path Me() needs to honor. The sub is written verbatim so
+        // tests can exercise both the happy path (GUID string) and the
+        // malformed-claim guard (any other string).
         var now = DateTime.UtcNow;
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(RunCoachAppFactory.TestJwtSigningKey))
         {
@@ -551,7 +592,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var token = new JwtSecurityToken(
             issuer: RunCoachAppFactory.TestJwtIssuer,
             audience: RunCoachAppFactory.TestJwtAudience,
-            claims: [new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())],
+            claims: [new Claim(JwtRegisteredClaimNames.Sub, sub)],
             notBefore: now,
             expires: now.AddMinutes(5),
             signingCredentials: credentials);
