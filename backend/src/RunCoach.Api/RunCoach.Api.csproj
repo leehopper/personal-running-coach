@@ -12,6 +12,8 @@
     <PackageReference Include="Anthropic" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="YamlDotNet" />
+    <!-- Auth -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <!-- Persistence -->
     <PackageReference Include="Aspire.Npgsql" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
