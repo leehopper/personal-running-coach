@@ -17,6 +17,13 @@ An AI running coach that maintains a persistent adaptive coaching relationship. 
 
 ## Quick Start
 
+Developers building or running locally should start at
+[CONTRIBUTING.md](CONTRIBUTING.md). It covers the one-time dev-cert setup,
+the `.env` file the `api` container reads, the two supported run paths
+(`tilt up` vs. host-run API + Compose infra), and a click-through for every
+auth endpoint from Swagger UI and curl. The commands below are the absolute
+minimum to get a running API.
+
 ### Run the backend
 
 ```bash
@@ -25,7 +32,7 @@ docker compose up -d postgres redis
 
 # Run the API
 cd backend
-dotnet run --project src/RunCoach.Api
+dotnet run --project src/RunCoach.Api --launch-profile https
 ```
 
 ### Run tests
