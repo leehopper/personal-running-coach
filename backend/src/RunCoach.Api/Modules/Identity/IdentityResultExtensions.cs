@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using RunCoach.Api.Modules.Identity.Contracts;
 
 namespace RunCoach.Api.Modules.Identity;
 
@@ -27,12 +26,10 @@ public static class IdentityResultExtensions
     /// </summary>
     public static IActionResult ToRegistrationActionResult(
         this IdentityResult result,
-        ControllerBase controller,
-        RegisterRequestDto request)
+        ControllerBase controller)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(controller);
-        ArgumentNullException.ThrowIfNull(request);
 
         if (result.Succeeded)
         {
@@ -55,19 +52,18 @@ public static class IdentityResultExtensions
         foreach (var error in result.Errors)
         {
             // Mapper bucket names (password / email / username / general /
-            // role) → DTO-property JSON keys the frontend Zod schema binds
-            // field errors against. `UserName` errors surface on the `email`
-            // DTO property because Register sets `UserName = Email` — there
-            // is no separate UserName field on the wire. `General` surfaces
-            // as the canonical `"general"` bucket the SPA renders in a
-            // non-field notice panel; anything unknown collapses to the
-            // same bucket so non-field Identity errors never silently
-            // vanish under an empty ModelState key (DEC-052).
-            var key = IdentityErrorCodeMapper.Map(error).PropertyName switch
+            // role) double as DTO-property JSON keys the frontend Zod schema
+            // binds field errors against. `UserName` errors surface on the
+            // `email` DTO property because Register sets `UserName = Email` —
+            // there is no separate UserName field on the wire. `General` and
+            // `role` surface under the canonical `"general"` bucket the SPA
+            // renders in a non-field notice panel so non-field Identity errors
+            // never silently vanish under an empty ModelState key (DEC-052).
+            var key = IdentityErrorCodeMapper.Map(error) switch
             {
-                IdentityErrorBuckets.Password => nameof(RegisterRequestDto.Password).ToCamelCase(),
-                IdentityErrorBuckets.Email => nameof(RegisterRequestDto.Email).ToCamelCase(),
-                IdentityErrorBuckets.UserName => nameof(RegisterRequestDto.Email).ToCamelCase(),
+                IdentityErrorBuckets.Password => IdentityErrorBuckets.Password,
+                IdentityErrorBuckets.Email => IdentityErrorBuckets.Email,
+                IdentityErrorBuckets.UserName => IdentityErrorBuckets.Email,
                 _ => IdentityErrorBuckets.General,
             };
             controller.ModelState.AddModelError(key, error.Description);
@@ -75,7 +71,4 @@ public static class IdentityResultExtensions
 
         return controller.ValidationProblem(controller.ModelState);
     }
-
-    private static string ToCamelCase(this string value) =>
-        value.Length == 0 ? value : char.ToLowerInvariant(value[0]) + value[1..];
 }

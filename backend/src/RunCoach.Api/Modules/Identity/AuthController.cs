@@ -74,7 +74,7 @@ public sealed partial class AuthController(
 
         if (!result.Succeeded)
         {
-            return result.ToRegistrationActionResult(this, request);
+            return result.ToRegistrationActionResult(this);
         }
 
         var response = new AuthResponseDto(user.Id, user.Email!);

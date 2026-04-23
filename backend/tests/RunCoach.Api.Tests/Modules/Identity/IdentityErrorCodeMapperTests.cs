@@ -15,32 +15,29 @@ namespace RunCoach.Api.Tests.Modules.Identity;
 public sealed class IdentityErrorCodeMapperTests
 {
     [Theory]
-    [InlineData(nameof(IdentityErrorDescriber.PasswordTooShort), IdentityErrorBuckets.Password, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresUniqueChars), IdentityErrorBuckets.Password, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresNonAlphanumeric), IdentityErrorBuckets.Password, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresDigit), IdentityErrorBuckets.Password, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresLower), IdentityErrorBuckets.Password, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresUpper), IdentityErrorBuckets.Password, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.PasswordMismatch), IdentityErrorBuckets.Password, IdentityErrorKind.Unauthorized)]
-    [InlineData(nameof(IdentityErrorDescriber.UserAlreadyHasPassword), IdentityErrorBuckets.Password, IdentityErrorKind.Conflict)]
-    [InlineData(nameof(IdentityErrorDescriber.InvalidEmail), IdentityErrorBuckets.Email, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.DuplicateEmail), IdentityErrorBuckets.Email, IdentityErrorKind.Conflict)]
-    [InlineData(nameof(IdentityErrorDescriber.InvalidUserName), IdentityErrorBuckets.UserName, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.DuplicateUserName), IdentityErrorBuckets.UserName, IdentityErrorKind.Conflict)]
-    [InlineData(nameof(IdentityErrorDescriber.InvalidRoleName), IdentityErrorBuckets.Role, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.DuplicateRoleName), IdentityErrorBuckets.Role, IdentityErrorKind.Conflict)]
-    [InlineData(nameof(IdentityErrorDescriber.UserAlreadyInRole), IdentityErrorBuckets.Role, IdentityErrorKind.Conflict)]
-    [InlineData(nameof(IdentityErrorDescriber.UserNotInRole), IdentityErrorBuckets.Role, IdentityErrorKind.Conflict)]
-    [InlineData(nameof(IdentityErrorDescriber.ConcurrencyFailure), IdentityErrorBuckets.General, IdentityErrorKind.Conflict)]
-    [InlineData(nameof(IdentityErrorDescriber.InvalidToken), IdentityErrorBuckets.General, IdentityErrorKind.Validation)]
-    [InlineData(nameof(IdentityErrorDescriber.RecoveryCodeRedemptionFailed), IdentityErrorBuckets.General, IdentityErrorKind.Unauthorized)]
-    [InlineData(nameof(IdentityErrorDescriber.LoginAlreadyAssociated), IdentityErrorBuckets.General, IdentityErrorKind.Conflict)]
-    [InlineData(nameof(IdentityErrorDescriber.UserLockoutNotEnabled), IdentityErrorBuckets.General, IdentityErrorKind.Conflict)]
-    [InlineData(nameof(IdentityErrorDescriber.DefaultError), IdentityErrorBuckets.General, IdentityErrorKind.Unknown)]
-    public void Map_ReturnsExpectedBucketAndKind_ForKnownCodes(
-        string identityCode,
-        string expectedBucket,
-        IdentityErrorKind expectedKind)
+    [InlineData(nameof(IdentityErrorDescriber.PasswordTooShort), IdentityErrorBuckets.Password)]
+    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresUniqueChars), IdentityErrorBuckets.Password)]
+    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresNonAlphanumeric), IdentityErrorBuckets.Password)]
+    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresDigit), IdentityErrorBuckets.Password)]
+    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresLower), IdentityErrorBuckets.Password)]
+    [InlineData(nameof(IdentityErrorDescriber.PasswordRequiresUpper), IdentityErrorBuckets.Password)]
+    [InlineData(nameof(IdentityErrorDescriber.PasswordMismatch), IdentityErrorBuckets.Password)]
+    [InlineData(nameof(IdentityErrorDescriber.UserAlreadyHasPassword), IdentityErrorBuckets.Password)]
+    [InlineData(nameof(IdentityErrorDescriber.InvalidEmail), IdentityErrorBuckets.Email)]
+    [InlineData(nameof(IdentityErrorDescriber.DuplicateEmail), IdentityErrorBuckets.Email)]
+    [InlineData(nameof(IdentityErrorDescriber.InvalidUserName), IdentityErrorBuckets.UserName)]
+    [InlineData(nameof(IdentityErrorDescriber.DuplicateUserName), IdentityErrorBuckets.UserName)]
+    [InlineData(nameof(IdentityErrorDescriber.InvalidRoleName), IdentityErrorBuckets.Role)]
+    [InlineData(nameof(IdentityErrorDescriber.DuplicateRoleName), IdentityErrorBuckets.Role)]
+    [InlineData(nameof(IdentityErrorDescriber.UserAlreadyInRole), IdentityErrorBuckets.Role)]
+    [InlineData(nameof(IdentityErrorDescriber.UserNotInRole), IdentityErrorBuckets.Role)]
+    [InlineData(nameof(IdentityErrorDescriber.ConcurrencyFailure), IdentityErrorBuckets.General)]
+    [InlineData(nameof(IdentityErrorDescriber.InvalidToken), IdentityErrorBuckets.General)]
+    [InlineData(nameof(IdentityErrorDescriber.RecoveryCodeRedemptionFailed), IdentityErrorBuckets.General)]
+    [InlineData(nameof(IdentityErrorDescriber.LoginAlreadyAssociated), IdentityErrorBuckets.General)]
+    [InlineData(nameof(IdentityErrorDescriber.UserLockoutNotEnabled), IdentityErrorBuckets.General)]
+    [InlineData(nameof(IdentityErrorDescriber.DefaultError), IdentityErrorBuckets.General)]
+    public void Map_ReturnsExpectedBucket_ForKnownCodes(string identityCode, string expectedBucket)
     {
         // Arrange
         var error = new IdentityError { Code = identityCode, Description = "ignored" };
@@ -49,12 +46,11 @@ public sealed class IdentityErrorCodeMapperTests
         var actual = IdentityErrorCodeMapper.Map(error);
 
         // Assert
-        actual.PropertyName.Should().Be(expectedBucket);
-        actual.Kind.Should().Be(expectedKind);
+        actual.Should().Be(expectedBucket);
     }
 
     [Fact]
-    public void Map_FallsBackToGeneralUnknown_ForUnrecognizedCode()
+    public void Map_FallsBackToGeneral_ForUnrecognizedCode()
     {
         // Arrange — a code no version of IdentityErrorDescriber has ever
         // shipped. A silently-renamed code in a future Identity release
@@ -69,8 +65,7 @@ public sealed class IdentityErrorCodeMapperTests
         var actual = IdentityErrorCodeMapper.Map(error);
 
         // Assert
-        actual.PropertyName.Should().Be(IdentityErrorBuckets.General);
-        actual.Kind.Should().Be(IdentityErrorKind.Unknown);
+        actual.Should().Be(IdentityErrorBuckets.General);
     }
 
     [Fact]

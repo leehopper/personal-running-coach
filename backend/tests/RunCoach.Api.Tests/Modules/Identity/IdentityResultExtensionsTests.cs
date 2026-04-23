@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using NSubstitute;
 using RunCoach.Api.Modules.Identity;
-using RunCoach.Api.Modules.Identity.Contracts;
 
 namespace RunCoach.Api.Tests.Modules.Identity;
 
@@ -19,10 +18,6 @@ namespace RunCoach.Api.Tests.Modules.Identity;
 [Trait("Category", "Unit")]
 public sealed class IdentityResultExtensionsTests
 {
-    private static readonly RegisterRequestDto AnyRequest = new(
-        Email: "user@example.test",
-        Password: "Str0ngTestPassw0rd!");
-
     [Fact]
     public void ToRegistrationActionResult_Throws_WhenResultIsSuccess()
     {
@@ -30,7 +25,7 @@ public sealed class IdentityResultExtensionsTests
         var controller = CreateControllerWithProblemDetailsFactory();
 
         // Act
-        var act = () => IdentityResult.Success.ToRegistrationActionResult(controller, AnyRequest);
+        var act = () => IdentityResult.Success.ToRegistrationActionResult(controller);
 
         // Assert
         act.Should().Throw<InvalidOperationException>()
@@ -49,7 +44,7 @@ public sealed class IdentityResultExtensionsTests
         });
 
         // Act
-        var actual = result.ToRegistrationActionResult(controller, AnyRequest);
+        var actual = result.ToRegistrationActionResult(controller);
 
         // Assert
         var objectResult = actual.Should().BeAssignableTo<ObjectResult>().Subject;
@@ -71,7 +66,7 @@ public sealed class IdentityResultExtensionsTests
         });
 
         // Act
-        var actual = result.ToRegistrationActionResult(controller, AnyRequest);
+        var actual = result.ToRegistrationActionResult(controller);
 
         // Assert
         var objectResult = actual.Should().BeAssignableTo<ObjectResult>().Subject;
@@ -90,7 +85,7 @@ public sealed class IdentityResultExtensionsTests
         });
 
         // Act
-        var actual = result.ToRegistrationActionResult(controller, AnyRequest);
+        var actual = result.ToRegistrationActionResult(controller);
 
         // Assert
         var objectResult = actual.Should().BeAssignableTo<ObjectResult>().Subject;
@@ -110,7 +105,7 @@ public sealed class IdentityResultExtensionsTests
         });
 
         // Act
-        var actual = result.ToRegistrationActionResult(controller, AnyRequest);
+        var actual = result.ToRegistrationActionResult(controller);
 
         // Assert
         var objectResult = actual.Should().BeAssignableTo<ObjectResult>().Subject;
@@ -132,7 +127,7 @@ public sealed class IdentityResultExtensionsTests
         });
 
         // Act
-        var actual = result.ToRegistrationActionResult(controller, AnyRequest);
+        var actual = result.ToRegistrationActionResult(controller);
 
         // Assert
         var objectResult = actual.Should().BeAssignableTo<ObjectResult>().Subject;
@@ -155,7 +150,7 @@ public sealed class IdentityResultExtensionsTests
         });
 
         // Act
-        var actual = result.ToRegistrationActionResult(controller, AnyRequest);
+        var actual = result.ToRegistrationActionResult(controller);
 
         // Assert
         var objectResult = actual.Should().BeAssignableTo<ObjectResult>().Subject;
@@ -178,7 +173,7 @@ public sealed class IdentityResultExtensionsTests
         });
 
         // Act
-        var actual = result.ToRegistrationActionResult(controller, AnyRequest);
+        var actual = result.ToRegistrationActionResult(controller);
 
         // Assert
         var objectResult = actual.Should().BeAssignableTo<ObjectResult>().Subject;
@@ -193,7 +188,7 @@ public sealed class IdentityResultExtensionsTests
         var controller = CreateControllerWithProblemDetailsFactory();
 
         // Act
-        var act = () => IdentityResultExtensions.ToRegistrationActionResult(null!, controller, AnyRequest);
+        var act = () => IdentityResultExtensions.ToRegistrationActionResult(null!, controller);
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
@@ -204,25 +199,11 @@ public sealed class IdentityResultExtensionsTests
     public void ToRegistrationActionResult_ThrowsArgumentNullException_ForNullController()
     {
         // Arrange + Act
-        var act = () => IdentityResult.Failed().ToRegistrationActionResult(null!, AnyRequest);
+        var act = () => IdentityResult.Failed().ToRegistrationActionResult(null!);
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("controller");
-    }
-
-    [Fact]
-    public void ToRegistrationActionResult_ThrowsArgumentNullException_ForNullRequest()
-    {
-        // Arrange
-        var controller = CreateControllerWithProblemDetailsFactory();
-
-        // Act
-        var act = () => IdentityResult.Failed().ToRegistrationActionResult(controller, null!);
-
-        // Assert
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("request");
     }
 
     private static TestController CreateControllerWithProblemDetailsFactory()
