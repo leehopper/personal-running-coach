@@ -1,6 +1,6 @@
 # UseHttpsRedirection + `__Host-` cookies + WebApplicationFactory: the canonical 2026 pattern
 
-**Research artifact** — drop into `docs/research/artifacts/` as `batch-15b-https-redirection-host-cookie-waf.md`. Dates verified against primary sources as of April 21, 2026; .NET 10 GA shipped November 2025.
+**Research artifact** — stored at `docs/research/artifacts/batch-19a-httpsredirection-webapplicationfactory.md`. Dates verified against primary sources as of April 21, 2026; .NET 10 GA shipped November 2025.
 
 ---
 

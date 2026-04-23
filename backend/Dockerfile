@@ -52,6 +52,12 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:55e37c7795bfaf6b9cc5d77c155811d
 
 WORKDIR /app
 COPY --from=build /app/publish .
+
+# Default runtime posture is plain HTTP on :5000 — a minimal baseline that
+# builds run in any CI or non-Compose context. For local Docker Compose dev
+# `docker-compose.yml` overrides these defaults to terminate HTTPS on :5001
+# using a dev cert mounted from the host, which is what `__Host-` cookies
+# and antiforgery require.
 EXPOSE 5000
 ENV ASPNETCORE_URLS=http://+:5000
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 CMD curl -f http://localhost:5000/health || exit 1

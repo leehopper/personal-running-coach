@@ -4,7 +4,7 @@
 
 ## Key finding that supersedes R-063's mental model
 
-R-063 treated the bug as "CoreCLR JIT emits SVE2 opcodes on HWCAP2_SVE2-advertising guests." Primary sources point to a broader and more concerning reality. The Podman maintainer-level analysis of the identical bug class (containers/podman#28312, pgib, 2026-03-17) explicitly identifies **SME/SME2 features** — not SVE2 proper — as co-triggers on Apple M4/M5 under VZ-backed Linux: the guest `/proc/cpuinfo` advertises `sve2 sme sme2 sme2p1 smei16i32 smebi32i32 smef16f16` etc., and Apple silicon implements SME/SME2 in streaming mode only but does not execute non-streaming SVE/SVE2. **CoreCLR 10.0 has no `DOTNET_EnableArm64Sme*` knob at all** — SME intrinsics are a .NET 11 work item per dotnet/runtime#121787. This means that even if R-063 had spelled the SVE knobs with perfect casing — and per `src/coreclr/jit/jitconfigvalues.h` the spelling `DOTNET_EnableArm64Sve` / `DOTNET_EnableArm64Sve2` was already correct and case-sensitive — there may be no env-var surface in 10.0.203 that disables the actual crashing code path, because the faulting instructions are plausibly in a pre-CLRConfig startup probe (as in the near-identical OpenJDK bug JDK-8345296) or are SME2 instructions with no user-facing gate. This explains empirically why three increasingly aggressive knobs (`Sve=0`, `Sve2=0`, `EnableHWIntrinsic=0`) all failed on the reference hardware.
+R-063 treated the bug as "CoreCLR JIT emits SVE2 opcodes on HWCAP2_SVE2-advertising guests." Primary sources point to a broader and more concerning reality. The Podman maintainer-level analysis of the identical bug class (containers/podman#28312, pgib, 2026-03-17) explicitly identifies **SME/SME2 features** — not SVE2 proper — as co-triggers on Apple M4/M5 under VZ-backed Linux: the guest `/proc/cpuinfo` advertises `sve2 sme sme2 sme2p1 smei16i32 smebi32i32 smef16f16` etc., and Apple Silicon implements SME/SME2 in streaming mode only but does not execute non-streaming SVE/SVE2. **CoreCLR 10.0 has no `DOTNET_EnableArm64Sme*` knob at all** — SME intrinsics are a .NET 11 work item per dotnet/runtime#121787. This means that even if R-063 had spelled the SVE knobs with perfect casing — and per `src/coreclr/jit/jitconfigvalues.h` the spelling `DOTNET_EnableArm64Sve` / `DOTNET_EnableArm64Sve2` was already correct and case-sensitive — there may be no env-var surface in 10.0.203 that disables the actual crashing code path, because the faulting instructions are plausibly in a pre-CLRConfig startup probe (as in the near-identical OpenJDK bug JDK-8345296) or are SME2 instructions with no user-facing gate. This explains empirically why three increasingly aggressive knobs (`Sve=0`, `Sve2=0`, `EnableHWIntrinsic=0`) all failed on the reference hardware.
 
 ## A. Exhaustive option table
 
@@ -78,7 +78,7 @@ The following diffs are proposed for the repository given the negative result. T
 +
 +Root cause: dotnet/runtime#122608 — CoreCLR 10.0 crashes with SIGILL on Apple
 +M-series under Colima VZ because the guest advertises SVE2/SME/SME2 features
-+that Apple silicon does not execute in non-streaming mode. No user-settable
++that Apple Silicon does not execute in non-streaming mode. No user-settable
 +env-var clears the crash deterministically.
 +
 +Supported paths on Apple Silicon until fix ships:

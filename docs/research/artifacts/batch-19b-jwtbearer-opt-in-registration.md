@@ -171,7 +171,12 @@ public sealed class RunCoachWebApplicationFactory : WebApplicationFactory<Progra
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");  // skips ValidateOnStart branch
+        // Development environment is what makes `builder.Environment.IsDevelopment()`
+        // true, which in turn gates off the `jwtOpts.ValidateOnStart()` branch.
+        // `UseEnvironment("Testing")` would leave `IsDevelopment()` returning
+        // false and would STILL fire ValidateOnStart — exactly what we want to
+        // avoid when real `Auth:Jwt` config is absent in CI.
+        builder.UseEnvironment("Development");
         // No auth overrides. Cookie path works. JWT registered but rejects
         // all tokens (IDX10500, no keys) — exactly what we want.
     }

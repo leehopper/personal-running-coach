@@ -28,8 +28,11 @@ The spec's fallback pattern is:
 var user = await userManager.FindByEmailAsync(email);
 if (user is null)
 {
-    // dummy hash to match the timing of a real password verification
-    await userManager.PasswordHasher.HashPasswordAsync(default, password);
+    // dummy hash to match the timing of a real password verification.
+    // IPasswordHasher<TUser> only exposes the synchronous HashPassword;
+    // there is no HashPasswordAsync. Discard the result — the call itself
+    // is the timing mitigation.
+    _ = userManager.PasswordHasher.HashPassword(default!, password);
     return Unauthorized(GenericProblemDetails());
 }
 var result = await signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);

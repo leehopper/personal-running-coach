@@ -14,7 +14,7 @@ Copy the prompt below and hand to your deep research agent.
 
 RunCoach is an ASP.NET Core 10 app with a solo-dev Docker Compose + Tilt loop. Tilt's `api` resource builds `backend/Dockerfile` which starts `FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build` and runs `dotnet restore RunCoach.slnx`. On a developer's macOS arm64 box the restore fails with:
 
-```
+```text
 Step 6/17 : RUN dotnet restore RunCoach.slnx
   Determining projects to restore...
 Illegal instruction (core dumped)

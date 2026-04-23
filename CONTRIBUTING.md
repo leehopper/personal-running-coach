@@ -160,7 +160,7 @@ posture — use at your own discretion:
    telemetry on by default, proprietary closed-source.
 2. **Colima with QEMU + pre-SVE CPU model** — removes SVE2/SME advertisement
    before the guest kernel sees it, per [lima-vm#3032]:
-   ```
+   ```bash
    colima stop && colima delete default
    colima start --vm-type=qemu --arch aarch64 --cpu 4 --memory 8
    limactl stop colima

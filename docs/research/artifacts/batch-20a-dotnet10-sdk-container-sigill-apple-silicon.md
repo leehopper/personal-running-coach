@@ -1,10 +1,12 @@
 # `dotnet restore` SIGILL on Apple Silicon Colima: root cause and fix
 
+> **Integration note (2026-04-22).** The primary recommendation below — setting `DOTNET_EnableArm64Sve=0` + `_Sve2=0` — was empirically verified on the reference M4 Pro under Colima `vz` and **did not cure the fault** (5/5 FAIL across restore runs). The master switch `DOTNET_EnableHWIntrinsic=0` fared no better (1 lucky success then 5/5 FAIL). R-064 (`batch-20b-sve2-sigill-second-opinion-verification.md`) exhaustively audited the option space and confirmed no deterministic workaround exists in .NET 10; the durable posture captured in DEC-056 is to demote containerized Path A to x86_64 CI-only and use host-run Path B as the sole Apple-Silicon dev loop until .NET 11 GA. The Dockerfile still carries the env vars as belt-and-suspenders (zero-cost no-op on x86_64, reduces JIT emission surface if ever misused on arm64). Env-var names below reflect the correct CoreCLR `jitconfigvalues.h` spelling.
+
 ## 1. Executive summary
 
 **Root cause.** The SIGILL is **not** a NuGet bug, not a package bug, and not an image-tag regression. It is a CoreCLR JIT code-generation defect tracked in [dotnet/runtime#122608](https://github.com/dotnet/runtime/issues/122608) (opened 2025-12-17, still open, milestone **11.0.0**, label `arm-sve`, assignee AndyAyersMS). .NET 10 was the first release to gate `Sve2.IsSupported` on `HWCAP2_SVE2` (PR [#115117](https://github.com/dotnet/runtime/pull/115117)). On Apple M3/M4/M5 hosts, Virtualization.framework and QEMU+HVF pass `HWCAP2_SVE2`, `HWCAP2_SME`, `HWCAP2_SME2` through to the Linux guest — but Apple Silicon implements SVE2 **only inside SME streaming mode**. When RyuJIT emits a non-streaming SVE2 opcode (e.g. `ptrue`, `whilelo`, `ld1b z.b,p/z,[x]`), the CPU raises UNDEF and the kernel delivers `SIGILL`/`ILL_ILLOPC`, exit 132. Intermittency and package-set sensitivity are a probability effect: a bigger restore graph tiers more methods up to Tier-1 and therefore samples more codegen paths. Microsoft triaged the fix to **.NET 11** — there is no servicing backport in the 10.0.20x train, and the 2026-04-21 `sdk:10.0` rebuild (SDK 10.0.203 / runtime 10.0.7) is only the OOB DataProtection CVE-2026-40372 hotfix; it inherits the buggy CoreCLR from 10.0.6.
 
-**Primary recommendation.** **Suppress SVE/SVE2 codegen in the SDK build stage with `ENV DOTNET_EnableHWIntrinsic_Arm64Sve=0` (and `Sve2`) in `backend/Dockerfile`, and simultaneously deprecate containerized Path A for the inner dev loop in favour of the host-run Path B.** This targets the actual faulting code path, preserves NuGet supply-chain posture, does not regress x86_64 GitHub Actions CI, and matches the strategic direction already set by DEC-045 / R-050. Rosetta-forced (`--platform linux/amd64`) builds are **rejected** as the primary fix because they silently re-introduce emulation for a tree (Marten, Npgsql, Testcontainers) where the user has explicit R-050 constraints on native arm64 execution.
+**Primary recommendation.** **Suppress SVE/SVE2 codegen in the SDK build stage with `ENV DOTNET_EnableArm64Sve=0` (and `Sve2`) in `backend/Dockerfile`, and simultaneously deprecate containerized Path A for the inner dev loop in favour of the host-run Path B.** This targets the actual faulting code path, preserves NuGet supply-chain posture, does not regress x86_64 GitHub Actions CI, and matches the strategic direction already set by DEC-045 / R-050. Rosetta-forced (`--platform linux/amd64`) builds are **rejected** as the primary fix because they silently re-introduce emulation for a tree (Marten, Npgsql, Testcontainers) where the user has explicit R-050 constraints on native arm64 execution.
 
 **What to commit today.** (1) A minimal Dockerfile diff that `ENV`-sets the CoreCLR SVE gates and is idempotent across x86_64 runners. (2) A `scripts/verify-container-restore.sh` smoke that replays restore on a pinned digest. (3) A Dependabot ignore rule for the `mcr.microsoft.com/dotnet/sdk` tag until .NET 11 GA, paired with a manual-bump runbook. (4) A CONTRIBUTING.md note demoting Path A to a CI-parity build and pointing devs at Path B. No package-version pins are required — **no package in the RunCoach set is culpable**.
 
@@ -90,7 +92,7 @@ gdb /usr/share/dotnet/dotnet /tmp/core.*  -batch -ex 'x/1wx $pc' -ex 'disas/r $p
 
 ## 4. Primary recommendation
 
-**Suppress SVE/SVE2 intrinsics at JIT time via `ENV` in `backend/Dockerfile`, and demote Path A to a parity build.** The single most surgical knob is `DOTNET_EnableHWIntrinsic_Arm64Sve=0` (plus `_Sve2`). It is narrower than `DOTNET_EnableHWIntrinsic=0`, which disables *all* Arm64 intrinsics (AES/SHA/CRC/LSE/Dp/Rdm) and imposes a 5–20% restore/build slowdown for no benefit on this host. The SVE-only knob keeps AES/SHA/CRC accelerated and costs roughly nothing on arm64 hardware that doesn't actually implement non-streaming SVE2.
+**Suppress SVE/SVE2 intrinsics at JIT time via `ENV` in `backend/Dockerfile`, and demote Path A to a parity build.** The single most surgical knob is `DOTNET_EnableArm64Sve=0` (plus `_Sve2`). It is narrower than `DOTNET_EnableHWIntrinsic=0`, which disables *all* Arm64 intrinsics (AES/SHA/CRC/LSE/Dp/Rdm) and imposes a 5–20% restore/build slowdown for no benefit on this host. The SVE-only knob keeps AES/SHA/CRC accelerated and costs roughly nothing on arm64 hardware that doesn't actually implement non-streaming SVE2.
 
 ### 4.1 Concrete Dockerfile diff
 
@@ -110,8 +112,8 @@ gdb /usr/share/dotnet/dotnet /tmp/core.*  -batch -ex 'x/1wx $pc' -ex 'disas/r $p
 +# Disabling these two CoreCLR knobs is a no-op on x86_64 (ignored) and on arm64
 +# hardware that does not falsely advertise SVE2, so this is safe for GitHub Actions
 +# ubuntu-latest runners and for production Linux arm64 hosts (Graviton, Ampere).
-+ENV DOTNET_EnableHWIntrinsic_Arm64Sve=0 \
-+    DOTNET_EnableHWIntrinsic_Arm64Sve2=0
++ENV DOTNET_EnableArm64Sve=0 \
++    DOTNET_EnableArm64Sve2=0
 +
  WORKDIR /src
  COPY backend/*.slnx backend/Directory.Packages.props backend/Directory.Build.props ./
@@ -126,8 +128,8 @@ gdb /usr/share/dotnet/dotnet /tmp/core.*  -batch -ex 'x/1wx $pc' -ex 'disas/r $p
 -FROM mcr.microsoft.com/dotnet/aspnet:10.0
 +FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:<pinned-aspnet-10.0-digest> AS runtime
 +# Same workaround applies at runtime — the host app tiers up hot paths too.
-+ENV DOTNET_EnableHWIntrinsic_Arm64Sve=0 \
-+    DOTNET_EnableHWIntrinsic_Arm64Sve2=0
++ENV DOTNET_EnableArm64Sve=0 \
++    DOTNET_EnableArm64Sve2=0
  WORKDIR /app
  USER $APP_UID
  COPY --from=build /app ./
@@ -136,7 +138,7 @@ gdb /usr/share/dotnet/dotnet /tmp/core.*  -batch -ex 'x/1wx $pc' -ex 'disas/r $p
  ENTRYPOINT ["dotnet", "RunCoach.Api.dll"]
 ```
 
-**Why these knobs specifically.** The CoreCLR config layer (`src/coreclr/inc/clrconfigvalues.h`) exposes per-ISA disable switches. `DOTNET_EnableHWIntrinsic_Arm64Sve=0` removes `ArmBase.Arm64.IsSupported`-gated SVE codegen; `_Arm64Sve2=0` does the same for SVE2. Together they eliminate every opcode in the problematic encoding range that RyuJIT can emit. AES, PMULL, SHA1/2/3/512, CRC32, LSE atomics, FP16, dotprod, and bf16 matmul remain on — so the performance cost on healthy arm64 (Graviton, Ampere, production cloud) is essentially zero because those CPUs either don't advertise SVE2 or implement it fully. On x86_64 the `_Arm64*` knobs are parsed and ignored by CoreCLR, so the same Dockerfile builds cleanly on GitHub Actions `ubuntu-latest`.
+**Why these knobs specifically.** The CoreCLR config layer (`src/coreclr/inc/jitconfigvalues.h`) exposes per-ISA disable switches. `DOTNET_EnableArm64Sve=0` removes `ArmBase.Arm64.IsSupported`-gated SVE codegen; `_Arm64Sve2=0` does the same for SVE2. Together they eliminate every opcode in the problematic encoding range that RyuJIT can emit. AES, PMULL, SHA1/2/3/512, CRC32, LSE atomics, FP16, dotprod, and bf16 matmul remain on — so the performance cost on healthy arm64 (Graviton, Ampere, production cloud) is essentially zero because those CPUs either don't advertise SVE2 or implement it fully. On x86_64 the `_Arm64*` knobs are parsed and ignored by CoreCLR, so the same Dockerfile builds cleanly on GitHub Actions `ubuntu-latest`.
 
 **Second-order changes.**
 
@@ -194,8 +196,8 @@ IMG="mcr.microsoft.com/dotnet/sdk:10.0@${DIGEST}"
 echo "verify-container-restore: ${IMG}, ${ITER} iterations"
 for i in $(seq 1 "${ITER}"); do
   docker run --rm --platform linux/arm64 \
-    -e DOTNET_EnableHWIntrinsic_Arm64Sve=0 \
-    -e DOTNET_EnableHWIntrinsic_Arm64Sve2=0 \
+    -e DOTNET_EnableArm64Sve=0 \
+    -e DOTNET_EnableArm64Sve2=0 \
     -v "$PWD/backend:/src:ro" -w /src "${IMG}" \
     bash -c 'cp -r . /tmp/b && cd /tmp/b && dotnet restore RunCoach.slnx --force --no-cache' \
     || { echo "FAIL on iteration ${i}"; exit 1; }
@@ -251,7 +253,7 @@ Combined with the CI job above, any Dependabot PR that bumps the SDK tag will fa
 |---|---|---|
 | `mcr.microsoft.com/dotnet/sdk:10.0` | `@sha256:8a90a473da5205a16979de99d2fc20975e922c68304f5c79d564e666dc3982fc` (pushed 2026-04-21, SDK 10.0.203 / runtime 10.0.7) | <https://github.com/dotnet/core/blob/main/release-notes/10.0/10.0.7/10.0.7.md> • <https://devblogs.microsoft.com/dotnet/dotnet-10-0-7-oob-security-update/> |
 | `mcr.microsoft.com/dotnet/aspnet:10.0` | pin to the matching runtime 10.0.7 digest (look up at <https://mcr.microsoft.com/en-us/product/dotnet/aspnet/tags>) | same release notes |
-| CoreCLR env knobs | `DOTNET_EnableHWIntrinsic_Arm64Sve=0`, `DOTNET_EnableHWIntrinsic_Arm64Sve2=0` | <https://github.com/dotnet/runtime/blob/main/src/coreclr/inc/clrconfigvalues.h> |
+| CoreCLR env knobs | `DOTNET_EnableArm64Sve=0`, `DOTNET_EnableArm64Sve2=0` | <https://github.com/dotnet/runtime/blob/main/src/coreclr/jit/jitconfigvalues.h> |
 | Unblock trigger | .NET 11 GA milestone on #122608 | <https://github.com/dotnet/runtime/issues/122608> |
 | Marten / Wolverine / M.E.AI / OTel / Npgsql / Testcontainers | **unchanged** — no pin required | — |
 | `packages.lock.json` enablement | `<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>` in `Directory.Build.props`, plus `--locked-mode` on restore | <https://learn.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files#locking-dependencies> |
