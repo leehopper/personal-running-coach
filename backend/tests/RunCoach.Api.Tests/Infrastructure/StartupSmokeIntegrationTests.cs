@@ -243,4 +243,37 @@ public class StartupSmokeIntegrationTests(RunCoachAppFactory factory) : DbBacked
         actualDevMigrationServices.Should()
             .ContainSingle(because: "Program.cs registers DevelopmentMigrationService as IHostedService only under IsDevelopment(); dropping that AddHostedService call would regress dev-time EF migration application");
     }
+
+    [Fact]
+    public void SutHost_ProblemDetailsService_Resolves()
+    {
+        // Arrange — AddProblemDetails() must register IProblemDetailsService so the
+        // global ErrorHandlingMiddleware can serialize RFC 7807 responses.
+        using var scope = Factory.Services.CreateScope();
+
+        // Act
+        var actualService = scope.ServiceProvider
+            .GetRequiredService<Microsoft.AspNetCore.Http.IProblemDetailsService>();
+
+        // Assert
+        actualService.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void SutHost_ErrorHandlingMiddleware_Is_Registered_As_IExceptionHandler()
+    {
+        // Arrange — AddExceptionHandler<ErrorHandlingMiddleware>() registers the
+        // handler as an IExceptionHandler so UseExceptionHandler() picks it up. The
+        // lifetime is singleton per AddExceptionHandler's default.
+        var handlers = Factory.Services
+            .GetServices<Microsoft.AspNetCore.Diagnostics.IExceptionHandler>()
+            .ToList();
+
+        // Act
+        var actualErrorHandlers = handlers.OfType<ErrorHandlingMiddleware>().ToList();
+
+        // Assert
+        actualErrorHandlers.Should()
+            .ContainSingle(because: "Program.cs must wire ErrorHandlingMiddleware via AddExceptionHandler<T>() so UseExceptionHandler() runs it for every unhandled exception");
+    }
 }

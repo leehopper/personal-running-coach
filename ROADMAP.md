@@ -1,9 +1,9 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 0 (Foundation) — Unit 1 persistence substrate PR (#49) open. DEC-048 composition corrections and DEC-049 startup unblock both applied; full `WebApplicationFactory<Program>` fixture + six SUT-host smoke tests green locally (581 passing / 0 failing / 1 skipped before the PR #49 review pass; after review changes: 582 passing / 0 failing / 0 skipped).
-**Next step:** Resolve CI checks on PR #49 (Linux-only backend test failure, license-review false positives), then address CodeRabbit review findings and merge. After merge, begin Unit 2 (Auth API — T02.x). DEC-044 (cookie-not-JWT browser auth), DEC-045 (Aspire deferred to MVP-1), DEC-046 (SOPS + Postgres-DataProtection secrets), DEC-047 (onboarding event-source pattern), DEC-048 (Marten `IntegrateWithWolverine` as sole envelope-storage wiring), and DEC-049 (disable host-config reload on macOS arm64 + drop manual `MapWolverineEnvelopeStorage`) capture the architecture pivots and the R-055 fix.
-**Blockers:** None. R-055 resolved 2026-04-20 — artifact at `docs/research/artifacts/batch-18b-webapplication-createbuilder-hang-followup.md`, fix captured in DEC-049.
+**Active slice:** Slice 0 (Foundation) — Unit 1 persistence substrate merged (PR #49, commit `46348fc`). Unit 2 (T02.x — Auth API) is in-flight on PR #50 — register / login / me / logout / xsrf endpoints with `CookieOrBearer` dual-scheme authorization, antiforgery double-submit (DEC-054), timing-safe login (DEC-053), Identity error → DTO-bucket translation (DEC-052), and the full integration-test matrix. Latest commit carries 638 passing / 0 failing / 0 skipped locally, with the SonarCloud coverage gate now satisfied (mapper + extension unit tests closed the 60.5% → ≥ 80% gap).
+**Next step:** Land PR #50, then begin Unit 3 (T03.x — Frontend Auth UX) with T03.0 (Vite HTTPS + `/api` proxy + CONTRIBUTING.md frontend half), then T03.1–T03.4 (RTK Query + LoginPage / RegisterPage + unit tests + Playwright happy-path). Unit 3 closes Slice 0 acceptance. DEC-044 (cookie-not-JWT browser auth), DEC-045 (Aspire deferred to MVP-1), DEC-046 (SOPS + Postgres-DataProtection secrets), DEC-047 (onboarding event-source pattern), DEC-052/053/054 (auth error / timing-safety / xsrf posture) remain the architectural anchors for subsequent slices.
+**Blockers:** None.
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 
