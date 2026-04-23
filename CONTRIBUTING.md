@@ -5,9 +5,9 @@ stack up locally and exercise every auth endpoint from Swagger UI or a CLI
 tool. For higher-level project context (vision, architecture, roadmap) start
 at `README.md`, `CLAUDE.md`, and `ROADMAP.md`.
 
-Frontend-specific developer setup (Vite dev server, `/api` proxy, Playwright
-page-level E2E) is covered by the frontend contribution section — tracked
-under task T03.0 and landing with the Unit 3 frontend slice.
+Frontend-specific developer setup — Vite dev server, `/api` proxy, mkcert
+escape hatch — is covered in the "Running the frontend" section below.
+Playwright page-level E2E lands later with T03.4.
 
 ## Local HTTPS is required
 
@@ -247,6 +247,96 @@ curl -sS -k -c "$JAR" -b "$JAR" \
 
 The `-k` flag accepts the self-signed dev cert. The `-c`/`-b` pair reads and
 writes the same jar file so cookies survive across requests.
+
+## Running the frontend
+
+Frontend and backend run as separate processes. The Vite dev server serves
+the SPA over HTTPS on port 5173 and proxies `/api/*` to the API on port
+5001, so the browser sees a single same-origin. Cookies round-trip cleanly
+through the proxy — the `__Host-` prefix is preserved because the
+proxy strips any upstream `Domain=` attribute before forwarding.
+
+### Path B.1 — host-run API + host-run Vite (fastest inner loop)
+
+In one terminal, start the API as in Path B above. In a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Vite launches on `https://localhost:5173`. First load in a browser shows a
+cert warning from `@vitejs/plugin-basic-ssl` — click through once per
+browser profile and the SPA loads normally. Subsequent loads are silent.
+
+The `/api/v1/auth/*` endpoints are reachable at
+`https://localhost:5173/api/v1/auth/*` via the proxy. RTK Query's
+`fetchBaseQuery({ baseUrl: '/api', credentials: 'include' })` round-trips
+cookies through this proxy without any extra configuration.
+
+### Path B.2 — Tilt (full stack in Compose, x86_64 only)
+
+Same as Path A above. The Vite dev server runs inside the `frontend`
+service container and the same proxy rules apply.
+
+### mkcert escape hatch
+
+The default `@vitejs/plugin-basic-ssl` cert is self-signed — browsers
+render a warning on first load. If your browser or corporate policy
+rejects self-signed certs outright (common on hardened Linux
+workstations), install [mkcert] and swap the plugin for explicit
+cert/key paths:
+
+```bash
+brew install mkcert          # or apt / scoop / choco
+mkcert -install              # installs a local CA into the system trust store
+cd frontend
+mkcert localhost 127.0.0.1 ::1
+```
+
+Then point `server.https` at the generated files instead of
+`basicSsl()` in `vite.config.ts`:
+
+```ts
+import fs from 'node:fs'
+
+export default defineConfig({
+  // remove basicSsl() from plugins
+  server: {
+    https: {
+      key: fs.readFileSync('./localhost+2-key.pem'),
+      cert: fs.readFileSync('./localhost+2.pem'),
+    },
+    // ...rest unchanged
+  },
+})
+```
+
+The generated `*.pem` files are already covered by the root `.gitignore`.
+
+### Troubleshooting — "my cookies aren't sticking"
+
+This almost always means one of the two HTTPS endpoints is not trusted:
+
+1. Is `https://localhost:5001/swagger` trusted? If the browser shows a
+   warning, re-run `dotnet dev-certs https --trust`.
+2. Is `https://localhost:5173` trusted (or warning clicked through)?
+   Revisit the URL directly in a fresh tab and accept the cert.
+
+If both endpoints look trusted but login still silently fails:
+
+- DevTools → Application → Cookies → `https://localhost:5173`. You should
+  see `__Host-RunCoach`, `__Host-Xsrf`, and `__Host-Xsrf-Request` with
+  `Secure`, `HttpOnly` (for RunCoach + Xsrf), and no `Domain` attribute.
+  A missing `Secure` flag means the response arrived over HTTP somewhere
+  in the chain.
+- DevTools → Network → the failing request → Response Headers. If
+  `Set-Cookie` carries a `Domain=` attribute, the proxy's
+  `cookieDomainRewrite: ''` is not firing — check the Vite config did not
+  drift.
+
+[mkcert]: https://github.com/FiloSottile/mkcert
 
 ## Post-change checks
 
