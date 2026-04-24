@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import tailwindcss from '@tailwindcss/vite'
+import fs from 'node:fs'
 import path from 'node:path'
 
 // Vite dev server runs on HTTPS (port 5173) and proxies `/api/*` to the
@@ -11,9 +12,14 @@ import path from 'node:path'
 // `__Host-` prefix, which browsers silently drop over plain HTTP. See
 // CONTRIBUTING.md "Local HTTPS is required" for the full contract.
 //
-// `@vitejs/plugin-basic-ssl` generates a self-signed cert at startup — zero
-// install, one-time browser accept. Contributors who want a trusted cert
-// use the mkcert escape hatch documented in CONTRIBUTING.md.
+// Two cert strategies, picked at config time:
+//   1. If `.cert/cert.pem` + `.cert/key.pem` are present (mkcert output),
+//      the dev server serves them directly via `server.https` — browser
+//      padlock is green, no "Not Secure" chip.
+//   2. Otherwise `@vitejs/plugin-basic-ssl` generates a fresh self-signed
+//      cert at startup — zero install, one-time browser accept, CI-safe.
+// CONTRIBUTING.md has the mkcert recipe for contributors who want the
+// trusted-cert path.
 //
 // The `/api` proxy preserves the `__Host-` cookie contract:
 //   - `secure: false` accepts the ASP.NET Core dev cert (self-signed).
@@ -23,8 +29,15 @@ import path from 'node:path'
 //     Set-Cookie headers. The backend does not set one today, so this is a
 //     belt-and-suspenders guard — `__Host-` prefix rejects cookies that
 //     carry a Domain attribute.
+const mkcertCertPath = path.resolve(__dirname, '.cert/cert.pem')
+const mkcertKeyPath = path.resolve(__dirname, '.cert/key.pem')
+const mkcertPresent = fs.existsSync(mkcertCertPath) && fs.existsSync(mkcertKeyPath)
+const httpsConfig = mkcertPresent
+  ? { cert: fs.readFileSync(mkcertCertPath), key: fs.readFileSync(mkcertKeyPath) }
+  : undefined
+
 export default defineConfig({
-  plugins: [react(), basicSsl(), tailwindcss()],
+  plugins: [react(), ...(mkcertPresent ? [] : [basicSsl()]), tailwindcss()],
   resolve: {
     alias: {
       '~': path.resolve(__dirname, './src/app'),
@@ -34,6 +47,7 @@ export default defineConfig({
     host: 'localhost',
     port: 5173,
     strictPort: true,
+    https: httpsConfig,
     proxy: {
       '/api': {
         target: 'https://localhost:5001',

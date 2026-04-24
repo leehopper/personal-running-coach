@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Locally-trusted mkcert dev certs — never commit.
+.cert/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
