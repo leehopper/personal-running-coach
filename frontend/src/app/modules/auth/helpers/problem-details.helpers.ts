@@ -1,5 +1,3 @@
-import type { FetchBaseQueryError } from '@reduxjs/toolkit/query'
-
 // RFC 7807 Problem Details / Validation Problem Details extractor.
 //
 // The backend shape is authoritative (DEC-052):
@@ -42,7 +40,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string')
 
-export const parseProblem = (error: FetchBaseQueryError | Error | unknown): ParsedProblem => {
+// Accepts `unknown` because callers hand us anything RTK Query or a thrown
+// Error can produce; `isHttpError` below narrows to the
+// `FetchBaseQueryError` HTTP-error arm at runtime.
+export const parseProblem = (error: unknown): ParsedProblem => {
   const empty: ParsedProblem = {
     title: null,
     fieldErrors: {},
