@@ -1,8 +1,10 @@
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { useDispatch } from 'react-redux'
-import { Link, useNavigate } from 'react-router-dom'
+
 import { useLoginMutation, useRegisterMutation } from '~/api/auth.api'
 import { parseProblem } from '~/modules/auth/helpers/problem-details.helpers'
 import { registerSchema, type RegisterFormValues } from '~/modules/auth/schemas/auth.schema'

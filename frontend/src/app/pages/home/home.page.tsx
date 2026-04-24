@@ -1,5 +1,7 @@
-import { useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
+
+import { useDispatch } from 'react-redux'
+
 import { useLogoutMutation } from '~/api/auth.api'
 import { useAuth } from '~/modules/auth/hooks/auth.hooks'
 import { postLogoutBroadcast } from '~/modules/auth/lib/broadcast-auth'
