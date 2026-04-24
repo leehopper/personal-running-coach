@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -33,8 +34,10 @@ type RenderOptions = { initialEntries?: Array<string | { pathname: string; state
 
 const renderLogin = ({ initialEntries = ['/login'] }: RenderOptions = {}) => {
   const store = makeStore()
+  const user = userEvent.setup()
   return {
     store,
+    user,
     ...render(
       <Provider store={store}>
         <MemoryRouter initialEntries={initialEntries}>
@@ -45,18 +48,18 @@ const renderLogin = ({ initialEntries = ['/login'] }: RenderOptions = {}) => {
   }
 }
 
-const fillEmail = (value: string): void => {
-  fireEvent.change(screen.getByLabelText(/email/i), { target: { value } })
+const fillEmail = async (user: UserEvent, value: string): Promise<void> => {
+  await user.type(screen.getByLabelText(/email/i), value)
 }
 
-const fillPassword = (value: string): void => {
-  fireEvent.change(screen.getByLabelText(/password/i), { target: { value } })
+const fillPassword = async (user: UserEvent, value: string): Promise<void> => {
+  await user.type(screen.getByLabelText(/password/i), value)
 }
 
-// Submit the <form> element directly so the assertion works even when the
-// submit button is disabled (empty form). This mirrors the intent of the
-// task's "empty-submit validation" bullet: exercise the RHF / Zod resolver's
-// error-surfacing path, not the DOM-level button click.
+// Submits the <form> via a native submit event so the assertion works even
+// when the submit button is disabled (userEvent.click on a disabled button
+// is a no-op). This is the single justified use of fireEvent — no equivalent
+// userEvent API for "submit a form whose button is disabled" exists.
 const submitForm = (): void => {
   const form = document.querySelector('form')
   if (form === null) throw new Error('Login form not found')
@@ -94,9 +97,9 @@ describe('LoginPage', () => {
     // complexity assertions live — see register.page.spec.tsx.
     it('accepts an unusually-shaped email client-side and forwards it to the mutation', async () => {
       loginUnwrap.mockResolvedValue({ userId: 'usr_abc', email: 'legacy@example' })
-      renderLogin()
-      fillEmail('legacy@example')
-      fillPassword('any-non-empty')
+      const { user } = renderLogin()
+      await fillEmail(user, 'legacy@example')
+      await fillPassword(user, 'any-non-empty')
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled()
       })
@@ -116,9 +119,9 @@ describe('LoginPage', () => {
     // the failure path lives in the server's uniform 401 response, exercised
     // by the server-error tests below.
     it('accepts a weak (but non-empty) password at the client tier', async () => {
-      renderLogin()
-      fillEmail(VALID_EMAIL)
-      fillPassword('x')
+      const { user } = renderLogin()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, 'x')
       await waitFor(() => {
         expect(screen.queryByText(/password must/i)).not.toBeInTheDocument()
       })
@@ -133,9 +136,9 @@ describe('LoginPage', () => {
     })
 
     it('becomes enabled once email and password fields are filled with valid values', async () => {
-      renderLogin()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { user } = renderLogin()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled()
       })
@@ -145,13 +148,14 @@ describe('LoginPage', () => {
   describe('happy-path submission', () => {
     it('invokes the login mutation, dispatches sessionVerified, and navigates to "/"', async () => {
       loginUnwrap.mockResolvedValue({ userId: 'usr_abc', email: VALID_EMAIL })
-      const { store } = renderLogin()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { store, user } = renderLogin()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       await waitFor(() => {
         expect(loginTrigger).toHaveBeenCalledWith({
           email: VALID_EMAIL,
@@ -168,15 +172,16 @@ describe('LoginPage', () => {
 
     it('respects a sanitized next-path on location.state', async () => {
       loginUnwrap.mockResolvedValue({ userId: 'usr_abc', email: VALID_EMAIL })
-      renderLogin({
+      const { user } = renderLogin({
         initialEntries: [{ pathname: '/login', state: { next: '/dashboard' } }],
       })
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       await waitFor(() => {
         expect(navigateMock).toHaveBeenCalledWith('/dashboard', { replace: true })
       })
@@ -184,15 +189,16 @@ describe('LoginPage', () => {
 
     it('ignores an external-origin next-path on location.state', async () => {
       loginUnwrap.mockResolvedValue({ userId: 'usr_abc', email: VALID_EMAIL })
-      renderLogin({
+      const { user } = renderLogin({
         initialEntries: [{ pathname: '/login', state: { next: '//evil.example.com' } }],
       })
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       await waitFor(() => {
         expect(navigateMock).toHaveBeenCalledWith('/', { replace: true })
       })
@@ -213,13 +219,14 @@ describe('LoginPage', () => {
           },
         },
       })
-      renderLogin()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { user } = renderLogin()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       expect(await screen.findByText('Email is malformed.')).toBeInTheDocument()
       expect(await screen.findByText('Password cannot be blank.')).toBeInTheDocument()
     })
@@ -233,13 +240,14 @@ describe('LoginPage', () => {
           status: 401,
         },
       })
-      renderLogin()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { user } = renderLogin()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       const alert = await screen.findByTestId('form-alert')
       expect(alert).toHaveTextContent('Invalid email or password.')
     })
@@ -249,13 +257,14 @@ describe('LoginPage', () => {
         status: 500,
         data: {},
       })
-      renderLogin()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { user } = renderLogin()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       const alert = await screen.findByTestId('form-alert')
       expect(alert).toHaveTextContent(/login failed/i)
     })

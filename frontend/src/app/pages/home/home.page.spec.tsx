@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -43,8 +44,10 @@ const makeStore = () => {
 
 const renderHome = () => {
   const store = makeStore()
+  const user = userEvent.setup()
   return {
     store,
+    user,
     ...render(
       <Provider store={store}>
         <MemoryRouter initialEntries={['/']}>
@@ -69,16 +72,14 @@ describe('HomePage', () => {
 
   it('renders the authenticated user email in the greeting', () => {
     renderHome()
-    expect(screen.getByTestId('home-greeting')).toHaveTextContent(
-      `Logged in as ${AUTHENTICATED_USER.email}`,
-    )
+    expect(screen.getByText(`Logged in as ${AUTHENTICATED_USER.email}`)).toBeInTheDocument()
   })
 
   it('signs out: invokes the logout mutation, flips the slice, broadcasts, and navigates to /login', async () => {
     logoutUnwrap.mockResolvedValue(undefined)
-    const { store } = renderHome()
+    const { store, user } = renderHome()
 
-    fireEvent.click(screen.getByRole('button', { name: /sign out/i }))
+    await user.click(screen.getByRole('button', { name: /sign out/i }))
 
     await waitFor(() => {
       expect(logoutTrigger).toHaveBeenCalledWith(undefined)
@@ -93,9 +94,9 @@ describe('HomePage', () => {
 
   it('still flips to unauthenticated when the server-side logout fails', async () => {
     logoutUnwrap.mockRejectedValue(new Error('network down'))
-    const { store } = renderHome()
+    const { store, user } = renderHome()
 
-    fireEvent.click(screen.getByRole('button', { name: /sign out/i }))
+    await user.click(screen.getByRole('button', { name: /sign out/i }))
 
     await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith('/login', { replace: true })

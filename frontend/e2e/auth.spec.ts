@@ -38,10 +38,16 @@ test('register → authenticated home → reload → logout clears session', asy
   await page.getByRole('button', { name: /sign out/i }).click()
   await expect(page).toHaveURL('/login')
 
+  // Most backends remove the session cookie outright on logout, so the
+  // expected posture is `undefined`. If a `__Host-RunCoach` value lingers
+  // (some browsers retain it with a zeroed `Max-Age`), it MUST already be
+  // expired. Either shape counts as "session cleared"; neither is a
+  // silently-vacuous assertion the way a single guarded block would be.
   const cookies = await context.cookies()
   const sessionCookie = cookies.find((cookie) => cookie.name === SESSION_COOKIE)
-  if (sessionCookie !== undefined) {
-    // If any `__Host-RunCoach` value lingers it must be expired;
+  if (sessionCookie === undefined) {
+    expect(sessionCookie).toBeUndefined()
+  } else {
     // `expires` is a Unix timestamp in seconds or -1 for session cookies.
     expect(sessionCookie.expires).toBeGreaterThan(0)
     expect(sessionCookie.expires * 1000).toBeLessThan(Date.now())

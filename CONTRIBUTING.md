@@ -303,7 +303,7 @@ startup: when both files exist the dev server serves them directly and
 edits required — delete the `.cert/` directory to fall back to the
 self-signed default.
 
-The `.cert/` directory is covered by the root `.gitignore`.
+The `.cert/` directory is covered by `frontend/.gitignore`.
 
 ### Troubleshooting — "my cookies aren't sticking"
 

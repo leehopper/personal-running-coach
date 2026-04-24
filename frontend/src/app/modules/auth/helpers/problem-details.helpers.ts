@@ -53,7 +53,7 @@ export const parseProblem = (error: unknown): ParsedProblem => {
   if (!isHttpError(error)) return empty
 
   const status = error.status
-  if (!isRecord(error.data)) return { title: null, fieldErrors: {}, status }
+  if (!isRecord(error.data)) return { ...empty, status }
 
   const body = error.data as ValidationProblemDetails
   const title = typeof body.title === 'string' ? body.title : null

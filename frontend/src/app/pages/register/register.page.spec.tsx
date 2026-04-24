@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -35,8 +36,10 @@ const makeStore = () => configureStore({ reducer: { [authSlice.name]: authSlice.
 
 const renderRegister = () => {
   const store = makeStore()
+  const user = userEvent.setup()
   return {
     store,
+    user,
     ...render(
       <Provider store={store}>
         <MemoryRouter initialEntries={['/register']}>
@@ -47,14 +50,16 @@ const renderRegister = () => {
   }
 }
 
-const fillEmail = (value: string): void => {
-  fireEvent.change(screen.getByLabelText(/email/i), { target: { value } })
+const fillEmail = async (user: UserEvent, value: string): Promise<void> => {
+  await user.type(screen.getByLabelText(/email/i), value)
 }
 
-const fillPassword = (value: string): void => {
-  fireEvent.change(screen.getByLabelText(/password/i), { target: { value } })
+const fillPassword = async (user: UserEvent, value: string): Promise<void> => {
+  await user.type(screen.getByLabelText(/password/i), value)
 }
 
+// See login.page.spec.tsx — native form submit is the only way to trigger
+// the RHF / Zod resolver while the submit button is still disabled.
 const submitForm = (): void => {
   const form = document.querySelector('form')
   if (form === null) throw new Error('Register form not found')
@@ -94,9 +99,9 @@ describe('RegisterPage', () => {
     })
 
     it('rejects an improperly formatted email', async () => {
-      renderRegister()
-      fillEmail('not-an-email')
-      fillPassword(VALID_PASSWORD)
+      const { user } = renderRegister()
+      await fillEmail(user, 'not-an-email')
+      await fillPassword(user, VALID_PASSWORD)
       submitForm()
       expect(await screen.findByText('Email must be a valid address.')).toBeInTheDocument()
       expect(registerTrigger).not.toHaveBeenCalled()
@@ -104,9 +109,9 @@ describe('RegisterPage', () => {
 
     describe('weak-password validation mirrors the backend Identity policy', () => {
       it('rejects a too-short password (< 12 chars)', async () => {
-        renderRegister()
-        fillEmail(VALID_EMAIL)
-        fillPassword('Short1!')
+        const { user } = renderRegister()
+        await fillEmail(user, VALID_EMAIL)
+        await fillPassword(user, 'Short1!')
         submitForm()
         expect(
           await screen.findByText(/password must be at least 12 characters/i),
@@ -115,9 +120,9 @@ describe('RegisterPage', () => {
       })
 
       it('rejects a password missing an uppercase letter', async () => {
-        renderRegister()
-        fillEmail(VALID_EMAIL)
-        fillPassword('lowercase0!word')
+        const { user } = renderRegister()
+        await fillEmail(user, VALID_EMAIL)
+        await fillPassword(user, 'lowercase0!word')
         submitForm()
         expect(
           await screen.findByText(/password must contain an uppercase letter/i),
@@ -125,9 +130,9 @@ describe('RegisterPage', () => {
       })
 
       it('rejects a password missing a lowercase letter', async () => {
-        renderRegister()
-        fillEmail(VALID_EMAIL)
-        fillPassword('UPPERCASE0!WORD')
+        const { user } = renderRegister()
+        await fillEmail(user, VALID_EMAIL)
+        await fillPassword(user, 'UPPERCASE0!WORD')
         submitForm()
         expect(
           await screen.findByText(/password must contain a lowercase letter/i),
@@ -135,17 +140,17 @@ describe('RegisterPage', () => {
       })
 
       it('rejects a password missing a digit', async () => {
-        renderRegister()
-        fillEmail(VALID_EMAIL)
-        fillPassword('NoDigitsHere!!')
+        const { user } = renderRegister()
+        await fillEmail(user, VALID_EMAIL)
+        await fillPassword(user, 'NoDigitsHere!!')
         submitForm()
         expect(await screen.findByText(/password must contain a digit/i)).toBeInTheDocument()
       })
 
       it('rejects a password missing a non-alphanumeric character', async () => {
-        renderRegister()
-        fillEmail(VALID_EMAIL)
-        fillPassword('NoSymbolHere0')
+        const { user } = renderRegister()
+        await fillEmail(user, VALID_EMAIL)
+        await fillPassword(user, 'NoSymbolHere0')
         submitForm()
         expect(
           await screen.findByText(/password must contain a non-alphanumeric character/i),
@@ -161,9 +166,9 @@ describe('RegisterPage', () => {
     })
 
     it('becomes enabled only when email + policy-compliant password are present', async () => {
-      renderRegister()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { user } = renderRegister()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /create account/i })).not.toBeDisabled()
       })
@@ -174,13 +179,14 @@ describe('RegisterPage', () => {
     it('chains register + login, dispatches sessionVerified, and navigates to "/"', async () => {
       registerUnwrap.mockResolvedValue({ userId: 'usr_abc', email: VALID_EMAIL })
       loginUnwrap.mockResolvedValue({ userId: 'usr_abc', email: VALID_EMAIL })
-      const { store } = renderRegister()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { store, user } = renderRegister()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /create account/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /create account/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       await waitFor(() => {
         expect(registerTrigger).toHaveBeenCalledWith({
           email: VALID_EMAIL,
@@ -215,13 +221,14 @@ describe('RegisterPage', () => {
           },
         },
       })
-      renderRegister()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { user } = renderRegister()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /create account/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /create account/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       expect(await screen.findByText('Email is already in use.')).toBeInTheDocument()
       expect(await screen.findByText('Password does not meet the policy.')).toBeInTheDocument()
       // Auto-login should NOT fire when register fails.
@@ -233,13 +240,14 @@ describe('RegisterPage', () => {
         status: 409,
         data: { title: 'This email is already registered.', status: 409 },
       })
-      renderRegister()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { user } = renderRegister()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /create account/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /create account/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       const alert = await screen.findByTestId('form-alert')
       expect(alert).toHaveTextContent('This email is already registered.')
       expect(loginTrigger).not.toHaveBeenCalled()
@@ -251,27 +259,36 @@ describe('RegisterPage', () => {
         status: 500,
         data: { title: 'Temporary sign-in failure — please sign in manually.', status: 500 },
       })
-      renderRegister()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { store, user } = renderRegister()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /create account/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /create account/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       const alert = await screen.findByTestId('form-alert')
       expect(alert).toHaveTextContent(/temporary sign-in failure/i)
       expect(navigateMock).not.toHaveBeenCalled()
+      // Register succeeded, login failed — the Redux slice MUST stay in its
+      // pre-submit state rather than flip to authenticated. Guards against
+      // a future refactor that accidentally dispatches `sessionVerified`
+      // outside the `try` that awaits login.
+      const state = store.getState()
+      expect(state.auth.status).toBe('unknown')
+      expect(state.auth.user).toBeNull()
     })
 
     it('falls back to a generic alert when the server omits a title', async () => {
       registerUnwrap.mockRejectedValue({ status: 500, data: {} })
-      renderRegister()
-      fillEmail(VALID_EMAIL)
-      fillPassword(VALID_PASSWORD)
+      const { user } = renderRegister()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, VALID_PASSWORD)
+      const submitButton = screen.getByRole('button', { name: /create account/i })
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /create account/i })).not.toBeDisabled()
+        expect(submitButton).not.toBeDisabled()
       })
-      submitForm()
+      await user.click(submitButton)
       const alert = await screen.findByTestId('form-alert')
       expect(alert).toHaveTextContent(/registration failed/i)
     })

@@ -1,13 +1,5 @@
 # Review Configuration
 
-## Severity Threshold
-
-low
-
-## Confidence Threshold
-
-80
-
 ## Model Tier
 
 frontier

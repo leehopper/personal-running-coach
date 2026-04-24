@@ -51,6 +51,8 @@ export const useAuthBootstrap = (): void => {
         xsrfPromise.unsubscribe()
       }
 
+      if (cancelled) return
+
       const mePromise = dispatch(authApi.endpoints.me.initiate(undefined))
       try {
         const me = await mePromise.unwrap()
