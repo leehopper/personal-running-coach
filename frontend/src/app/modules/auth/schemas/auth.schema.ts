@@ -10,11 +10,16 @@ import { z } from 'zod'
 // assert these two schemas accept/reject the same inputs as the backend
 // DataAnnotations — deferred to the shared-contracts folder.
 
+// Chain order matters: `.trim()` normalizes first so the email validator
+// sees the cleaned value — otherwise `'  user@example.com  '` fails format
+// before it's ever trimmed. `.pipe(z.email(...))` is the Zod v4 replacement
+// for the deprecated `.email()` method on `ZodString`.
 const emailSchema = z
-  .email('Email must be a valid address.')
+  .string()
   .trim()
   .min(1, 'Email is required.')
   .max(254, 'Email must be at most 254 characters.')
+  .pipe(z.email('Email must be a valid address.'))
 
 export const registerSchema = z.object({
   email: emailSchema,

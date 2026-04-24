@@ -83,10 +83,10 @@ describe('RegisterPage', () => {
     it('shows validation errors when the form is submitted empty and does not invoke the mutation', async () => {
       renderRegister()
       submitForm()
-      // Register uses `emailSchema` which runs `.email()` before `.min(1)`,
-      // so an empty value surfaces the format message first. The login page
-      // uses a permissive schema and surfaces "Email is required." instead.
-      expect(await screen.findByText('Email must be a valid address.')).toBeInTheDocument()
+      // `emailSchema` trims first so `.min(1)` surfaces "Email is required."
+      // on an empty submission; the dedicated format test below covers the
+      // `.email()` failure path for malformed-but-non-empty input.
+      expect(await screen.findByText('Email is required.')).toBeInTheDocument()
       expect(
         await screen.findByText(/password must be at least 12 characters/i),
       ).toBeInTheDocument()
