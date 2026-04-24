@@ -286,35 +286,24 @@ service container and the same proxy rules apply.
 The default `@vitejs/plugin-basic-ssl` cert is self-signed — browsers
 render a warning on first load. If your browser or corporate policy
 rejects self-signed certs outright (common on hardened Linux
-workstations), install [mkcert] and swap the plugin for explicit
-cert/key paths:
+workstations), install [mkcert] and drop a trusted cert/key pair at
+`frontend/.cert/`:
 
 ```bash
 brew install mkcert          # or apt / scoop / choco
 mkcert -install              # installs a local CA into the system trust store
 cd frontend
-mkcert localhost 127.0.0.1 ::1
+mkdir -p .cert
+mkcert -cert-file .cert/cert.pem -key-file .cert/key.pem localhost 127.0.0.1 ::1
 ```
 
-Then point `server.https` at the generated files instead of
-`basicSsl()` in `vite.config.ts`:
+`vite.config.ts` auto-detects `.cert/cert.pem` + `.cert/key.pem` on
+startup: when both files exist the dev server serves them directly and
+`@vitejs/plugin-basic-ssl` is dropped from the plugin list. No config
+edits required — delete the `.cert/` directory to fall back to the
+self-signed default.
 
-```ts
-import fs from 'node:fs'
-
-export default defineConfig({
-  // remove basicSsl() from plugins
-  server: {
-    https: {
-      key: fs.readFileSync('./localhost+2-key.pem'),
-      cert: fs.readFileSync('./localhost+2.pem'),
-    },
-    // ...rest unchanged
-  },
-})
-```
-
-The generated `*.pem` files are already covered by the root `.gitignore`.
+The `.cert/` directory is covered by the root `.gitignore`.
 
 ### Troubleshooting — "my cookies aren't sticking"
 
