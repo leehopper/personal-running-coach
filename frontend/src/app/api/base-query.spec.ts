@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BaseQueryApi } from '@reduxjs/toolkit/query'
-import { baseQueryWith401Handler, rawBaseQuery } from './base-query'
 import { loggedOut } from '~/modules/auth/store/auth.slice'
+import { baseQueryWith401Handler, rawBaseQuery } from './base-query'
 
 // The cookie name the SPA reads is the double-submit companion of the
 // HttpOnly backend cookie (DEC-054). Kept in lockstep with `base-query.ts`.

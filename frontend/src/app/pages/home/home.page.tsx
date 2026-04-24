@@ -21,10 +21,11 @@ const HomePage = () => {
       // Even a server-side failure should flip the local session to
       // unauthenticated — the worst case is a stale server cookie that
       // the browser will reject on the next honored request anyway.
+    } finally {
+      dispatch(loggedOut())
+      postLogoutBroadcast()
+      navigate('/login', { replace: true })
     }
-    dispatch(loggedOut())
-    postLogoutBroadcast()
-    navigate('/login', { replace: true })
   }
 
   return (
