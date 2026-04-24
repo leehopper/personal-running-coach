@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import tailwindcss from '@tailwindcss/vite'
@@ -69,5 +69,8 @@ export default defineConfig({
     },
     setupFiles: './src/test-setup.ts',
     css: true,
+    // `e2e/` holds Playwright specs that import `@playwright/test` and
+    // drive a real browser; Vitest must leave them alone.
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 })
