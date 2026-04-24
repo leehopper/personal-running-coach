@@ -14,14 +14,24 @@ const XSRF_HEADER_NAME = 'X-XSRF-TOKEN'
 
 // Reads the single cookie segment whose name matches XSRF_COOKIE_NAME and
 // URL-decodes the value. Returns null when the cookie is absent (the
-// app-boot `GET /xsrf` seeds it before any mutation fires).
+// app-boot `GET /xsrf` seeds it before any mutation fires) or when the
+// stored value is malformed — a `URIError` from `decodeURIComponent` must
+// not escape into `prepareHeaders` and block every mutation. Splits on
+// `;` with per-segment `trim()` rather than `"; "` to stay robust against
+// browsers that produce spaceless separators.
 const readXsrfCookie = (): string | null => {
   if (typeof document === 'undefined') return null
-  const segments = document.cookie ? document.cookie.split('; ') : []
+  const raw = document.cookie
+  if (raw.length === 0) return null
+  const segments = raw.split(';').map((segment) => segment.trim())
   const prefix = `${XSRF_COOKIE_NAME}=`
   const hit = segments.find((segment) => segment.startsWith(prefix))
-  if (!hit) return null
-  return decodeURIComponent(hit.slice(prefix.length))
+  if (hit === undefined) return null
+  try {
+    return decodeURIComponent(hit.slice(prefix.length))
+  } catch {
+    return null
+  }
 }
 
 export const rawBaseQuery = fetchBaseQuery({

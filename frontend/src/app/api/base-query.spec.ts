@@ -145,6 +145,19 @@ describe('rawBaseQuery', () => {
       expect(request.headers.get(XSRF_HEADER_NAME)).toBeNull()
     })
   })
+
+  describe('malformed cookie values do not block mutations', () => {
+    // `decodeURIComponent` throws `URIError` on a lone `%` or other invalid
+    // percent-encoding. That error must not escape `prepareHeaders` — the
+    // right posture is to drop the token and let the backend's antiforgery
+    // filter 400 the request with a proper `ProblemDetails` response.
+    it('returns null from the helper (omits the header) when the cookie holds invalid percent-encoding', async () => {
+      setCookie(XSRF_COOKIE_NAME, 'broken%ZZ')
+      await rawBaseQuery({ url: ABS_URL, method: 'POST' }, makeApi('mutation'), {})
+      const request = extractRequest(fetchMock)
+      expect(request.headers.get(XSRF_HEADER_NAME)).toBeNull()
+    })
+  })
 })
 
 describe('baseQueryWith401Handler', () => {
