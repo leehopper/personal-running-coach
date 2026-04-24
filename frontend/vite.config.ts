@@ -46,6 +46,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // jsdom URL mirrors the Vite dev server so relative API paths (e.g.
+    // `/api/...`) resolve cleanly inside RTK Query / fetch, and so
+    // `document.cookie` interactions against `__Host-`-prefixed cookies
+    // behave like they do against the real dev server.
+    environmentOptions: {
+      jsdom: { url: 'https://localhost:5173/' },
+    },
     setupFiles: './src/test-setup.ts',
     css: true,
   },
