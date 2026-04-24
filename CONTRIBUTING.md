@@ -5,9 +5,10 @@ stack up locally and exercise every auth endpoint from Swagger UI or a CLI
 tool. For higher-level project context (vision, architecture, roadmap) start
 at `README.md`, `CLAUDE.md`, and `ROADMAP.md`.
 
-Frontend-specific developer setup (Vite dev server, `/api` proxy, Playwright
-page-level E2E) is covered by the frontend contribution section — tracked
-under task T03.0 and landing with the Unit 3 frontend slice.
+Frontend-specific developer setup — Vite dev server, `/api` proxy, mkcert
+escape hatch — is covered in the "Running the frontend" section below.
+The Playwright happy-path E2E and its test-data hygiene recipe are in
+"Running the Playwright E2E" further down.
 
 ## Local HTTPS is required
 
@@ -247,6 +248,140 @@ curl -sS -k -c "$JAR" -b "$JAR" \
 
 The `-k` flag accepts the self-signed dev cert. The `-c`/`-b` pair reads and
 writes the same jar file so cookies survive across requests.
+
+## Running the frontend
+
+Frontend and backend run as separate processes. The Vite dev server serves
+the SPA over HTTPS on port 5173 and proxies `/api/*` to the API on port
+5001, so the browser sees a single same-origin. Cookies round-trip cleanly
+through the proxy — the `__Host-` prefix is preserved because the
+proxy strips any upstream `Domain=` attribute before forwarding.
+
+### Path B.1 — host-run API + host-run Vite (fastest inner loop)
+
+In one terminal, start the API as in Path B above. In a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Vite launches on `https://localhost:5173`. First load in a browser shows a
+cert warning from `@vitejs/plugin-basic-ssl` — click through once per
+browser profile and the SPA loads normally. Subsequent loads are silent.
+
+The `/api/v1/auth/*` endpoints are reachable at
+`https://localhost:5173/api/v1/auth/*` via the proxy. RTK Query's
+`fetchBaseQuery({ baseUrl: '/api', credentials: 'include' })` round-trips
+cookies through this proxy without any extra configuration.
+
+### Path B.2 — Tilt (full stack in Compose, x86_64 only)
+
+Same as Path A above. The Vite dev server runs inside the `frontend`
+service container and the same proxy rules apply.
+
+### mkcert escape hatch
+
+The default `@vitejs/plugin-basic-ssl` cert is self-signed — browsers
+render a warning on first load. If your browser or corporate policy
+rejects self-signed certs outright (common on hardened Linux
+workstations), install [mkcert] and drop a trusted cert/key pair at
+`frontend/.cert/`:
+
+```bash
+brew install mkcert          # or apt / scoop / choco
+mkcert -install              # installs a local CA into the system trust store
+cd frontend
+mkdir -p .cert
+mkcert -cert-file .cert/cert.pem -key-file .cert/key.pem localhost 127.0.0.1 ::1
+```
+
+`vite.config.ts` auto-detects `.cert/cert.pem` + `.cert/key.pem` on
+startup: when both files exist the dev server serves them directly and
+`@vitejs/plugin-basic-ssl` is dropped from the plugin list. No config
+edits required — delete the `.cert/` directory to fall back to the
+self-signed default.
+
+The `.cert/` directory is covered by `frontend/.gitignore`.
+
+### Troubleshooting — "my cookies aren't sticking"
+
+This almost always means one of the two HTTPS endpoints is not trusted:
+
+1. Is `https://localhost:5001/swagger` trusted? If the browser shows a
+   warning, re-run `dotnet dev-certs https --trust`.
+2. Is `https://localhost:5173` trusted (or warning clicked through)?
+   Revisit the URL directly in a fresh tab and accept the cert.
+
+If both endpoints look trusted but login still silently fails:
+
+- DevTools → Application → Cookies → `https://localhost:5173`. You should
+  see `__Host-RunCoach`, `__Host-Xsrf`, and `__Host-Xsrf-Request` with
+  `Secure`, `HttpOnly` (for RunCoach + Xsrf), and no `Domain` attribute.
+  A missing `Secure` flag means the response arrived over HTTP somewhere
+  in the chain.
+- DevTools → Network → the failing request → Response Headers. If
+  `Set-Cookie` carries a `Domain=` attribute, the proxy's
+  `cookieDomainRewrite: ''` is not firing — check the Vite config did not
+  drift.
+
+[mkcert]: https://github.com/FiloSottile/mkcert
+
+## Running the Playwright E2E
+
+Slice 0 ships one happy-path E2E (`frontend/e2e/auth.spec.ts`): register
+→ authenticated home → reload → logout → verify the `__Host-RunCoach`
+cookie is gone. It runs Chromium against the same stack you use for the
+browser — the backend on `https://localhost:5001`, the Vite dev server
+on `https://localhost:5173`.
+
+One-time setup:
+
+```bash
+cd frontend
+npx playwright install chromium
+```
+
+Each run:
+
+```bash
+# 1. Backend + Postgres + Redis running (Path B, from earlier section).
+# 2. In a second terminal:
+cd frontend
+npm run e2e
+```
+
+`playwright.config.ts`'s `webServer` entry starts the Vite dev server
+itself, so you do not need a running `npm run dev` — though if one is
+already up on :5173 it will be reused.
+
+### Test-data hygiene
+
+The test generates a fresh `e2e-<uuid>@runcoach.test` account on every
+run so re-runs never collide, neither with each other nor with real
+accounts you've registered while tinkering. The downside: orphan
+`e2e-*` rows accumulate in the dev Postgres over time. Flush them
+whenever:
+
+```bash
+cd frontend
+npm run e2e:clean
+```
+
+The script (`scripts/e2e-clean.sh`) runs `DELETE FROM "AspNetUsers"
+WHERE "NormalizedEmail" LIKE 'E2E-%@RUNCOACH.TEST';` against the
+compose Postgres. It touches nothing outside the `e2e-*` prefix, so
+it's safe to run on a dev DB with real accounts alongside.
+
+CI does not need this — the compose stack is ephemeral per job, so
+every run starts from an empty Postgres.
+
+This is the "unique identifier per run" posture, deliberately
+minimal for a foundation slice with a single E2E. Slice 1 and beyond
+may graduate to an environment-gated `_test/reset` endpoint or a
+dedicated e2e Postgres overlay once more flows need empty-DB
+assertions.
 
 ## Post-change checks
 
