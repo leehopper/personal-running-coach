@@ -54,7 +54,7 @@ export const baseQueryWith401Handler: BaseQueryFn<
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
   const result = await rawBaseQuery(args, api, extraOptions)
-  if (result.error !== undefined && result.error.status === 401) {
+  if (result.error?.status === 401) {
     api.dispatch(loggedOut())
   }
   return result
