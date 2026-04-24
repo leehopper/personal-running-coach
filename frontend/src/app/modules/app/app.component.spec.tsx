@@ -1,10 +1,12 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { App } from './app.component'
 
 describe('App', () => {
-  it('renders without crashing', () => {
+  it('mounts and renders the RequireAuth loading fallback on first render', () => {
     render(<App />)
-    expect(screen.getByText('RunCoach')).toBeInTheDocument()
+    // Initial auth slice status === 'unknown' → RequireAuth shows the
+    // loading fallback. Full routing coverage lives in T03.3.
+    expect(screen.getByRole('status')).toBeInTheDocument()
   })
 })

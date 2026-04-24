@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { authApi } from '~/api/auth.api'
+import { subscribeLogoutBroadcast } from '~/modules/auth/lib/broadcast-auth'
 import type { AuthState } from '~/modules/auth/models/auth.model'
 import { loggedOut, sessionVerified } from '~/modules/auth/store/auth.slice'
 import type { AppDispatch, RootState } from '~/modules/app/app.store'
@@ -69,4 +70,13 @@ export const useAuthBootstrap = (): void => {
       cancelled = true
     }
   }, [dispatch])
+}
+
+// Cross-tab logout listener (spec §Unit 3 line 118, optional). When tab A
+// posts a logout message, every other tab listening on the `auth`
+// BroadcastChannel flips to `unauthenticated` immediately rather than
+// waiting for its next network call to 401.
+export const useAuthBroadcastListener = (): void => {
+  const dispatch = useDispatch<AppDispatch>()
+  useEffect(() => subscribeLogoutBroadcast(() => dispatch(loggedOut())), [dispatch])
 }
