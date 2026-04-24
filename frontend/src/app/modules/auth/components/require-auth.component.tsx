@@ -31,7 +31,8 @@ export const RequireAuth = ({ children }: RequireAuthProps) => {
   }
 
   if (status === 'unauthenticated') {
-    return <Navigate to="/login" state={{ next: location.pathname + location.search }} replace />
+    const next = location.pathname + location.search + location.hash
+    return <Navigate to="/login" state={{ next }} replace />
   }
 
   return children
