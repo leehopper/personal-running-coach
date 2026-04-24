@@ -72,5 +72,20 @@ export default defineConfig({
     // `e2e/` holds Playwright specs that import `@playwright/test` and
     // drive a real browser; Vitest must leave them alone.
     exclude: [...configDefaults.exclude, 'e2e/**'],
+    coverage: {
+      provider: 'v8',
+      // `lcov` feeds SonarCloud (sonar-project.properties points at
+      // `coverage/lcov.info`); `text` keeps a readable summary in CI logs;
+      // `html` stays useful locally for drilling into uncovered lines.
+      reporter: ['text', 'lcov', 'html'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.spec.{ts,tsx}',
+        'src/**/*.test.{ts,tsx}',
+        'src/main.tsx',
+        'src/test-setup.ts',
+        'src/vite-env.d.ts',
+      ],
+    },
   },
 })
