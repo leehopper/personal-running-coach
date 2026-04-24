@@ -34,8 +34,9 @@ const RegisterPage = () => {
     } catch (error) {
       const parsed = parseProblem(error)
       for (const [field, messages] of Object.entries(parsed.fieldErrors)) {
-        if ((field === 'email' || field === 'password') && messages[0]) {
-          form.setError(field, { type: 'server', message: messages[0] })
+        const firstMessage = messages[0]
+        if ((field === 'email' || field === 'password') && firstMessage !== undefined) {
+          form.setError(field, { type: 'server', message: firstMessage })
         }
       }
       setFormAlert(parsed.title ?? 'Registration failed. Please try again.')
@@ -86,7 +87,7 @@ const RegisterPage = () => {
               autoFocus
               aria-invalid={form.formState.errors.email !== undefined}
               aria-describedby={
-                form.formState.errors.email !== undefined ? 'register-email-error' : undefined
+                form.formState.errors.email === undefined ? undefined : 'register-email-error'
               }
               className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm"
               {...form.register('email')}
@@ -108,9 +109,9 @@ const RegisterPage = () => {
               autoComplete="new-password"
               aria-invalid={form.formState.errors.password !== undefined}
               aria-describedby={
-                form.formState.errors.password !== undefined
-                  ? 'register-password-error'
-                  : 'register-password-hint'
+                form.formState.errors.password === undefined
+                  ? 'register-password-hint'
+                  : 'register-password-error'
               }
               className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm"
               {...form.register('password')}
