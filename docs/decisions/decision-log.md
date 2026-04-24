@@ -1462,34 +1462,30 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 **Category:** Host composition / Slice 0 substrate / cross-platform startup / Wolverine–EF integration
 **Informed by:** R-055 (`batch-18b-webapplication-createbuilder-hang-followup.md`).
 
-**Decision:** Every RunCoach ASP.NET Core 10 host shall set `DOTNET_hostBuilder__reloadConfigOnChange=false` before `WebApplication.CreateBuilder(args)` is evaluated. `Program.cs` sets it via `Environment.SetEnvironmentVariable(...)` as the first executable statement; the `RunCoachAppFactory : WebApplicationFactory<Program>` test fixture re-asserts it via `builder.UseSetting("hostBuilder:reloadConfigOnChange", "false")` in `ConfigureWebHost` as belt-and-suspenders. Additionally, `RunCoachDbContext.OnModelCreating` shall **not** call `builder.MapWolverineEnvelopeStorage()` — Wolverine's `WolverineModelCustomizer` (registered via the DEC-048-prescribed `opts.Services.AddDbContextWithWolverineIntegration<T>(...)` inside `UseWolverine`) calls that method at runtime; the two call sites collide by double-adding the `WolverineEnabled` annotation and prevent the SUT host from booting.
+**Decision:**
+
+1. Every RunCoach ASP.NET Core 10 host sets `DOTNET_hostBuilder__reloadConfigOnChange=false` before `WebApplication.CreateBuilder(args)` evaluates. `Program.cs` sets it as the first executable statement via `Environment.SetEnvironmentVariable`; `RunCoachAppFactory` re-asserts it via `builder.UseSetting(...)` as belt-and-suspenders.
+2. `RunCoachDbContext.OnModelCreating` does NOT call `builder.MapWolverineEnvelopeStorage()`. Wolverine's `WolverineModelCustomizer` (registered via `AddDbContextWithWolverineIntegration<T>`) is the sole wiring path; the two call sites collided by double-adding the `WolverineEnabled` annotation.
 
 **Rationale:**
 
-- **FileSystemWatcher init stalls `CreateBuilder` on macOS arm64 / Darwin 25.x.** With `<UserSecretsId>` set and `appsettings.Development.json` present, `WebApplication.CreateBuilder` registers three JSON config sources (`appsettings.json`, `appsettings.{Env}.json`, user-secrets) with default `reloadOnChange: true`, each installing a `PhysicalFilesWatcher`. On macOS, `FileSystemWatcher.StartRaisingEvents` synchronously calls `Interop.Sys.Sync()` — a full `sync(2)` flush that is a known unbounded stall point (dotnet/runtime#77793) — then `FSEventStreamCreate/Schedule/Start`. Darwin 25.x (macOS 26 "Tahoe") is on `runtime-extra-platforms` only (dotnet/runtime#118610), so regressions here are systematically under-reported. Disabling host-config reload elides the watchers and `CreateBuilder` returns in under a second. Verified by the prescribed §7.1 / §7.2 reduction experiments: without the env var, plain `dotnet RunCoach.Api.dll` produces zero stdout within 10 s; with the env var, `CreateBuilder` completes and Program.cs proceeds to the next statement within ~3 s.
-- **Config reload on change is a dev-loop nicety, not a runtime contract.** Disabling it costs nothing operationally. CI and production do not edit config files in-place; dev-loop editing of `appsettings.Development.json` restarts the host via `dotnet watch` file-save semantics rather than relying on in-process hot-reload.
-- **Belt-and-suspenders in the fixture** protects future fixture evolutions (e.g. overrides that add extra reloadable config sources) from inadvertently re-enabling watchers.
-- **The Wolverine envelope-storage double-mapping was a dormant bug unmasked by R-055's fix.** The `MapWolverineEnvelopeStorage()` call in `OnModelCreating` was originally intended to include envelope entities in the EF migration snapshot at design-time. `AddDbContextWithWolverineIntegration<T>` registers `WolverineModelCustomizer` which calls the same method at runtime. Once the SUT host booted under `WebApplicationFactory<Program>`, both paths fired and the second `modelBuilder.Model.AddAnnotation("WolverineEnabled", true)` threw `InvalidOperationException: The annotation 'WolverineEnabled' cannot be added because an annotation with the same name already exists`. The collision had been masked because no test exercised SUT-host boot. With `MapWolverineEnvelopeStorage` removed from `OnModelCreating`, the customizer is the sole wiring path; envelope entities are still in the runtime model, migrations are still `ExcludeFromMigrations`-safe (Wolverine provisions the actual tables via `ApplyAllDatabaseChangesOnStartup`), and the EF migration snapshot remains in sync (`dotnet ef migrations has-pending-model-changes` reports no pending changes).
-- **Test suite goes from 575/0/1 (scope-reduced fixture) to 581/0/1 (full SUT-host fixture with six new smoke tests).** The six new SUT-host smoke tests (`IDocumentStore` resolves + opens session, `RunCoachDbContext` resolves + queries Identity schema, `DpKeysContext` resolves + `DataProtectionKeys` reachable, `IDataProtectionProvider` round-trips a payload, `GET /health` returns `{"status":"ok"}`, `NpgsqlDataSource` is identity-equal across scopes) run in ≤ 2 s cold against the Testcontainers Postgres.
+- On macOS arm64 / Darwin 25.x, `FileSystemWatcher.StartRaisingEvents` synchronously calls `Interop.Sys.Sync()` (dotnet/runtime#77793), which stalls unboundedly. `CreateBuilder` installs three default-reloading watchers (appsettings, appsettings.Development, user-secrets) and hangs. Disabling host-config reload elides the watchers; `CreateBuilder` returns in ≈3 s.
+- Config reload on change is a dev-loop nicety, not a runtime contract. CI and production do not edit config files in-place; `dotnet watch` handles dev-loop edits via host restart.
+- Envelope entities stay in the runtime model via the customizer; migrations remain `ExcludeFromMigrations`-safe (Wolverine provisions the tables via `ApplyAllDatabaseChangesOnStartup`).
+- Test suite: 575/0/1 (scope-reduced) → 581/0/1 with full SUT-host fixture + six smoke tests.
 
 **Alternatives considered (and rejected):**
 
-- **Guard the env-var set with `OperatingSystem.IsMacOS()`.** Adds a platform branch for negligible benefit — reload-on-change is not load-bearing on any platform for this project. Rejected as over-engineering.
-- **Delete `<UserSecretsId>` from the API csproj and move `Anthropic:ApiKey` to an environment variable.** Removes only one of the three `PhysicalFilesWatcher` instances; the two `appsettings.*.json` watchers still install. Rejected as partial.
-- **Delete `appsettings.Development.json` and migrate to env-var-only dev config.** Loses the local `dotnet run` ergonomics documented in `backend/CLAUDE.md`. Rejected.
-- **Wait for a .NET 10 servicing release that fixes the FSW stall.** No such release is shipping; the behavior is Darwin 25.x platform-level with no tracked fix. Rejected (null option).
-- **Switch SUT TFM to `net9.0`** (the R-047 escape hatch). Last resort; would sacrifice .NET 10's broader Darwin 25.x exposure. Rejected because the config-level fix lands cleanly.
-- **Guard `MapWolverineEnvelopeStorage` in `OnModelCreating` with a `FindAnnotation("WolverineEnabled")` check.** `WolverineModelCustomizer` runs AFTER `OnModelCreating`, so at that point the annotation is never yet set; the guard always passes, never prevents the collision. Rejected as ineffective.
-- **Swap to plain `AddDbContext<T>(...)` and retain the `OnModelCreating` call.** Loses `Policies.AutoApplyTransactions` discovery (DEC-048) — Wolverine handlers silently skip the Marten + EF + outbox single-transaction invariant. Rejected.
+- Guard the env-var on `OperatingSystem.IsMacOS()` — over-engineering; reload-on-change isn't load-bearing anywhere.
+- Drop `<UserSecretsId>` or `appsettings.Development.json` — partial fix; the other watchers still install.
+- Switch SUT TFM to `net9.0` (R-047 escape hatch) — loses .NET 10 Darwin 25.x exposure; config-level fix lands cleanly.
+- Guard `MapWolverineEnvelopeStorage` with `FindAnnotation` — customizer runs after `OnModelCreating`, so the guard never trips.
 
 **Cross-references:**
 
 - R-055 artifact: `docs/research/artifacts/batch-18b-webapplication-createbuilder-hang-followup.md`.
-- DEC-048 — R-054 composition corrections this decision builds on; every DEC-048 invariant is preserved.
-- DEC-046 — single `NpgsqlDataSource` rotation seam; unaffected. Fixture routes the Testcontainers connection string through the shared singleton via the `ConnectionStrings__runcoach` environment variable rather than a second data-source builder.
-- .NET 10 runtime pin: Host ≥ 10.0.5 (the OOB fix for the vsdbg × macOS arm64 debugger-handshake deadlock, 2026-03-12 — a separate platform regression but on the same Darwin 25.x surface; currently satisfied by the 10.0.6 servicing release).
-- Cycle plan: `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle entry dated 2026-04-20.
-- dotnet/runtime#77793 — FileSystemWatcher startup performance on macOS (`Interop.Sys.Sync()`).
+- DEC-048 — composition recipe this builds on.
+- dotnet/runtime#77793 — `FileSystemWatcher` startup on macOS.
 - dotnet/runtime#118610 — Darwin 25.x on `runtime-extra-platforms` only.
 
 ---
@@ -1503,36 +1499,31 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 
 **Decision:**
 
-1. `app.UseHttpsRedirection()` is called unconditionally in `Program.cs` (no `!IsDevelopment()` gate), matching the .NET 10 MVC / Razor Pages / Blazor / Identity template idiom. The `HttpsRedirectionMiddleware` safely no-ops when it cannot resolve an HTTPS port — it logs a warning and passes the request through as HTTP rather than redirect-looping.
-2. `services.AddHttpsRedirection(o => o.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect)` is registered explicitly so a later contributor cannot flip to 308 (aggressively cached by browsers and intermediates; Microsoft docs warn against permanent redirects).
-3. The `__Host-RunCoach` application cookie sets `options.Cookie.Path = "/"` explicitly. RFC 6265bis §5.6 requires the `Path` attribute to be *present* for the `__Host-` prefix, not merely defaulted; omitting the explicit assignment silently drops the cookie in Chrome and Safari.
-4. `RunCoachAppFactory.ConfigureWebHost` calls `builder.UseSetting("https_port", "443")` so the in-memory `TestServer` — which has no `IServerAddressesFeature` — no longer emits `HttpsRedirectionMiddleware[3] "Failed to determine the https port for redirect."` on every request.
-5. When T02.5's auth-endpoint integration tests land, each `HttpClient` is created with `BaseAddress = new Uri("https://localhost")` + `AllowAutoRedirect = false` + `HandleCookies = false`. The HTTPS base flips `Request.IsHttps = true` inside the pipeline so `UseHttpsRedirection` short-circuits without any redirect and the handler emits `Secure` cookies against a request that is semantically HTTPS. Auto-redirect-off + no `CookieContainer` lets tests assert the raw `Set-Cookie` string.
+1. `app.UseHttpsRedirection()` is called unconditionally (no `!IsDevelopment()` gate). The middleware self-disables with a warning when it cannot resolve an HTTPS port.
+2. `services.AddHttpsRedirection(o => o.RedirectStatusCode = Status307TemporaryRedirect)` is registered explicitly to pin 307 (not 308) — 308 is aggressively cached.
+3. `__Host-RunCoach` application cookie sets `options.Cookie.Path = "/"` explicitly — RFC 6265bis §5.6 requires the attribute to be *present*, not merely defaulted, or Chrome / Safari silently drop the cookie.
+4. `RunCoachAppFactory.ConfigureWebHost` calls `builder.UseSetting("https_port", "443")` to silence the `TestServer`'s `IServerAddressesFeature`-missing warning on every request.
+5. Integration-test `HttpClient`s use `BaseAddress = https://localhost` + `AllowAutoRedirect = false` + `HandleCookies = false`. HTTPS base flips `Request.IsHttps = true` so the middleware short-circuits and `Secure` cookies emit; auto-redirect-off + no `CookieContainer` lets tests assert the raw `Set-Cookie` string.
 
 **Rationale:**
 
-- **Ungated `UseHttpsRedirection` is the .NET 10 template idiom.** Verified in `github.com/dotnet/aspnetcore/blob/main/src/ProjectTemplates/Web.ProjectTemplates/content/` and the reference `Program.cs` in the .NET 10 fundamentals doc. The middleware is designed to self-disable on unresolvable ports; the previous `!IsDevelopment()` gate added cognitive load without correctness gain.
-- **`__Host-` prefix without an explicit `Path` is a silent footgun.** RFC 6265bis §5.6 is strict about attribute presence. The bug is invisible in server logs and silent in tests — only a real browser catches it. Shipping the explicit `Path = "/"` before T02.4 writes login ensures the first end-to-end browser test of the login flow works on Chrome and Safari, not just Firefox.
-- **`UseSetting("https_port", "443")` in the test fixture** silences a warning log on every integration-test request without materially changing SUT behavior. The test client's `BaseAddress = https://localhost` (coming in T02.5) short-circuits the middleware anyway; the setting is belt-and-suspenders for any test that omits the HTTPS base.
-- **Forward-compat.** `AddHttpsRedirection(...)` with an explicit `HttpsPort` is the hook for pinning port `443` under a reverse proxy (Nginx / Azure Linux App Service / K8s ingress / YARP). MVP-1 deployment commits the actual port; until then the default resolution chain (`ASPNETCORE_HTTPS_PORT` → `https_port` host setting → `IServerAddressesFeature`) is good enough.
-- **`dotnet dev-certs https --trust` becomes a documented contributor prerequisite** (follow-up in the cycle plan). `__Host-` + `Secure` is functionally broken on `http://localhost` in Chrome and Safari — only Firefox tolerates it. Every major .NET OSS reference (eShop, Ardalis / jasontaylordev CleanArchitecture, Duende quickstarts, damienbod samples) keeps cookie attributes stable across environments and requires `dev-certs --trust`. Dev-only cookie weakening was considered and rejected.
+- Ungated `UseHttpsRedirection` matches the .NET 10 template idiom; the middleware is designed to self-disable on unresolvable ports.
+- `__Host-` without an explicit `Path` is a silent footgun — invisible in server logs, only caught in a real browser. Landing the explicit assignment before any browser-exercise test is necessary.
+- `dev-certs https --trust` becomes a contributor prerequisite (captured in CONTRIBUTING.md); dev-only cookie weakening is rejected.
 
 **Alternatives considered (and rejected):**
 
-- **Keep the `!IsDevelopment()` gate.** Defensible but non-idiomatic and adds one mental hop when reading `Program.cs`. Rejected in favor of template conformance.
-- **`IsProduction()`-only gate** (Staging also skips redirect). Rejected — Staging must behave like Production for security invariants; the whole point of Staging is catching HTTPS-related bugs before they ship.
-- **Drop `__Host-` prefix in Development, keep in Production.** Rejected. Every significant .NET OSS project keeps cookie attributes stable; divergence silently hides the attack classes the prefix closes (subdomain cookie-tossing, path-scoped overwrite).
-- **`WebApplicationFactory.UseKestrel()` for integration tests** (.NET 10 added this). Rejected as default for auth tests — set-cookie header assertions don't need real TLS; in-memory `TestServer` + HTTPS base address is faster, requires no port allocation, and has no certificate story. Reserve `UseKestrel()` for Playwright / Selenium E2E in T03.x.
-- **Local reverse proxy (YARP / Nginx / Caddy / Traefik) terminating TLS for dev.** Rejected as default for a single-service pre-Alpha app; .NET Aspire 13.1's `WithHttpsDeveloperCertificate` is the better path if RunCoach ever grows into a multi-service Aspire topology.
-- **mkcert as recommended dev default.** Rejected — .NET 10 `dotnet dev-certs --trust` now matches mkcert on SANs, WSL passthrough, and cross-platform support; introducing a second trust chain is unnecessary friction. Document mkcert as the escape hatch for corporate Linux machines where `dev-certs --trust` cannot run.
+- Keep the `!IsDevelopment()` gate — defensible but non-idiomatic; adds cognitive load for zero correctness gain.
+- Drop `__Host-` in Development — every significant .NET OSS project keeps cookie attributes stable across environments; divergence hides attack classes silently.
+- `UseKestrel()` for integration tests — unnecessary for Set-Cookie assertions; reserve for Playwright E2E.
+- mkcert as dev default — `dotnet dev-certs --trust` matches it on SANs + WSL + cross-platform; document mkcert as escape hatch only.
 
 **Cross-references:**
 
 - R-056 artifact: `docs/research/artifacts/batch-19a-httpsredirection-webapplicationfactory.md`.
 - DEC-044 — cookie-not-JWT browser auth; `__Host-` prefix contract.
-- Cycle plan: `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle — Forwarded Headers middleware deferred to MVP-1; `CONTRIBUTING.md` HTTPS-cert prerequisite captured for Slice 0 close-out.
 - RFC 6265bis §5.6 — `__Host-` prefix requirements.
-- dotnet/aspnetcore#27951 — `HttpsRedirectionMiddleware` silent-no-op footgun on unresolvable port (open).
+- dotnet/aspnetcore#27951 — `HttpsRedirectionMiddleware` unresolvable-port footgun.
 
 ---
 
@@ -1545,43 +1536,33 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 
 **Decision:**
 
-1. `TokenValidationParameters` for the JWT bearer scheme sets `ValidateIssuer`, `ValidateAudience`, `ValidateLifetime`, `ValidateIssuerSigningKey`, and `RequireSignedTokens` to `true` **unconditionally** — not gated on whether the corresponding config value is populated. When `Auth:Jwt` is absent, `IssuerSigningKey` is `null` and every incoming token fails closed with `IDX10500: No security keys were provided to validate the signature.` The handler registers regardless so the iOS-shim PR remains purely additive.
-2. `ValidAlgorithms` is pinned to `[SecurityAlgorithms.HmacSha256]`. This closes the historical HS/RS key-confusion attack class (attacker swaps the algorithm header to one the verifier applies to the wrong key material).
-3. `MapInboundClaims = false` on `JwtBearerOptions` — works with raw JWT claim names (`sub`, `role`) instead of the SOAP-style claim rewriting `JwtSecurityTokenHandler` inherits by default. This aligns with `JsonWebTokenHandler` (the .NET 8+ default) and is the 2026 idiom.
-4. HS256 is the chosen signing algorithm for first-party token issuance when the iOS shim lands. The iOS app is a token *carrier*, not a verifier; the backend is the only verifier. In this single-trust-boundary topology WorkOS and OpenIddict both recommend symmetric signing over RS256. RS256 / asymmetric keys are the right call only for multi-party / federated scenarios that RunCoach will not enter in MVP-0 or MVP-1.
-5. `JwtAuthOptions` is a `sealed class` with `[Required]` + `[MinLength]` DataAnnotations and a `string? KeyId` for the two-overlapping-keys rotation story. `JwtAuthOptionsValidator : IValidateOptions<JwtAuthOptions>` is generated by the `[OptionsValidator]` source generator (stable in .NET 8+, AOT-safe, reflection-free).
-6. `services.AddOptions<JwtAuthOptions>().BindConfiguration(JwtAuthOptions.SectionName).ValidateOnStart()` is called only outside `builder.Environment.IsDevelopment()`. Development and CI tolerate absent config (validator never fires). Production / Staging fail startup fast if any required value is missing. The test fixture runs under `UseEnvironment("Development")`, so `ValidateOnStart` is skipped and the existing test suite continues to boot without `Auth:Jwt` configured.
+1. `TokenValidationParameters` sets `ValidateIssuer`, `ValidateAudience`, `ValidateLifetime`, `ValidateIssuerSigningKey`, and `RequireSignedTokens` to `true` **unconditionally** — never gated on config presence. When `Auth:Jwt` is absent, `IssuerSigningKey` is `null` and every token fails closed (`IDX10500`).
+2. `ValidAlgorithms = [SecurityAlgorithms.HmacSha256]` — closes the HS/RS key-confusion attack class.
+3. `MapInboundClaims = false` — raw `sub` / `role` claim names, aligned with the .NET 8+ `JsonWebTokenHandler`.
+4. HS256 is the issuance algorithm when the iOS shim lands. Single-trust-boundary topology (backend is the sole verifier); RS256 is over-application here.
+5. `JwtAuthOptions` is a `sealed class` with `[Required]`/`[MinLength]` DataAnnotations; `JwtAuthOptionsValidator` is generated via `[OptionsValidator]` (reflection-free, AOT-safe).
+6. `BindConfiguration(...).ValidateOnStart()` and the validator registration are both gated on `!IsDevelopment()`. Dev / CI tolerate absent config; Prod / Staging fail startup fast.
 
 **Rationale:**
 
-- **Gating `Validate*` on `!string.IsNullOrEmpty(config)` inverts "secure by default."** The previous T02.2 shape was narrowly safe today (no bearer endpoint; `RequireSignedTokens = true` default forces `IDX10500` fail-closed on any malformed or unsigned token), but it was a latent landmine. Under a future `Authority = "..."` edit with JWKS auto-discovery, any token signed by that authority would be accepted because `ValidateIssuer` / `ValidateAudience` would silently short-circuit to `false`. Under a leaked-HMAC-secret scenario, any attacker-crafted token would validate. RFC 8725 §2.1 / §3.9 and OWASP's JWT Cheat Sheet explicitly warn against the anti-pattern.
-- **`RequireSignedTokens = true` blocks `alg: none` independently of `ValidateIssuerSigningKey`.** Confirmed via `Microsoft.IdentityModel.Tokens.TokenValidationParameters` source (AzureAD/identitymodel repo) and Microsoft Learn's `RequireSignedTokens` docs (v8.15.0). `JsonWebTokenHandler.ValidateJWSAsync` rejects an unsigned token before the signing-key validators run.
-- **`PolicyEvaluator` iterates every scheme in `policy.AuthenticationSchemes` with no short-circuit** (aspnetcore `PolicyEvaluator.cs`). For `CookieOrBearer`, a bogus `Authorization: Bearer ...` header + a valid cookie merges cleanly: Bearer fails silently, Cookie succeeds, the authenticated principal is the cookie user. The JWT scheme registered with null keys cannot subvert the policy.
-- **HS256 for first-party single-trust-boundary issuance.** WorkOS's 2024 article states the principle directly: *"Use HS256 when your signing and verification happen in the same trust boundary, typically a single application or a small cluster of services that already share secrets through a secure channel."* OpenIddict: *"symmetric keys are always chosen first [for access tokens], except for identity tokens."* The Auth0 / SuperTokens / Supabase "RS256 is universally better" line applies to multi-tenant / multi-party systems; it over-applies here.
-- **Not `AddBearerToken`.** Per Andrew Lock's November 2023 post *"Should you use the .NET 8 Identity API endpoints?"* and Tore Nestenius's `BearerToken: The new Authentication handler in .NET 8`, `AddBearerToken` produces opaque Data-Protection-encrypted tokens that are *not* JWTs, cannot be parsed by any JWT library, cannot be decoded by iOS inspection tooling or Postman, and are intentionally coupled to `MapIdentityApi<TUser>()` — the non-standard ROPC grant implementation. For an iOS shim wanting inspectable JWT claims, `AddJwtBearer` + issue JWTs yourself via `JsonWebTokenHandler` is the correct path.
-- **`[OptionsValidator]` is the 2026 canonical replacement for `ValidateDataAnnotations`** (Microsoft Learn's "Compile-time options validation source generation"). Rewrites the DataAnnotation attributes into reflection-free validators so `PublishAot` stops warning IL2025 / IL3050 when RunCoach later adopts AOT.
-- **`ValidateOnStart` is hosted-service-driven** (`dotnet/aspnetcore#56453`). It only fires when `IHost.StartAsync` runs. Tests and CI naturally skip it under `UseEnvironment("Development")`. Production startup genuinely fails fast.
-- **No public CVE indicts permissive `TokenValidationParameters` as a library bug** — it's treated as a configuration defect. Package pins already satisfy CVE-2024-21319 / 21643 / 30105 (Microsoft.IdentityModel.* ≥ 7.1.2; current 8.x; `Microsoft.AspNetCore.Authentication.JwtBearer` 10.0.6).
+- Gating `Validate*` on config presence inverts "secure by default." A future `Authority = "..."` edit with JWKS auto-discovery would silently accept any token signed by that authority (RFC 8725 §2.1 / §3.9, OWASP JWT Cheat Sheet).
+- `RequireSignedTokens = true` blocks `alg: none` independently of the signing-key validator — `JsonWebTokenHandler.ValidateJWSAsync` rejects unsigned tokens before key validation runs.
+- `PolicyEvaluator` iterates every scheme in `policy.AuthenticationSchemes` without short-circuit. For `CookieOrBearer`, a bogus bearer header + valid cookie merges cleanly: Bearer fails silently, Cookie wins.
+- Not `AddBearerToken` — that produces opaque Data-Protection tokens coupled to `MapIdentityApi`, not JWTs. iOS needs inspectable JWT claims.
+- `ValidateOnStart` is hosted-service-driven (dotnet/aspnetcore#56453) — only fires on `IHost.StartAsync`, naturally skipped under `UseEnvironment("Development")`.
 
 **Alternatives considered (and rejected):**
 
-- **Don't register `AddJwtBearer` until the iOS shim actually needs it** (YAGNI). Equally idiomatic. Rejected because it pushes a `Program.cs` + authorization-policy diff into the iOS-shim PR instead of keeping that PR purely additive (new endpoint + new appsettings section only). Keeping the `CookieOrBearer` policy shape-stable across the iOS transition was an explicit cycle-plan-level goal of T02.2.
-- **Keep permissive validation** (current T02.2 shape, before research). Not currently exploitable but inverts secure-by-default. Rejected for latent-landmine reasons above.
-- **`UseEnvironment("Testing")` + `ValidateOnStart` gated on `!IsDevelopment() && !IsEnvironment("Testing")`.** The artifact's recommended test-host environment. Rejected for now because switching to `Testing` would require adding a separate migration trigger for the test env (`DevelopmentMigrationService` is currently gated on `IsDevelopment()`). The `Development`-gate is clean and correct as long as Dev and Test share the migration behavior — which they do today.
-- **RS256 with `RsaSecurityKey`.** Rejected for this topology; HS256 is simpler, faster, AOT-friendly, and correct for a single-trust-boundary backend-only verifier. Revisit only if RunCoach federates or exposes a JWKS endpoint.
-- **`AddBearerToken`.** Rejected as above — opaque tokens, coupled to `MapIdentityApi`, not JWTs.
-- **`NetDevPack.Security.Jwt` for auto-rotation + JWKS.** Out of scope for Slice 0 (no real issuance yet). Revisit if RunCoach ever needs JWKS or federation.
+- Don't register `AddJwtBearer` until iOS needs it — pushes a Program.cs diff into the iOS PR; keeping `CookieOrBearer` shape-stable was a cycle-plan goal.
+- Keep permissive validation — currently safe but latent landmine under future edits.
+- RS256 with `RsaSecurityKey` — over-applied for single-trust-boundary; revisit if RunCoach federates.
+- `NetDevPack.Security.Jwt` — out of scope for Slice 0; revisit if JWKS / rotation needed.
 
 **Cross-references:**
 
 - R-057 artifact: `docs/research/artifacts/batch-19b-jwtbearer-opt-in-registration.md`.
-- DEC-033 — iOS companion deferred to MVP-1; bearer scheme registers now so the iOS PR is additive.
-- DEC-044 — browser auth uses the cookie, not a bearer.
-- Cycle plan: `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle — test-host `UseEnvironment("Testing")` migration captured as Slice 0 close-out follow-up.
-- RFC 8725 — JWT Best Current Practices.
-- OWASP JWT Cheat Sheet.
-- dotnet/aspnetcore#56453 — `ValidateOnStart` hosted-service trigger.
-- dotnet/aspnetcore#49469 — aspnetcore on `JsonWebTokenHandler` (the .NET 8+ default).
+- DEC-033, DEC-044 — iOS deferred; browser uses cookies.
+- RFC 8725; OWASP JWT Cheat Sheet; dotnet/aspnetcore#56453.
 
 ---
 
@@ -1594,40 +1575,33 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 
 **Decision:**
 
-1. The `AuthController.Register` endpoint (landing in T02.4) shall translate a failed `IdentityResult` to the RunCoach error contract via a per-action loop: `foreach (var error in result.Errors) ModelState.AddModelError(propertyKey, error.Description);` followed by `return ValidationProblem(ModelState);`. This routes through `ProblemDetailsFactory.CreateValidationProblemDetails`, emits `Content-Type: application/problem+json`, and produces the exact shape the spec §Unit 2 line 84 prescribes (DTO-property-keyed `errors` dictionary).
-2. `RegisterRequest` DTO shall carry DataAnnotations (`[Required, EmailAddress, MaxLength(254)]` on email; `[Required, MinLength(12), MaxLength(128)]` on password) so the common "too short" / malformed-email path short-circuits through `[ApiController]` auto-400 before hitting `UserManager.CreateAsync`. Identity remains source-of-truth for character-class rules (upper / lower / digit / non-alphanumeric) and uniqueness.
-3. `Modules/Identity/IdentityErrorCodeMapper.cs` shall ship a reusable mapper keying the 22 stable `IdentityError.Code` values (stable across Identity 6–10 via `nameof(...)`) to DTO buckets (`password` / `email` / `username` / `role` / `general`) plus a `Kind` enum (`Validation` / `Conflict` / `Unauthorized` / `Unknown`). The mapper is the single source of code→bucket truth for every controller that translates an `IdentityResult`.
-4. `Modules/Identity/IdentityResultExtensions.cs` shall expose `ToRegistrationActionResult(this IdentityResult, ControllerBase, RegisterRequest)` which walks `result.Errors`, splits the 409 conflict path (`DuplicateEmail` / `DuplicateUserName`) off as a plain `ProblemDetails` via `controller.Problem(...)`, and routes everything else through `ModelState.AddModelError` + `ValidationProblem(ModelState)`. The 409 path emits a `ProblemDetails` (NOT a `ValidationProblemDetails`) because the conflict is not a field-level validation error; title is intentionally generic to preserve enumeration-resistance posture.
-5. Frontend parity (T03.x) is enforced by colocating Zod schemas that mirror the DataAnnotation rules in a `shared-contracts` folder + a contract-test that asserts equivalence (e.g., `"A1a!bcdefghij"` passes both; `"short"` fails both). FluentValidation is deferred until rules become conditional (cross-field, async, feature-flagged); the 2026 successor package is `SharpGrip.FluentValidation.AutoValidation.Mvc`.
+1. `AuthController.Register` translates a failed `IdentityResult` via a per-action loop: `foreach (var error in result.Errors) ModelState.AddModelError(propertyKey, error.Description);` → `return ValidationProblem(ModelState);`. Routes through `ProblemDetailsFactory.CreateValidationProblemDetails`; emits `application/problem+json`.
+2. `RegisterRequest` DTO carries DataAnnotations (`[Required, EmailAddress, MaxLength(254)]`; `[Required, MinLength(12), MaxLength(128)]`) so malformed input short-circuits through `[ApiController]` auto-400. Identity remains source-of-truth for character-class rules and uniqueness.
+3. `Modules/Identity/IdentityErrorCodeMapper.cs` maps the 22 stable `IdentityError.Code` values (stable across Identity 6–10 via `nameof(...)`) to DTO buckets (`password` / `email` / `username` / `role` / `general`) plus a `Kind` enum (`Validation` / `Conflict` / `Unauthorized` / `Unknown`).
+4. `IdentityResultExtensions.ToRegistrationActionResult` splits the 409 conflict path (`DuplicateEmail` / `DuplicateUserName`) as plain `ProblemDetails` with a generic title; everything else routes through `ValidationProblem(ModelState)`.
+5. Frontend parity: Zod schemas mirror the DataAnnotation rules in `shared-contracts` with a contract-test. FluentValidation deferred until rules become conditional.
 
 **Rationale:**
 
-- **`ControllerBase.ValidationProblem(ModelStateDictionary)` is the canonical .NET 10 entry point** for DTO-property-keyed `ValidationProblemDetails`. It routes through `ProblemDetailsFactory.CreateValidationProblemDetails` (in `DefaultProblemDetailsFactory`), auto-populates `title = "One or more validation errors occurred."`, `type = ApiBehaviorOptions.ClientErrorMapping[400].Link`, `status = 400`, and adds a `traceId` extension from `Activity.Current?.Id ?? HttpContext.TraceIdentifier`. Result is wrapped in `BadRequestObjectResult` with `application/problem+json`. Identical shape to `[ApiController]` auto-400 — the contract is uniform across validation failure sources.
-- **`CustomizeProblemDetails` does NOT fire for `ValidationProblemDetails` produced via MVC's `ValidationProblem(ModelState)`** — confirmed in `dotnet/aspnetcore#62723` (.NET 10 preview). This is the single most misunderstood item in the ProblemDetails landscape. Centralizing translation through `AddProblemDetails(o => o.CustomizeProblemDetails = ...)` was considered and rejected as silently broken. Translation must live in the controller (or in a typed-exception + `IExceptionHandler` — deferred pattern for service-layer failures in later slices).
-- **`IdentityError.Code` is stable across Identity 6, 7, 8, 9, and 10.** Each code is produced by `nameof(...)` in `IdentityErrorDescriber.cs`, so codes are invariant to localization and unchanged by the .NET 10 passkey work. The mapper captures the full 22-code surface area once; future Identity versions add codes that fall through to the `_ => new(General, Unknown)` default.
-- **DTO-property keying is a deliberate departure from `MapIdentityApi`**, which keys the `errors` dictionary by `IdentityError.Code`. `MapIdentityApi`'s shape serves a minimal-API scaffolding flow that doesn't know the DTO shape; RunCoach hand-rolls the controller specifically to bind to SPA form-library conventions (React Hook Form / Zod keying). The shift trades one line of spec-level discipline (use the bucket map) for a cleaner frontend binding.
-- **409 split for duplicates.** RFC 9110 §15.5.10 scopes 409 to conflicts that can be resolved by the user's retry. `DuplicateEmail` and `DuplicateUserName` are conflicts, not validation errors — returning them as `ValidationProblemDetails.errors[email]` under a 400 would conflate "the input violates the schema" with "the input conflicts with existing state," and forces the SPA to branch on `errors.email` content to distinguish the two cases. Plain `ProblemDetails` + 409 is the clean split.
-- **Deliberate enumeration-resistance posture on 409 `title`.** The spec §Non-Goals explicitly defers full enumeration hardening to pre-public-release. For MVP-0 (personal use + trusted friends), a generic `"The account could not be created."` title is the chosen posture — preserves UX without leaking existence via the body, and the 409 status code itself is the enumeration signal that OWASP ASVS 5.0 V6.3 flags. A follow-up pattern (202 Accepted + email to existing account) eliminates the status-code leak entirely and is captured as an MVP-1 consideration.
+- `ControllerBase.ValidationProblem(ModelStateDictionary)` is the canonical .NET 10 entry point — uniform shape with `[ApiController]` auto-400.
+- **`CustomizeProblemDetails` does NOT fire for `ValidationProblem(ModelState)`** (dotnet/aspnetcore#62723). Centralizing via `AddProblemDetails` would be silently broken. Translation must live in the controller.
+- `IdentityError.Code` values are invariant (produced by `nameof(...)` in `IdentityErrorDescriber`), so the mapper captures the full surface once; future codes fall through to the `General` default.
+- DTO-property keying is a deliberate departure from `MapIdentityApi` (which keys by `IdentityError.Code`) — RunCoach's hand-rolled controller binds directly to React Hook Form / Zod conventions.
+- 409 split: RFC 9110 §15.5.10 scopes 409 to conflicts. `DuplicateEmail` is a conflict, not a field-validation error; plain `ProblemDetails` prevents the SPA from branching on `errors.email` content.
+- 409 `title` is deliberately generic (enumeration-resistance posture deferred to pre-public-release per spec Non-Goals).
 
 **Alternatives considered (and rejected):**
 
-- **Throw `IdentityFailureException` + dedicated `IExceptionHandler`.** Centralized; coexists cleanly with T02.3's 500 handler; works from service-layer code that has no `ControllerBase`. Rejected as primary for `AuthController` because exceptions-for-control-flow is 100×–1000× slower than returns and harder to trace in logs; the .NET 10 default `SuppressDiagnosticsCallback` also now hides handled exceptions. Good fallback for service-layer failures in later slices.
-- **Custom `ProblemDetailsFactory` subclass.** Intercepts all MVC-produced ProblemDetails but does not intercept `IdentityResult` directly — the controller still needs the `AddModelError` loop first. No extra value.
-- **`AddProblemDetails(o => o.CustomizeProblemDetails = ...)` callback.** Does NOT fire for MVC `ValidationProblem(ModelState)`. Load-bearing misunderstanding — rejected.
-- **Middleware-based translator.** Reads response body after the fact — brittle, and `[ApiController]` already did the right thing upstream.
-- **`Result<T>` functional pattern (Ardalis.Result / FluentResults / OneOf).** Cited in `jasontaylordev/CleanArchitecture` as the Clean-Architecture idiom. Adds a dependency and still needs a `Result → IActionResult` translator internally. Re-evaluate at Slice 1+ when the service layer expands.
+- `IdentityFailureException` + dedicated handler — exceptions-for-control-flow is slower and harder to trace; .NET 10's `SuppressDiagnosticsCallback` also hides handled exceptions. Keep as a fallback for service-layer failures in later slices.
+- `AddProblemDetails.CustomizeProblemDetails` callback — does not fire for MVC validation path.
+- Middleware-based translator — reads body after the fact; brittle.
+- `Result<T>` functional pattern — adds a dependency plus a `Result → IActionResult` translator; revisit when the service layer expands.
 
 **Cross-references:**
 
 - R-058 artifact: `docs/research/artifacts/batch-19c-identity-result-to-validationproblemdetails.md`.
-- Spec: `docs/specs/12-spec-slice-0-foundation/12-spec-slice-0-foundation.md` §Unit 2 lines 82–90 (functional requirements for register / login / error contracts).
-- DEC-051 — strict-always JWT validation (the sibling auth-contract decision landing with T02.2).
-- DEC-053 — timing-safety mitigation on login (pairs with this decision for the register/login error-contract story).
-- `dotnet/aspnetcore` — `DefaultProblemDetailsFactory.cs` + `ControllerBase.ValidationProblem` for the canonical emit path.
-- `dotnet/aspnetcore#62723` — `CustomizeProblemDetails` bypassed by MVC validation path.
-- Kevin Smith, "Extra Validation Errors In ASP.NET Core" (2022) — reference for the `AddModelError("propertyName", description)` pattern.
-- OWASP ASVS 5.0 V6.3 — enumeration-resistance requirements.
-- RFC 9110 §15.5.10 — 409 Conflict semantics.
+- DEC-051 (sibling auth-contract decision), DEC-053 (timing-safety on login).
+- dotnet/aspnetcore#62723; RFC 9110 §15.5.10; OWASP ASVS 5.0 V6.3.
 
 ---
 
@@ -1640,119 +1614,98 @@ Additionally, `MesoWeekOutput` structured output was restructured from a `Days: 
 
 **Decision:**
 
-1. `AuthController.Login` (landing in T02.4) shall NOT use the string overload of `SignInManager.PasswordSignInAsync(userName, password, ...)`. Instead it calls `UserManager.FindByEmailAsync(request.Email)` first; on `user is null`, burns one `IPasswordHasher<ApplicationUser>.VerifyHashedPassword(new ApplicationUser(), DummyHash, request.Password)` pass to equalize timing, then returns `Unauthorized` with a generic `ProblemDetails`; on `user is not null`, delegates to `SignInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false)` and branches on the result.
-2. `DummyHash` shall be a `static readonly string` field initialized once at type load via `new PasswordHasher<ApplicationUser>().HashPassword(new ApplicationUser(), "__runcoach_dummy__")`. The hash value is irrelevant — only its parse-ability and cost parity matter. Caching statically avoids paying an extra PBKDF2 pass (40–80 ms) on every unknown-user request, which would flip the timing leak rather than close it.
-3. Every non-success `SignInResult` — `Failed`, `IsLockedOut`, `IsNotAllowed`, `RequiresTwoFactor` — collapses to an identical generic 401 `ProblemDetails` body. Distinctions are logged server-side (`ILogger.LogInformation("Login failed for {UserId}: {Result}", user.Id, result)`) but never surface to the HTTP response.
-4. The 401 body is byte-identical across all failure causes, including the unknown-user branch. No conditional `detail` field, no error-specific `type` URI, no `extensions` members that vary by cause — any content variance re-opens the enumeration channel on a content side-channel and renders timing mitigation moot.
-5. The mitigation is documented with a `TODO` tag tracking this DEC ID, so if Microsoft eventually ships built-in timing-safety in `SignInManager` (no such PR tracked as of April 2026) the manual mitigation can be retired cleanly.
+1. `AuthController.Login` does NOT use `SignInManager.PasswordSignInAsync(string, ...)`. It calls `UserManager.FindByEmailAsync` first; on `user is null`, burns one `IPasswordHasher<ApplicationUser>.VerifyHashedPassword(new ApplicationUser(), DummyHash, request.Password)` pass to equalize timing, then returns a generic 401. On `user is not null`, delegates to `PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false)`.
+2. `DummyHash` is a `static readonly` field initialized once at type load via `new PasswordHasher<ApplicationUser>().HashPassword(...)`. Static caching avoids paying an extra PBKDF2 pass on every unknown-user request (which would flip the leak).
+3. Every non-success `SignInResult` — `Failed`, `IsLockedOut`, `IsNotAllowed`, `RequiresTwoFactor` — collapses to an identical 401 `ProblemDetails` body. Distinctions are logged server-side but never surface in the response.
+4. The 401 body is byte-identical across all failure causes. No conditional `detail`, `type`, or `extensions` members — any variance re-opens the enumeration channel on content and moots timing mitigation.
+5. The mitigation is tagged `TODO` referencing this DEC so it can be retired cleanly if Microsoft ever ships built-in timing-safety in `SignInManager`.
 
 **Rationale:**
 
-- **`SignInManager.PasswordSignInAsync(string, ...)` in .NET 10 IS NOT timing-safe** on the unknown-user branch. Primary-source evidence: `dotnet/aspnetcore` `main`, `src/Identity/Core/src/SignInManager.cs` — the string overload returns `SignInResult.Failed` immediately when `FindByNameAsync` returns null, with no call to `VerifyHashedPassword` / `CheckPasswordAsync` / any dummy-hash helper. The user-found branch runs `PasswordHasher.VerifyHashedPassword` → PBKDF2-HMAC-SHA512 / 100 000 iterations (V3 defaults, unchanged since .NET 7), ~40–80 ms on server hardware. Remotely observable timing delta; textbook user-enumeration side-channel.
-- **The spec's "or" clause is resolved by the source code.** Slice 0 §Unit 2 line 86 presents two implementation paths — `SignInManager.PasswordSignInAsync(userName, ...)` or `UserManager.FindByEmailAsync` + dummy-hash — as if either satisfies the timing-safety requirement. R-059's source trace confirms only the second option actually achieves it. The spec is amended to remove the "or" and mandate the manual mitigation.
-- **`VerifyHashedPassword(default, DummyHash, password)` chosen over `HashPassword(default, password)`** because it traverses the same code path as a real-user failure (parse V3 header → derive key → constant-time compare), giving tighter timing parity at the same PBKDF2 cost. `HashPassword` additionally calls `RandomNumberGenerator.Fill` for the salt — sub-microsecond, negligible vs PBKDF2, but avoiding the asymmetry is the cleaner posture. Both OWASP, Andrew Lock, and Cyberis converge on `VerifyHashedPassword` as the idiomatic mitigation.
-- **`IPasswordHasher<TUser>` exposes only synchronous `HashPassword` and `VerifyHashedPassword`.** The R-059 artifact corrects a factual error in the spec snippet (`PasswordHasher.HashPasswordAsync` does not exist). Production call is synchronous — do not `await` it.
-- **Defense-in-depth limits.** Rate limiting (per-IP fixed window) is the second line of defense — it caps enumeration throughput but does not change the timing signal. OWASP considers rate limiting alone insufficient; the timing mitigation is the primary control.
-- **`RequiresTwoFactor` / `IsLockedOut` / `IsNotAllowed` collapse to 401 Unauthorized, not 423 Locked.** RFC 4918 §11.3 scopes 423 to WebDAV resource locking; reusing it for auth lockout is non-idiomatic and also leaks enumeration information. Microsoft's own `MapIdentityApi` `/login` handler collapses every failing `SignInResult` into a single 401 — this matches that precedent.
-- **Test coverage is a code-path assertion, not wall-clock timing.** T02.5 registers a counting `IPasswordHasher<ApplicationUser>` test double via `ConfigureTestServices`, submits one `POST /api/v1/auth/login` with an unknown email and one with a known user + wrong password, asserts the counter is ≥ 1 in both cases. Proves the `user is null` branch executed a hash. Deterministic, runs in milliseconds. A statistical wall-clock benchmark (gated behind an env var, computing median / p95 over N=200 requests per case, asserting `|median(unknown) − median(known)| < 15 ms`) is a security-audit harness test — ships with the audit bundle, not the PR.
+- **`SignInManager.PasswordSignInAsync(string, ...)` in .NET 10 IS NOT timing-safe** on the unknown-user branch. Per `dotnet/aspnetcore` `src/Identity/Core/src/SignInManager.cs`: the string overload returns `Failed` immediately when `FindByNameAsync` returns null — no `VerifyHashedPassword` call. The user-found branch runs PBKDF2-HMAC-SHA512 / 100k iterations (~40–80 ms on server hardware) — a remotely observable delta.
+- `VerifyHashedPassword(default, DummyHash, password)` is preferred over `HashPassword` because it traces the same code path as a real-user failure (parse V3 header → derive → constant-time compare), giving tighter parity at the same PBKDF2 cost.
+- `IPasswordHasher<TUser>` exposes only synchronous operations — no `HashPasswordAsync` exists.
+- Rate limiting is defense-in-depth, not a timing-signal mitigation. OWASP considers rate limiting alone insufficient.
+- Collapse to 401, not 423 (WebDAV scope per RFC 4918 §11.3). Matches `MapIdentityApi`'s precedent.
+- Test coverage is a code-path assertion (counting `IPasswordHasher` test double via `ConfigureTestServices`, one unknown-email + one wrong-password request, counter ≥ 1 in both). Wall-clock statistical benchmarks belong in the security-audit harness.
 
 **Alternatives considered (and rejected):**
 
-- **Trust `SignInManager.PasswordSignInAsync` alone, rely on rate limiting.** Rejected — rate limiting caps attack throughput but does not change the timing signal; an enumerator with one probe per minute still succeeds, just slowly. OWASP explicitly considers this insufficient.
-- **Override `SignInManager<ApplicationUser>` with a custom subclass adding the dummy hash internally.** Architecturally cleaner — automatically covers any future caller of `PasswordSignInAsync`. Rejected for Slice 0 because the scope is a single controller; an override creates a maintenance burden that tracks Microsoft's internal method changes (e.g. `Stopwatch.GetTimestamp` / metrics calls added in .NET 9). Revisit for MVP-2 if more login surfaces emerge (passkey, social login, API token exchange).
-- **Random-duration wrapper (Cofoundry-style `Task.Delay(Random.Shared.Next(minMs, maxMs))`).** Masks the symptom without fixing the cause; the jitter window must exceed the PBKDF2 delta to be effective, which degrades login UX. Valuable as secondary defense-in-depth for the MVP-1 lockout path.
-- **Pre-hash the password on the client.** Shifts PBKDF2 to the browser; requires schema change to `AspNetUsers.PasswordHash`; incompatible with stock `PasswordHasher` and future passkey/WebAuthn migration. Out of scope.
-- **Skip the lookup; always call `CheckPasswordSignInAsync` on a sentinel user.** `PasswordHasher.VerifyHashedPassword(user, null, password)` short-circuits and returns `Failed` without running PBKDF2. Doesn't achieve the goal.
+- Trust `PasswordSignInAsync` + rate-limit alone — rate limiting caps throughput, not signal.
+- Custom `SignInManager` subclass — cleaner but tracks Microsoft's internal method changes; revisit at MVP-2 if login surfaces proliferate.
+- Random-duration wrapper — masks without fixing; jitter window must exceed PBKDF2 delta to be effective, which degrades UX.
+- Pre-hash password on client — schema change, incompatible with stock `PasswordHasher` and future WebAuthn.
+- Sentinel user + `CheckPasswordSignInAsync` — `VerifyHashedPassword(user, null, password)` short-circuits.
 
 **Known limitations (captured as MVP-1 follow-ups):**
 
-- **Lockout path re-opens the leak on a secondary axis.** When `lockoutOnFailure: true` lands (deferred per spec Non-Goals), the known-user failure branch gains a DB write (`UserManager.AccessFailedAsync`) that the unknown-user branch does not. Options for MVP-1: (a) override `SignInManager` to track a "failed attempt" counter keyed by submitted-email-normalized-hash so both branches write; (b) uniform-delay envelope wrapping the whole login action; (c) accept the residual leak with per-IP rate limiting. Option (b) is simplest and aligns with OWASP's "make responses uniform" posture. Revisit when lockout is re-enabled.
-- **Registration endpoint** has a separate enumeration vector through the 409 DuplicateEmail branch (see DEC-052). MVP-1 consideration: migrate to a "202 Accepted + email-to-existing-account" pattern that eliminates the status-code leak.
-- **Password-reset endpoint** (post-Slice 0) must return the same 200 whether the email exists or not; always execute token-generation work (or a dummy equivalent) to equalize timing. Captured for the password-reset workstream.
-- **ModelState binding 400s** are sub-millisecond and distinguishable from 401 by status code. Acceptable — 400 indicates malformed input, not "user exists" — but do NOT add custom server-side format checks (e.g., email-syntax validation) that fire only for the login action; they create a third timing class. Keep validation strictly in DTO DataAnnotations.
+- Lockout path re-opens the leak on a secondary axis (`AccessFailedAsync` DB write only on the known branch). Preferred mitigation: uniform-delay envelope wrapping the whole login action.
+- Registration 409 `DuplicateEmail` is a separate enumeration vector (see DEC-052) — pre-public-release should migrate to "202 Accepted + email-to-existing-account."
+- Password-reset endpoint must match login's posture (identical 200; fire-and-forget email across both branches).
+- Do NOT add login-only server-side format checks; they create a third timing class. Keep validation in DataAnnotations.
 
 **Cross-references:**
 
 - R-059 artifact: `docs/research/artifacts/batch-19d-signinmanager-timing-safety.md`.
-- Spec: `docs/specs/12-spec-slice-0-foundation/12-spec-slice-0-foundation.md` §Unit 2 line 86 (amended with this DEC to remove the "or").
-- DEC-052 — sibling decision on the register-endpoint error-contract shape.
-- OWASP Authentication Cheat Sheet — "login goes through the same process no matter what the user or password is."
-- OWASP ASVS 5.0 V6.3 — enumeration-resistance requirements.
-- OWASP WSTG §Account Enumeration — timing deltas as a first-class discovery vector.
-- `dotnet/aspnetcore` — `src/Identity/Core/src/SignInManager.cs` (string-overload source).
-- `dotnet/aspnetcore` — `src/Identity/Extensions.Core/src/PasswordHasherOptions.cs` (V3 defaults: PBKDF2-HMAC-SHA512 / 100k iterations).
-- `dotnet/aspnetcore#54542` — related lockout-based enumeration (closed as design-proposal, no shipped fix).
+- DEC-052 — sibling error-contract decision.
+- OWASP Authentication Cheat Sheet; ASVS 5.0 V6.3; WSTG §Account Enumeration.
+- `dotnet/aspnetcore#54542` — related lockout-based enumeration.
 
 ---
 
-## DEC-054: Post-research-integration auth-contract verifications — antiforgery SPA cookie shape, API-endpoint 401 default, `ValidateAntiForgeryToken` vs `RequireAntiforgeryToken`, `RequireUniqueEmail`
+## DEC-054: Post-research-integration auth-contract verifications — antiforgery SPA cookie, API-endpoint 401 default, antiforgery-attribute choice, `RequireUniqueEmail`
 
 **Date:** 2026-04-21
-**Status:** Final
+**Status:** Partially superseded — bullet 3 is superseded by DEC-055.
 **Category:** Auth substrate / Slice 0 / doc-verified corrections ahead of T02.4
-**Informed by:** Doc verification against Microsoft Learn (`security/anti-request-forgery` and `security/authentication/api-endpoint-auth`) + R-058 / R-059 integration review.
+**Informed by:** Microsoft Learn doc verification (`security/anti-request-forgery`, `security/authentication/api-endpoint-auth`) + R-058 / R-059 integration review.
 
-**Decision:** Four verifications and corrections land ahead of T02.4 so the auth surface is consistent before the controller is written.
+**Decision:** Four verifications land ahead of T02.4:
 
-1. **Antiforgery SPA-readable cookie name and attributes** (resolves R-060). The `/api/v1/auth/xsrf` endpoint writes a second cookie alongside the internal antiforgery cookie managed by `AntiforgeryOptions.Cookie`. The second cookie is named `__Host-Xsrf-Request` (NOT the Angular-convention `XSRF-TOKEN`) to match the `__Host-` posture already taken on `__Host-RunCoach` (DEC-050) and `__Host-Xsrf`. Attributes: `HttpOnly = false` (SPA reads it via `document.cookie`), `Secure = true` (required by `__Host-` prefix), `SameSite = SameSiteMode.Lax`, `Path = "/"` (required by `__Host-` prefix), `Domain` unset (required by `__Host-` prefix). The cookie value is `antiforgery.GetAndStoreTokens(ctx).RequestToken`. The SPA reads the cookie and echoes the value in the `X-XSRF-TOKEN` header (matching `AntiforgeryOptions.HeaderName` from T02.2). RTK Query's `prepareHeaders` in T03.1 reads from the `__Host-Xsrf-Request` name.
-2. **`[ApiController]` automatic 401/403 for API endpoints** (resolves R-061). ASP.NET Core 10 introduced automatic detection of API endpoints in the cookie authentication handler — `[ApiController]`-decorated controllers, Minimal API endpoints (`MapGet`/`MapPost`/etc.), endpoints that request JSON responses, and SignalR hubs all return HTTP `401` / `403` instead of redirecting to `/Account/Login`. `AuthController` is already `[ApiController]`-decorated, so `/me` and `/logout` return JSON `401` natively with no `CookieAuthenticationEvents.OnRedirectToLogin` override required. Confirmed in Microsoft Learn `security/authentication/api-endpoint-auth` (updated 2025-08-28). T03.1's 401 handler in RTK Query is wired to this native behavior.
-3. **`[ValidateAntiForgeryToken]` is NOT broken in .NET 10.** The prior task-#54 description asserted that `[ValidateAntiForgeryToken]` is "broken with `UseAntiforgery` middleware in .NET 10" — this is unfounded. Microsoft Learn `security/anti-request-forgery` explicitly documents `[ValidateAntiForgeryToken]` as the canonical per-action attribute for MVC controllers and `[AutoValidateAntiforgeryToken]` as the recommended class-level default. `[RequireAntiforgeryToken]` is a parallel `IAntiforgeryMetadata` attribute designed for Minimal-API endpoints wired through `UseAntiforgery` middleware metadata. For RunCoach's `[ApiController]`-decorated `AuthController` the correct attribute is **`[ValidateAntiForgeryToken]` per-action** on `/register` and `/logout` (or `[AutoValidateAntiforgeryToken]` at controller level with `[IgnoreAntiforgeryToken]` on `/xsrf` and `/login`). `[RequireAntiforgeryToken]` also works because `UseAntiforgery` middleware is already wired, but `[ValidateAntiForgeryToken]` is Microsoft's primary-documented MVC choice and matches the ecosystem convention. Task #54 description is corrected.
-4. **`options.User.RequireUniqueEmail = true` fix for Identity Core registration.** The T02.1 Identity Core registration block in `Program.cs` omitted this option; default is `false`. Without it, Identity does NOT enforce email uniqueness — the only uniqueness check is `RequireUniqueUserName` (default `true`), which RunCoach's register flow triggers incidentally because `user.UserName = user.Email`. Duplicate registrations fail with `DuplicateUserName` error code instead of `DuplicateEmail`; the `IdentityErrorCodeMapper` (DEC-052) maps both to the 409 conflict bucket so the HTTP status is correct, but the semantic error code is misleading. Any later change that decouples `UserName` from `Email` would silently lose email uniqueness entirely. Fix lands in T02.4 alongside the controller work (one-line addition: `options.User.RequireUniqueEmail = true` inside the existing `AddIdentityCore<ApplicationUser>(options => { ... })` callback).
+1. **SPA-readable antiforgery cookie** (R-060). `/api/v1/auth/xsrf` writes `__Host-Xsrf-Request` alongside the internal antiforgery cookie. Attributes: `HttpOnly = false`, `Secure = true`, `SameSite = Lax`, `Path = "/"`, no `Domain`. Value is `antiforgery.GetAndStoreTokens(ctx).RequestToken`; SPA echoes it in the `X-XSRF-TOKEN` header. `__Host-` naming keeps posture parity with `__Host-RunCoach` and `__Host-Xsrf`.
+2. **`[ApiController]` automatic 401/403** (R-061). ASP.NET Core 10 detects API endpoints in the cookie auth handler and returns JSON 401/403 instead of redirecting. No `OnRedirectToLogin` override needed.
+3. **Antiforgery-attribute choice on MVC controllers.** *Superseded by DEC-055* — the original decision selected `[ValidateAntiForgeryToken]` per-action on `[ApiController]` classes; DEC-055 flips this to `[RequireAntiforgeryToken]` + `AddControllers()` + a bridge middleware after implementation surfaced that `[ValidateAntiForgeryToken]` requires `AddControllersWithViews()`.
+4. **`options.User.RequireUniqueEmail = true`.** T02.1 omitted this (default `false`); Identity only enforced `RequireUniqueUserName`. Duplicate registrations surfaced as `DuplicateUserName` instead of `DuplicateEmail` — a latent bug if `UserName` ever decouples from `Email`. One-line fix in T02.4.
 
 **Rationale:**
 
-- **Antiforgery double-cookie pattern is well-documented in Microsoft Learn** (`security/anti-request-forgery`). The doc shows the canonical middleware / endpoint code writing `tokenSet.RequestToken` to a non-HttpOnly cookie. The cookie's *name* and *additional attributes* (beyond `HttpOnly = false`) are a project design call. RunCoach already has two `__Host-` cookies (`__Host-RunCoach` for the session, `__Host-Xsrf` for the antiforgery internal) and the Request-token cookie rounds out the posture — consistent prefix, consistent security model, any future deployment that weakens the prefix weakens all three at once (easier to audit). The name `__Host-Xsrf-Request` is descriptive and avoids the Angular-specific `XSRF-TOKEN` that could mislead readers into expecting Angular's auto-injection behavior. RTK Query reads from any cookie name via `prepareHeaders` so the naming choice has no frontend cost.
-- **.NET 10's automatic API-endpoint detection is genuinely new** (shipped with ASP.NET Core 10 GA in November 2025). Prior .NET versions required an `OnRedirectToLogin` override per Microsoft sample patterns. The `api-endpoint-auth` doc explicitly states this behavior is "designed to be non-breaking for existing applications" — Web pages continue to redirect, API endpoints get proper status codes. No opt-in config needed.
-- **The `[ValidateAntiForgeryToken]` "broken" claim was unfounded.** Microsoft Learn's anti-request-forgery doc (updated 2026) uses `[ValidateAntiForgeryToken]` as the primary MVC attribute in every code sample. `[RequireAntiforgeryToken]` lives in `Microsoft.AspNetCore.Antiforgery.Infrastructure` and implements `IAntiforgeryMetadata`; `UseAntiforgery` middleware reads that metadata to know an endpoint needs validation. Both attributes ultimately call `IAntiforgery.ValidateRequestAsync` via different pipelines — neither is broken. Propagating the unverified "broken" assertion into T02.4 implementation risked locking in a non-idiomatic choice.
-- **`RequireUniqueEmail = true` is defensive.** The fix is one line, has no cost, and closes a subtle failure mode where a future `UserName ≠ Email` policy silently loses email uniqueness. Defaults-off here is historical — Identity predates email-as-primary-identifier by years — but every modern template sets it.
+- `__Host-` naming parity across all three cookies simplifies audit — any deployment that weakens the prefix weakens all three at once.
+- .NET 10's automatic API-endpoint 401/403 shipped GA November 2025; prior versions required an `OnRedirectToLogin` override.
+- `RequireUniqueEmail` defaults-off is historical; every modern template sets it true.
 
 **Alternatives considered (and rejected):**
 
-- **Angular-convention `XSRF-TOKEN` cookie name.** Rejected — breaks the `__Host-` consistency with the other two antiforgery / session cookies. RTK Query supports any name; no frontend cost to the non-Angular choice.
-- **`CookieAuthenticationEvents.OnRedirectToLogin` override for `/api/*` paths.** Rejected — .NET 10's automatic behavior makes this redundant. Leaving the override in would be dead code.
-- **`[AutoValidateAntiforgeryToken]` on the controller with `[IgnoreAntiforgeryToken]` on `/xsrf` and `/login`.** Valid alternative to per-action `[ValidateAntiForgeryToken]`. Rejected as primary because the auth controller has only two endpoints requiring antiforgery (`/register` and `/logout`) — per-action attributes are clearer at the call site. Worth reconsidering if the controller grows beyond five endpoints.
-- **Skip `RequireUniqueEmail = true` fix.** Rejected — one-line fix with no cost, closes a real latent bug. Keeping the current `DuplicateUserName`-instead-of-`DuplicateEmail` semantic would mislead future maintainers who read `IdentityErrorCodeMapper` and expect `DuplicateEmail` to fire.
+- Angular-convention `XSRF-TOKEN` cookie name — breaks `__Host-` parity; RTK Query reads from any name.
+- Keep an `OnRedirectToLogin` override — dead code under .NET 10's automatic behavior.
 
 **Cross-references:**
 
-- Microsoft Learn, `security/anti-request-forgery` — ValidateAntiForgeryToken, AutoValidateAntiforgeryToken, SPA cookie pattern.
-- Microsoft Learn, `security/authentication/api-endpoint-auth` (updated 2025-08-28) — API-endpoint automatic 401/403 behavior.
-- DEC-050 — `__Host-RunCoach` session cookie + `__Host-Xsrf` antiforgery cookie precedent.
-- DEC-052 — `IdentityErrorCodeMapper` (the 22-code mapping that silently papered over the `RequireUniqueEmail = false` bug).
-- Task #54 (T02.4) — description updated with all four corrections.
+- Microsoft Learn `security/anti-request-forgery` and `security/authentication/api-endpoint-auth`.
+- DEC-050 (`__Host-` cookie precedent), DEC-052 (`IdentityErrorCodeMapper`), DEC-055 (supersedes bullet 3).
 
 ---
 
 ## DEC-055: Adopt `[RequireAntiforgeryToken]` + `AddControllers()` + bridge middleware for MVC antiforgery on ASP.NET Core 10
 
 **Date:** 2026-04-22
-**Status:** Final
+**Status:** Final — supersedes DEC-054 bullet 3.
 **Category:** Auth substrate / Slice 0 / T02 post-implementation correction
-**Informed by:** R-062 research artifact (`docs/research/artifacts/batch-19e-antiforgery-attribute-net10.md`) + direct verification of `aspnetcore release/10.0` source.
+**Informed by:** R-062 (`batch-19e-antiforgery-attribute-net10.md`) + direct verification of `aspnetcore release/10.0` source.
 
-**Decision:** State-changing MVC controller actions use `[RequireAntiforgeryToken]` from `Microsoft.AspNetCore.Antiforgery` (NOT `[ValidateAntiForgeryToken]` from `Microsoft.AspNetCore.Mvc`), paired with plain `AddControllers()` (NOT `AddControllersWithViews()`), and a three-line bridge middleware immediately after `UseAntiforgery()` that converts `IAntiforgeryValidationFeature.IsValid == false` → `400 BadRequest`. `/xsrf` needs no explicit carve-out because `GET` is already exempt via the middleware's `IsValidHttpMethodForForm` check.
+**Decision:** State-changing MVC actions use `[RequireAntiforgeryToken]` from `Microsoft.AspNetCore.Antiforgery`, paired with `AddControllers()` (not `AddControllersWithViews()`) and a bridge middleware after `UseAntiforgery()` that converts `IAntiforgeryValidationFeature.IsValid == false` → `400` with a `ProblemDetails` body.
 
-The final wiring:
+Final shape:
 
 ```csharp
 // Program.cs
-builder.Services.AddControllers();            // not AddControllersWithViews
+builder.Services.AddControllers();
 // ...
 app.UseAntiforgery();
-app.Use(async (ctx, next) =>
-{
-    if (ctx.Features.Get<IAntiforgeryValidationFeature>() is { IsValid: false })
-    {
-        ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
-        return;
-    }
-    await next(ctx);
-});
+app.UseAntiforgeryProblemDetailsBridge();   // Infrastructure/AntiforgeryBridgeMiddleware.cs
 app.MapControllers();
 ```
 
 ```csharp
-// AuthController.cs
 [HttpPost("register"), AllowAnonymous, RequireAntiforgeryToken]
 public Task<IActionResult> Register(...) { ... }
 
@@ -1760,152 +1713,78 @@ public Task<IActionResult> Register(...) { ... }
 public Task<IActionResult> Logout() { ... }
 ```
 
-**What this supersedes in DEC-054 bullet 3:** DEC-054 was correct that `[ValidateAntiForgeryToken]` is not "broken" per se — it works with `AddControllersWithViews()`. It was *incorrect* that `[RequireAntiforgeryToken]` "also works because `UseAntiforgery` middleware is already wired." On MVC controllers in .NET 10, the middleware alone is insufficient (see rationale). DEC-055 corrects the mechanism and picks the opposite attribute as canonical.
+The bridge writes a `ProblemDetails` (`type = https://runcoach.app/problems/antiforgery-validation-failed`, title `"Antiforgery validation failed."`, detail pointing the SPA back at `/xsrf`) via `IProblemDetailsService.TryWriteAsync`, so the SPA's `ProblemDetails`-on-4xx base query needs no special case. `/xsrf` needs no carve-out — `GET` is already exempt via the middleware's `IsValidHttpMethodForForm` check.
 
 **Rationale:**
 
-- **The middleware does not short-circuit on validation failure.** `AntiforgeryMiddleware.InvokeAwaited` in `aspnetcore release/10.0` catches `AntiforgeryValidationException`, sets `IAntiforgeryValidationFeature(IsValid: false, error)` on the feature collection, and unconditionally calls `_next(context)`. Verified directly against the source file at `src/Antiforgery/src/AntiforgeryMiddleware.cs`. Consequence: Minimal API form-binding bridges the failed feature to a `400` automatically, MVC controllers do not.
-- **Without the bridge, MVC state-changing POSTs have two broken shapes.** (1) Request with a body: MVC's `FormValueProviderFactory` runs during model binding, its `HasFormContentType` accessor invokes `HandleUncheckedAntiforgeryValidationFeature`, which throws `InvalidOperationException` — `ErrorHandlingMiddleware` translates that to a `500`. (2) Request with no body (`POST /logout`): no form-binding, no exception, the action runs as if validation passed, returns `204`. Both observed in T02.5's integration matrix (cases 5 and 13) before DEC-055 was applied.
-- **The bridge middleware is the minimum correct fix.** Three lines, one `Features.Get` call per request, closes both shapes with a clean `400` before the endpoint executes. No ProblemDetails body is written — matches the existing `[ValidateAntiForgeryToken]` filter's `BadRequestResult` behavior that T02.5's tests previously pinned.
-- **`[RequireAntiforgeryToken]` is the canonical forward path.** Lives in `Microsoft.AspNetCore.Antiforgery` (R-062 corrected the assumed `Microsoft.AspNetCore.Http` location — primary source `dotnet/aspnetcore#49237`). Emits `IAntiforgeryMetadata`, which is the metadata contract the framework expects state-changing endpoints to declare. Works identically for MVC controllers, Minimal APIs, and future Razor Pages without a view-engine dependency. `[AttributeUsage(Class | Method)]` legally covers controller classes and action methods.
-- **`AddControllers()` drops the Razor view engine** we weren't using. The T02.5 workaround (`AddControllersWithViews()`) pulled in `IViewEngine`, `IViewComponentDescriptorProvider`, `IHtmlGenerator`, tag helpers, `TempData`, partial-view services, and the authorization-filter registrations for `ValidateAntiforgeryTokenAuthorizationFilter` + `AutoValidateAntiforgeryTokenAuthorizationFilter`. Steady-state CPU is negligible (view services are DI-lazy), but the registration graph expands startup memory and — more important — signals "pure JSON API" incorrectly. `AddControllers()` is Microsoft's own recommendation for API projects per `Program.cs` templates and the `AddControllers()` Learn doc ("This method will not register services used for views or pages").
-- **`[IgnoreAntiforgeryToken]` was never needed on `/xsrf`.** It is an MVC filter attribute (`IAntiforgeryPolicy, IOrderedFilter`) that does NOT implement `IAntiforgeryMetadata`, so `UseAntiforgery()` would ignore it regardless. `GET` is already exempt via the middleware's `HttpExtensions.IsValidHttpMethodForForm` predicate. The attribute is removed.
-- **No dual validation occurs.** `UseAntiforgery()` validates via metadata; the MVC filter is no longer on the pipeline (we dropped `[ValidateAntiForgeryToken]`). The bridge middleware does not call `ValidateRequestAsync` — it only inspects the feature that `UseAntiforgery()` populated.
-- **The research artifact got the framework mechanism partly wrong.** R-062 asserted the middleware "short-circuits with a 400 on failure." Verification against the `release/10.0` source invalidated that claim — the middleware sets the feature and continues. The rest of R-062's analysis (attribute selection, namespace correction, view-features gap, test-host pattern) remains sound. The bridge-middleware addition is the delta between what the artifact claimed and what the framework actually does. Captured as errata inline on the artifact via this DEC's cross-reference.
+- **The middleware does not short-circuit on validation failure.** `AntiforgeryMiddleware.InvokeAwaited` sets `IAntiforgeryValidationFeature(IsValid: false)` and unconditionally calls `_next`. Verified against `src/Antiforgery/src/AntiforgeryMiddleware.cs` in `release/10.0`. Minimal APIs bridge this automatically via form-binding; MVC does not.
+- Without the bridge, MVC state-changing POSTs have two broken shapes: (a) request with a body → MVC's `FormValueProviderFactory` throws `InvalidOperationException` → `500`; (b) request without a body (e.g. `POST /logout`) → no exception, action runs as if validation passed. Both observed in T02.5's integration matrix before DEC-055 landed.
+- `[RequireAntiforgeryToken]` (in `Microsoft.AspNetCore.Antiforgery`, per dotnet/aspnetcore#49237) emits `IAntiforgeryMetadata` — the metadata contract `UseAntiforgery()` reads. Works identically for MVC, Minimal APIs, and future Razor Pages without a view-engine dependency.
+- `AddControllers()` drops the Razor view engine that `AddControllersWithViews()` would pull in solely to register the MVC antiforgery filter. Microsoft's own recommendation for API projects.
+- `[IgnoreAntiforgeryToken]` doesn't implement `IAntiforgeryMetadata` — would be ignored by `UseAntiforgery()` anyway. Unused.
+- R-062 errata: the artifact claimed the middleware "short-circuits with a 400." It does not — the bridge middleware is the MVC-side adapter the artifact's pattern implicitly relies on. The rest of R-062 holds.
 
-**Retrospective — why this drifted:**
-
-T02.4 shipped `[ValidateAntiForgeryToken]` against the parent task's `[RequireAntiforgeryToken]` guidance without surfacing the deviation. T02.5's integration matrix caught the DI error (`ValidateAntiforgeryTokenAuthorizationFilter` not registered), and the fix — flipping to `AddControllersWithViews()` — resolved the symptom while cementing the deviation. Both moves passed local build + tests and would have passed code review; what prevented the drift from shipping was the decision to run the research protocol before opening the T02 PR. Future pattern: when a sub-task diverges from its parent's prescribed shape, surface the deviation in the task's commit message or in a `Follow-up` entry rather than making the change silently.
+**Retrospective:** T02.4 shipped `[ValidateAntiForgeryToken]` against parent-task guidance without surfacing the deviation; T02.5 then flipped to `AddControllersWithViews()` to fix the DI error, cementing the drift. Pattern for future: surface sub-task deviations from prescribed shape in the commit message or follow-up entry, not silently.
 
 **Alternatives considered (and rejected):**
 
-- **Keep T02.5's `[ValidateAntiForgeryToken]` + `AddControllersWithViews()` shape.** Works, but (1) contradicts the parent task's stated guidance, (2) carries a Razor view engine this JSON-only API does not use, (3) relies on an architectural seam (dotnet/aspnetcore#22189) Microsoft has chosen not to close because the middleware path supersedes it. Net cost to switch is ~15 lines; cost of not switching is technical debt that every future controller inherits.
-- **Write a named middleware class (`AntiforgeryValidationBridgeMiddleware.cs`) instead of the inline `app.Use` delegate.** Rejected for 3 lines; inline is clearer. Promote to a named class if the middleware grows beyond writing `StatusCode = 400` (e.g., if we want to emit a ProblemDetails body or log the validation failure for auditing).
-- **Emit a ProblemDetails body from the bridge middleware via `IProblemDetailsService.TryWriteAsync`.** Rejected for consistency — the pre-DEC-055 shape returned a plain `400` with no body (from `BadRequestResult` inside `ValidateAntiforgeryTokenAuthorizationFilter`), and T02.5's tests pin that contract. Revisit if T03.x frontend wants a structured error payload for antiforgery failures.
-- **Apply `[RequireAntiforgeryToken]` at the controller class level.** Rejected for the auth controller specifically — `/xsrf`, `/login`, and `/me` don't need it (the first two are `AllowAnonymous` POSTs-or-safe-methods-that-issue-the-token, `/me` is `GET`). Per-action placement is clearer for this controller. Reconsider as the default for Slice 1+ controllers that have a larger state-changing surface.
-- **Bridge via an MVC authorization filter instead of middleware.** Rejected — the failed-antiforgery feature needs to be converted to `400` BEFORE the MVC filter pipeline runs its form-binding, otherwise the `HandleUncheckedAntiforgeryValidationFeature` path still throws. A filter runs too late.
-
-**Addendum (2026-04-23, pre-merge):** the shipped code supersedes two of the rejected alternatives above:
-
-- **ProblemDetails body is written from the bridge.** The bridge calls `IProblemDetailsService.TryWriteAsync` with a populated `ProblemDetails` (`type = https://runcoach.app/problems/antiforgery-validation-failed`, `title = "Antiforgery validation failed."`, `detail` pointing the SPA back at `/xsrf`). Rationale: the SPA handles every 4xx as a `ProblemDetails` — making this endpoint the one exception forced a special case in the RTK Query base query. T02.5's Case 5 is updated to pin the new body shape and `type` URI. The "plain 400 no body" posture the original DEC rejected this move *for* is no longer the test contract.
-- **Bridge is a named static class, not an inline `app.Use` delegate.** `Infrastructure/AntiforgeryBridgeMiddleware.cs` with an `UseAntiforgeryProblemDetailsBridge()` extension method. Rationale: once the middleware grew past three lines (feature check + ProblemDetails body emission via `IProblemDetailsService`), the inline form became harder to read in `Program.cs` than a named type. The "promote to a named class if it grows past 3 lines" trigger the original DEC named has fired.
-
-No behavior change to `[RequireAntiforgeryToken]` selection, `AddControllers()` choice, `/xsrf` GET-exemption, or middleware pipeline position — those pillars of DEC-055 are unchanged. The addendum only updates the bridge shape to match what actually shipped.
+- Keep `[ValidateAntiForgeryToken]` + `AddControllersWithViews()` — works, but contradicts parent-task guidance, carries unused view engine, relies on dotnet/aspnetcore#22189 (open seam).
+- Inline `app.Use` delegate instead of named class — the bridge grew past 3 lines (ProblemDetails emission), so a named class is clearer.
+- Plain `400` with no body — forced the SPA into a special case; the ProblemDetails body makes the response consistent with every other 4xx.
+- Controller-class `[RequireAntiforgeryToken]` — `/xsrf`, `/login`, and `/me` don't need it; per-action is clearer here. Reconsider for larger state-changing surfaces.
+- MVC authorization filter instead of middleware — filter runs too late; form-binding already threw.
 
 **Cross-references:**
 
-- `docs/research/artifacts/batch-19e-antiforgery-attribute-net10.md` — R-062 research artifact. Errata: the "short-circuits with 400" claim is incorrect; the middleware sets `IAntiforgeryValidationFeature` and calls `_next`. DEC-055's bridge middleware is the MVC-side adapter the artifact's recommended pattern implicitly relies on.
-- `aspnetcore release/10.0` — `src/Antiforgery/src/AntiforgeryMiddleware.cs` (51 lines; the full `Invoke` + `InvokeAwaited` is in the R-062 artifact).
-- `dotnet/aspnetcore#49237` — API-approval issue that introduced `RequireAntiforgeryTokenAttribute` + `IAntiforgeryMetadata` + `UseAntiforgery`.
-- `dotnet/aspnetcore#22189` — "Antiforgery should be useable without views" (open since May 2020) — the ViewFeatures filter-registration seam that makes `[ValidateAntiForgeryToken]` require `AddControllersWithViews()`.
-- `dotnet/AspNetCore.Docs#33740` — open Learn docs gap asking Microsoft to document `[RequireAntiforgeryToken]` on API controllers.
-- DEC-050 — `__Host-RunCoach` session-cookie posture (the cookie the POST `/logout` route is bound to).
-- DEC-054 bullet 3 — the original assertion DEC-055 corrects.
-- Commits — T02.5 (`7506c8a`) introduced the `AddControllersWithViews()` workaround; DEC-055 application commit reverts it and wires the bridge middleware.
+- R-062 artifact: `docs/research/artifacts/batch-19e-antiforgery-attribute-net10.md` (with errata above).
+- `aspnetcore release/10.0` `src/Antiforgery/src/AntiforgeryMiddleware.cs`.
+- dotnet/aspnetcore#49237 (introduced `RequireAntiforgeryTokenAttribute`), dotnet/aspnetcore#22189 (antiforgery-without-views seam).
+- DEC-050, DEC-054 bullet 3.
 
 ---
 
 ## DEC-056: Containerized API build is CI-only on Apple Silicon until .NET 11 — Path B (host-run) is the sole Apple-Silicon dev loop
 
-**Date:** 2026-04-22
-**Status:** Final
+**Date:** 2026-04-22 (confirmed under two research passes — R-063 + R-064).
+**Status:** Final.
 **Category:** Developer environment / Slice 0 / T02.6 follow-up
-**Informed by:** R-063 research artifact (`docs/research/artifacts/batch-20a-dotnet10-sdk-container-sigill-apple-silicon.md`) + direct empirical verification of every documented workaround on an Apple M4 Pro host.
+**Informed by:** R-063 (`batch-20a-dotnet10-sdk-container-sigill-apple-silicon.md`) + R-064 (`batch-20b-sve2-sigill-second-opinion-verification.md`) + empirical verification on an Apple M4 Pro host.
 
-**Decision:** The `backend/Dockerfile` remains the CI image-build path for x86_64 GitHub Actions runners but is **not** usable for the local dev loop on Apple Silicon (M3 / M4 / M5). `CONTRIBUTING.md` promotes Path B (host `dotnet run` + `docker compose up -d postgres redis`) as the primary inner loop on all hosts and explicitly flags Path A (`tilt up`) as "x86_64 Linux only, until .NET 11." SDK + aspnet runtime base images are pinned by digest (SDK 10.0.203 / runtime 10.0.7, 2026-04-21 OOB, digests `sha256:8a90a47…3982fc` / `sha256:55e37c7…d9741d4`) to hold the CI build stable against silent upstream regressions. On the first .NET 11 SDK bump, revisit: most likely we bump both digests and lift the Apple-Silicon embargo in one pass. No ENV-based JIT workarounds ship in the Dockerfile — they were probed exhaustively and none cleared the fault deterministically on the reference hardware.
+**Decision:** `backend/Dockerfile` remains the CI image-build path for x86_64 runners but is **not** usable for the local dev loop on Apple Silicon (M3 / M4 / M5). `CONTRIBUTING.md` promotes Path B (host `dotnet run` + `docker compose up -d postgres redis`) as the primary inner loop on all hosts; Path A (`tilt up`) is labeled "x86_64 Linux only, until .NET 11." SDK + runtime base images are pinned by digest (SDK 10.0.203 / runtime 10.0.7; digests `sha256:8a90a47…3982fc` / `sha256:55e37c7…d9741d4`). No ENV JIT knobs ship — they were probed exhaustively and none cleared the fault deterministically on the reference hardware.
 
-**Root cause (summary — full analysis in R-063 artifact):**
+**Root cause:**
 
-`dotnet/runtime#122608` (open, milestoned 11.0.0, label `arm-sve`): .NET 10's CoreCLR RyuJIT emits non-streaming SVE2 opcodes whose Apple M3/M4/M5 silicon implements **only** inside SME streaming mode. Linux guest kernels under macOS Virtualization.framework synthesize `HWCAP2_SVE2` from `ID_AA64ZFR0_EL1` without filtering, so `Sve2.IsSupported` returns `true`, the JIT emits opcodes like `ptrue p0.b`, the CPU raises UNDEF, and the kernel delivers `SIGILL` / `ILL_ILLOPC` / exit 132. Intermittency scales with restore graph size — the RunCoach solution (Marten + Wolverine + M.E.AI + OTel + Anthropic + Testcontainers) reproduces 100%; a `dotnet new console` is sporadic. Microsoft triaged the fix to .NET 11; no 10.0.x servicing backport is planned. This is not a NuGet bug, not a package bug, not an image-tag regression — every shipped .NET 10 SDK since PR #115117 (pre-GA) contains the flaw.
+`dotnet/runtime#122608` (milestone 11.0.0, label `arm-sve`): .NET 10's CoreCLR emits non-streaming SVE2 opcodes whose Apple M3/M4/M5 silicon implements only inside SME streaming mode. Linux guests under Virtualization.framework synthesize `HWCAP2_SVE2` from `ID_AA64ZFR0_EL1` without filtering; `Sve2.IsSupported` returns `true`, the JIT emits the opcodes, the CPU raises UNDEF → `SIGILL` / exit 132. The flaw is in every shipped .NET 10 SDK since pre-GA PR #115117; no 10.0.x servicing backport is planned.
 
-**What was tried and failed on the reference hardware (Apple M4 Pro, Colima 0.10.1, aarch64, SDK 10.0.203):**
+**Why no ENV workaround shipped:**
 
-| Workaround | Result | Notes |
-|---|---|---|
-| `DOTNET_EnableArm64Sve=0` + `_Sve2=0` | 5/5 FAIL, exit 132 | R-063's primary recommendation. ENV propagation verified via diagnostic `RUN` step. |
-| `DOTNET_EnableArm64Sve=0` + `_Sve2=0` + `_Sme=0` + `_Sme2=0` | 5/5 FAIL, exit 132 | Additional SME narrow knobs (R-063's "lower-probability secondary" hypothesis). |
-| `DOTNET_EnableHWIntrinsic=0` (master switch, via `docker run -e`) | 1 lucky success, then 5/5 FAIL | R-063 estimated "5-20% slowdown" as the acceptable cost; moot since it doesn't actually clear it. |
-| `DOTNET_EnableHWIntrinsic=0` via Dockerfile `ENV` | 1/1 FAIL | Same knob as above via different surface. |
-| `--platform=linux/amd64` (Rosetta emulation) | 3/3 FAIL, exit 134 (SIGABRT) | Colima profile lacks a working `binfmt_misc` handler; cross-arch emulation crashes in a different phase. |
-| Colima `--vm-type=qemu` (vs VZ) | unchanged — still SIGILL | Both drivers passthrough the same physical ID registers. |
-| Colima 4 CPU / 8 GiB (vs 2/2 default) | unchanged | Not a resource-pressure fault. |
-
-The R-063 artifact's confidence was explicitly conditional: *"The SVE2 diagnosis is strongly supported by circumstantial evidence but has not been definitively proven by opcode disassembly for this specific RunCoach crash."* Our empirical pass confirms the probabilistic quality of the JIT knobs and rejects the narrow-knob recommendation as a reliable fix on this hardware. Disassembling the faulting opcode (via the `ulimit -c unlimited` + gdb procedure in R-063 §3) would nail down the exact ISA family but does not change the posture: until an upstream fix exists, no ENV is the deterministic path.
+R-063's narrow-knob recommendation (`DOTNET_EnableArm64Sve=0` + `_Sve2=0`, including SME variants) and the master-switch (`DOTNET_EnableHWIntrinsic=0`) each tested 5/5 FAIL on the reference hardware; Rosetta / QEMU-driver / resource bumps also unchanged. R-064 confirmed the env-var names are correct verbatim from `jitconfigvalues.h` — the fault lives in `src/native/minipal/cpufeatures.c` detection probe (pre-CLRConfig), SME2 instructions with no .NET 10 knob surface (dotnet/runtime#121787 milestones SME to 11.0), or R2R-compiled BCL methods — none reachable from the env-var layer. R-064 rejected all 15 candidate workarounds with primary-source citations. Partial escapes (Docker Desktop ≥ 4.39; Colima QEMU + `cortex-a72`) are documented in CONTRIBUTING.md as opt-in hatches, not project posture.
 
 **What shipped:**
 
-1. **`backend/Dockerfile`** — digest-pinned both stages (SDK `8a90a47…3982fc`, runtime `55e37c7…d9741d4`). No ENV JIT knobs. Big block comment at the top of the build stage capturing (a) that the pinning is durability infrastructure, (b) that the file is CI-only on Apple Silicon, (c) the upstream bug reference, (d) the empirical workaround log, (e) the .NET 11 re-enablement trigger. The runtime stage is unchanged beyond the digest pin — the `EnableHWIntrinsic` ENV that briefly lived there is removed because it's a net-negative (5–20% pessimisation on x86_64 CI and on healthy arm64 production like Graviton / Ampere) for zero benefit anywhere this Dockerfile actually runs.
-2. **`CONTRIBUTING.md` § Running the stack** — rewritten. Path B is documented first and called out as "the only supported dev loop on Apple Silicon"; Path A moves below, labeled "x86_64 Linux only, until .NET 11," with an inline explanation pointing at `dotnet/runtime#122608`, the research artifact, and this DEC. The earlier "bump Colima resources to clear SIGILL" paragraph (added speculatively before the research landed) is removed — it was wrong and misleading.
-3. **`docker-compose.yml`** — unchanged. The `api` service stays declared so x86_64 contributors + CI can build it; Apple-Silicon contributors use Path B's `docker compose up -d postgres redis` subset, which already skips `api`.
-4. **`docs/research/artifacts/batch-20a-…md`** — landed; R-063 marked Done in the queue.
+- `backend/Dockerfile` — digest-pinned both stages; top-of-file comment captures the upstream bug, workaround log, and .NET 11 re-enablement trigger. A defensive `ENV` block disabling every SVE/SVE2 knob from `jitconfigvalues.h` is included — no-op on x86_64 CI, doesn't clear the arm64 fault, but reduces JIT-side emission surface if the image is ever accidentally built on arm64.
+- `CONTRIBUTING.md` — Path B is the primary dev loop on all hosts; Path A documented as "x86_64 Linux only, until .NET 11," linking #122608 and this DEC.
+- `docker-compose.yml` — unchanged; Apple-Silicon contributors use the `postgres redis` subset.
 
 **Alternatives considered (and rejected):**
 
-- **Ship `DOTNET_EnableHWIntrinsic=0` in the Dockerfile as a hopeful mitigation.** Rejected. It doesn't reliably clear the fault on the reference hardware (empirically 1 out of many). Ships a 5–20% perf tax to x86_64 CI and to Graviton/Ampere production for no reliable benefit. Also signals "this is fixed" in a way contributors will trust, only to hit the same SIGILL a week later and re-open the investigation. Honest posture is "broken upstream; use Path B."
-- **Delete `backend/Dockerfile` and remove Path A entirely.** Rejected per R-063 §4.2: the Dockerfile is the CI image-build path for x86_64 runners, catches Dockerfile drift regressions on every PR, and will be the Apple-Silicon dev-loop path again once .NET 11 lands. Deleting it would re-introduce a future restoration cost for zero saving today.
-- **Force Rosetta (`--platform=linux/amd64`) in the Dockerfile.** Rejected per R-063 §5(ii) AND because it also fails on this machine (SIGABRT 134 — separate Colima binfmt issue). Even if it worked, it imposes 1.5–3× CPU tax, violates the DEC-045 / R-050 native-arm64 constraint for the test path, and silently hides real arm64 incompatibilities until production Linux arm64 (Graviton) surfaces them.
-- **Pin to an older SDK digest (e.g., 10.0.202 / 10.0.101).** Rejected per R-063 §5(iii): SVE2 detection shipped in pre-GA PR #115117; every .NET 10 SDK contains the flaw. Pinning 10.0.202 also loses the CVE-2026-40372 DataProtection HMAC-bypass fix in 10.0.203.
-- **Switch base variant (alpine / chiseled / jammy / azurelinux).** Rejected per R-063 §5(iv): all Linux variants ship the same CoreCLR binary; variant choice does not affect HWCAP detection or JIT codegen.
-- **Add `packages.lock.json` + `--locked-mode` to the restore step.** Deferred. R-063 recommended this as defense-in-depth for NuGet content-hash tampering independent of signature verification. Orthogonal to the SIGILL — worth doing but is its own workflow change (regenerate and commit the lockfile, verify Dependabot integration). Captured as a follow-up in the cycle plan, not gated on this DEC.
-- **Add a `scripts/verify-container-restore.sh` smoke + CI matrix + Dependabot ignore rule.** Deferred. R-063 §6 sketched a three-artifact verification harness. The smoke script is only useful when an Apple-Silicon CI runner becomes available (GitHub Actions currently has only `macos-latest` M1 — which does not reproduce #122608 — and the M3/M4/M5 runners are not yet GA). The Dependabot ignore rule is low-risk insurance but blocks Dependabot's security-relevant SDK bumps too; a simpler "read the Dockerfile comment and run the verification manually on next bump" runbook suffices for a solo-dev project at this scale. Captured as a follow-up.
-
-**Retrospective — why the research's primary fix didn't work on the reference hardware:**
-
-The R-063 artifact was assembled from public bug reports and CoreCLR source. Those reports include success cases for the narrow ISA knobs, but the cases are not consistently reproducible across SDK version × chip × VM-driver × package-graph combinations — #122608 explicitly notes "intermittency." The artifact correctly flagged that uncertainty in §8 ("honest uncertainty: the SVE2 diagnosis is strongly supported by circumstantial evidence but has not been definitively proven by opcode disassembly for this specific RunCoach crash"). Empirical testing is always the tiebreaker; this DEC records the empirical result and the strategic re-posture it forces.
+- Ship `DOTNET_EnableHWIntrinsic=0` as a hopeful mitigation — doesn't reliably clear the fault; 5–20% perf tax on x86_64 CI and healthy arm64 production (Graviton/Ampere).
+- Delete `backend/Dockerfile` — still the CI image-build path; will be the Apple-Silicon dev-loop path again on .NET 11.
+- Force Rosetta (`--platform=linux/amd64`) — fails separately on this Colima profile (SIGABRT 134); 1.5–3× CPU tax; hides real arm64 incompatibilities.
+- Pin an older SDK digest — flaw shipped in pre-GA PR #115117; older digests also lose CVE-2026-40372 (DataProtection HMAC bypass) fixed in 10.0.203.
+- `packages.lock.json` + `--locked-mode` + verify-container-restore harness (R-063 §6) — deferred as orthogonal workflow changes; Dockerfile comment + digest pins act as the manual-review gate for a solo-dev workflow.
 
 **Re-enablement trigger:**
 
-When Microsoft ships the first .NET 11 SDK (expected GA Q4 2026 per the dotnet/core roadmap):
-
-1. Bump both base image digests to the matching `.NET 11` tags.
-2. Run `docker build -f backend/Dockerfile backend/` on an Apple M4 / M5 host five times; expect all five to pass.
-3. Remove the "x86_64 Linux only" labelling in `CONTRIBUTING.md` Path A and in the Dockerfile comment; mark this DEC superseded with a reference to the replacement entry.
-4. Delete this DEC's workaround-log table — the R-063 artifact stays as historical record.
+When Microsoft ships the first .NET 11 SDK, bump both digests and build `backend/Dockerfile` on an Apple M4/M5 host five times. If all pass, lift the "x86_64 Linux only" labeling. Re-check triggers (SDK servicing releases, #122608 comments/labels/PRs, Colima/Lima CPU-feature-mask support, Apple VZ feature-mask API, Docker Desktop LinuxKit mask docs) are enumerated in the R-064 artifact §D.
 
 **Cross-references:**
 
-- `docs/research/artifacts/batch-20a-dotnet10-sdk-container-sigill-apple-silicon.md` — R-063 research artifact. Diagnosis is sound; the narrow-knob primary recommendation did not hold on the reference hardware; the strategic (a)+(c) recommendation (fix Path A + demote it) collapses to (c) alone for the duration of the .NET 10 line.
-- `docs/research/artifacts/batch-20b-sve2-sigill-second-opinion-verification.md` — R-064 second-opinion verification. All 15 candidate workarounds rejected on the reference hardware. See "Post-R-064 verification" supplement below.
-- `dotnet/runtime#122608` — upstream bug, milestone 11.0.0.
-- `dotnet/runtime#112605` — closed precursor (.NET 9 + M4 Max), same root cause pattern.
-- `dotnet/runtime#121787` — SME intrinsics work item, milestone 11.0 (confirms no .NET 10 SME knob surface exists).
-- `containers/podman#28312` — identical root-cause class on Podman Machine applehv, closed "not planned" 2026-03-17 per maintainer analysis.
-- DEC-045 — Aspire deferred to MVP-1; Compose + Tilt is the MVP-0 story. Path B was already the primary inner loop there; DEC-056 makes it the sole loop on Apple Silicon.
-- DEC-046 — SOPS + Postgres DataProtection + `dotnet user-secrets`. Path B's user-secrets setup (`ConnectionStrings:runcoach`, `Anthropic:ApiKey`) is the local dev posture DEC-046 already describes.
-- DEC-049 — host-config reload disabled on macOS arm64. Same kind of "macOS-arm64-specific .NET 10 papercut, worked around in repo rather than upstream" pattern; both get lifted on the .NET 11 bump.
-
-### Post-R-064 verification (2026-04-22)
-
-R-064 is a second-opinion research pass commissioned specifically to rule out that R-063 missed a deterministic workaround. Bottom line: **no deterministic workaround preserves the reference constraints** (Apple M4 Pro + Colima 0.10.1 default VZ profile + SDK 10.0.203, no Rosetta, no .NET 11 wait). Every one of 15 enumerated candidates was rejected with primary-source citations. Three findings change the mental model recorded above:
-
-1. **The env-var names were correct all along.** R-063's `DOTNET_EnableArm64Sve` / `_Sve2` are verbatim quotes from `src/coreclr/jit/jitconfigvalues.h` `RELEASE_CONFIG_INTEGER` entries on both `main` and `release/10.0`. The earlier empirical 5/5 FAIL wasn't a naming bug. The fault lives somewhere the env-var layer can't reach — most likely the `src/native/minipal/cpufeatures.c` detection probe (runs before CLRConfig is wired; no gate), or an SME2 instruction (no `DOTNET_EnableArm64Sme*` family exists in .NET 10 at all — it's a .NET 11 work item per `dotnet/runtime#121787`), or an R2R-compiled BCL method that already has SVE2 opcodes baked into disk. Disabling JIT-layer codegen doesn't reach any of those.
-2. **Podman is dead on this path too.** `containers/podman#28312` (pgib, 2026-03-17) was closed "not planned" — Podman Machine on applehv fails identically and the maintainers won't patch.
-3. **Apple VZ itself has no escape.** `developer.apple.com/documentation/virtualization` as of macOS 15/26 exposes no CPU-feature-mask API on `VZGenericPlatformConfiguration`. Lima's `cpuType` field is QEMU-only per `lima-vm#3486`. So "fix Colima default VZ to mask SVE2" is architecturally blocked — it would require an Apple-side API addition.
-
-**Partial escapes (documented, not adopted):**
-
-- **Docker Desktop ≥ 4.39** — the only primary-source-confirmed container runtime that masks the offending features at the LinuxKit layer (`docs.docker.com/desktop/release-notes/` 4.38.0 changelog for the Java-side analog; `docker/for-mac#7583` closed `status/3-fixed` `version/4.39.0`; corroborated by `containers/podman#28312` maintainer analysis). Reject as project posture because Docker Business licensing applies to orgs >250 employees or >$10M revenue, the telemetry posture is on-by-default, and the product is proprietary. Mentioned in CONTRIBUTING.md as an opt-in escape hatch if policy allows.
-- **Colima `--vm-type=qemu` + `cpuType.aarch64=cortex-a72`** — primary-source verified (`lima-vm#3032` maintainer guidance + `qemu-project.gitlab.io/qemu/system/arm/cpu-features.html`). Reject because HVF-accelerated QEMU aarch64 is materially slower than VZ for multi-core I/O, and the reference profile is Colima default VZ. Mentioned as a second opt-in escape hatch.
-
-**Defensive belt-and-suspenders landed:** an `ENV` block disabling every SVE/SVE2 knob enumerated in `jitconfigvalues.h` has been added to `backend/Dockerfile`. This is a no-op on x86_64 (the intended CI path) and does not clear the fault on arm64 (per the empirical 5/5 FAIL + R-064's analysis), but reduces JIT-side SVE2 emission surface if the image is ever accidentally built on arm64 — closes the one sub-path the env-var layer can reach, leaving the minipal-probe and R2R paths as the residual faults. Zero cost on the supported platform; small hedge against future regressions in an adjacent ISA class.
-
-**Re-check triggers (R-064 §D, 13 events):**
-
-1. `mcr.microsoft.com/dotnet/sdk:10.0.204` or `:10.0.108` pushed (expected ~2026-05-12 Patch Tuesday) — diff release notes for SVE / `cpufeatures.c` / #122608 mentions.
-2. New comment on `dotnet/runtime#122608`, especially from @AndyAyersMS or @kunalspathak.
-3. PR linked in #122608 Development panel, or any PR in `dotnet/runtime` referencing #122608, SVE2, `cpufeatures.c`, `PF_ARM_SVE2_INSTRUCTIONS_AVAILABLE`, `HWCAP2_SVE2`, or SME detection hardening on `main`, `release/10.0-staging`, or `release/10.0`.
-4. Revert or substantive follow-up of `dotnet/runtime#115117` (the regression-introducing PR).
-5. New label on #122608: `Servicing-consider`, `Servicing-approved`, or milestone change off `11.0.0`.
-6. `devblogs.microsoft.com/dotnet/dotnet-and-dotnet-framework-*-2026-servicing-updates` post for May/June/July 2026 listing a JIT/SIGILL or ARM64 fix.
-7. `mcr.microsoft.com/dotnet/sdk:10.0.300` or any `10.0.3xx` tag pushed (next minor-band SDK).
-8. `.NET 11 Preview 4+` pushed to `mcr.microsoft.com/dotnet/nightly/sdk` — confirm whether `cpufeatures.c` heuristic has been refined to prctl-tolerant actual-execution verification (analogous to OpenJDK JDK-8345296 pattern).
-9. New issue on `dotnet/runtime` filtered by `label:arm-sve` mentioning Apple M, Colima, Hypervisor.framework, or SME2.
-10. Maintainer-authored comment on `containers/podman#28312` or `docker/for-mac#7583` documenting the exact LinuxKit/seccomp mask applied in Docker Desktop 4.39 — would inform what Colima/Lima need to patch.
-11. New release of Colima or Lima documenting VZ CPU-feature masking or CPU-type override (watch `abiosoft/colima/releases` and `lima-vm/lima/releases`).
-12. Blog or release-notes post from Apple documenting a `Virtualization.framework` CPU-feature-mask API on macOS 26+.
-13. If constraints are ever relaxed: one `docker context use desktop-linux && dotnet restore RunCoach.slnx` × 10 pass confirms or refutes the Docker Desktop ≥ 4.39 claim on this exact repo.
-
-Re-running R-064 when any of the above fires is the mechanism by which DEC-056 un-demotes itself.
+- R-063: `docs/research/artifacts/batch-20a-dotnet10-sdk-container-sigill-apple-silicon.md`.
+- R-064: `docs/research/artifacts/batch-20b-sve2-sigill-second-opinion-verification.md`.
+- dotnet/runtime#122608 (upstream bug, milestone 11.0.0), #121787 (SME intrinsics, milestone 11.0), #112605 (closed .NET 9 precursor).
+- containers/podman#28312 (closed "not planned").
+- DEC-045, DEC-046, DEC-049.
 
 ---
 
