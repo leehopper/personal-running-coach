@@ -7,7 +7,8 @@ at `README.md`, `CLAUDE.md`, and `ROADMAP.md`.
 
 Frontend-specific developer setup — Vite dev server, `/api` proxy, mkcert
 escape hatch — is covered in the "Running the frontend" section below.
-Playwright page-level E2E lands later with T03.4.
+The Playwright happy-path E2E and its test-data hygiene recipe are in
+"Running the Playwright E2E" further down.
 
 ## Local HTTPS is required
 
@@ -337,6 +338,61 @@ If both endpoints look trusted but login still silently fails:
   drift.
 
 [mkcert]: https://github.com/FiloSottile/mkcert
+
+## Running the Playwright E2E
+
+Slice 0 ships one happy-path E2E (`frontend/e2e/auth.spec.ts`): register
+→ authenticated home → reload → logout → verify the `__Host-RunCoach`
+cookie is gone. It runs Chromium against the same stack you use for the
+browser — the backend on `https://localhost:5001`, the Vite dev server
+on `https://localhost:5173`.
+
+One-time setup:
+
+```bash
+cd frontend
+npx playwright install chromium
+```
+
+Each run:
+
+```bash
+# 1. Backend + Postgres + Redis running (Path B, from earlier section).
+# 2. In a second terminal:
+cd frontend
+npm run e2e
+```
+
+`playwright.config.ts`'s `webServer` entry starts the Vite dev server
+itself, so you do not need a running `npm run dev` — though if one is
+already up on :5173 it will be reused.
+
+### Test-data hygiene
+
+The test generates a fresh `e2e-<uuid>@runcoach.test` account on every
+run so re-runs never collide, neither with each other nor with real
+accounts you've registered while tinkering. The downside: orphan
+`e2e-*` rows accumulate in the dev Postgres over time. Flush them
+whenever:
+
+```bash
+cd frontend
+npm run e2e:clean
+```
+
+The script (`scripts/e2e-clean.sh`) runs `DELETE FROM "AspNetUsers"
+WHERE "NormalizedEmail" LIKE 'E2E-%@RUNCOACH.TEST';` against the
+compose Postgres. It touches nothing outside the `e2e-*` prefix, so
+it's safe to run on a dev DB with real accounts alongside.
+
+CI does not need this — the compose stack is ephemeral per job, so
+every run starts from an empty Postgres.
+
+This is the "unique identifier per run" posture, deliberately
+minimal for a foundation slice with a single E2E. Slice 1 and beyond
+may graduate to an environment-gated `_test/reset` endpoint or a
+dedicated e2e Postgres overlay once more flows need empty-DB
+assertions.
 
 ## Post-change checks
 
