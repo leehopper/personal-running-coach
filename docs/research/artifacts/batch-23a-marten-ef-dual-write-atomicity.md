@@ -1,6 +1,6 @@
 # Marten + EF Core 10 Dual-Write Atomicity Inside a Wolverine 5.x [AggregateHandler]
 
-**Artifact:** `docs/research/artifacts/batch-23a-marten-efcore-dual-write-atomicity.md`
+**Artifact:** `docs/research/artifacts/batch-23a-marten-ef-dual-write-atomicity.md`
 **Pinned versions:** Marten 8.28 · Marten.EntityFrameworkCore 8.28 · Wolverine 5.x (≥5.28) · WolverineFx.EntityFrameworkCore 5.x · Npgsql 9 · Postgres 17 · .NET 10 · EF Core 10
 **Research cutoff:** 2026‑04‑25
 **Closes:** R‑066 (batch‑22a‑wolverine‑aggregate‑handler‑transaction‑scope.md) parenthetical.

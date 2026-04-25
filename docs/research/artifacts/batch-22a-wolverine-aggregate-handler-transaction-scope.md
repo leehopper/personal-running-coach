@@ -2,7 +2,7 @@
 
 **Research ticket:** R-066 (RunCoach)
 **Stack pin:** .NET 10 · Wolverine 5.28 · Marten 8.28 · EF Core 10 (`Marten.EntityFrameworkCore`) · `Policies.AutoApplyTransactions()` · conjoined tenancy per user · xUnit v3 + AssemblyFixture + Testcontainers Postgres
-**Artifact path:** `research/artifacts/batch-22a-wolverine-aggregate-handler-invokeasync-transaction-scope.md`
+**Artifact path:** `docs/research/artifacts/batch-22a-wolverine-aggregate-handler-transaction-scope.md`
 
 ---
 
