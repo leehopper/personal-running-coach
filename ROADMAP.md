@@ -1,8 +1,8 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 0 (Foundation) — Unit 1 persistence substrate merged (PR #49, commit `46348fc`). Unit 2 (T02.x — Auth API) is in-flight on PR #50 — register / login / me / logout / xsrf endpoints with `CookieOrBearer` dual-scheme authorization, antiforgery double-submit (DEC-054), timing-safe login (DEC-053), Identity error → DTO-bucket translation (DEC-052), and the full integration-test matrix. Latest commit carries 638 passing / 0 failing / 0 skipped locally, with the SonarCloud coverage gate now satisfied (mapper + extension unit tests closed the 60.5% → ≥ 80% gap).
-**Next step:** Land PR #50, then begin Unit 3 (T03.x — Frontend Auth UX) with T03.0 (Vite HTTPS + `/api` proxy + CONTRIBUTING.md frontend half), then T03.1–T03.4 (RTK Query + LoginPage / RegisterPage + unit tests + Playwright happy-path). Unit 3 closes Slice 0 acceptance. DEC-044 (cookie-not-JWT browser auth), DEC-045 (Aspire deferred to MVP-1), DEC-046 (SOPS + Postgres-DataProtection secrets), DEC-047 (onboarding event-source pattern), DEC-052/053/054 (auth error / timing-safety / xsrf posture) remain the architectural anchors for subsequent slices.
+**Active slice:** Slice 1 (Onboarding → Plan) — next. Slice 0 (Foundation) closed 2026-04-23 with PR #63; the full register → login → protected home → logout loop runs against a real browser under `__Host-` cookies + antiforgery + CI green.
+**Next step:** Write the Slice 1 spec under `docs/specs/` from the requirements at `docs/plans/mvp-0-cycle/slice-1-onboarding.md`. All pre-spec research has landed — R-048 / DEC-047 (onboarding state + turn ownership), Batch 17 (R-051 Arize Phoenix self-hosted; R-052 migrate to first-party `Anthropic` 12.17.0 via `AsIChatClient`, retires DEC-037 bridge; R-053 thin M.E.AI.Evaluation multi-turn extension), and R-065 landed 2026-04-25 (build onboarding chat on shadcn/ui primitives + `motion/react` + RTK Query mutation; defer `assistant-ui` to Slice 4). Four new DEC entries expected from the spec session.
 **Blockers:** None.
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
@@ -16,7 +16,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - **"What should I work on?"** → active cycle plan (pointer above).
 - **"What's the active slice doing?"** → active slice spec under `docs/specs/` (pointer in cycle plan's Status section, once a slice is underway).
 - **"How does X work?"** → `docs/planning/{topic}.md` + the relevant module under `backend/src/RunCoach.Api/Modules/` or `frontend/src/app/modules/`.
-- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-047).
+- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-056).
 - **"Has this been researched?"** → `docs/research/research-queue.md` + `docs/research/artifacts/`.
 - **"What are the rules for code changes?"** → root `CLAUDE.md`, `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `REVIEW.md` files (root / backend / frontend).
 - **"I found an unknown — can I just pick one and move on?"** → No. See `CLAUDE.md` § Research Protocol and the active cycle plan's "When Agents Encounter Unknowns" section.
@@ -54,6 +54,7 @@ Chronological log of completed cycles / phases, most recent first. One line per 
 
 | Cycle / Phase | Completed | Primary Artifacts | Key Outcomes |
 |---|---|---|---|
+| MVP-0 Slice 0 — Foundation | 2026-04-23 | PRs #49 / #50 / #63; spec `docs/specs/12-spec-slice-0-foundation/` | Persistence substrate (EF + Marten + Wolverine), auth API (register / login / me / logout / xsrf on `CookieOrBearer` with antiforgery + timing-safe login + Identity-error → DTO-bucket mapping), and cookie-session frontend (RTK Query + React Hook Form + Zod + Playwright happy-path). DEC-048 through DEC-056 landed along the way. |
 | Spec 11 — TestPaceCalculator migration + VDOT residue scrub + eval cache re-record | 2026-04-18 | PR #45 | Closed both DEC-042 follow-ups: `TestPaceCalculator` bridge deleted and all four race-carrying profiles migrated to real `PaceZoneCalculator`; `FitnessEstimate.EstimatedVdot` → `EstimatedPaceZoneIndex`; `RaceTime` XML doc and four `AssessmentBasis` literals scrubbed; parameterized `ContextAssemblerTests` Theory guards full assembled prompt against VDOT regression for all 5 profiles; Sonnet + Haiku eval cache re-recorded. |
 | DEC-042 pure-equation pace-zone calculator + DEC-041 value objects | 2026-04-17 | PR #44; `batch-11`, `batch-12a-g`, `batch-13` research | Replaced Daniels lookup table with `DanielsGilbertEquations` + `PaceZoneCalculator`; `VdotCalculator` → `PaceZoneIndexCalculator`; `Distance`/`Pace`/`PaceRange` value objects; eval cache re-recorded. |
 | OSS quality tooling restoration (DEC-043) | 2026-04-15 | `docs/specs/09-spec-oss-tooling-restoration/`; `batch-14a-h` research | CodeRabbit / CodeQL / SonarQube Cloud / license-compliance pipeline; `main-protection` ruleset; one-authority-per-signal partitioning. |
