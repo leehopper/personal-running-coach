@@ -1,8 +1,8 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 1 (Onboarding → Plan) — next. Slice 0 (Foundation) closed 2026-04-23 with PR #63; the full register → login → protected home → logout loop runs against a real browser under `__Host-` cookies + antiforgery + CI green.
-**Next step:** Write the Slice 1 spec under `docs/specs/` from the requirements at `docs/plans/mvp-0-cycle/slice-1-onboarding.md`. All pre-spec research has landed — R-048 / DEC-047 (onboarding state + turn ownership), Batch 17 (R-051 Arize Phoenix self-hosted; R-052 migrate to first-party `Anthropic` 12.17.0 via `AsIChatClient`, retires DEC-037 bridge; R-053 thin M.E.AI.Evaluation multi-turn extension), and R-065 landed 2026-04-25 (build onboarding chat on shadcn/ui primitives + `motion/react` + RTK Query mutation; defer `assistant-ui` to Slice 4). Four new DEC entries expected from the spec session.
+**Active slice:** Slice 1 (Onboarding → Plan) — implementation-ready. Spec at `docs/specs/13-spec-slice-1-onboarding/` (six demoable units) + 31 tasks on the board (#84–#115 with dependency edges wired). All pre-implementation research integrated (DEC-057 through DEC-060). Slice 0 closed 2026-04-23 with PR #63.
+**Next step:** Begin Slice 1 implementation. Four unblocked atomic tasks ready for parallel dispatch: #89 UserProfile entity, #90 Marten-document idempotency, #91 onboarding events (8 records incl. `PlanLinkedToUser`) + Pattern B records + prompt YAML, #115 sanitizer + 25-case corpus. Architectural rules locked: single-handler / single-Marten-session pattern (DEC-057), Pattern B structured-output schema (DEC-058), layered containment-first sanitizer (DEC-059), handler bodies emit events / projections own EF state (DEC-060).
 **Blockers:** None.
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.

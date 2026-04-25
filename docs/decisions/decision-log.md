@@ -1788,4 +1788,233 @@ When Microsoft ships the first .NET 11 SDK, bump both digests and build `backend
 
 ---
 
+## DEC-057: Single-handler / single-session / single-transaction pattern for atomic multi-step pipelines (Wolverine + Marten)
+
+**Date:** 2026-04-25 (resolved during Slice 1 spec-writing).
+**Status:** Final.
+**Category:** Backend architecture / Slice 1 / Wolverine
+**Informed by:** R-066 (`docs/research/artifacts/batch-22a-wolverine-aggregate-handler-transaction-scope.md`) — primary-source verification against `wolverine release/5.x` source.
+
+**Decision:** When a Wolverine handler must do multi-step work atomically across an aggregate event append + a downstream pipeline within one HTTP request, **express the entire pipeline in a single handler body using one injected `IDocumentSession`**. The downstream pipeline is a plain DI service (NOT a Wolverine command, NOT invoked via `IMessageBus.InvokeAsync<T>`). Plan generation in Slice 1 ships as `IPlanGenerationService` returning events; the caller (`OnboardingTurnHandler` for initial generation, `RegeneratePlanHandler` for regeneration) stages those events on its own session via `session.Events.StartStream<Plan>(planId, events)` so they commit atomically with the caller's other writes. `OnboardingCompleted` is appended LAST in Unit 1's handler — the transaction-closing event.
+
+**Root cause of the original spec defect:**
+
+R-066 traced `IMessageBus.InvokeAsync<T>` against `wolverine release/5.x` source and confirmed: each invocation triggers a fresh execution of the handler pipeline through `IMessageInvoker`, which in `Wolverine.Marten` calls `OutboxedSessionFactory.OpenSession(messageContext)` — opening a brand-new `IDocumentSession` and brand-new Postgres transaction. The inner handler's `SaveChangesAsync` runs at handler exit, **before** the outer handler's `SaveChangesAsync`. Outer transaction rollback does NOT roll back the inner because the inner already committed. The asymmetric failure mode — inner succeeds, outer rolls back, half-state leaked into the database with no automatic compensation — is the dangerous direction. Wolverine's official Sagas docs warn explicitly: *"Do not call IMessageBus.InvokeAsync() within a Saga related handler … you will be acting on old or missing data."*
+
+**Canonical 2026 pattern:**
+
+- For Marten document/stream writes, return `IMartenOp` side effects (`MartenOps.StartStream`, `MartenOps.Store`) or yield events from the handler body.
+- For outgoing messages that should fire after commit, return them as cascading messages via `OutgoingMessages` — Wolverine's outbox commits them in the same Postgres TX as the events.
+- For HTTP responses, use `(ResponseDto, OutgoingMessages)` tuple returns.
+- For multi-step pipelines that must be atomic with the event append, **do the work inline in the handler body** — extract orchestration to plain DI services that return events and never call `SaveChangesAsync`.
+- For genuinely retriable multi-step workflows that need state between steps, use a Wolverine Saga (each step is its own transaction with compensating actions).
+
+**What shipped in Slice 1 spec:**
+
+- Unit 2: `IPlanGenerationService` is a plain DI service (NOT `[WolverineHandler]`). Returns `IReadOnlyList<object>` of events. Never calls `SaveChangesAsync`.
+- Unit 1: `OnboardingTurnHandler` (`[AggregateHandler]`) does everything atomically — onboarding event append + (terminal-branch) plan generation via `IPlanGenerationService` + `session.Events.StartStream<Plan>(planId, planEvents)` + EF `UserProfile.CurrentPlanId` update + `OnboardingCompleted` last.
+- Unit 5: `RegeneratePlanHandler` is a regular `[WolverineHandler]` (no aggregate to fetch since regeneration creates a new Plan stream). Same single-handler pattern: load `UserProfile` + `OnboardingView`, call `IPlanGenerationService.GeneratePlanAsync(...)`, stage Plan stream + EF write, all in one transaction.
+- Empirical proof tests: `InvokeAsyncTransactionScopeTests` (Unit 1) + `RegenerateTransactionScopeTests` (Unit 5) stub the service to throw on the 4th meso call and assert no half-state lands in Marten or EF.
+- Concurrency policy: `opts.Policies.OnException<Marten.Exceptions.ConcurrencyException>().MoveToErrorQueue()` so concurrent submissions surface as 409 Conflict rather than silently re-running 6 LLM calls.
+
+**Slice 4 async-flip implications:**
+
+The original spec assumed Slice 4's async UX was a one-line call-site flip from `InvokeAsync` to `PublishAsync`. **Wrong.** Per R-066, the migration is a real shape change:
+- Handler split: `OnboardingTurnHandler` returns `OnboardingCompleted(planId: null)` immediately + a cascading `GeneratePlanCommand` in `OutgoingMessages`; new `GeneratePlanHandler` runs the inline pattern with retry-via-Wolverine error policies.
+- Frontend: optimistic-redirect skeleton + RTK Query cache-tag invalidation + "plan being built" home-page state with polling/SignalR notification.
+- Estimate: ~½ day backend + frontend skeleton work. Captured as a cycle follow-up with trigger criteria.
+
+**Alternatives considered (and rejected):**
+
+- ~~`GeneratePlanCommand` Wolverine command + `[WolverineHandler]` invoked via `IMessageBus.InvokeAsync<T>`~~ — original spec design; broken by R-066.
+- Marten's `MartenOps.PublishMessage(cmd)` returned in `OutgoingMessages` — works for fire-and-forget cross-handler dispatch (atomic with outer TX) but is one-way; loses synchronous `planId` response. Right tool for Slice 4's async UX, wrong tool for Slice 1's sync UX.
+- Wolverine Saga — overkill for one HTTP request; saga state + compensating actions add ceremony with no atomicity benefit when the work is request-scoped serial.
+- Manual `session.SaveChangesAsync()` between sub-steps — explicitly discouraged by Wolverine docs; drops outbox enrollment and breaks transactional middleware brackets.
+
+**Cross-references:**
+
+- R-066: `docs/research/artifacts/batch-22a-wolverine-aggregate-handler-transaction-scope.md`.
+- DEC-047: onboarding state pattern (separate Marten stream + EF projection) — DEC-057 corrects the cross-handler wiring within DEC-047's overall design.
+- DEC-048: `IntegrateWithWolverine()` is the sole envelope-storage wiring path — unchanged.
+- Wolverine docs: `wolverinefx.net/guide/durability/marten/transactional-middleware`, `…/event-sourcing.html`, `…/sagas.html`.
+
+---
+
+## DEC-058: Pattern B for Anthropic structured-output schemas with topic / kind / intent discriminators
+
+**Date:** 2026-04-25 (resolved during Slice 1 spec-writing).
+**Status:** Final.
+**Category:** LLM integration / Slice 1 / Anthropic structured outputs
+**Informed by:** R-067 (`docs/research/artifacts/batch-22b-anthropic-discriminated-structured-output.md`) — verified against Anthropic primary docs and SDK source 2026-04-25.
+
+**Decision:** For LLM-call sites that return a typed payload whose shape depends on a discriminator (topic / kind / intent), use **a single byte-stable JSON Schema with N nullable typed slots + a discriminator enum**, and validate "exactly one non-null slot matches the discriminator" backend-side. Pattern B applies cycle-wide: Slice 1 onboarding (`OnboardingTurnOutput` with six `Normalized*` slots + `Topic`), Slice 3 adaptation (`PlanAdaptedFromLog` payload by `AdaptationKind`), Slice 4 conversation intent classification (`{intent, payload}`), and future workout-log auto-extraction. Schema is generated once at startup via `AIJsonUtilities.CreateJsonSchema` and held in `static readonly` fields; an `AnthropicSchemaSanitizer` post-processes the dictionary to strip any forbidden keywords.
+
+**Verified Anthropic constrained-decoding capability matrix (2026-04-25):**
+
+- **Supported:** `object`, `array`, primitives, `enum`, `const`, `required`, `additionalProperties: false`, nested objects, `$ref`/`$defs`, `["T", "null"]` nullable unions, `anyOf` (counts against 16-union budget).
+- **Rejected with HTTP 400:** `oneOf`, `allOf`, `if/then/else`, `not`, `prefixItems`, `minimum/maximum/exclusive*`, `minLength/maxLength`, `pattern`, `format`, `minItems/maxItems`, `uniqueItems`, `minProperties/maxProperties`, recursive schemas.
+- **Hard limits:** 24 optional parameters across all strict schemas, 16 union-typed parameters, 180 s compilation timeout, 100–300 ms first-request grammar compile, 24h compiled-grammar cache TTL.
+- **Cache invalidation rule (decisive):** *"Changing the `output_config.format` parameter will invalidate any prompt cache for that conversation thread."* (Anthropic docs verbatim.) `output_config.format.schema` participates in BOTH the 24h compiled-grammar cache AND the 1h prompt-prefix cache.
+
+**Why Pattern B (single schema, six nullable typed slots + discriminator) wins:**
+
+- Pattern A (loose `object`-typed slot + backend coercion): loses constrained-decoding correctness — the LLM can return any JSON shape and we type-coerce. **Rejected.**
+- Pattern B (single schema, all six topic shapes as nullable typed properties + discriminator enum): cache-stable across all 6 turns; type-safe in C# (no `object`); within complexity budget (6 unions ≪ 16); minimal code (one handler, one schema, one eval fixture).
+- Pattern C (per-topic endpoint with per-topic schema): six independent schemas → six independent prefix caches. Topic switching = full miss. Onboarding's call pattern is "new topic per turn" so cache utilization degrades to ~0%. **Rejected.**
+- Pattern D (dynamic schema per turn): every turn writes a new grammar entry AND invalidates the conversation cache. ~0% cache utilization. **Rejected** by DEC-047's prompt-cache mandate.
+
+**What shipped in Slice 1 spec:**
+
+- `OnboardingTurnOutput` record with six nullable typed `Normalized*` slots + `Topic` discriminator + closed per-topic answer records (no `object` fields).
+- `OnboardingSchema.Frozen` static schema dictionary built once at startup via `AIJsonUtilities.CreateJsonSchema(typeof(OnboardingTurnOutput), ...)` with `IncludeSchemaKeyword = false`, `DisallowAdditionalProperties = true`, `RequireAllProperties = true`.
+- `AnthropicSchemaSanitizer` defense-in-depth post-process that strips any forbidden keywords (`pattern`, `format`, `min*`, `max*`, `oneOf`, `allOf`, `if`, `then`, `not`, `prefixItems`, `uniqueItems`) before sending. Regression-tested.
+- `OnboardingTurnOutputValidator` enforcing the **Pattern-B-Invariant**: exactly one `Normalized*` slot non-null AND it matches `Extracted.Topic`. On violation: retry the turn once with stronger discriminator instruction; on second violation, emit `ClarificationRequested` and return control to the user.
+- Topic placement: `Current topic: TargetEvent` placed in the user message, NOT the system prompt. Keeps system prompt byte-stable across topics; preserves `tools → system → messages` cache hierarchy.
+- Pattern catalog for downstream slices (Slice 3 / Slice 4 / future workout-log auto-extraction): inherits Pattern B encoding verbatim with the same complexity-budget guardrails.
+- Numerical bounds (e.g., `MaxRunDaysPerWeek` 1–7, `Confidence` 0.0–1.0) documented in the system prompt and `[Description]` attributes; NOT enforced via `minimum/maximum` (Anthropic rejects with HTTP 400).
+- Eval-cache key derivation includes a hash of `OnboardingSchema.Frozen` bytes so re-record runs catch schema drift.
+
+**SDK ergonomics gap:**
+
+The first-party `Anthropic` NuGet 12.17.0 (Stainless-generated) does NOT auto-strip unsupported schema keywords like the Python/TS/Ruby/PHP SDKs do. We must — hence `AnthropicSchemaSanitizer`. SDK is in beta; pin tightly and treat any minor bump as non-trivial because Stainless regenerates types from the OpenAPI spec.
+
+**API + SDK pins:**
+
+- `anthropic-version: 2023-06-01` (default; never override).
+- Do NOT send `anthropic-beta: structured-outputs-2025-11-13` — structured outputs are GA.
+- `Anthropic` NuGet 12.17.0; treat minor bumps as non-trivial.
+- Model: `claude-sonnet-4-6`. Avoid Claude 3.7 Sonnet's extended-thinking mode + structured outputs (incompatible). Field-reported empty-content intermittence on Opus 4.6 + `output_config` json_schema → prefer Sonnet for onboarding.
+
+**Migration trigger if Anthropic ships native `oneOf`:**
+
+Do NOT migrate immediately. Pattern B is correct, type-safe, and cache-stable; migrating would invalidate every cache for the Slice 1, 3, 4, and auto-extraction subsystems simultaneously plus require eval-fixture rewrites. Defer until a planned schema-revision window.
+
+**Cross-references:**
+
+- R-067: `docs/research/artifacts/batch-22b-anthropic-discriminated-structured-output.md`.
+- DEC-042: structural-not-description discipline (named day slots vs. arrays) — DEC-058 extends the structural discipline to discriminated unions.
+- DEC-047: prompt-cache mandate — DEC-058's schema-byte stability is what makes DEC-047 hit the cache.
+- DEC-052: first-party `Anthropic` NuGet via `AsIChatClient` — unchanged.
+- Anthropic docs: `platform.claude.com/docs/en/build-with-claude/structured-outputs`, `…/prompt-caching`, `…/api/sdks/csharp`.
+
+---
+
+## DEC-059: Layered, containment-first `IPromptSanitizer` for LLM-coaching free-text inputs
+
+**Date:** 2026-04-25 (resolved during Slice 1 spec-writing).
+**Status:** Final.
+**Category:** Security / Slice 1 / LLM integration
+**Informed by:** R-068 (`docs/research/artifacts/batch-22c-prompt-injection-mitigation-dotnet.md`) — verified against OWASP LLM Top 10 2025, Microsoft Spotlighting paper, Anthropic Constitutional Classifiers research, and the .NET ecosystem 2026-04-25.
+
+**Decision:** Implement an `IPromptSanitizer` abstraction in `Modules/Coaching/Sanitization/` that runs three layered tiers — Unicode normalization (always neutralize), regex pattern catalog (log-only at MVP-0 except DAN-family on `CurrentUserMessage`), and Spotlighting containment delimiters (`<SECTION_NAME id="{nonce}">…</SECTION_NAME>`) — invoked **inside `ContextAssembler` per-section** (NOT as a uniform `DelegatingChatClient`). A `data_handling` directive at the END of each system prompt block (`coaching-v1.yaml`, `onboarding-v1.yaml`) tells Claude to treat delimited content as data, not commands. A thin outer `SanitizationAuditChatClient` runs in the M.E.AI pipeline for OTel rollup span emission (`openinference.span.kind = "GUARDRAIL"`).
+
+**Why this shape:**
+
+- **Microsoft.Extensions.AI 10.5.0 does NOT ship `IPromptSanitizer`.** The .NET ecosystem has no mature equivalent on NuGet (verified 2026-04-25): no `LLMGuard.NET`, no `Rebuff.NET`, no `PromptShield.NET`. Hand-roll ~300 LOC is cheaper than integrating Azure AI Content Safety (cost-prohibitive cloud round-trip per turn) or Microsoft Presidio (Python container, REST-called).
+- **Anthropic's upstream layers handle most categories already.** Constitutional AI training reduces direct-override compliance ~95%+. The typed `system` parameter cleanly separates instructions from data. Constrained decoding neutralizes all schema-shape attacks at the token-decoding layer. The sanitizer's *unique* job is: (1) Unicode-tag and zero-width stripping (Anthropic does NOT deterministically catch), (2) deterministic auditable handling of the highest-frequency direct-injection patterns, (3) containment delimiters at section boundaries.
+- **Microsoft Spotlighting alignment.** Per Microsoft Research (arXiv 2403.14720), delimiters + system-prompt instruction together reduce indirect-injection ASR from >50% to <2% on GPT-family models. Either alone gives modest reduction. RunCoach uses both.
+- **Section-aware policy** (per-section table in spec § Unit 6) is required because each section has a different policy + delimiter; uniform middleware over the assembled `messages[]` cannot make per-section decisions without unparsing the assembled prompt.
+
+**MVP-0 posture (what shipped):**
+
+- **Always neutralize** (deterministic): U+E0000–U+E007F tag block + zero-width chars U+200B–U+200F, U+2060–U+2064, U+FEFF. Single regex with 50 ms `MatchTimeout` (ReDoS guard).
+- **12-pattern regex catalog** (PI-01 through PI-12): direct-override (`ignore previous instructions`), persona injection (`act as DAN/STAN/AIM`), system-prompt-leak triggers, role-spoof tokens, `new instructions:`, Base64-shaped (advisory). Sources cited from OWASP Cheat Sheet, Lakera Gandalf, ProtectAI Rebuff, Shen et al. CCS '24. Patterns explicitly do NOT include standalone `\bignore\b` (highest false-positive trigger — "ignore my last race"). All patterns use `\s+` (not literal space), `RegexOptions.IgnoreCase | CultureInvariant | Compiled`, 50 ms timeout.
+- **Per-section policy:** light catalog (PI-07 only) on short proper-noun sections (`UserProfile_Name`, `GoalState_RaceName`); full catalog log-only on free-text sections; full catalog + neutralize PI-04/PI-05/PI-06 (DAN family) on `CurrentUserMessage` only — DAN templates have ~zero false-positive risk in a running context.
+- **Containment delimiters:** every user-controlled section wrapped in `<SECTION_NAME id="{nonce}">…</SECTION_NAME>`. The per-turn `id` nonce is the only non-deterministic element; appended on the non-cached tail to preserve cache prefix stability. Determinism is load-bearing for Anthropic's prefix-hash cache.
+- **System-prompt addendum:** `data_handling` section at the END of each system prompt block telling Claude to treat delimited content as data.
+- **Audit:** `runcoach.llm.sanitization` child span on `RunCoach.Llm` ActivitySource. Attributes: `findings_count`, `findings` JSON array of `{section, patternId, stripped}` (PII-free by construction — no original content), `policy_version`, `openinference.span.kind = "GUARDRAIL"`. Original input strings live in Marten event-stream storage scoped per tenant.
+- **Validation corpus:** 25 xUnit cases (~20 jailbreaks the sanitizer must flag + ~5 false-positive guards the sanitizer must NOT flag). Sources cited per case (Lakera Gandalf, Rebuff, OWASP, DAN templates, Cisco Unicode-tag research, Trend Micro invisible-injection research). Runs in <100 ms with no network calls.
+
+**MVP-1 hardening triggers (any one fires the upgrade):**
+
+- **R-068-T1 telemetry:** `runcoach.sanitization.findings_count > 0` on > 1% of turns over a 7-day rolling window → integrate ProtectAI deberta-v3-base ONNX classifier (~83 MB INT8, ~100 ms CPU inference) on `CurrentUserMessage` / `RegenerationIntent_FreeText` / `WorkoutNote`.
+- **R-068-T2 single-incident:** any successful exfiltration of system-prompt content, cross-user content leak, or coach reply containing trademark-conflicting terminology ("VDOT") → immediate (same-day) ONNX classifier integration.
+- **R-068-T3 second-human:** first non-builder tester granted access → promote PI-04/PI-05/PI-06 from log-only to neutralize-mode for all free-text sections; bump `policy_version` to v1.1.0.
+- **R-068-T4 FTC HBNR escalation:** if injury notes start qualifying as covered health data per R-049 (DEC-046) → Microsoft Presidio (Python container, REST-called from .NET) becomes mandatory before any data export.
+
+**Alternatives considered (and rejected):**
+
+- ~~Microsoft.Extensions.AI built-in sanitizer~~ — does not exist as of M.E.AI 10.5.0.
+- Azure AI Content Safety SDK (Prompt Shields) — cost-prohibitive cloud round-trip per turn at MVP-0 scale; architecturally awkward (RunCoach is Anthropic-only, no Azure dependency). Reasonable MVP-1 hardening option if business requirements push that direction.
+- Microsoft Presidio at MVP-0 — Python service, ~50 ms latency + ~150 MB memory. Designed for PII redaction (separate concern). Defer to pre-public-release.
+- ONNX DeBERTa classifier at MVP-0 — 83 MB model + ~100 ms CPU inference. Bypass research (arXiv 2504.11168) shows ~93% bypass success against this exact model under character-injection attacks. Plus English-only false-positives on multi-lingual content. Defer to MVP-1 hardening.
+- LLM-as-classifier tier (Claude Haiku 4.5) — cost is not the issue ($0.0001/turn); latency (~300 ms second round-trip) and cache-prefix complexity are. Defer to pre-public-release if at all.
+- Uniform `DelegatingChatClient` over `ICoachingLlm` — cannot make per-section decisions; would need to unparse the assembled prompt. Rejected in favor of in-`ContextAssembler` invocation.
+
+**Cross-references:**
+
+- R-068: `docs/research/artifacts/batch-22c-prompt-injection-mitigation-dotnet.md`.
+- DEC-047: prompt-cache mandate — DEC-059's per-turn nonce on the non-cached tail preserves prefix stability.
+- DEC-058: structured outputs — neutralizes schema-shape attacks; DEC-059 covers the content-side surface that constrained decoding can't.
+- OWASP LLM Top 10 2025 — `genai.owasp.org/llmrisk/llm01-prompt-injection/`.
+- Microsoft Spotlighting paper — arXiv 2403.14720.
+- Anthropic Constitutional Classifiers research — `anthropic.com/research/constitutional-classifiers`.
+
+---
+
+## DEC-060: Handler bodies emit events; EF state is owned by `EfCore*Projection` apply methods (Marten + EF dual-write atomicity)
+
+**Date:** 2026-04-25 (resolved during Slice 1 spec-writing — closes R-066 §3 parenthetical).
+**Status:** Final.
+**Category:** Backend architecture / Slice 1 / Marten + Wolverine + EF Core
+**Informed by:** R-069 (`docs/research/artifacts/batch-23a-marten-ef-dual-write-atomicity.md`) — primary-source verification against Wolverine 5.x source + Marten.EntityFrameworkCore 8.23+ docs + Jeremy Miller blog (project maintainer).
+
+**Decision:** Inside any Wolverine `[AggregateHandler]` (or any Wolverine handler that uses Marten's `IDocumentSession`) body, the only persistence side effect permitted is **appending events to Marten streams** — via `IEventStream<T>.AppendOne/AppendMany`, `MartenOps.StartStream`, or returning events / `IEnumerable<object>`. **Direct mutations of EF entities via `RunCoachDbContext` are forbidden in handler bodies.** EF state is updated only inside `EfCore*Projection` apply methods (`EfCoreSingleStreamProjection<TDoc, TId, TDbContext>`, `EfCoreMultiStreamProjection<TDoc, TId, TDbContext>`, `EfCoreEventProjection<TDbContext>`), which run as Marten transaction participants on the same `NpgsqlConnection` as the active session — atomic by construction.
+
+When a handler needs to update both Marten events and an EF entity (e.g., `UserProfile.CurrentPlanId` after a Plan stream is started), express the EF mutation as a **link event** appended to a Marten stream that the relevant `EfCore*Projection` consumes. For Slice 1 onboarding: `PlanLinkedToUser(UserId, PlanId)` is appended to the onboarding stream; `UserProfileFromOnboardingProjection` applies it by setting `snapshot.CurrentPlanId = linked.PlanId`. The pattern generalizes to Slice 3 (`PlanAdaptationRecorded` → `UserProfile.LastAdaptationAt`) and Slice 4 (`ConversationTurnRecorded` → `UserProfile.LastChatAt`).
+
+**Root cause R-069 closed:**
+
+Wolverine 5.x composes `MartenEnvelopeTransaction` + `EfCoreEnvelopeTransaction` as independent `IEnvelopeTransaction` implementations. The generated handler with both stores injected opens TWO `NpgsqlConnection` objects, runs TWO `BEGIN`/`COMMIT` blocks, and commits them sequentially: Marten first, EF second. Failure between the two awaits (concurrency, network blip, `OperationCanceledException`) leaves Marten committed but EF rolled back — exactly the asymmetric half-state DEC-057's single-handler/single-session pattern was meant to prevent. Wolverine docs explicit: *"Wolverine does not support any kind of 2 phase commits."*
+
+**Why Option 1 (event-driven EF projection) wins:**
+
+- **Atomicity by construction.** Marten.EntityFrameworkCore docs verbatim: *"Create a per-slice DbContext using the same PostgreSQL connection as the Marten session. Register a transaction participant so the DbContext's `SaveChangesAsync` is called within Marten's transaction, ensuring atomicity."* The EF write happens inside Marten's `SaveChangesAsync` on Marten's connection.
+- **Single handler / single session preserved.** DEC-057's rule stays intact — handlers depend only on `IDocumentSession` (and per-method `IEventStream<T>` for `[AggregateHandler]`).
+- **Future async-flip is a one-line config.** Flipping `UserProfileFromOnboardingProjection` from `ProjectionLifecycle.Inline` to `Async` doesn't change any handler code — eventual-consistency semantics propagate cleanly without disturbing transaction boundaries.
+- **Pattern is documented and shipping.** `EfCoreSingleStreamProjection<TDoc, TId, TDbContext>` is GA in Marten 8.23+; current pin Marten 8.28 ships it.
+
+**Why Option 2 (shared-connection mode for arbitrary handler-body writes) was rejected:**
+
+Marten.EntityFrameworkCore 8.x's shared-connection participant is internal to `EfCore*Projection` types only — it is NOT exposed for arbitrary DI-resolved `DbContext` services injected into handler bodies. Implementing it manually via `dbContext.Database.UseTransactionAsync(session.Connection.BeginTransaction())` reaches into Marten internals, fights Marten 7+'s "auto-close" connection lifecycle, is undocumented for ad-hoc handler use, and has no GA support path. Marten 9 might add a public API; not relied upon.
+
+**Why Option 3 (accept window + reconciliation IHostedService) was rejected:**
+
+Operational complexity (orphan-detection query + on-call playbook + race conditions between the job and live writes) outweighs the small ergonomic cost of expressing the link as an event. Eventual consistency at write time is also a step backward for Slice 1's all-or-nothing failure-mode tests.
+
+**What shipped in Slice 1 spec:**
+
+- New event type `PlanLinkedToUser(Guid UserId, Guid PlanId)` declared on the onboarding stream.
+- `UserProfileFromOnboardingProjection` updated to the `EfCoreSingleStreamProjection<UserProfile, Guid, RunCoachDbContext>` 3-type-param API (Marten 8.23+) with `ApplyEvent(UserProfile? snapshot, Guid userId, IEvent @event, RunCoachDbContext dbContext, IQuerySession session)` override containing the new apply branch.
+- `OnboardingTurnHandler` signature changed: `RunCoachDbContext` removed; handler depends only on `IEventStream<OnboardingView>` + `IDocumentSession` + plain DI services.
+- Handler body sequence (terminal branch): pre-terminal events → `MartenOps.StartStream<Plan>(planId, planEvents)` → `PlanLinkedToUser(userId, planId)` → `OnboardingCompleted(planId)` (last). All committed atomically via Marten's `SaveChangesAsync` at handler exit.
+- Same shape in Unit 5's `RegeneratePlanHandler`: regenerate emits a *fresh* `PlanLinkedToUser` event on the onboarding stream pointing at the new plan, plus the `Plan` stream itself.
+- `IIdempotencyStore` repositioned: implemented as a Marten document write (`session.Store(new IdempotencyMarker(...))`), NOT an EF table — atomic with the events. Spec records this as the canonical pattern; alternative is Wolverine's built-in envelope idempotency, deferred to impl-time evaluation.
+- Regression tests (`InvokeAsyncTransactionScopeTests`, `RegenerateTransactionScopeTests`) updated to assert: NO `OnboardingCompleted`, NO `PlanLinkedToUser`, NO orphan Plan stream, NO `UserProfile.CurrentPlanId` set.
+- Architectural rule documented in spec § Repository Standards as a Slice-1+ enforcement: handler bodies emit events; EF state is projection-owned.
+
+**Audit checklist for handler implementations:**
+
+1. `grep` Slice 1 handler files for `RunCoachDbContext` injected as a method or constructor parameter on any `[AggregateHandler]` / `[Transactional]` class. Each occurrence is a violation of DEC-060.
+2. `grep` for `db.SaveChangesAsync` / `dbContext.SaveChangesAsync` / `RunCoachDbContext.*Add(` / direct EF mutations inside handler-body files. Should be zero.
+3. Add a unit test that walks the `Wolverine.Configuration.HandlerChain` for the onboarding command and asserts the chain contains Marten's transaction frames but NOT EF Core's transaction frames. Wolverine exposes this via `dotnet run -- codegen preview`.
+4. For each EF entity field that needs runtime-dependent updates: identify the responsible Marten stream + projection; add an apply branch.
+
+**Slice 3 / Slice 4 implications:**
+
+- **Slice 3:** Adaptation handler emits `PlanAdaptedFromLog` events on the Plan stream + a `PlanAdaptationRecorded(UserId, At)` event on the onboarding stream (or a multi-stream projection identity-keyed on `UserId`). `UserProfileFromOnboardingProjection` (or a sibling `UserProfileFromActivityProjection`) applies the activity timestamp.
+- **Slice 4:** Conversation handler emits `ConversationTurnRecorded` events on a `Conversation` stream; `UserProfileFromActivityProjection : EfCoreMultiStreamProjection<UserProfile, Guid, RunCoachDbContext>` (with `Identity<ConversationTurnRecorded>(e => e.UserId)`) updates `UserProfile.LastChatAt`. Projection runs `ProjectionLifecycle.Async` for chat-scale frequency — eventual consistency on the read model is fine; events stay atomic with the handler.
+- The architectural rule — handler bodies emit events; projections own EF state — covers all three slices and never has to reason about cross-store atomicity.
+
+**Cross-references:**
+
+- R-069: `docs/research/artifacts/batch-23a-marten-ef-dual-write-atomicity.md`.
+- R-066: `docs/research/artifacts/batch-22a-wolverine-aggregate-handler-transaction-scope.md` — DEC-060 closes the §3 parenthetical R-066 explicitly flagged as out-of-scope.
+- DEC-047: onboarding state pattern (separate Marten stream + EF projection) — DEC-060 corrects the EF-side wiring inside DEC-047's overall design.
+- DEC-057: single-handler / single-session / single-transaction pattern — DEC-060 strengthens it (handlers depend on `IDocumentSession` only, NOT also on `RunCoachDbContext`).
+- Marten EF Core Projections docs: `martendb.io/events/projections/efcore.html` (verified 2026-04-25).
+- Wolverine docs: `wolverinefx.net/guide/durability/` (no 2PC), `wolverinefx.net/guide/durability/efcore/outbox-and-inbox.html`.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
