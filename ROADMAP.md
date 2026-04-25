@@ -2,7 +2,7 @@
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
 **Active slice:** Slice 1 (Onboarding → Plan) — next. Slice 0 (Foundation) closed 2026-04-23 with PR #63; the full register → login → protected home → logout loop runs against a real browser under `__Host-` cookies + antiforgery + CI green.
-**Next step:** Write the Slice 1 spec under `docs/specs/` from the requirements at `docs/plans/mvp-0-cycle/slice-1-onboarding.md`. R-048 / DEC-047 pre-resolved the state-persistence and turn-ownership shape; Batch 17 research (R-051 / R-052 / R-053) should be reviewed or kicked off before the spec lands.
+**Next step:** Write the Slice 1 spec under `docs/specs/` from the requirements at `docs/plans/mvp-0-cycle/slice-1-onboarding.md`. All pre-spec research has landed — R-048 / DEC-047 (onboarding state + turn ownership), Batch 17 (R-051 Arize Phoenix self-hosted; R-052 migrate to first-party `Anthropic` 12.17.0 via `AsIChatClient`, retires DEC-037 bridge; R-053 thin M.E.AI.Evaluation multi-turn extension), and R-065 landed 2026-04-25 (build onboarding chat on shadcn/ui primitives + `motion/react` + RTK Query mutation; defer `assistant-ui` to Slice 4). Four new DEC entries expected from the spec session.
 **Blockers:** None.
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
