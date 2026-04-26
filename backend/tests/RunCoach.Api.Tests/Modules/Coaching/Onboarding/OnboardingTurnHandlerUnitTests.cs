@@ -659,7 +659,7 @@ public class OnboardingTurnHandlerUnitTests
                     Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
                     Arg.Any<CacheControl?>(),
                     Arg.Any<CancellationToken>())
-                .Returns(_ => queue.Count > 0 ? queue.Dequeue() : outputs[^1]);
+                .Returns(_ => (queue.Count > 0 ? queue.Dequeue() : outputs[^1], AnthropicUsage.Zero));
         }
     }
 }
