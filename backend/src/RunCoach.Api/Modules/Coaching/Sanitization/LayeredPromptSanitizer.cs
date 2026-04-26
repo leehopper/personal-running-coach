@@ -85,6 +85,15 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
         }
 
         // Tier 2: regex catalog. Patterns considered depend on section policy.
+        // Detection runs against the post-tier-1 text so every catalog
+        // pattern sees the same evidence regardless of catalog ordering;
+        // strip-mode rewrites are applied to a parallel `working` buffer in
+        // order. Without this split, a strip-mode pattern (e.g. PI-04) that
+        // captures a substring overlapping a later pattern (e.g. PI-06's
+        // `developer mode` literal) would silently suppress that later
+        // pattern's finding because the rewritten buffer no longer contains
+        // its trigger text — yet both findings should be recorded.
+        var detectionInput = normalized;
         var working = normalized;
         var anyNeutralized = strippedChars > 0;
 
@@ -95,7 +104,7 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
                 continue;
             }
 
-            if (!pattern.Regex.IsMatch(working))
+            if (!pattern.Regex.IsMatch(detectionInput))
             {
                 continue;
             }
