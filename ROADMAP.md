@@ -1,9 +1,11 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 1 (Onboarding → Plan) — implementation-ready. Spec at `docs/specs/13-spec-slice-1-onboarding/` (six demoable units) + 31 tasks on the board (#84–#115 with dependency edges wired). All pre-implementation research integrated (DEC-057 through DEC-060). Slice 0 closed 2026-04-23 with PR #63.
-**Next step:** Begin Slice 1 implementation. Four unblocked atomic tasks ready for parallel dispatch: #89 UserProfile entity, #90 Marten-document idempotency, #91 onboarding events (8 records incl. `PlanLinkedToUser`) + Pattern B records + prompt YAML, #115 sanitizer + 25-case corpus. Architectural rules locked: single-handler / single-Marten-session pattern (DEC-057), Pattern B structured-output schema (DEC-058), layered containment-first sanitizer (DEC-059), handler bodies emit events / projections own EF state (DEC-060).
+**Active slice:** Slice 1 (Onboarding → Plan) — **implementation complete, moving to PR review** as of 2026-04-26. All 33 atomic tasks shipped plus 7 cleanup follow-ups (test parallelism, e2e contract alignment, dual-write atomicity probe per R-069 §11, Wolverine handler discovery under `WebApplicationFactory<Program>`, `AnthropicUsage` exposure for cache-hit-rate telemetry). Backend `dotnet test` 848/848 PASS; frontend `vitest run` 176/176 PASS; cw-validate report PASS on all six gates.
+**Next step:** Open PR for Slice 1 close-out. Recommended docker-compose smoke for the four Playwright e2e specs (`auth`, `onboarding`, `plan-render`, `regenerate-plan`) before tagging the close-out commit; CI runs them on PR open.
 **Blockers:** None.
+
+**Architectural decisions locked during Slice 1:** DEC-057 (single-handler/single-Marten-session/single-transaction), DEC-058 (Pattern B byte-stable schema), DEC-059 (layered containment-first sanitizer), DEC-060 (handler bodies emit events; projections own EF state), DEC-061 (`opts.Add(...)` registration shape for EF projections), DEC-062 (Tailwind-only animation baseline), DEC-063 (xunit collection-parallelism disabled).
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 
