@@ -7,6 +7,6 @@ import { baseQueryWith401Handler } from '~/api/base-query'
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWith401Handler,
-  tagTypes: ['Auth'],
+  tagTypes: ['Auth', 'Onboarding'],
   endpoints: () => ({}),
 })
