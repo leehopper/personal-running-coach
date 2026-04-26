@@ -372,7 +372,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act
-        var result = await sut.GenerateStructuredAsync<MacroPlanOutput>(
+        var (result, usage) = await sut.GenerateStructuredAsync<MacroPlanOutput>(
             "system", "user message", TestContext.Current.CancellationToken);
 
         // Assert — OutputConfig carries a JsonOutputFormat with the MacroPlanOutput schema
@@ -392,6 +392,89 @@ public class ClaudeCoachingLlmTests
         result.Should().NotBeNull();
         result.GoalDescription.Should().Be("Run a marathon");
         result.TotalWeeks.Should().Be(12);
+
+        // Usage tuple element carries the per-call Anthropic counters so
+        // PlanGenerationService can roll cache_hit_rate into the OTel emission.
+        usage.Should().NotBeNull();
+        usage.InputTokens.Should().Be(100);
+        usage.OutputTokens.Should().Be(50);
+    }
+
+    [Fact]
+    public async Task GenerateStructuredAsync_ReturnsAnthropicUsage_WithCacheTokenBreakdown_FromResponse()
+    {
+        // Arrange — Anthropic returns the prompt-cache breakdown counters
+        // (cache_creation_input_tokens / cache_read_input_tokens) on every
+        // response when a cache_control breakpoint is active. The adapter must
+        // surface these via the second tuple element so PlanGenerationService
+        // can compute chain-wide cache_hit_rate per Slice 1 § Unit 2 R02.8.
+        var jsonResponse = JsonSerializer.Serialize(
+            new MacroPlanOutput
+            {
+                TotalWeeks = 8,
+                GoalDescription = "5K race",
+                Rationale = "Short cycle",
+                Warnings = "None",
+                Phases = [],
+            },
+            ClaudeCoachingLlm.StructuredOutputSerializerOptions);
+
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse(
+                jsonResponse,
+                cacheCreationInputTokens: 1234,
+                cacheReadInputTokens: 5678));
+
+        var sut = CreateSut();
+
+        // Act
+        var (_, usage) = await sut.GenerateStructuredAsync<MacroPlanOutput>(
+            "system",
+            "user message",
+            schema: null,
+            cacheControl: RunCoach.Api.Modules.Coaching.Models.CacheControl.Ephemeral1h,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        usage.InputTokens.Should().Be(100);
+        usage.OutputTokens.Should().Be(50);
+        usage.CacheCreationInputTokens.Should().Be(1234);
+        usage.CacheReadInputTokens.Should().Be(5678);
+    }
+
+    [Fact]
+    public async Task GenerateStructuredAsync_CoercesMissingCacheTokens_ToZero()
+    {
+        // Arrange — when Anthropic omits the cache-* counters (e.g. no
+        // cache_control breakpoint, or cache miss), the adapter must default
+        // them to zero so chain-wide rollup arithmetic stays well-defined.
+        var jsonResponse = JsonSerializer.Serialize(
+            new MacroPlanOutput
+            {
+                TotalWeeks = 8,
+                GoalDescription = "5K race",
+                Rationale = "Short cycle",
+                Warnings = "None",
+                Phases = [],
+            },
+            ClaudeCoachingLlm.StructuredOutputSerializerOptions);
+
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse(jsonResponse));
+
+        var sut = CreateSut();
+
+        // Act
+        var (_, usage) = await sut.GenerateStructuredAsync<MacroPlanOutput>(
+            "system",
+            "user message",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        usage.CacheCreationInputTokens.Should().Be(0);
+        usage.CacheReadInputTokens.Should().Be(0);
     }
 
     [Fact]
@@ -433,7 +516,7 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act
-        var actual = await sut.GenerateStructuredAsync<MacroPlanOutput>(
+        var (actual, _) = await sut.GenerateStructuredAsync<MacroPlanOutput>(
             "system", "user message", TestContext.Current.CancellationToken);
 
         // Assert
@@ -823,10 +906,35 @@ public class ClaudeCoachingLlmTests
     }
 
     /// <summary>
-    /// Builds a Message response with a single text content block.
+    /// Builds a Message response with a single text content block. The
+    /// optional <paramref name="cacheCreationInputTokens"/> and
+    /// <paramref name="cacheReadInputTokens"/> parameters surface the two
+    /// prompt-cache breakdown counters Anthropic emits when a
+    /// <c>cache_control</c> breakpoint is in play — they default to <c>null</c>
+    /// (i.e. omitted from the wire envelope) so existing tests that don't care
+    /// about cache stats remain byte-identical.
     /// </summary>
-    private static Message BuildTextResponse(string text, string stopReason = "end_turn")
+    private static Message BuildTextResponse(
+        string text,
+        string stopReason = "end_turn",
+        long? cacheCreationInputTokens = null,
+        long? cacheReadInputTokens = null)
     {
+        var usageObject = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["input_tokens"] = 100,
+            ["output_tokens"] = 50,
+        };
+        if (cacheCreationInputTokens is not null)
+        {
+            usageObject["cache_creation_input_tokens"] = cacheCreationInputTokens.Value;
+        }
+
+        if (cacheReadInputTokens is not null)
+        {
+            usageObject["cache_read_input_tokens"] = cacheReadInputTokens.Value;
+        }
+
         var raw = new Dictionary<string, JsonElement>
         {
             ["id"] = ToJsonElement("msg_test_001"),
@@ -838,7 +946,7 @@ public class ClaudeCoachingLlmTests
             {
                 new { type = "text", text },
             }),
-            ["usage"] = ToJsonElement(new { input_tokens = 100, output_tokens = 50 }),
+            ["usage"] = ToJsonElement(usageObject),
         };
 
         return Message.FromRawUnchecked(raw);
