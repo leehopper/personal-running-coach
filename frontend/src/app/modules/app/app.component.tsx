@@ -7,6 +7,7 @@ import { RequireAuth } from '~/modules/auth/components/require-auth.component'
 import { useAuthBootstrap, useAuthBroadcastListener } from '~/modules/auth/hooks/auth.hooks'
 import { OnboardingPage } from '~/modules/onboarding/pages/onboarding.page'
 import { HomePage } from '~/modules/plan/pages/home.page'
+import { SettingsPage } from '~/modules/settings/pages/settings.page'
 import { LoginPage } from '~/pages/login/login.page'
 import { RegisterPage } from '~/pages/register/register.page'
 
@@ -111,6 +112,14 @@ const AppShell = () => {
             <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
               <HomePage />
             </OnboardingRedirectGuard>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <RequireAuth>
+            <SettingsPage />
           </RequireAuth>
         }
       />
