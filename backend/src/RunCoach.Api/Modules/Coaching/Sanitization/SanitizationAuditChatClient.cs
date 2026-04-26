@@ -1,0 +1,99 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.AI;
+
+namespace RunCoach.Api.Modules.Coaching.Sanitization;
+
+/// <summary>
+/// Outer audit-only <see cref="DelegatingChatClient"/> that runs in the
+/// Microsoft.Extensions.AI pipeline AFTER <c>ContextAssembler</c> has finished
+/// assembling the prompt. Per Slice 1 § Unit 6 / R-068 § 4, this client does
+/// NOT re-sanitize — that's done per-section inside the assembler. It exists
+/// to emit a rollup span carrying the OpenInference
+/// <c>openinference.span.kind = "GUARDRAIL"</c> attribute so Phoenix's
+/// guardrail dashboard view picks up sanitization activity at the LLM-call
+/// boundary.
+/// </summary>
+/// <remarks>
+/// <para>
+/// PII discipline: this client never reads message content into span
+/// attributes. It only counts messages and stamps the policy version, so the
+/// span payload is safe for any OTel backend (Phoenix Cloud, hosted vendors).
+/// </para>
+/// <para>
+/// Registered in the M.E.AI pipeline via the
+/// <c>UseSanitizationAudit()</c> extension once the pipeline is wired up
+/// (T01.5 / DEC-058). Today it remains DI-resolvable as a building block.
+/// </para>
+/// </remarks>
+public sealed class SanitizationAuditChatClient : DelegatingChatClient
+{
+    /// <summary>Name of the rollup span emitted around the inner client call.</summary>
+    internal const string AuditSpanName = "runcoach.llm.sanitization.audit";
+
+    private static readonly ActivitySource Source = new(LayeredPromptSanitizer.ActivitySourceName);
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SanitizationAuditChatClient"/> class.
+    /// Initializes a new instance wrapping <paramref name="innerClient"/>.
+    /// </summary>
+    /// <param name="innerClient">The inner chat client this audit layer wraps.</param>
+    public SanitizationAuditChatClient(IChatClient innerClient)
+        : base(innerClient)
+    {
+    }
+
+    /// <inheritdoc />
+    public override Task<ChatResponse> GetResponseAsync(
+        IEnumerable<ChatMessage> messages,
+        ChatOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(messages);
+
+        using var activity = Source.StartActivity(AuditSpanName, ActivityKind.Internal);
+        StampGuardrailAttributes(activity, messages);
+
+        return base.GetResponseAsync(messages, options, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public override IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+        IEnumerable<ChatMessage> messages,
+        ChatOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(messages);
+
+        // For streaming we annotate the activity at start; the underlying
+        // pipeline owns its own spans for the actual transport.
+        using var activity = Source.StartActivity(AuditSpanName, ActivityKind.Internal);
+        StampGuardrailAttributes(activity, messages);
+
+        return base.GetStreamingResponseAsync(messages, options, cancellationToken);
+    }
+
+    private static void StampGuardrailAttributes(
+        Activity? activity,
+        IEnumerable<ChatMessage> messages)
+    {
+        if (activity is null)
+        {
+            return;
+        }
+
+        var messageCount = 0;
+        foreach (var unused in messages)
+        {
+            _ = unused;
+            messageCount++;
+        }
+
+        activity.SetTag("openinference.span.kind", "GUARDRAIL");
+        activity.SetTag("runcoach.sanitization.policy_version", PatternCatalog.PolicyVersion);
+        activity.SetTag("runcoach.sanitization.audit.message_count", messageCount);
+    }
+}
