@@ -5,6 +5,7 @@ using JasperFx.Events.Daemon;
 using Marten;
 using Marten.Services;
 using Marten.Storage;
+using RunCoach.Api.Modules.Coaching.Idempotency;
 using Wolverine.Marten;
 
 namespace RunCoach.Api.Infrastructure;
@@ -41,6 +42,14 @@ public static class MartenConfiguration
                 // load-bearing value. Flip on only when a concrete test-side
                 // `WaitForNonStaleData` assertion needs it.
                 opts.Policies.AllDocumentsAreMultiTenanted();
+
+                // Explicit document registration so JasperFx static codegen
+                // (`TypeLoadMode.Static` in Production) picks up the
+                // idempotency-marker document at build time. Auto-discovery
+                // only covers documents Marten observes via session calls,
+                // which is fine in Development but breaks Production
+                // pre-generated handler chains.
+                opts.Schema.For<IdempotencyMarker>();
 
                 opts.Projections.Errors.SkipUnknownEvents = true;
 
