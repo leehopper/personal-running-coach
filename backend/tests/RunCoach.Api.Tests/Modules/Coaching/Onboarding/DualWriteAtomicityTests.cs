@@ -327,23 +327,21 @@ public class DualWriteAtomicityTests(RunCoachAppFactory factory) : DbBackedInteg
                 NSubstitute.Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
                 NSubstitute.Arg.Any<CacheControl?>(),
                 NSubstitute.Arg.Any<CancellationToken>())
-            .Returns((
-                new OnboardingTurnOutput
-                {
-                    Reply =
-                    [
-                        new AnthropicContentBlock
-                        {
-                            Type = AnthropicContentBlockType.Text,
-                            Text = "all set, generating your plan now",
-                        },
-                    ],
-                    Extracted = null,
-                    NeedsClarification = false,
-                    ClarificationReason = null,
-                    ReadyForPlan = true,
-                },
-                AnthropicUsage.Zero));
+            .Returns(new OnboardingTurnOutput
+            {
+                Reply =
+                [
+                    new AnthropicContentBlock
+                    {
+                        Type = AnthropicContentBlockType.Text,
+                        Text = "all set, generating your plan now",
+                    },
+                ],
+                Extracted = null,
+                NeedsClarification = false,
+                ClarificationReason = null,
+                ReadyForPlan = true,
+            });
         return stub;
     }
 
@@ -610,10 +608,36 @@ public class DualWriteAtomicityTests(RunCoachAppFactory factory) : DbBackedInteg
     /// </summary>
     private sealed class DelayingPlanGenerationService(int delayMs) : IPlanGenerationService
     {
-
-        Task<PlanEventSequence> IPlanGenerationService.GeneratePlanAsync(OnboardingView profileSnapshot, Guid userId, Guid planId, RegenerationIntent? intent, Guid? previousPlanId, CancellationToken ct)
+        public async Task<IReadOnlyList<object>> GeneratePlanAsync(
+            OnboardingView profileSnapshot,
+            Guid userId,
+            Guid planId,
+            RegenerationIntent? intent,
+            Guid? previousPlanId,
+            CancellationToken ct)
         {
-            throw new NotImplementedException();
+            _ = profileSnapshot;
+            _ = intent;
+            await Task.Delay(delayMs, ct).ConfigureAwait(false);
+
+            var generated = new PlanGenerated(
+                planId,
+                userId,
+                BuildMacro("regenerated"),
+                new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero),
+                PromptVersion: "coaching-v1",
+                ModelId: "claude-sonnet-4-5",
+                PreviousPlanId: previousPlanId);
+
+            return new object[]
+            {
+                generated,
+                new MesoCycleCreated(1, BuildMeso(1, PhaseType.Base, false)),
+                new MesoCycleCreated(2, BuildMeso(2, PhaseType.Base, false)),
+                new MesoCycleCreated(3, BuildMeso(3, PhaseType.Build, false)),
+                new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, true)),
+                new FirstMicroCycleCreated(BuildMicro()),
+            };
         }
     }
 }

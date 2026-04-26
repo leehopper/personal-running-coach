@@ -5,8 +5,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
+using RunCoach.Api.Modules.Coaching.Idempotency;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
@@ -28,22 +28,20 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// This is the unit-level guarantee: the handler itself never calls
 /// <c>SaveChangesAsync</c>, so when <see cref="IPlanGenerationService.GeneratePlanAsync"/>
 /// throws, the in-flight session has every appended event still pending and
-/// the framework will discard them. End-to-end rollback through the live
-/// Wolverine + Marten stack (i.e. an HTTP-driven proof that no Plan stream
-/// and no <c>OnboardingCompleted</c> event end up in the database after a
-/// terminal-branch failure) is intentionally NOT covered yet — the companion
-/// integration tests for that path are deferred to a follow-up PR.
+/// the framework will discard them. The companion integration test
+/// (<c>OnboardingFlowIntegrationTests</c>) drives a full HTTP request through
+/// the live Marten + Wolverine stack to confirm the rollback observably leaves
+/// no Plan stream and no <c>OnboardingCompleted</c> event in the database.
 /// </para>
 /// <para>
 /// Per DEC-060 / R-069 the dual-write atomicity claim — that exactly one
 /// Postgres transaction (and one <c>backend_xid</c>) covers the entire handler
 /// — is upheld by Marten's <c>UseEntityFrameworkCoreTransactionParticipant</c>
-/// wiring established in <c>MartenConfiguration</c>. The
-/// <c>pg_stat_activity.backend_xid</c> observer probe required by spec 13
-/// § Unit 1 verification line 114 is also deferred — when added it will
-/// assert exactly one distinct backend_xid across the handler run. Until
-/// those tests land, this unit test plus the framework-level transaction
-/// participant wiring are the load-bearing guarantees.
+/// wiring established in <c>MartenConfiguration</c>. The empirical R-069 §11
+/// observer probe lives in <c>DualWriteAtomicityTests</c> and asserts the
+/// single-<c>backend_xid</c> invariant directly via a third Npgsql connection
+/// polling <c>pg_stat_activity</c>; this unit-level test covers the
+/// negative-rollback shape on the failure path.
 /// </para>
 /// </remarks>
 public class InvokeAsyncTransactionScopeTests
@@ -87,7 +85,7 @@ public class InvokeAsyncTransactionScopeTests
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
-            .Returns((BuildReadyForPlanOutput(), AnthropicUsage.Zero));
+            .Returns(BuildReadyForPlanOutput());
         planGen
             .GeneratePlanAsync(
                 Arg.Any<OnboardingView>(),
@@ -119,7 +117,7 @@ public class InvokeAsyncTransactionScopeTests
             .WithMessage("simulated plan-generation failure*");
 
         idempotency.DidNotReceiveWithAnyArgs()
-            .Record<OnboardingTurnResponseDto>(Arg.Any<Guid>(), Arg.Any<OnboardingTurnResponseDto>());
+            .Record<OnboardingTurnResponseDto>(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<OnboardingTurnResponseDto>());
 
         // The handler never calls SaveChangesAsync directly — the framework's
         // transactional middleware owns that call. The negative-assertion proof
