@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 using Respawn;
 using RunCoach.Api.Infrastructure;
+using RunCoach.Api.Modules.Training.Plan;
 using Testcontainers.PostgreSql;
 
 namespace RunCoach.Api.Tests.Infrastructure;
@@ -202,5 +205,21 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         // client so `Request.IsHttps = true` and the middleware short-circuits
         // without any redirect.
         builder.UseSetting("https_port", "443");
+
+        // Replace the production `IPlanGenerationService` registration with a
+        // deterministic stub so integration tests that drive the regenerate /
+        // onboarding terminal-branch handlers through the live HTTP +
+        // Wolverine bus pipeline don't pay six structured-output LLM calls per
+        // run. Wolverine's `TypeLoadMode.Auto` codegen reads this concrete-impl
+        // registration during host startup and bakes
+        // `new StubPlanGenerationService()` directly into the generated
+        // handler. The structured-output chain itself is covered by
+        // `PlanGenerationServiceTests` (eval-cached unit tier) and the
+        // committed manual smoke proof at T05.1 (commit `13464e0`).
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IPlanGenerationService>();
+            services.AddScoped<IPlanGenerationService, StubPlanGenerationService>();
+        });
     }
 }
