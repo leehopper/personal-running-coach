@@ -53,6 +53,37 @@ public interface IContextAssembler
         CancellationToken ct = default);
 
     /// <summary>
+    /// Composes the stable-prefix prompt for the macro/meso/micro plan-generation
+    /// chain (Slice 1 § Unit 2 R02.4 + § Unit 5 R05.4). Reads the captured
+    /// profile from the <paramref name="profileSnapshot"/> projection — NOT by
+    /// replaying the onboarding stream — and renders it into a byte-stable user
+    /// message. When <paramref name="intent"/> is supplied, its sanitized
+    /// free-text is appended at the END of the user message under the stable
+    /// label <c>[Regeneration intent provided by user]</c> so the prefix above
+    /// it stays byte-identical across initial-generation and regenerate calls.
+    /// </summary>
+    /// <param name="profileSnapshot">
+    /// The completed <see cref="OnboardingView"/> projection — the captured
+    /// answers across the six topics serve as the profile snapshot for plan
+    /// generation. Per Slice 1 spec the snapshot is read directly; the chain
+    /// does NOT re-replay the onboarding event stream on each macro/meso/micro
+    /// call.
+    /// </param>
+    /// <param name="intent">
+    /// Optional regeneration intent supplied by the runner when invoking
+    /// Settings → Plan (Slice 1 § Unit 5). The free-text MUST already be
+    /// sanitized by the caller via
+    /// <c>IPromptSanitizer.SanitizeAsync(intent.FreeText, PromptSection.RegenerationIntentFreeText, ct)</c>.
+    /// This method does NOT re-sanitize.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The composed plan-generation prompt — system + base user message.</returns>
+    Task<PlanGenerationPromptComposition> ComposeForPlanGenerationAsync(
+        OnboardingView profileSnapshot,
+        RegenerationIntent? intent,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Estimates the token count for a given text using the character ratio method
     /// (characters / 4 with a 10% safety margin).
     /// </summary>
