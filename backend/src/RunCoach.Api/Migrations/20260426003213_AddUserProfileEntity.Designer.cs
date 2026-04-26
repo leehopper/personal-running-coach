@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RunCoach.Api.Infrastructure;
@@ -11,9 +12,11 @@ using RunCoach.Api.Infrastructure;
 namespace RunCoach.Api.Migrations
 {
     [DbContext(typeof(RunCoachDbContext))]
-    partial class RunCoachDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426003213_AddUserProfileEntity")]
+    partial class AddUserProfileEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
