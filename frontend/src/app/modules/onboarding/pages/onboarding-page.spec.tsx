@@ -266,4 +266,87 @@ describe('OnboardingPage', () => {
       expect(navigateMock).toHaveBeenCalledWith('/', { replace: true })
     })
   })
+
+  it('advances the progress indicator after a successful submit (0 → 1 completed segment)', async () => {
+    getStateMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { status: 404 },
+    })
+    submitUnwrap.mockResolvedValue(askResponse)
+    const { user } = renderPage()
+    await waitFor(() => {
+      expect(screen.getByTestId('onboarding-chat')).toBeInTheDocument()
+    })
+
+    // Before submit: zero segments are completed (404 → fresh stream).
+    const segmentsBefore = screen.getAllByRole('listitem')
+    expect(segmentsBefore.filter((segment) => segment.dataset.state === 'completed')).toHaveLength(
+      0,
+    )
+
+    await user.click(screen.getAllByRole('radio')[0])
+    await user.click(screen.getByRole('button', { name: /send/i }))
+
+    // After submit: progress.completedTopics === 1 → exactly one segment
+    // is `completed`, the next one (WeeklySchedule, the askResponse topic)
+    // is highlighted as `current`, and the remaining four stay `pending`.
+    await waitFor(() => {
+      const segments = screen.getAllByRole('listitem')
+      expect(segments.filter((segment) => segment.dataset.state === 'completed')).toHaveLength(1)
+      const currentSegment = segments.find((segment) => segment.dataset.state === 'current')
+      expect(currentSegment?.dataset.topic).toBe(String(OnboardingTopic.WeeklySchedule))
+      expect(segments.filter((segment) => segment.dataset.state === 'pending')).toHaveLength(4)
+    })
+  })
+
+  it('renders the "building your plan" placeholder while the final turn is in flight before navigation', async () => {
+    getStateMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { status: 404 },
+    })
+
+    // Hold the final-turn POST open so the page renders the
+    // programmatic "building your plan" assistant turn before the
+    // mutation resolves and navigation fires. Real timers are kept so
+    // user-event's microtask chain doesn't deadlock — the 1500ms grace
+    // inside `useOnboardingTurn` is small enough to wait through.
+    let resolveSubmit: (value: OnboardingTurnCompleteResponse) => void = () => {}
+    submitUnwrap.mockImplementation(
+      () =>
+        new Promise<OnboardingTurnCompleteResponse>((resolve) => {
+          resolveSubmit = resolve
+        }),
+    )
+
+    const { user } = renderPage()
+    await waitFor(() => {
+      expect(screen.getByTestId('onboarding-chat')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getAllByRole('radio')[0])
+    await user.click(screen.getByRole('button', { name: /send/i }))
+
+    // Wait past the 1500ms grace window inside `useOnboardingTurn`
+    // so the buildingPlanStarted action lands in the slice and the
+    // shimmered "building your plan…" assistant turn paints. The
+    // longer `findByText` timeout absorbs jsdom variance.
+    const buildingTurn = await screen.findByText(/building your plan/i, undefined, {
+      timeout: 3000,
+    })
+    expect(buildingTurn).toBeInTheDocument()
+    const buildingRow = buildingTurn.closest('[data-status="building-plan"]')
+    expect(buildingRow).not.toBeNull()
+    expect(navigateMock).not.toHaveBeenCalledWith('/', { replace: true })
+
+    // Now resolve the POST — the final assistant turn replaces the
+    // placeholder and the page navigates home.
+    resolveSubmit(completeResponse)
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith('/', { replace: true })
+    })
+  }, 10000)
 })
