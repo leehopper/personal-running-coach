@@ -15,6 +15,8 @@ namespace RunCoach.Api.Tests.Modules.Coaching;
 
 public class ClaudeCoachingLlmTests
 {
+    private static readonly string[] RequiredCustomFields = ["custom"];
+
     private static readonly CoachingLlmSettings DefaultSettings = new()
     {
         ApiKey = "sk-test-key-for-unit-tests",
@@ -650,6 +652,174 @@ public class ClaudeCoachingLlmTests
         // Act & Assert — should complete without throwing
         var act = () => sut.Dispose();
         act.Should().NotThrow();
+    }
+
+    [Fact]
+    public async Task GenerateStructuredAsync_WithCacheControl1h_AttachesEphemeralBreakpointToSystemBlock()
+    {
+        // Arrange — verify the SDK system parameter carries the cache_control marker.
+        var jsonResponse = JsonSerializer.Serialize(
+            new MacroPlanOutput
+            {
+                TotalWeeks = 12,
+                GoalDescription = "Run a marathon",
+                Rationale = "Progressive build",
+                Warnings = "None",
+                Phases = [],
+            },
+            ClaudeCoachingLlm.StructuredOutputSerializerOptions);
+
+        MessageCreateParams? capturedParams = null;
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                capturedParams = callInfo.ArgAt<MessageCreateParams>(0);
+                return BuildTextResponse(jsonResponse);
+            });
+
+        var sut = CreateSut();
+
+        // Act
+        await sut.GenerateStructuredAsync<MacroPlanOutput>(
+            "system prompt",
+            "user message",
+            schema: null,
+            cacheControl: RunCoach.Api.Modules.Coaching.Models.CacheControl.Ephemeral1h,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        capturedParams.Should().NotBeNull();
+        capturedParams!.System.Should().NotBeNull();
+        var systemValue = capturedParams.System!.Value;
+        systemValue.Should().BeAssignableTo<IReadOnlyList<TextBlockParam>>();
+
+        var blocks = (IReadOnlyList<TextBlockParam>)systemValue!;
+        blocks.Should().HaveCount(1);
+        var firstBlock = blocks[0];
+        firstBlock.Should().NotBeNull();
+        firstBlock!.CacheControl.Should().NotBeNull();
+        firstBlock.CacheControl!.Ttl!.ToString().Should().Contain("1h");
+        firstBlock.Text.Should().Be("system prompt");
+    }
+
+    [Fact]
+    public async Task GenerateStructuredAsync_WithCacheControl5m_AttachesEphemeralBreakpointWith5mTtl()
+    {
+        // Arrange
+        var jsonResponse = JsonSerializer.Serialize(
+            new MacroPlanOutput
+            {
+                TotalWeeks = 1,
+                GoalDescription = "x",
+                Rationale = "x",
+                Warnings = "none",
+                Phases = [],
+            },
+            ClaudeCoachingLlm.StructuredOutputSerializerOptions);
+
+        MessageCreateParams? capturedParams = null;
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                capturedParams = callInfo.ArgAt<MessageCreateParams>(0);
+                return BuildTextResponse(jsonResponse);
+            });
+
+        var sut = CreateSut();
+
+        // Act
+        await sut.GenerateStructuredAsync<MacroPlanOutput>(
+            "system prompt",
+            "user",
+            schema: null,
+            cacheControl: RunCoach.Api.Modules.Coaching.Models.CacheControl.Ephemeral5m,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        capturedParams.Should().NotBeNull();
+        var blocks = (IReadOnlyList<TextBlockParam>)capturedParams!.System!.Value!;
+        var firstBlock = blocks[0];
+        firstBlock.Should().NotBeNull();
+        firstBlock!.CacheControl.Should().NotBeNull();
+        firstBlock.CacheControl!.Ttl!.ToString().Should().Contain("5m");
+    }
+
+    [Fact]
+    public async Task GenerateStructuredAsync_WithoutCacheControl_SendsSystemAsPlainString()
+    {
+        // Arrange — no cache_control: system should remain a string for back-compat.
+        var jsonResponse = JsonSerializer.Serialize(
+            new MacroPlanOutput
+            {
+                TotalWeeks = 1,
+                GoalDescription = "x",
+                Rationale = "x",
+                Warnings = "none",
+                Phases = [],
+            },
+            ClaudeCoachingLlm.StructuredOutputSerializerOptions);
+
+        MessageCreateParams? capturedParams = null;
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                capturedParams = callInfo.ArgAt<MessageCreateParams>(0);
+                return BuildTextResponse(jsonResponse);
+            });
+
+        var sut = CreateSut();
+
+        // Act
+        await sut.GenerateStructuredAsync<MacroPlanOutput>(
+            "system",
+            "user",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        capturedParams.Should().NotBeNull();
+        capturedParams!.System!.Value.Should().BeOfType<string>();
+    }
+
+    [Fact]
+    public async Task GenerateStructuredAsync_WithProvidedSchema_UsesItVerbatim()
+    {
+        // Arrange — caller supplies a pre-built schema dictionary; the LLM
+        // adapter must NOT regenerate one from <typeparamref name="T"/>.
+        var customSchema = new Dictionary<string, JsonElement>
+        {
+            ["type"] = ToJsonElement("object"),
+            ["properties"] = ToJsonElement(new { custom = new { type = "string" } }),
+            ["required"] = ToJsonElement(RequiredCustomFields),
+            ["additionalProperties"] = ToJsonElement(false),
+        };
+
+        MessageCreateParams? capturedParams = null;
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                capturedParams = callInfo.ArgAt<MessageCreateParams>(0);
+                return BuildTextResponse("{\"custom\":\"ok\"}");
+            });
+
+        var sut = CreateSut();
+
+        // Act
+        await sut.GenerateStructuredAsync<Dictionary<string, string>>(
+            "system",
+            "user",
+            schema: customSchema,
+            cacheControl: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        capturedParams.Should().NotBeNull();
+        var jsonFormat = capturedParams!.OutputConfig!.Format.Should().BeOfType<JsonOutputFormat>().Which;
+        jsonFormat.Schema.Should().ContainKey("properties");
+        jsonFormat.Schema["properties"].GetRawText().Should().Contain("custom");
     }
 
     /// <summary>
