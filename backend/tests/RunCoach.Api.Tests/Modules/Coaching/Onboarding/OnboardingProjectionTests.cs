@@ -169,8 +169,8 @@ public sealed class OnboardingProjectionTests
     [Fact]
     public void UserProfileFromOnboardingProjection_ApplyEvent_AnswerCaptured_PrimaryGoal_SetsScalarEnum()
     {
-        // Arrange — the EF row stores the PrimaryGoal scalar (not the full answer record);
-        // the description text lives only on the Marten event stream.
+        // Arrange. The EF row stores only the `PrimaryGoal` scalar; the description
+        // text lives on the Marten event stream and is not projected onto `UserProfile`.
         var projection = new UserProfileFromOnboardingProjection();
         var snapshot = new UserProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
         var answer = new PrimaryGoalAnswer
@@ -328,52 +328,70 @@ public sealed class OnboardingProjectionTests
         {
             (new OnboardingStarted(UserId, t), t),
             (new TopicAsked(OnboardingTopic.PrimaryGoal, t.AddSeconds(1)), t.AddSeconds(1)),
-            (Capture(OnboardingTopic.PrimaryGoal, new PrimaryGoalAnswer
-            {
-                Goal = PrimaryGoal.RaceTraining,
-                Description = "Half marathon",
-            }, t.AddSeconds(5)), t.AddSeconds(5)),
-            (Capture(OnboardingTopic.TargetEvent, new TargetEventAnswer
-            {
-                EventName = "Hartford",
-                DistanceKm = 21.0975,
-                EventDateIso = "2026-10-11",
-                TargetFinishTimeIso = "PT1H45M0S",
-            }, t.AddSeconds(10)), t.AddSeconds(10)),
-            (Capture(OnboardingTopic.CurrentFitness, new CurrentFitnessAnswer
-            {
-                TypicalWeeklyKm = 30,
-                LongestRecentRunKm = 12,
-                RecentRaceDistanceKm = null,
-                RecentRaceTimeIso = null,
-                Description = "Comfortable at easy pace, no recent races.",
-            }, t.AddSeconds(15)), t.AddSeconds(15)),
-            (Capture(OnboardingTopic.WeeklySchedule, new WeeklyScheduleAnswer
-            {
-                MaxRunDaysPerWeek = 4,
-                TypicalSessionMinutes = 60,
-                Monday = true,
-                Tuesday = false,
-                Wednesday = true,
-                Thursday = false,
-                Friday = true,
-                Saturday = false,
-                Sunday = true,
-                Description = string.Empty,
-            }, t.AddSeconds(20)), t.AddSeconds(20)),
-            (Capture(OnboardingTopic.InjuryHistory, new InjuryHistoryAnswer
-            {
-                HasActiveInjury = false,
-                ActiveInjuryDescription = string.Empty,
-                PastInjurySummary = string.Empty,
-            }, t.AddSeconds(25)), t.AddSeconds(25)),
-            (Capture(OnboardingTopic.Preferences, new PreferencesAnswer
-            {
-                PreferredUnits = PreferredUnits.Kilometers,
-                PreferTrail = false,
-                ComfortableWithIntensity = true,
-                Description = string.Empty,
-            }, t.AddSeconds(30)), t.AddSeconds(30)),
+            (Capture(
+                OnboardingTopic.PrimaryGoal,
+                new PrimaryGoalAnswer
+                {
+                    Goal = PrimaryGoal.RaceTraining,
+                    Description = "Half marathon",
+                },
+                t.AddSeconds(5)), t.AddSeconds(5)),
+            (Capture(
+                OnboardingTopic.TargetEvent,
+                new TargetEventAnswer
+                {
+                    EventName = "Hartford",
+                    DistanceKm = 21.0975,
+                    EventDateIso = "2026-10-11",
+                    TargetFinishTimeIso = "PT1H45M0S",
+                },
+                t.AddSeconds(10)), t.AddSeconds(10)),
+            (Capture(
+                OnboardingTopic.CurrentFitness,
+                new CurrentFitnessAnswer
+                {
+                    TypicalWeeklyKm = 30,
+                    LongestRecentRunKm = 12,
+                    RecentRaceDistanceKm = null,
+                    RecentRaceTimeIso = null,
+                    Description = "Comfortable at easy pace, no recent races.",
+                },
+                t.AddSeconds(15)), t.AddSeconds(15)),
+            (Capture(
+                OnboardingTopic.WeeklySchedule,
+                new WeeklyScheduleAnswer
+                {
+                    MaxRunDaysPerWeek = 4,
+                    TypicalSessionMinutes = 60,
+                    Monday = true,
+                    Tuesday = false,
+                    Wednesday = true,
+                    Thursday = false,
+                    Friday = true,
+                    Saturday = false,
+                    Sunday = true,
+                    Description = string.Empty,
+                },
+                t.AddSeconds(20)), t.AddSeconds(20)),
+            (Capture(
+                OnboardingTopic.InjuryHistory,
+                new InjuryHistoryAnswer
+                {
+                    HasActiveInjury = false,
+                    ActiveInjuryDescription = string.Empty,
+                    PastInjurySummary = string.Empty,
+                },
+                t.AddSeconds(25)), t.AddSeconds(25)),
+            (Capture(
+                OnboardingTopic.Preferences,
+                new PreferencesAnswer
+                {
+                    PreferredUnits = PreferredUnits.Kilometers,
+                    PreferTrail = false,
+                    ComfortableWithIntensity = true,
+                    Description = string.Empty,
+                },
+                t.AddSeconds(30)), t.AddSeconds(30)),
             (new PlanLinkedToUser(UserId, planId), t.AddSeconds(60)),
             (new OnboardingCompleted(planId, t.AddSeconds(61)), t.AddSeconds(61)),
         };
