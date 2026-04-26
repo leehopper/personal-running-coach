@@ -68,10 +68,9 @@ describe('HomePage', () => {
     expect(screen.getByTestId('today-card')).toBeInTheDocument()
     expect(screen.getByTestId('upcoming-list')).toBeInTheDocument()
 
-    // (d) trademark-clean — zero matches for `vdot` (case-insensitive) on
-    //     the rendered home surface.
-    const home = screen.getByTestId('home-page')
-    expect(home.textContent ?? '').not.toMatch(/vdot/i)
+    // (d) trademark-clean — `queryByText(/vdot/i)` returns null on the
+    //     populated home surface (per spec § Unit 4 Proof Artifacts).
+    expect(screen.queryByText(/vdot/i)).toBeNull()
 
     vi.useRealTimers()
   })
