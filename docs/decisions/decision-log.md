@@ -2150,4 +2150,74 @@ Same rule applies to every future `EfCore*Projection` registration:
 
 ---
 
+## DEC-062: Tailwind-only animation baseline for Slice 1; defer `motion/react` adoption until a streaming or gesture surface forces it
+
+**Date:** 2026-04-25
+**Category:** Frontend / Styling & dependency hygiene
+**Status:** Accepted
+**Drives:** Slice 1 close-out (#101 MessageBubble + TranscriptScroller, #102 TopicProgressIndicator, #103 OnboardingChat "building your plan" placeholder, #112 RegeneratePlanDialog) — codifies the deferral those workers already shipped under
+**Supersedes:** R-065's recommendation to ship Slice 1 with `motion/react` (artifact `docs/research/artifacts/batch-21a-onboarding-chat-ux-react19.md` § 6.2)
+
+### Decision
+
+Slice 1's animation surface stays on **Tailwind utility classes only**. `motion/react` is **not** added to `frontend/package.json` for this slice. The four worker-flagged animation upgrades (segmented-progress colour transitions, transcript-scroller scroll behaviour, "building your plan" shimmer, RegeneratePlanDialog open/close) ship — and remain — on:
+
+- `transition-colors duration-200 ease-out` (and the `transition-{property}` family) for state-change tweens,
+- `animate-pulse` / `animate-spin` for loading shimmers,
+- `motion-safe:` / `motion-reduce:` variants for the WCAG 2.3.3 reduced-motion contract.
+
+Radix dialog (used by shadcn/ui `Dialog`) provides its own enter/exit data-state attributes; we drive those with `data-[state=open]:animate-in data-[state=closed]:animate-out` from `tailwindcss-animate` (already pulled in transitively by shadcn/ui), not with `AnimatePresence`.
+
+### Rationale
+
+R-065 listed `motion/react` for two specific use cases that **Slice 1 does not contain**:
+
+1. **Streaming token-by-token assistant responses** with `AnimatePresence` + variants per token — the onboarding chat in Slice 1 is request/response, not streaming. Streaming lands in Slice 4.
+2. **Spring-physics drag/dismiss gestures** — Slice 1 has zero gestural surfaces. Touch-drag dismissal is not on the backlog before mid-run chat (post-Slice 4).
+
+Slice 1's actual animation surface is three classes of static-shift:
+
+| Surface | Animation type | Tailwind expression |
+|---|---|---|
+| TopicProgressIndicator segments | colour shift on completed/current/pending | `transition-colors duration-200 ease-out` |
+| "Building your plan" placeholder | indefinite shimmer | `animate-pulse` |
+| RegeneratePlanDialog open/close | scale + fade | Radix `data-[state=open]:animate-in` (tailwindcss-animate) |
+
+None of these need a JS animation runtime, an `AnimatePresence` boundary, or `useReducedMotion()` plumbing. CSS handles all three with smaller bundle cost (Tailwind utilities = zero runtime; `motion/react` per R-065's own bundle table is **~18–25 KB gzipped net**) and zero new dependency surface.
+
+The four worker reports (#101/#102/#103/#112) independently arrived at this implementation under deadline pressure. Rather than treat that as technical debt to thread back through, we promote the convergent practice to a documented baseline and re-open the question only when a use case arrives that Tailwind genuinely can't cover.
+
+### Trigger to revisit
+
+Adopt `motion/react` (and thread it through any deferred chat polish) only when **one or both** of these land:
+
+1. **Slice 4 streaming chat UI** — token-by-token rendering with per-message enter/exit transitions, `AnimatePresence` for transcript additions/removals, or animated typing indicators that need spring physics rather than `animate-pulse`.
+2. **Mid-run / post-run chat panel with gestural dismiss** — drag-to-dismiss, swipe-back, or any spring-physics-driven interaction that CSS transitions cannot drive deterministically.
+
+When either trigger fires, the adopting slice: (a) `npm install motion@^12`, (b) sets up `useReducedMotion()` + `motion-reduce:` parity in the same component, (c) updates this DEC with a status of **Superseded** pointing to the adoption DEC. No piecemeal pre-adoption — wait for the trigger.
+
+### Alternatives considered
+
+| Option | Why rejected |
+|---|---|
+| **(a) Add `motion/react` now** and thread the deferred animations through #101/#102/#103/#112 retroactively | Adds ~18–25 KB gzipped to every page in the bundle for animations CSS already covers. Forces backfill churn on four already-merged workers' code. Pulls in `useReducedMotion()` + variants boilerplate for animations whose reduced-motion fallback is already trivially `motion-reduce:transition-none`. |
+| Adopt `motion/react` only for the dialog and keep #101/#102/#103 on Tailwind | Inconsistent — half the chat UI on JS, half on CSS, with no rule for which is which. The hybrid creates "should this be `motion.div` or `transition-colors`" decision fatigue per component. Pick a baseline and a trigger to leave it. |
+| Use `framer-motion` (the legacy package name) instead of `motion@^12` | `framer-motion` was renamed to `motion` per R-065 § 6.2; the v12 line that supports React 19 ships only under the `motion` package. Choosing the legacy name now would mean an immediate rename later. |
+| Defer the decision indefinitely (no DEC) | Leaves four worker reports with floating "we deferred motion/react" notes and no documented authority. Next slice's developer re-runs the same analysis. The deferral itself is the decision worth recording. |
+
+### Verification
+
+- `frontend/CLAUDE.md` § Styling explicitly names Tailwind as the animation baseline and states `motion/react` is deferred until a streaming or gestural surface forces it. Future workers reading the file find the rule before reaching for the dependency.
+- `frontend/package.json` does **not** list `motion`, `framer-motion`, or `motion/react`. (Empirical: `grep` returns no hits as of 2026-04-25.)
+- The lone code-comment reference at `frontend/src/app/modules/onboarding/components/topic-progress-indicator.helpers.ts` line 32 ("`motion/react` is reserved for richer animations elsewhere") aligns with this DEC and remains accurate as written.
+- No regression test or build assertion is appropriate here — adding one would conflate a dependency-hygiene policy with a runtime invariant. The policy is enforced by code review and this DEC.
+
+### Cross-references
+
+- R-065: `docs/research/artifacts/batch-21a-onboarding-chat-ux-react19.md` § 6.2 (Library choice: motion/react), § 6.3 (`prefers-reduced-motion`), § Slice 1 bundle table.
+- Worker reports: #101 (MessageBubble + TranscriptScroller), #102 (TopicProgressIndicator), #103 (OnboardingChat "building your plan" placeholder), #112 (RegeneratePlanDialog) — all flagged the deferral; this DEC closes the loop.
+- `frontend/CLAUDE.md` § Styling — the operational restatement of this rule for daily development.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
