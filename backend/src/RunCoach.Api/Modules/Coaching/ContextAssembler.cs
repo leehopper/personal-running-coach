@@ -262,6 +262,35 @@ public sealed partial class ContextAssembler : IContextAssembler
     }
 
     /// <inheritdoc />
+    public async Task<PlanGenerationPromptComposition> ComposeForPlanGenerationAsync(
+        OnboardingView profileSnapshot,
+        RegenerationIntent? intent,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(profileSnapshot);
+
+        ct.ThrowIfCancellationRequested();
+
+        // System prompt comes from the versioned coaching-system YAML so the
+        // bytes are identical across every call in the macro/meso/micro chain
+        // — Anthropic's prompt-prefix cache hashes this block (DEC-047 / R-067).
+        var activeVersion = _promptStore.GetActiveVersion(CoachingPromptId);
+        var template = await _promptStore.GetPromptAsync(CoachingPromptId, activeVersion, ct).ConfigureAwait(false);
+        var systemPrompt = template.StaticSystemPrompt.TrimEnd();
+
+        // Snapshot section first (stable across calls 1..6), regeneration
+        // intent block last (also stable across calls 1..6 since the intent
+        // does not change within a single chain). Tier-specific suffixes
+        // (macro vs meso week-N vs micro) are appended by the calling service
+        // AFTER this base, keeping the prefix bytes returned here byte-stable.
+        var userMessage = BuildPlanGenerationUserMessage(profileSnapshot, intent);
+
+        return new PlanGenerationPromptComposition(
+            SystemPrompt: systemPrompt,
+            UserMessage: userMessage);
+    }
+
+    /// <inheritdoc />
     public int EstimateTokens(string text)
     {
         if (string.IsNullOrEmpty(text))
@@ -408,6 +437,40 @@ public sealed partial class ContextAssembler : IContextAssembler
         sb.AppendLine(CultureInfo.InvariantCulture, $"CURRENT_TOPIC: {currentTopic}");
         sb.AppendLine();
         sb.Append(sanitizedUserInput);
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Builds the plan-generation base user message. Layout: the captured
+    /// onboarding profile snapshot (slot summary, identical shape to the
+    /// onboarding turn user message) precedes the optional regeneration
+    /// intent block. Intent goes LAST under a stable label so the prefix
+    /// above it is byte-identical across initial-generation and regenerate
+    /// calls — the calling chain appends tier-specific suffixes (macro vs
+    /// meso vs micro) AFTER this base, keeping these bytes inside the
+    /// cacheable prefix per DEC-047.
+    /// </summary>
+    private static string BuildPlanGenerationUserMessage(
+        OnboardingView profileSnapshot,
+        RegenerationIntent? intent)
+    {
+        var sb = new StringBuilder();
+
+        sb.AppendLine("PROFILE SNAPSHOT (captured during onboarding):");
+        AppendSlotLine(sb, "PrimaryGoal", profileSnapshot.PrimaryGoal);
+        AppendSlotLine(sb, "TargetEvent", profileSnapshot.TargetEvent);
+        AppendSlotLine(sb, "CurrentFitness", profileSnapshot.CurrentFitness);
+        AppendSlotLine(sb, "WeeklySchedule", profileSnapshot.WeeklySchedule);
+        AppendSlotLine(sb, "InjuryHistory", profileSnapshot.InjuryHistory);
+        AppendSlotLine(sb, "Preferences", profileSnapshot.Preferences);
+
+        if (intent is not null)
+        {
+            sb.AppendLine();
+            sb.AppendLine("[Regeneration intent provided by user]");
+            sb.Append(intent.FreeText);
+        }
 
         return sb.ToString();
     }
