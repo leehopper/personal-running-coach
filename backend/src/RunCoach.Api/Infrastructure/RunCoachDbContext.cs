@@ -20,4 +20,16 @@ public class RunCoachDbContext(DbContextOptions<RunCoachDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
+    public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+
+        // Discover IEntityTypeConfiguration<T> implementations co-located with
+        // their entities (e.g. UserProfileConfiguration). Keeps DbContext free
+        // of per-entity fluent wiring.
+        builder.ApplyConfigurationsFromAssembly(typeof(RunCoachDbContext).Assembly);
+    }
 }
