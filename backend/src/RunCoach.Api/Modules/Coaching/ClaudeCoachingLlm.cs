@@ -137,7 +137,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <inheritdoc />
-    public Task<T> GenerateStructuredAsync<T>(
+    public Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(
         string systemPrompt,
         string userMessage,
         CancellationToken ct)
@@ -146,7 +146,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <inheritdoc />
-    public async Task<T> GenerateStructuredAsync<T>(
+    public async Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(
         string systemPrompt,
         string userMessage,
         IReadOnlyDictionary<string, JsonElement>? schema,
@@ -207,9 +207,12 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
                 "Increase MaxTokens or reduce prompt size.");
         }
 
-        return JsonSerializer.Deserialize<T>(json, StructuredOutputSerializerOptions)
+        var result = JsonSerializer.Deserialize<T>(json, StructuredOutputSerializerOptions)
             ?? throw new InvalidOperationException(
                 $"Failed to deserialize structured output to {typeof(T).Name}. JSON was a null literal.");
+
+        var usage = ExtractUsage(response);
+        return (result, usage);
     }
 
     /// <summary>
@@ -229,6 +232,26 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         {
             disposable.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Maps the SDK <see cref="Anthropic.Models.Messages.Usage"/> on the
+    /// Anthropic response into the public <see cref="AnthropicUsage"/> record.
+    /// The cache breakdown counters
+    /// (<c>cache_creation_input_tokens</c> / <c>cache_read_input_tokens</c>)
+    /// are nullable on the wire (only emitted when prompt-cache is active);
+    /// missing values are coerced to zero so downstream rollup arithmetic
+    /// stays well-defined.
+    /// </summary>
+    internal static AnthropicUsage ExtractUsage(Message response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        var usage = response.Usage;
+        return new AnthropicUsage(
+            InputTokens: usage.InputTokens,
+            OutputTokens: usage.OutputTokens,
+            CacheCreationInputTokens: usage.CacheCreationInputTokens ?? 0,
+            CacheReadInputTokens: usage.CacheReadInputTokens ?? 0);
     }
 
     /// <summary>

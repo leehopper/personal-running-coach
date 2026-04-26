@@ -226,6 +226,11 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
 
         LogChainStart(_logger, planId, userId, previousPlanId);
 
+        // Per-call usage counters accumulate across the six structured-output
+        // calls so the rollup metric event can publish a chain-wide
+        // <c>cache_hit_rate</c> tag (Slice 1 § Unit 2 R02.8).
+        var totalUsage = AnthropicUsage.Zero;
+
         // Tier 1 — macro plan.
         MacroPlanOutput macro;
         int macroOutputChars;
@@ -235,7 +240,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         {
             macroActivity?.SetTag("runcoach.plan.tier", TierMacro);
             macroActivity?.SetTag("runcoach.plan.id", planId);
-            macro = await _llm
+            (macro, var macroUsage) = await _llm
                 .GenerateStructuredAsync<MacroPlanOutput>(
                     systemPrompt,
                     BuildMacroUserMessage(basePrompt),
@@ -243,6 +248,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                     cacheControl: CacheControl.Ephemeral1h,
                     ct)
                 .ConfigureAwait(false);
+            totalUsage = totalUsage.Add(macroUsage);
             macroOutputChars = MeasureOutputChars(macro);
             macroActivity?.SetTag("runcoach.plan.output_chars", macroOutputChars);
         }
@@ -263,7 +269,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             mesoActivity?.SetTag("runcoach.plan.week_index", week);
             mesoActivity?.SetTag("runcoach.plan.is_deload_candidate", weekContext.IsDeloadCandidate);
 
-            var meso = await _llm
+            var (meso, mesoUsage) = await _llm
                 .GenerateStructuredAsync<MesoWeekOutput>(
                     systemPrompt,
                     BuildMesoUserMessage(basePrompt, macro, weekContext),
@@ -271,6 +277,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                     cacheControl: CacheControl.Ephemeral1h,
                     ct)
                 .ConfigureAwait(false);
+            totalUsage = totalUsage.Add(mesoUsage);
 
             var mesoChars = MeasureOutputChars(meso);
             mesoOutputCharsPerWeek[week - 1] = mesoChars;
@@ -291,7 +298,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         {
             microActivity?.SetTag("runcoach.plan.tier", TierMicro);
             microActivity?.SetTag("runcoach.plan.id", planId);
-            micro = await _llm
+            (micro, var microUsage) = await _llm
                 .GenerateStructuredAsync<MicroWorkoutListOutput>(
                     systemPrompt,
                     BuildMicroUserMessage(basePrompt, macro, weekOneMeso),
@@ -299,6 +306,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                     cacheControl: CacheControl.Ephemeral1h,
                     ct)
                 .ConfigureAwait(false);
+            totalUsage = totalUsage.Add(microUsage);
             microOutputChars = MeasureOutputChars(micro);
             microActivity?.SetTag("runcoach.plan.output_chars", microOutputChars);
         }
@@ -330,6 +338,21 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             mesoOutputCharsTotal += mesoOutputCharsPerWeek[i];
         }
 
+        // Compute chain-wide cache-hit rate from the accumulated Anthropic
+        // usage counters. The denominator is the total number of input tokens
+        // the chain "saw" — fresh + cache-creation + cache-read — so the rate
+        // expresses the proportion of input the prompt-prefix cache served
+        // without re-billing. When all three counters are zero (e.g. a stub
+        // LLM in unit tests that emits no usage), the rate is reported as 0.0
+        // so the tag is always present per spec § Unit 2 R02.8.
+        var totalInputTokens =
+            totalUsage.InputTokens
+            + totalUsage.CacheCreationInputTokens
+            + totalUsage.CacheReadInputTokens;
+        var cacheHitRate = totalInputTokens > 0
+            ? totalUsage.CacheReadInputTokens / (double)totalInputTokens
+            : 0d;
+
         // Stamp rollup metrics on the chain span so a single trace view shows
         // the totals without scraping the metric exporter.
         chainActivity?.SetTag("runcoach.plan.total_calls", 1 + MesoWeekCount + 1);
@@ -337,6 +360,11 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         chainActivity?.SetTag("runcoach.plan.macro_output_chars", macroOutputChars);
         chainActivity?.SetTag("runcoach.plan.meso_output_chars_total", mesoOutputCharsTotal);
         chainActivity?.SetTag("runcoach.plan.micro_output_chars", microOutputChars);
+        chainActivity?.SetTag("runcoach.plan.input_tokens_fresh", totalUsage.InputTokens);
+        chainActivity?.SetTag("runcoach.plan.cache_creation_input_tokens", totalUsage.CacheCreationInputTokens);
+        chainActivity?.SetTag("runcoach.plan.cache_read_input_tokens", totalUsage.CacheReadInputTokens);
+        chainActivity?.SetTag("runcoach.plan.output_tokens", totalUsage.OutputTokens);
+        chainActivity?.SetTag("runcoach.plan.cache_hit_rate", cacheHitRate);
 
         // Emit the structured `runcoach.plan.generation.completed` event on
         // the existing `RunCoach.Llm` Meter per Slice 1 § Unit 2 R02.8. The
@@ -354,6 +382,11 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             { "runcoach.plan.macro_output_chars", macroOutputChars },
             { "runcoach.plan.meso_output_chars_total", mesoOutputCharsTotal },
             { "runcoach.plan.micro_output_chars", microOutputChars },
+            { "runcoach.plan.input_tokens_fresh", totalUsage.InputTokens },
+            { "runcoach.plan.cache_creation_input_tokens", totalUsage.CacheCreationInputTokens },
+            { "runcoach.plan.cache_read_input_tokens", totalUsage.CacheReadInputTokens },
+            { "runcoach.plan.output_tokens", totalUsage.OutputTokens },
+            { "runcoach.plan.cache_hit_rate", cacheHitRate },
         };
         PlanGenerationCompleted.Record(durationMs, tags);
 

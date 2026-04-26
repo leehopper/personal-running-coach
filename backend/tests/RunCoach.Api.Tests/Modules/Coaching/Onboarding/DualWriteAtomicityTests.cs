@@ -327,21 +327,23 @@ public class DualWriteAtomicityTests(RunCoachAppFactory factory) : DbBackedInteg
                 NSubstitute.Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
                 NSubstitute.Arg.Any<CacheControl?>(),
                 NSubstitute.Arg.Any<CancellationToken>())
-            .Returns(new OnboardingTurnOutput
-            {
-                Reply =
-                [
-                    new AnthropicContentBlock
-                    {
-                        Type = AnthropicContentBlockType.Text,
-                        Text = "all set, generating your plan now",
-                    },
-                ],
-                Extracted = null,
-                NeedsClarification = false,
-                ClarificationReason = null,
-                ReadyForPlan = true,
-            });
+            .Returns((
+                new OnboardingTurnOutput
+                {
+                    Reply =
+                    [
+                        new AnthropicContentBlock
+                        {
+                            Type = AnthropicContentBlockType.Text,
+                            Text = "all set, generating your plan now",
+                        },
+                    ],
+                    Extracted = null,
+                    NeedsClarification = false,
+                    ClarificationReason = null,
+                    ReadyForPlan = true,
+                },
+                AnthropicUsage.Zero));
         return stub;
     }
 

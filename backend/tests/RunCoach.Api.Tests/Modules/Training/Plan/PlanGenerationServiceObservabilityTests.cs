@@ -33,6 +33,18 @@ public sealed class PlanGenerationServiceObservabilityTests
 
     private static readonly DateTimeOffset Now = new(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
 
+    /// <summary>
+    /// Synthetic usage stub representing a warm cache: input tokens billed
+    /// fresh (10), cache-read tokens (90), zero cache-creation. Yields a
+    /// chain-wide cache_hit_rate of 90 / (10 + 0 + 90) = 0.9 — high enough to
+    /// distinguish from a "no usage" zero stub but bounded in [0, 1] per spec.
+    /// </summary>
+    private static readonly AnthropicUsage UsageWithCacheRead = new(
+        InputTokens: 10,
+        OutputTokens: 5,
+        CacheCreationInputTokens: 0,
+        CacheReadInputTokens: 90);
+
     [Fact]
     public async Task GeneratePlanAsync_Emits_PlanGenerationCompleted_Metric_With_Documented_Tag_Bag()
     {
@@ -80,6 +92,150 @@ public sealed class PlanGenerationServiceObservabilityTests
             .WhoseValue.Should().BeOfType<int>().Which.Should().BeGreaterThan(0);
         completion.Tags.Should().ContainKey("runcoach.plan.micro_output_chars")
             .WhoseValue.Should().BeOfType<int>().Which.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_Emits_CacheHitRate_Tag_In_BoundedUnitInterval_With_AccumulatedUsageBreakdown()
+    {
+        // Arrange — every per-call stub returns UsageWithCacheRead
+        // (10 fresh / 90 cache-read / 0 cache-create). Across the six-call
+        // chain that totals 60 fresh / 540 cache-read / 0 cache-create, so
+        // the rolled-up cache_hit_rate must be 540 / 600 = 0.9. The metric
+        // event also carries the four accumulated token counters per
+        // Slice 1 § Unit 2 R02.8 so Phoenix can dashboard cache effectiveness
+        // without scraping the underlying SDK spans.
+        var planId = NewPlanId();
+        var measurements = new List<RecordedMeasurement>();
+        using var listener = CreateMeterListener(measurements);
+        var (sut, llm, _) = CreateSut();
+        ConfigureLlmHappyPath(llm);
+
+        // Act
+        await sut.GeneratePlanAsync(
+            CreateCompletedView(),
+            UserId,
+            planId,
+            intent: null,
+            previousPlanId: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert — exactly one runcoach.plan.generation.completed for THIS PlanId.
+        var completion = measurements.Single(m =>
+            string.Equals(m.InstrumentName, PlanGenerationService.PlanGenerationCompletedMetricName, StringComparison.Ordinal)
+            && m.Tags.TryGetValue("runcoach.plan.id", out var pid)
+            && (pid as string) == planId.ToString());
+
+        // cache_hit_rate is the headline tag the spec calls out — must be
+        // present, double-typed, and inside [0, 1].
+        completion.Tags.Should().ContainKey("runcoach.plan.cache_hit_rate");
+        var cacheHitRate = completion.Tags["runcoach.plan.cache_hit_rate"]
+            .Should().BeOfType<double>().Which;
+        cacheHitRate.Should().BeInRange(0d, 1d);
+        cacheHitRate.Should().BeApproximately(0.9d, 0.0001d);
+
+        // The four accumulated usage tags ride alongside cache_hit_rate so
+        // dashboards can show the breakdown that drove the rate.
+        completion.Tags.Should().ContainKey("runcoach.plan.input_tokens_fresh")
+            .WhoseValue.Should().BeOfType<long>().Which.Should().Be(60);
+        completion.Tags.Should().ContainKey("runcoach.plan.cache_creation_input_tokens")
+            .WhoseValue.Should().BeOfType<long>().Which.Should().Be(0);
+        completion.Tags.Should().ContainKey("runcoach.plan.cache_read_input_tokens")
+            .WhoseValue.Should().BeOfType<long>().Which.Should().Be(540);
+        completion.Tags.Should().ContainKey("runcoach.plan.output_tokens")
+            .WhoseValue.Should().BeOfType<long>().Which.Should().Be(30);
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_CacheHitRate_IsZero_WhenNoTokensReported()
+    {
+        // Arrange — degenerate stub returning AnthropicUsage.Zero on every
+        // call. The rollup denominator is zero, but spec § Unit 2 R02.8
+        // requires the tag to always be present. The service must coerce a
+        // zero-denominator case to 0.0, not NaN, so dashboards stay sane.
+        var planId = NewPlanId();
+        var measurements = new List<RecordedMeasurement>();
+        using var listener = CreateMeterListener(measurements);
+        var (sut, llm, _) = CreateSut();
+        llm
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithUsage(BuildMacro(), AnthropicUsage.Zero));
+        var mesoCounter = 0;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                mesoCounter++;
+                return WithUsage(BuildMeso(mesoCounter, PhaseType.Base, isDeload: false), AnthropicUsage.Zero);
+            });
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithUsage(BuildMicro(), AnthropicUsage.Zero));
+
+        // Act
+        await sut.GeneratePlanAsync(
+            CreateCompletedView(),
+            UserId,
+            planId,
+            intent: null,
+            previousPlanId: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var completion = measurements.Single(m =>
+            string.Equals(m.InstrumentName, PlanGenerationService.PlanGenerationCompletedMetricName, StringComparison.Ordinal)
+            && m.Tags.TryGetValue("runcoach.plan.id", out var pid)
+            && (pid as string) == planId.ToString());
+
+        var cacheHitRate = completion.Tags["runcoach.plan.cache_hit_rate"]
+            .Should().BeOfType<double>().Which;
+        cacheHitRate.Should().Be(0d);
+        double.IsNaN(cacheHitRate).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_Parent_Activity_Stamps_CacheHitRate_Matching_MetricTags()
+    {
+        // Arrange — the parent span must carry the same cache_hit_rate tag
+        // the metric event publishes, so a single trace view shows the rolled
+        // up rate without scraping the metric exporter (R-051 Phoenix UX).
+        var planId = NewPlanId();
+        var startedActivities = new List<Activity>();
+        using var listener = CreateActivityListener(startedActivities);
+        var (sut, llm, _) = CreateSut();
+        ConfigureLlmHappyPath(llm);
+
+        // Act
+        await sut.GeneratePlanAsync(
+            CreateCompletedView(),
+            UserId,
+            planId,
+            intent: null,
+            previousPlanId: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var parent = startedActivities.Single(a =>
+            string.Equals(a.Source.Name, PlanGenerationService.ObservabilitySourceName, StringComparison.Ordinal)
+            && string.Equals(a.OperationName, PlanGenerationService.PlanGenerationActivityName, StringComparison.Ordinal)
+            && (Guid?)a.GetTagItem("runcoach.plan.id") == planId);
+
+        parent.GetTagItem("runcoach.plan.cache_hit_rate").Should().BeOfType<double>()
+            .Which.Should().BeApproximately(0.9d, 0.0001d);
     }
 
     [Fact]
@@ -244,7 +400,7 @@ public sealed class PlanGenerationServiceObservabilityTests
                     throw new InvalidOperationException("simulated meso 4 failure");
                 }
 
-                return BuildMeso(mesoCalls, PhaseType.Base, isDeload: false);
+                return WithUsage(BuildMeso(mesoCalls, PhaseType.Base, isDeload: false), UsageWithCacheRead);
             });
 
         // Act
@@ -352,6 +508,16 @@ public sealed class PlanGenerationServiceObservabilityTests
         return (sut, llm, assembler);
     }
 
+    /// <summary>
+    /// Wraps a structured-output payload in the <c>(Result, Usage)</c> tuple
+    /// shape the bumped <see cref="ICoachingLlm.GenerateStructuredAsync{T}(string, string, CancellationToken)"/>
+    /// signature returns. Defaults usage to a non-trivial cache-active stub
+    /// (<see cref="UsageWithCacheRead"/>) so the chain rollup observes a
+    /// realistic cache_hit_rate.
+    /// </summary>
+    private static (T Result, AnthropicUsage Usage) WithUsage<T>(T result, AnthropicUsage usage) =>
+        (result, usage);
+
     private static void ConfigureMacroSuccess(ICoachingLlm llm)
     {
         llm
@@ -361,7 +527,7 @@ public sealed class PlanGenerationServiceObservabilityTests
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(_ => BuildMacro());
+            .Returns(_ => WithUsage(BuildMacro(), UsageWithCacheRead));
     }
 
     private static void ConfigureLlmHappyPath(ICoachingLlm llm)
@@ -379,7 +545,7 @@ public sealed class PlanGenerationServiceObservabilityTests
             .Returns(_ =>
             {
                 mesoCounter++;
-                return BuildMeso(mesoCounter, PhaseType.Base, isDeload: false);
+                return WithUsage(BuildMeso(mesoCounter, PhaseType.Base, isDeload: false), UsageWithCacheRead);
             });
 
         llm
@@ -389,7 +555,7 @@ public sealed class PlanGenerationServiceObservabilityTests
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(_ => BuildMicro());
+            .Returns(_ => WithUsage(BuildMicro(), UsageWithCacheRead));
     }
 
     private static OnboardingView CreateCompletedView() => new()

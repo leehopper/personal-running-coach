@@ -85,7 +85,7 @@ public class InvokeAsyncTransactionScopeTests
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(BuildReadyForPlanOutput());
+            .Returns((BuildReadyForPlanOutput(), AnthropicUsage.Zero));
         planGen
             .GeneratePlanAsync(
                 Arg.Any<OnboardingView>(),
