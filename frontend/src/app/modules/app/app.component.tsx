@@ -6,7 +6,7 @@ import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
 import { RequireAuth } from '~/modules/auth/components/require-auth.component'
 import { useAuthBootstrap, useAuthBroadcastListener } from '~/modules/auth/hooks/auth.hooks'
 import { OnboardingPage } from '~/modules/onboarding/pages/onboarding.page'
-import { HomePage } from '~/pages/home/home.page'
+import { HomePage } from '~/modules/plan/pages/home.page'
 import { LoginPage } from '~/pages/login/login.page'
 import { RegisterPage } from '~/pages/register/register.page'
 
