@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RunCoach.Api.Infrastructure;
@@ -11,13 +12,14 @@ using RunCoach.Api.Infrastructure;
 namespace RunCoach.Api.Migrations
 {
     [DbContext(typeof(RunCoachDbContext))]
-    partial class RunCoachDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426121212_AddUserProfileTenantId")]
+    partial class AddUserProfileTenantId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("public")
                 .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -39,7 +41,7 @@ namespace RunCoach.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("DataProtectionKeys", "public");
+                    b.ToTable("DataProtectionKeys");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -66,7 +68,7 @@ namespace RunCoach.Api.Migrations
                         .IsUnique()
                         .HasDatabaseName("RoleNameIndex");
 
-                    b.ToTable("AspNetRoles", "public");
+                    b.ToTable("AspNetRoles", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -90,7 +92,7 @@ namespace RunCoach.Api.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", "public");
+                    b.ToTable("AspNetRoleClaims", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -114,7 +116,7 @@ namespace RunCoach.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", "public");
+                    b.ToTable("AspNetUserClaims", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -135,7 +137,7 @@ namespace RunCoach.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", "public");
+                    b.ToTable("AspNetUserLogins", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
@@ -150,7 +152,7 @@ namespace RunCoach.Api.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", "public");
+                    b.ToTable("AspNetUserRoles", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -169,7 +171,7 @@ namespace RunCoach.Api.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", "public");
+                    b.ToTable("AspNetUserTokens", (string)null);
                 });
 
             modelBuilder.Entity("RunCoach.Api.Modules.Identity.Entities.ApplicationUser", b =>
@@ -234,7 +236,7 @@ namespace RunCoach.Api.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
-                    b.ToTable("AspNetUsers", "public");
+                    b.ToTable("AspNetUsers", (string)null);
                 });
 
             modelBuilder.Entity("RunCoach.Api.Modules.Identity.Entities.UserProfile", b =>
@@ -262,7 +264,7 @@ namespace RunCoach.Api.Migrations
 
                     b.HasKey("UserId");
 
-                    b.ToTable("UserProfile", "public");
+                    b.ToTable("UserProfile");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -341,7 +343,7 @@ namespace RunCoach.Api.Migrations
 
                             b1.HasKey("UserProfileUserId");
 
-                            b1.ToTable("UserProfile", "public");
+                            b1.ToTable("UserProfile");
 
                             b1
                                 .ToJson("CurrentFitness")
@@ -365,7 +367,7 @@ namespace RunCoach.Api.Migrations
 
                             b1.HasKey("UserProfileUserId");
 
-                            b1.ToTable("UserProfile", "public");
+                            b1.ToTable("UserProfile");
 
                             b1
                                 .ToJson("InjuryHistory")
@@ -390,7 +392,7 @@ namespace RunCoach.Api.Migrations
 
                             b1.HasKey("UserProfileUserId");
 
-                            b1.ToTable("UserProfile", "public");
+                            b1.ToTable("UserProfile");
 
                             b1
                                 .ToJson("Preferences")
@@ -416,7 +418,7 @@ namespace RunCoach.Api.Migrations
 
                             b1.HasKey("UserProfileUserId");
 
-                            b1.ToTable("UserProfile", "public");
+                            b1.ToTable("UserProfile");
 
                             b1
                                 .ToJson("TargetEvent")
@@ -453,7 +455,7 @@ namespace RunCoach.Api.Migrations
 
                             b1.HasKey("UserProfileUserId");
 
-                            b1.ToTable("UserProfile", "public");
+                            b1.ToTable("UserProfile");
 
                             b1
                                 .ToJson("WeeklySchedule")
