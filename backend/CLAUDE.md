@@ -109,6 +109,34 @@ backend/
 - Integration tests validate the **full response contract** with deep equality (exclude audit fields)
 - Test file naming: `{ClassName}Tests.cs` (unit), `{ClassName}IntegrationTests.cs` (integration)
 
+### Test Parallelism
+
+`RunCoach.Api.Tests` runs **collections sequentially** (parallel test-collection
+execution disabled). Enforced via two redundant mechanisms:
+
+- `[assembly: CollectionBehavior(DisableTestParallelization = true)]` in
+  `Infrastructure/AssemblyInfo.cs` — primary, compile-time, travels with the
+  assembly
+- `xunit.runner.json` next to the test assembly with
+  `parallelizeTestCollections: false`, `parallelizeAssemblies: false`,
+  `maxParallelThreads: 1` — runner-side override copied via
+  `<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>`
+
+Why: integration tests share an assembly-scoped `RunCoachAppFactory` that boots
+one Testcontainers Postgres + Marten `IDocumentStore` + Wolverine host for the
+whole suite. Under default parallel-by-collection scheduling, multiple
+integration test classes raced on the shared `IDocumentStore`'s
+schema-migration advisory lock and Marten async daemon, producing intermittent
+failures (different set of 9-11 tests per run) with two recurring signatures:
+"Unable to attain a global lock in time order to apply database changes" and
+`ObjectDisposedException` on `IDocumentStore` shutdown.
+
+Sequential execution is the canonical mode. `dotnet test` (default invocation)
+is the supported, deterministic command — no `-- -parallel none` flag needed.
+The future fix, deferred, is to partition the shared SUT into per-collection
+isolated databases or schemas so collection-level parallelism becomes safe
+again.
+
 ### Eval Infrastructure
 
 LLM evaluation tests live in `tests/RunCoach.Api.Tests/Modules/Coaching/Eval/`:

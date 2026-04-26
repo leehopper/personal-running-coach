@@ -37,13 +37,11 @@
 
   <ItemGroup>
     <!--
-      Copy the xUnit v3 runner config next to the built assembly so the
-      runner picks up parallelization defaults at execution time. The
-      collection-scoped serialization opt-ins ([CollectionDefinition(...,
-      DisableParallelization = true)] in IntegrationCollection.cs and
-      EvalCollection.cs) gate the Postgres/Marten/Wolverine and eval-cache
-      races respectively; this file enables parallel execution across
-      independent collections so the unit-test bulk runs concurrently.
+      Copy the xUnit v3 runner config next to the built assembly so the runner
+      picks up `parallelizeTestCollections: false` at execution time. The
+      assembly-level [CollectionBehavior(DisableTestParallelization = true)]
+      attribute is the primary mechanism (see Infrastructure/AssemblyInfo.cs);
+      this file is the belt-and-suspenders runner-side override.
     -->
     <Content Include="xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
