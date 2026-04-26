@@ -7,7 +7,9 @@ using Anthropic.Models.Messages;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
+using AnthropicMessages = Anthropic.Models.Messages;
 
 namespace RunCoach.Api.Modules.Coaching;
 
@@ -135,9 +137,20 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <inheritdoc />
+    public Task<T> GenerateStructuredAsync<T>(
+        string systemPrompt,
+        string userMessage,
+        CancellationToken ct)
+    {
+        return GenerateStructuredAsync<T>(systemPrompt, userMessage, schema: null, cacheControl: null, ct);
+    }
+
+    /// <inheritdoc />
     public async Task<T> GenerateStructuredAsync<T>(
         string systemPrompt,
         string userMessage,
+        IReadOnlyDictionary<string, JsonElement>? schema,
+        CacheControl? cacheControl,
         CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
@@ -145,15 +158,17 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
         LogSendingRequest(_logger, _settings.ModelId, _settings.MaxTokens);
 
-        var schemaNode = JsonSchemaHelper.GenerateSchema<T>();
-        var schemaDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-            schemaNode.ToJsonString())!;
+        // Resolve schema: caller-supplied (byte-stable, e.g. OnboardingSchema.Frozen)
+        // takes precedence; otherwise fall back to runtime generation.
+        var schemaDict = schema is not null
+            ? new Dictionary<string, JsonElement>(schema, StringComparer.Ordinal)
+            : BuildSchemaDictionary<T>();
 
         var createParams = new MessageCreateParams
         {
             Model = _settings.ModelId,
             MaxTokens = _settings.MaxTokens,
-            System = systemPrompt,
+            System = BuildSystemParam(systemPrompt, cacheControl),
             Messages =
             [
                 new MessageParam
@@ -214,6 +229,60 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         {
             disposable.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Generates a JSON schema dictionary from <typeparamref name="T"/> at
+    /// runtime via <see cref="JsonSchemaHelper.GenerateSchema{T}"/>.
+    /// Used as the fallback path when the caller does not supply a
+    /// pre-built (byte-stable) schema.
+    /// </summary>
+    internal static Dictionary<string, JsonElement> BuildSchemaDictionary<T>()
+    {
+        var schemaNode = JsonSchemaHelper.GenerateSchema<T>();
+        return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(schemaNode.ToJsonString())
+            ?? throw new InvalidOperationException(
+                $"Failed to materialize JSON schema dictionary for {typeof(T).Name}.");
+    }
+
+    /// <summary>
+    /// Builds the Anthropic <c>system</c> parameter from the prompt text and
+    /// optional cache-control breakpoint. When <paramref name="cacheControl"/>
+    /// is null the system prompt is sent as a plain string and is NOT cached.
+    /// When non-null, the system prompt is sent as a content-block array
+    /// with a <c>cache_control</c> marker on the trailing text block — this
+    /// is how Anthropic's prompt-prefix cache identifies the cacheable
+    /// boundary (per the SDK documentation for <c>TextBlockParam.CacheControl</c>).
+    /// </summary>
+    internal static MessageCreateParamsSystem BuildSystemParam(
+        string systemPrompt,
+        CacheControl? cacheControl)
+    {
+        if (cacheControl is null)
+        {
+            return systemPrompt;
+        }
+
+        var ttlEnum = cacheControl.Ttl switch
+        {
+            "1h" => AnthropicMessages.Ttl.Ttl1h,
+            "5m" => AnthropicMessages.Ttl.Ttl5m,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(cacheControl),
+                cacheControl.Ttl,
+                "Anthropic cache_control.ttl must be \"1h\" or \"5m\"."),
+        };
+
+        var block = new TextBlockParam
+        {
+            Text = systemPrompt,
+            CacheControl = new CacheControlEphemeral
+            {
+                Ttl = ttlEnum,
+            },
+        };
+
+        return new MessageCreateParamsSystem(new List<TextBlockParam> { block }, element: null);
     }
 
     /// <summary>
