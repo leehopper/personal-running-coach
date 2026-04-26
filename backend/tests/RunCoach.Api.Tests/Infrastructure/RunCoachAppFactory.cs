@@ -1,14 +1,13 @@
 using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 using Respawn;
 using RunCoach.Api.Infrastructure;
-using RunCoach.Api.Infrastructure.Idempotency;
+using RunCoach.Api.Modules.Training.Plan;
 using Testcontainers.PostgreSql;
 
 namespace RunCoach.Api.Tests.Infrastructure;
@@ -216,46 +215,20 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         // without any redirect.
         builder.UseSetting("https_port", "443");
 
-        // Strip the production-registered `IdempotencySweeper` hosted service
-        // from the SUT's DI graph for tests. Production wires the sweeper as
-        // an `IHostedService` bound to `TimeProvider.System`, so the moment
-        // the host boots (which we force eagerly in `InitializeAsync` to
-        // serialize Marten's startup advisory-lock acquisition), the sweeper
-        // begins running on real wall-clock time. Idempotency tests, however,
-        // construct their own `IdempotencySweeper` against a `FakeTimeProvider`
-        // and seed marker rows at fake-time offsets that may sit hours or days
-        // behind today's real clock. Leaving the hosted instance running races
-        // against test-owned markers: it can delete a "fresh" fake-time marker
-        // mid-assertion because the real-clock cutoff has long since passed
-        // it. Removing the descriptor here makes the sweeper test-driven only.
-        // Tests that exercise the sweep loop instantiate it directly via
-        // `new IdempotencySweeper(store, fakeTime, NullLogger<...>.Instance)`.
-        builder.ConfigureTestServices(services =>
+        // Replace the production `IPlanGenerationService` registration with a
+        // deterministic stub so integration tests that drive the regenerate /
+        // onboarding terminal-branch handlers through the live HTTP +
+        // Wolverine bus pipeline don't pay six structured-output LLM calls per
+        // run. Wolverine's `TypeLoadMode.Auto` codegen reads this concrete-impl
+        // registration during host startup and bakes
+        // `new StubPlanGenerationService()` directly into the generated
+        // handler. The structured-output chain itself is covered by
+        // `PlanGenerationServiceTests` (eval-cached unit tier) and the
+        // committed manual smoke proof at T05.1 (commit `13464e0`).
+        builder.ConfigureServices(services =>
         {
-            var hostedDescriptor = services.SingleOrDefault(d =>
-                d.ServiceType == typeof(IHostedService)
-                && d.ImplementationType == typeof(IdempotencySweeper));
-            if (hostedDescriptor is not null)
-            {
-                services.Remove(hostedDescriptor);
-            }
-
-            // The default IHost shutdown timeout is 30s. Wolverine's
-            // MessageStoreCollection.ReleaseAllOwnershipAsync runs an SQL
-            // UPDATE on wolverine_*_envelopes during StopAsync, and on CI
-            // runners that update can be cancelled mid-flight when the
-            // 30s budget — already eaten into by ~25s of test execution
-            // before the assembly fixture's DisposeAsync calls
-            // base.DisposeAsync() — runs out. The cancellation surfaces as
-            // an OperationCanceledException from
-            // Microsoft.Extensions.Hosting.Internal.Host.ForeachService,
-            // which xunit reports as a "Test Assembly Cleanup Failure" for
-            // every test in the assembly. Extending the shutdown budget to
-            // a generous value isolates cleanup time from per-test time and
-            // keeps the cleanup deterministic regardless of how many tests
-            // the suite grows to.
-            services.PostConfigure<HostOptions>(opts =>
-                opts.ShutdownTimeout = TimeSpan.FromMinutes(2));
+            services.RemoveAll<IPlanGenerationService>();
+            services.AddScoped<IPlanGenerationService, StubPlanGenerationService>();
         });
     }
 }

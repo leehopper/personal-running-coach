@@ -137,6 +137,55 @@ The future fix, deferred, is to partition the shared SUT into per-collection
 isolated databases or schemas so collection-level parallelism becomes safe
 again.
 
+### Wolverine Handler Integration Coverage
+
+Integration tests that exercise a Wolverine command handler (regenerate plan,
+onboarding terminal-branch, future Slice 3 `PlanAdaptedFromLog`, Slice 4
+`ConversationTurnRecorded`) drive the live `IMessageBus.InvokeAsync<TResponse>`
+pipeline — no direct `Handler.Handle(...)` calls in test code. Three pieces
+make this work under the shared `RunCoachAppFactory`:
+
+- `Program.cs` pins `opts.ApplicationAssembly = typeof(Program).Assembly`
+  inside `UseWolverine`. Without this, Wolverine's entry-assembly heuristic
+  walks the call stack and picks `RunCoach.Api.Tests` under
+  `WebApplicationFactory<Program>`, finds zero handlers in the test
+  assembly, and every `bus.InvokeAsync<T>` from a controller fails with
+  `IndeterminateRoutesException`.
+- `RunCoachAppFactory.ConfigureWebHost` swaps the production
+  `IPlanGenerationService` registration for
+  `Infrastructure/StubPlanGenerationService.cs` so the bus-driven handler
+  chain doesn't pay six structured-output LLM calls per test. The stub
+  must be `public` — Wolverine's codegen uses service location for
+  internal types and falls back to scope-based DI for the entire chain,
+  which then resolves a different `IDocumentSession` for the idempotency
+  store than the one Wolverine commits, breaking idempotency-replay tests
+  silently.
+- `MartenConfiguration.AddRunCoachMarten` sets
+  `CritterStackDefaults.Development.SourceCodeWritingEnabled = false` so
+  Wolverine's auto-codegen stays in-memory under the test host. Without
+  this, the test fixture's `StubPlanGenerationService` registration would
+  cause Wolverine to flush a generated `*Handler.cs` referencing the
+  test-only type into `src/RunCoach.Api/Internal/Generated/`, after which
+  any plain `dotnet build` of the API project fails CS0234 on the
+  dangling cross-assembly reference. Production static codegen still
+  writes via the explicit `dotnet run -- codegen write` step (DEC-048).
+
+Tests then drive the bus the same way the controller does:
+
+```csharp
+using var scope = Factory.Services.CreateScope();
+var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+var response = await bus.InvokeAsync<RegeneratePlanResponse>(cmd, ct);
+```
+
+Wolverine's transactional middleware brackets a single Marten
+`SaveChangesAsync` around the handler body; the EF
+`UseEntityFrameworkCoreTransactionParticipant` wiring enrols the inline
+`UserProfileFromOnboardingProjection` write into that same Postgres
+transaction (DEC-060 / R-069). No manual `SaveChangesAsync` in the test —
+that would open a second session and hide a regression in the framework
+bracket.
+
 ### Eval Infrastructure
 
 LLM evaluation tests live in `tests/RunCoach.Api.Tests/Modules/Coaching/Eval/`:
