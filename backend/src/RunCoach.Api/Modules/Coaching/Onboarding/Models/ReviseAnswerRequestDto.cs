@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 
@@ -13,5 +14,5 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// against the topic-specific record (e.g. <see cref="PrimaryGoalAnswer"/>) before appending.
 /// </param>
 public sealed record ReviseAnswerRequestDto(
-    OnboardingTopic Topic,
+    [property: JsonRequired] OnboardingTopic Topic,
     JsonDocument NormalizedValue);

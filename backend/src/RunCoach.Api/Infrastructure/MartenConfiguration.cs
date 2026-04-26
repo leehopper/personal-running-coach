@@ -66,6 +66,16 @@ public static class MartenConfiguration
                 // pre-generated handler chains.
                 opts.Schema.For<IdempotencyMarker>();
 
+                // The Plan-stream projection materializes a `PlanProjectionDto`
+                // keyed on `PlanId` (the document doubles as the per-plan
+                // stream id) — Marten's default `Id`/`id` identity convention
+                // does not find a member of that name, so the document
+                // mapping needs an explicit `Identity` override. Without this
+                // call, `Marten.Schema.DocumentMapping.CompileAndValidate()`
+                // throws `InvalidDocumentException` at host start.
+                opts.Schema.For<RunCoach.Api.Modules.Training.Plan.Models.PlanProjectionDto>()
+                    .Identity(x => x.PlanId);
+
                 // Onboarding projections (DEC-047 + DEC-060 / R-069). Both run inline so
                 // the in-memory `OnboardingView` and the EF `UserProfile` row materialize
                 // on the same `IDocumentSession.SaveChangesAsync` call as the event
@@ -76,7 +86,16 @@ public static class MartenConfiguration
                 // SaveChangesAsync is called within Marten's transaction, ensuring
                 // atomicity").
                 opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
-                opts.Projections.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
+
+                // EF-Core-backed projections must register through the
+                // `Marten.EntityFrameworkCore` extension (`opts.Add(...)` rather
+                // than `opts.Projections.Add(...)`) so Marten configures EF
+                // aggregate persistence + Weasel schema migration AND skips
+                // the document-mapping `Id` validation that would otherwise
+                // throw `InvalidDocumentException` for the EF entity at host
+                // start. The non-EF overload treats <c>UserProfile</c> as a
+                // Marten document and then fails to find an `Id` property.
+                opts.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
 
                 // Plan projection (spec 13 § Unit 2, R02.3). Inline so the
                 // `PlanProjectionDto` read model materializes on the same
