@@ -2220,4 +2220,52 @@ When either trigger fires, the adopting slice: (a) `npm install motion@^12`, (b)
 
 ---
 
+## DEC-063: Disable parallel test-collection execution in `RunCoach.Api.Tests`; sequential is the canonical mode
+
+**Date:** 2026-04-25
+**Category:** Backend / Testing infrastructure
+**Status:** Accepted
+**Drives:** Slice 1 close-out follow-up #117 — codifies the fix for the parallel-test-isolation flake observed across worker dispatch rounds (#99, #110, #111).
+
+### Decision
+
+`backend/tests/RunCoach.Api.Tests` runs **all test collections sequentially**. `dotnet test` (default invocation) is the canonical, deterministic command — no `-parallel none` flag is required, and CI does not pass one.
+
+Enforced via two redundant mechanisms:
+
+1. **`[assembly: CollectionBehavior(DisableTestParallelization = true)]`** in `backend/tests/RunCoach.Api.Tests/Infrastructure/AssemblyInfo.cs` — primary, compile-time, embedded in the assembly metadata, travels with the binary.
+2. **`backend/tests/RunCoach.Api.Tests/xunit.runner.json`** with `parallelizeTestCollections: false`, `parallelizeAssemblies: false`, `maxParallelThreads: 1` — runner-side override, copied to output via `<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>` in the `.csproj`.
+
+Both mechanisms target the same outcome; both are kept so direct MTP invocation, `dotnet test`, and any future runner-config-driven scenarios all converge on the same execution model.
+
+### Rationale
+
+`RunCoachAppFactory` is registered as `[assembly: AssemblyFixture(...)]` (R-046 pattern), booting **one** shared SUT for the entire test assembly: a Testcontainers `postgres:17-alpine` instance, a Marten `IDocumentStore` (with its async-daemon), Wolverine, EF, ASP.NET Identity, and JWT signing material. Under xUnit v3's default scheduling — collections run in parallel, tests within a collection run sequentially — multiple `*IntegrationTests` classes simultaneously hit the **shared** `IDocumentStore`'s schema-migration advisory lock and the Marten async daemon's projection writer.
+
+This produced an intermittent, non-deterministic flake captured across three worker dispatch rounds (#99, #110, #111). Each `dotnet test` invocation failed a **different** set of 9-11 tests with one of two recurring signatures:
+
+- `Marten.Storage.AdvisoryLock`: "Unable to attain a global lock in time order to apply database changes"
+- `ObjectDisposedException` on `IDocumentStore` shutdown when one collection finished while another still had in-flight writes
+
+Sequential execution under `dotnet test -- -parallel none` was already proven 841/841 green (verified 2026-04-26 post-#113). Codifying that mode as the default (a) removes the human-memory burden of remembering the flag, (b) makes CI green out-of-the-box without modifying `.github/workflows/ci.yml`, and (c) aligns local and CI execution on a single supported command.
+
+### Alternatives considered
+
+- **Per-collection isolated databases or schemas (one-store-per-collection-per-test).** Restores collection-level parallelism but requires partitioning the assembly fixture into `[Collection]`-scoped fixtures, each with its own `PostgreSqlContainer` (or schema), Marten store, and Wolverine host. Higher complexity, slower SUT boot, increased Testcontainers footprint. Deferred — sequential execution is fast enough today, and this remains the future fix if suite runtime becomes a bottleneck.
+- **Keep `-parallel none` as a documented invocation-time flag.** Rejected: every developer and every CI pipeline has to remember to pass it; first omission re-introduces the flake. The whole point of the close-out is to make `dotnet test` deterministic.
+- **Inline projections only (`ProjectionLifecycle.Inline`).** Already applied per DEC-060 for transactional correctness; on its own does not eliminate the advisory-lock contention because schema migrations still run once per `IDocumentStore` boot and remain shared across collections.
+
+### Trade-off
+
+Total wall-clock test time grows because collections no longer overlap. Today's suite (841 tests, ~minutes locally) absorbs this without operational pain. If the suite grows large enough that wall-clock matters, revisit the per-collection isolation alternative above — DEC-063 is explicitly written to be reversed by a future "`*IntegrationTests` collections each own their database" decision, not amended in place.
+
+### References
+
+- `backend/tests/RunCoach.Api.Tests/Infrastructure/AssemblyInfo.cs` — the `CollectionBehavior` attribute and the `AssemblyFixture` it sits next to.
+- `backend/tests/RunCoach.Api.Tests/xunit.runner.json` — runner-side config.
+- `backend/CLAUDE.md` § Test Parallelism — the operational restatement of this rule.
+- DEC-060 — Marten projection-lifecycle decision; complementary, not a substitute.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
