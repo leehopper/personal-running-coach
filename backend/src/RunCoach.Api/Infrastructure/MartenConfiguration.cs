@@ -2,10 +2,13 @@ using JasperFx;
 using JasperFx.CodeGeneration;
 using JasperFx.Events;
 using JasperFx.Events.Daemon;
+using JasperFx.Events.Projections;
 using Marten;
+using Marten.EntityFrameworkCore;
 using Marten.Services;
 using Marten.Storage;
 using RunCoach.Api.Modules.Coaching.Idempotency;
+using RunCoach.Api.Modules.Coaching.Onboarding;
 using Wolverine.Marten;
 
 namespace RunCoach.Api.Infrastructure;
@@ -61,6 +64,18 @@ public static class MartenConfiguration
                 // which is fine in Development but breaks Production
                 // pre-generated handler chains.
                 opts.Schema.For<IdempotencyMarker>();
+
+                // Onboarding projections (DEC-047 + DEC-060 / R-069). Both run inline so
+                // the in-memory `OnboardingView` and the EF `UserProfile` row materialize
+                // on the same `IDocumentSession.SaveChangesAsync` call as the event
+                // append - no async daemon lag, no dual-write window. The EF projection
+                // is a transaction participant on the Marten Npgsql connection, so the
+                // EF write commits inside Marten's transaction (Marten.EntityFrameworkCore
+                // 8.32 docs: "registers a transaction participant so the DbContext's
+                // SaveChangesAsync is called within Marten's transaction, ensuring
+                // atomicity").
+                opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
+                opts.Projections.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
 
                 opts.Projections.Errors.SkipUnknownEvents = true;
 
