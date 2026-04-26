@@ -9,6 +9,7 @@ using Marten.Services;
 using Marten.Storage;
 using RunCoach.Api.Modules.Coaching.Idempotency;
 using RunCoach.Api.Modules.Coaching.Onboarding;
+using RunCoach.Api.Modules.Training.Plan;
 using Wolverine.Marten;
 
 namespace RunCoach.Api.Infrastructure;
@@ -65,6 +66,16 @@ public static class MartenConfiguration
                 // atomicity").
                 opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
                 opts.Projections.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
+
+                // Plan projection (spec 13 § Unit 2, R02.3). Inline so the
+                // `PlanProjectionDto` read model materializes on the same
+                // `IDocumentSession.SaveChangesAsync` call as the Plan stream's
+                // event append - the calling handler's transaction commits the
+                // events and the document together. The frontend's
+                // `GET /api/v1/plan/current` reads this document directly via
+                // `session.LoadAsync<PlanProjectionDto>(planId)` with zero
+                // LLM cost.
+                opts.Projections.Add(new PlanProjection(), ProjectionLifecycle.Inline);
 
                 opts.Projections.Errors.SkipUnknownEvents = true;
 
