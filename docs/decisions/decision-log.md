@@ -2017,4 +2017,137 @@ Operational complexity (orphan-detection query + on-call playbook + race conditi
 
 ---
 
+## DEC-061: `EfCoreSingleStreamProjection` registers via `opts.Add(...)`; document projections register via `opts.Projections.Add(...)` (Marten 8.32 EF projection registration shape)
+
+**Date:** 2026-04-26
+**Category:** Persistence / Marten registration
+**Status:** Accepted
+**Drives:** Slice 1 (T01.4 carry-forward fix in `MartenConfiguration.cs`); pattern reused in Slice 3 + Slice 4
+**Supersedes:** Implicit assumption baked into T01.4 (#92) implementation that all projections register via `opts.Projections.Add(...)`
+
+### Decision
+
+`EfCoreSingleStreamProjection<TDoc, TId, TDbContext>` and `EfCoreMultiStreamProjection<TDoc, TId, TDbContext>` (and `EfCoreEventProjection<TDbContext>`) MUST register via the `Marten.EntityFrameworkCore` extension method `opts.Add(IProjection, ProjectionLifecycle)` on `StoreOptions`. They MUST NOT register via the standard `opts.Projections.Add(IProjection, ProjectionLifecycle)` overload that Marten document projections use.
+
+```csharp
+// Marten document projection — standard call site
+opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
+
+// EF Core projection — Marten.EntityFrameworkCore extension call site
+opts.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
+```
+
+The two methods differ only by the missing `Projections.` segment. IntelliSense surfaces both. The broken form compiles cleanly and fails at runtime during `DocumentStore` construction with `InvalidDocumentException: Could not determine an 'id/Id' field or property for requested document type {EFEntity}`.
+
+### Rationale
+
+The two registration paths route the projection through fundamentally different Marten subsystems:
+
+1. **`opts.Projections.Add(...)` — document path.** Inspects the projection's `TDoc` generic argument and resolves a `DocumentMapping` for it via `StoreOptions.Storage`. `DocumentMapping.CompileAndValidate()` runs `FindIdMember` looking for `Id` / `id` / `ID` / `[Identity]`-decorated members. EF entities (PK named after the entity, e.g., `UserProfile.UserId`) fail this discovery and throw `InvalidDocumentException`.
+2. **`opts.Add(...)` — EF projection path.** Registers an EF Core projection directly. Installs a transaction participant that calls `TDbContext.SaveChangesAsync` inside Marten's transaction (the atomic dual-write hook from DEC-060). Registers the EF entity tables with Weasel for migration. Never invokes `DocumentMapping` for the EF target type.
+
+Per R-070 verification against the Marten source, `Marten.EntityFrameworkCore` 8.32.1 ships only the `opts.Add(...)` extension as the public registration site — there is no `IServiceCollection`-side `IntegrateWithEntityFrameworkCore<TDbContext>()`, no `[EfCoreProjection]` attribute, no `services.AddMartenEfCore<TDbContext>()`, and no `AddMartenStore(...).IntegrateWithEfCore(...)`. Everything lives on `StoreOptions`.
+
+### Companion requirement: `ITenanted` for conjoined tenancy
+
+When the event store uses `opts.Events.TenancyStyle = TenancyStyle.Conjoined` (which RunCoach does), EF projection targets MUST implement `Marten.Metadata.ITenanted` (`string? TenantId { get; set; }`). Marten validates this at startup with `InvalidProjectionException` if missing. The base infrastructure populates `TenantId` from the slice context automatically; the EF entity must declare the property and map it as a column in `OnModelCreating` (or `EntityTypeConfiguration`).
+
+`UserProfile` therefore gains:
+
+```csharp
+public class UserProfile : ITenanted
+{
+    public Guid UserId { get; set; }
+    public string? TenantId { get; set; }
+    // … existing slot columns …
+}
+```
+
+…and the `EntityTypeConfiguration` declares `builder.Property(x => x.TenantId).HasMaxLength(...)` as a column. RLS (Postgres Row Level Security) per Marten 8.31's PR #4259 then extends to EF entity tables when the entity is `ITenanted` — the security boundary stays consistent between Marten documents and EF projection targets.
+
+### Failure-mode fingerprint
+
+The original code triggered:
+
+```
+Marten.Exceptions.InvalidDocumentException:
+  Could not determine an 'id/Id' field or property for requested document type
+  RunCoach.Api.Modules.Identity.Entities.UserProfile
+```
+
+This exception text is unambiguously the document-mapping path (`src/Marten/Schema/DocumentMapping.cs` `CompileAndValidate()`). It NEVER fires for an EF entity that registered through `opts.Add(...)`. The presence of this exception in any future stack trace is therefore a canonical signal that an EF projection has been mis-routed.
+
+A separate, distinct symptom exists for the case where the EF entity isn't picked up by `RunCoachDbContext.OnModelCreating`: at projection RUNTIME (not startup), EF throws `InvalidOperationException: The entity type '{EFEntity}' was not found` from `dbContext.Set<TDoc>()`. The wording is different. Diagnose by running `dbContext.Model.FindEntityType(typeof(TDoc))` in a unit test — null = fix the model registration; non-null = exonerate that branch.
+
+### Alternatives considered
+
+| Option | Why rejected |
+|---|---|
+| Keep `opts.Projections.Add(...)` and add `Id` shadow property to `UserProfile` to satisfy `FindIdMember` | Worse failure mode: `opts.Projections.Add` would *succeed* in document mapping and silently create a parallel `mt_doc_userprofile` table alongside the EF table. Split-brain. |
+| Use `[Identity]` attribute on `UserProfile.UserId` | Same problem — keeps the projection on the document path, which doesn't install the transaction participant. Wrong subsystem. |
+| Switch projection lifecycle to `Async` to avoid the document-mapping inspection | Inspection runs at registration time regardless of lifecycle. Doesn't fix the symptom. Also disables atomic dual-write per DEC-060. |
+| Drop `Marten.EntityFrameworkCore` and write a hand-rolled `IProjection` that opens a `DbContext` manually | Reimplements the package's transaction-participant infrastructure. Defeats the point of DEC-060's atomic-dual-write guarantee. |
+
+### Verification
+
+Empirical test that doesn't require `WebApplicationFactory<Program>`:
+
+```csharp
+[Fact]
+public void marten_options_compose_without_exception()
+{
+    using var store = DocumentStore.For(opts =>
+    {
+        opts.Connection(TestConnectionString);
+        opts.Events.TenancyStyle = TenancyStyle.Conjoined;
+        opts.Policies.AllDocumentsAreMultiTenanted();
+
+        opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
+        opts.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
+    });
+
+    store.Storage.AllDocumentMappings.ShouldNotContain(
+        m => m.DocumentType == typeof(UserProfile),
+        "UserProfile must NOT be registered as a Marten document");
+}
+```
+
+This is the canonical regression guard. Mirror the JasperFx test pattern (`src/EfCoreTests/`) — build a bare `DocumentStore` from the same `StoreOptions`, then assert `UserProfile` is absent from `Storage.AllDocumentMappings`. Runs in <500 ms against Testcontainers Postgres.
+
+A compile-time smoke check supplements the runtime fixture:
+
+```csharp
+typeof(EfCoreSingleStreamProjection<UserProfile, Guid, RunCoachDbContext>)
+    .ShouldBeAssignableFrom(typeof(UserProfileFromOnboardingProjection));
+```
+
+### Implementation plan
+
+1. `MartenConfiguration.cs` — change `opts.Projections.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline)` → `opts.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline)`. Keep the line for `OnboardingProjection` (the standard document projection) on `opts.Projections.Add(...)`.
+2. `UserProfile.cs` — implement `Marten.Metadata.ITenanted` (`string? TenantId { get; set; }`).
+3. `UserProfileConfiguration.cs` (or wherever `OnModelCreating` configures the entity) — map `TenantId` as a column with appropriate length / index. Add a new EF migration `AddUserProfileTenantId` that adds the column.
+4. Add `MartenStoreOptionsCompositionTests.cs` under `tests/Modules/Coaching/Onboarding/` with the two assertions above. Goal: catch any future regression of this exact failure-mode at the cheapest available verification layer.
+
+### Slice 3 / Slice 4 implications
+
+Same rule applies to every future `EfCore*Projection` registration:
+
+- **Slice 3** — when the adaptation handler adds `UserProfileFromActivityProjection` (per DEC-060), it registers via `opts.Add(...)`.
+- **Slice 4** — when `ConversationTurnRecorded` lands and a multi-stream projection updates `UserProfile.LastChatAt`, that projection registers via `opts.Add(...)`.
+- The `MartenStoreOptionsCompositionTests` fixture extends with each new EF projection — one assertion per `Storage.AllDocumentMappings.ShouldNotContain(...)`.
+
+### Out of scope
+
+- The secondary `LayeredPromptSanitizerTests` corpus failures from T06.1 (#115) — separate research/fix-up pass once the integration-test path unblocks and the failures surface with full diagnostic output.
+- Whether to also schema-pin `opts.DatabaseSchemaName` and `RunCoachDbContext.OnModelCreating`'s `HasDefaultSchema(...)` to the same value — flagged as a related-but-distinct gotcha in R-070; deferred unless the migration step in this DEC surfaces a split.
+
+### Cross-references
+
+- R-070: `docs/research/artifacts/batch-23b-marten-ef-projection-registration-regression.md`.
+- DEC-060 / R-069: `docs/decisions/decision-log.md` § DEC-060 / `docs/research/artifacts/batch-23a-marten-ef-dual-write-atomicity.md` — DEC-061 corrects the registration shape that DEC-060's implementation depends on.
+- Marten EF Core Projections docs: `martendb.io/events/projections/efcore.html` (verified 2026-04-26).
+- Marten 8.31.0 RLS for conjoined tenancy: PR #4259.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
