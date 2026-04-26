@@ -37,11 +37,11 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// Per DEC-060 / R-069 the dual-write atomicity claim — that exactly one
 /// Postgres transaction (and one <c>backend_xid</c>) covers the entire handler
 /// — is upheld by Marten's <c>UseEntityFrameworkCoreTransactionParticipant</c>
-/// wiring established in <c>MartenConfiguration</c>. That single-transaction
-/// property is asserted via the framework-level test
-/// <c>UserProfileFromOnboardingProjection</c> integration coverage rather
-/// than a separate <c>pg_stat_activity.backend_xid</c> observer probe; the
-/// observer probe is deferred per the cw-execute proof file.
+/// wiring established in <c>MartenConfiguration</c>. The empirical R-069 §11
+/// observer probe lives in <c>DualWriteAtomicityTests</c> and asserts the
+/// single-<c>backend_xid</c> invariant directly via a third Npgsql connection
+/// polling <c>pg_stat_activity</c>; this unit-level test covers the
+/// negative-rollback shape on the failure path.
 /// </para>
 /// </remarks>
 public class InvokeAsyncTransactionScopeTests
