@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Sanitization;
@@ -40,7 +43,6 @@ public sealed class SanitizationOTelTests : IDisposable
     public void Dispose()
     {
         _listener.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -108,5 +110,39 @@ public sealed class SanitizationOTelTests : IDisposable
 
         // Findings JSON must NOT carry the input string.
         findingsTag.Should().NotContain("Ignore all previous instructions");
+    }
+
+    [Fact]
+    public async Task GetResponseAsync_AuditSpan_RemainsOpenThroughAwait()
+    {
+        // Arrange — inner client that introduces a measurable async delay so
+        // that a span closed before the await would record near-zero duration.
+        var delayMs = 20;
+        var innerClient = Substitute.For<IChatClient>();
+        innerClient
+            .GetResponseAsync(
+                Arg.Any<IEnumerable<ChatMessage>>(),
+                Arg.Any<ChatOptions?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                await Task.Delay(delayMs, TestContext.Current.CancellationToken);
+                return new ChatResponse([new ChatMessage(ChatRole.Assistant, "ok")]);
+            });
+
+        var sut = new SanitizationAuditChatClient(innerClient);
+        var messages = new[] { new ChatMessage(ChatRole.User, "hello") };
+
+        // Act
+        await sut.GetResponseAsync(messages, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert — span must have captured at least the inner-client delay.
+        var span = _captured
+            .FirstOrDefault(a => a.OperationName == SanitizationAuditChatClient.AuditSpanName);
+
+        span.Should().NotBeNull("GetResponseAsync must emit the audit span");
+        span!.Duration.Should().BeGreaterThan(
+            TimeSpan.Zero,
+            "the activity must stay open through the awaited inner call");
     }
 }
