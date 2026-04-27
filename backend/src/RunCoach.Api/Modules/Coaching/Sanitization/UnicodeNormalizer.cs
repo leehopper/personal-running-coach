@@ -17,8 +17,8 @@ namespace RunCoach.Api.Modules.Coaching.Sanitization;
 /// upstream layers do not deterministically catch these.
 /// </para>
 /// <para>
-/// Single compiled regex with <see cref="RegexOptions.CultureInvariant"/> +
-/// <see cref="RegexOptions.Compiled"/> and a 50 ms <c>MatchTimeout</c> ReDoS
+/// Single compiled regex with <see cref="RegexOptions.CultureInvariant"/>
+/// and a 50 ms <c>MatchTimeout</c> ReDoS
 /// guard. Zero-width + BOM are matched via <c>\uXXXX</c> escapes; the U+E0000–
 /// U+E007F Tags block is non-BMP and is matched via the surrogate-pair range
 /// <c>\uDB40[\uDC00-\uDC7F]</c>.
@@ -61,7 +61,7 @@ internal static partial class UnicodeNormalizer
     /// </summary>
     [GeneratedRegex(
         "[\\u200B-\\u200F\\u2060-\\u2064\\uFEFF]|\\uDB40[\\uDC00-\\uDC7F]",
-        RegexOptions.CultureInvariant | RegexOptions.Compiled,
+        RegexOptions.CultureInvariant,
         matchTimeoutMilliseconds: 50)]
     private static partial Regex StripRegex();
 }
