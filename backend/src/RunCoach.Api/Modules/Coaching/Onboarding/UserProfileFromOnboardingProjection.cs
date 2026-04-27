@@ -129,8 +129,15 @@ public sealed class UserProfileFromOnboardingProjection
                 }
 
             case OnboardingTopic.TargetEvent:
-                snapshot.TargetEvent = captured.NormalizedPayload.Deserialize<TargetEventAnswer>();
-                break;
+                {
+                    var typed = captured.NormalizedPayload.Deserialize<TargetEventAnswer>();
+                    if (typed is not null)
+                    {
+                        snapshot.TargetEvent = typed;
+                    }
+
+                    break;
+                }
 
             case OnboardingTopic.CurrentFitness:
                 {
@@ -145,16 +152,37 @@ public sealed class UserProfileFromOnboardingProjection
                 }
 
             case OnboardingTopic.WeeklySchedule:
-                snapshot.WeeklySchedule = captured.NormalizedPayload.Deserialize<WeeklyScheduleAnswer>();
-                break;
+                {
+                    var typed = captured.NormalizedPayload.Deserialize<WeeklyScheduleAnswer>();
+                    if (typed is not null)
+                    {
+                        snapshot.WeeklySchedule = typed;
+                    }
+
+                    break;
+                }
 
             case OnboardingTopic.InjuryHistory:
-                snapshot.InjuryHistory = captured.NormalizedPayload.Deserialize<InjuryHistoryAnswer>();
-                break;
+                {
+                    var typed = captured.NormalizedPayload.Deserialize<InjuryHistoryAnswer>();
+                    if (typed is not null)
+                    {
+                        snapshot.InjuryHistory = typed;
+                    }
+
+                    break;
+                }
 
             case OnboardingTopic.Preferences:
-                snapshot.Preferences = captured.NormalizedPayload.Deserialize<PreferencesAnswer>();
-                break;
+                {
+                    var typed = captured.NormalizedPayload.Deserialize<PreferencesAnswer>();
+                    if (typed is not null)
+                    {
+                        snapshot.Preferences = typed;
+                    }
+
+                    break;
+                }
         }
     }
 }
