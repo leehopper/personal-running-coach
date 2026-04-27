@@ -18,22 +18,26 @@ namespace RunCoach.Api.Tests.Modules.Coaching;
 /// via NSubstitute and never resolve the production binding.
 /// </summary>
 [Trait("Category", "Integration")]
-public sealed class ContextAssemblerDiResolutionTests : IClassFixture<RunCoachAppFactory>
+public sealed class ContextAssemblerDiResolutionTests(RunCoachAppFactory factory)
+    : DbBackedIntegrationTestBase(factory)
 {
-    private readonly RunCoachAppFactory _factory;
-
-    public ContextAssemblerDiResolutionTests(RunCoachAppFactory factory)
-    {
-        _factory = factory;
-    }
-
     [Fact]
     public async Task ComposeForOnboardingAsync_DoesNotThrowMissingOnboardingDependencies()
     {
         // Arrange: resolve the production-registered IContextAssembler from the
         // SUT's service provider. No substitute, no manual factory — exactly what
-        // OnboardingTurnHandler resolves at request time.
-        using var scope = _factory.Services.CreateScope();
+        // OnboardingTurnHandler resolves at request time. The factory is the
+        // assembly-scoped fixture (constructor-injected via the AssemblyFixture
+        // attribute on AssemblyInfo.cs), so this test reuses the single
+        // Testcontainers Postgres + WebApplicationFactory host that every other
+        // integration test in the assembly already shares. Using IClassFixture
+        // here would spin up a second `RunCoachAppFactory` (separate Postgres
+        // container, separate SUT host) whose env-var-based connection-string
+        // override races with the assembly fixture's, intermittently leaving
+        // both SUTs pointed at the same database and producing
+        // "Unable to attain a global lock in time order to apply database
+        // changes" failures on `ApplyAllDatabaseChangesOnStartup`.
+        using var scope = Factory.Services.CreateScope();
         var assembler = scope.ServiceProvider.GetRequiredService<IContextAssembler>();
         var view = new OnboardingView
         {
