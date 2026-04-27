@@ -15,6 +15,7 @@ using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Identity.Entities;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
+using Wolverine.ErrorHandling;
 
 // WebApplication.CreateBuilder registers the three default host-config sources
 // (appsettings.json, appsettings.{Env}.json, user-secrets) with
@@ -56,6 +57,14 @@ builder.Services.AddRunCoachMarten();
 builder.Host.UseWolverine(opts =>
 {
     opts.Policies.AutoApplyTransactions();
+
+    // DEC-057 concurrency contract: when two same-stream submissions race past
+    // the idempotency check under `EventAppendMode.Rich`, Marten throws on the
+    // second commit. Routing both to the dead-letter queue prevents the
+    // standard Wolverine retry loop from re-running the handler against a
+    // now-stale stream version.
+    opts.OnException<Marten.Exceptions.ExistingStreamIdCollisionException>().MoveToErrorQueue();
+    opts.OnException<Marten.Exceptions.ConcurrentUpdateException>().MoveToErrorQueue();
 
     // Must match Marten's `AddAsyncDaemon(DaemonMode.Solo)` — `HotCold` takes
     // advisory locks that collide with `ApplyAllDatabaseChangesOnStartup`.

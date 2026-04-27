@@ -1,6 +1,8 @@
+using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Respawn;
 using RunCoach.Api.Infrastructure;
@@ -131,6 +133,14 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
             SchemasToInclude = ["public"],
             TablesToIgnore = [new Respawn.Graph.Table("__EFMigrationsHistory")],
         });
+
+        // Eagerly resolve `IDocumentStore` to force the SUT host to build now,
+        // sequentially, at fixture-init time. Marten's
+        // `ApplyAllDatabaseChangesOnStartup()` acquires a Postgres advisory
+        // lock at host-boot — without this warmup the lazy `Factory.Services`
+        // accesses inside test classes can race the lock on slow CI runners,
+        // producing "Unable to attain a global lock in time".
+        _ = Services.GetRequiredService<IDocumentStore>();
     }
 
     public override async ValueTask DisposeAsync()
