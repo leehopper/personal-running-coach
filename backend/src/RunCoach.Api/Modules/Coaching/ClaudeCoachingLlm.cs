@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
+using RunCoach.Api.Modules.Coaching.Onboarding;
 using AnthropicMessages = Anthropic.Models.Messages;
 
 namespace RunCoach.Api.Modules.Coaching;
@@ -233,16 +234,19 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
     /// <summary>
     /// Generates a JSON schema dictionary from <typeparamref name="T"/> at
-    /// runtime via <see cref="JsonSchemaHelper.GenerateSchema{T}"/>.
-    /// Used as the fallback path when the caller does not supply a
-    /// pre-built (byte-stable) schema.
+    /// runtime via <see cref="JsonSchemaHelper.GenerateSchema{T}"/>, then runs
+    /// the result through <see cref="AnthropicSchemaSanitizer"/> so any
+    /// Anthropic-forbidden validation keywords (<c>pattern</c>, <c>format</c>,
+    /// <c>min*/max*</c>, <c>oneOf</c>, etc. — see DEC-058 / R-067) are stripped
+    /// before the schema ships to constrained decoding. Used as the fallback
+    /// path when the caller does not supply a pre-built (byte-stable) schema;
+    /// without this sanitization the convenience overload could emit a schema
+    /// that Anthropic rejects with HTTP 400.
     /// </summary>
-    internal static Dictionary<string, JsonElement> BuildSchemaDictionary<T>()
+    internal static IReadOnlyDictionary<string, JsonElement> BuildSchemaDictionary<T>()
     {
         var schemaNode = JsonSchemaHelper.GenerateSchema<T>();
-        return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(schemaNode.ToJsonString())
-            ?? throw new InvalidOperationException(
-                $"Failed to materialize JSON schema dictionary for {typeof(T).Name}.");
+        return AnthropicSchemaSanitizer.ToDictionary(schemaNode);
     }
 
     /// <summary>

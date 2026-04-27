@@ -784,6 +784,38 @@ public class ClaudeCoachingLlmTests
     }
 
     [Fact]
+    public void BuildSchemaDictionary_StripsAnthropicForbiddenKeywords_FromFallbackGeneratedSchema()
+    {
+        // Arrange — the convenience overload of GenerateStructuredAsync<T> falls
+        // through to BuildSchemaDictionary<T>() when no caller-supplied schema
+        // is provided. JsonSchemaExporter emits `format` (and other validation
+        // keywords) that Anthropic constrained decoding rejects with HTTP 400.
+        // The fallback path must run the generated schema through
+        // AnthropicSchemaSanitizer; this guard ensures a future change to
+        // BuildSchemaDictionary cannot silently bypass the sanitizer.
+
+        // Sanity check — without sanitization the raw schema for the fixture
+        // contains a forbidden `format` keyword (uuid / date-time). If this
+        // ever stops being true the test fixture needs updating.
+        var rawSchemaJson = JsonSchemaHelper.GenerateSchemaString<SchemaFixtureWithForbiddenKeywords>();
+        rawSchemaJson.Should().Contain(
+            "\"format\"",
+            "the fixture must produce at least one Anthropic-forbidden keyword in the raw schema for this regression to be meaningful");
+
+        // Act
+        var sanitizedSchema = ClaudeCoachingLlm.BuildSchemaDictionary<SchemaFixtureWithForbiddenKeywords>();
+
+        // Assert — none of Anthropic's forbidden keywords survive at any depth.
+        var sanitizedJson = JsonSerializer.Serialize(sanitizedSchema);
+        foreach (var forbidden in RunCoach.Api.Modules.Coaching.Onboarding.AnthropicSchemaSanitizer.ForbiddenKeywords)
+        {
+            sanitizedJson.Should().NotContain(
+                $"\"{forbidden}\"",
+                $"the fallback BuildSchemaDictionary path must strip the Anthropic-forbidden keyword '{forbidden}' (DEC-058 / R-067)");
+        }
+    }
+
+    [Fact]
     public async Task GenerateStructuredAsync_WithProvidedSchema_UsesItVerbatim()
     {
         // Arrange — caller supplies a pre-built schema dictionary; the LLM
@@ -888,4 +920,14 @@ public class ClaudeCoachingLlmTests
     {
         return new ClaudeCoachingLlm(_mockClient, DefaultSettings, _logger);
     }
+
+    /// <summary>
+    /// Fixture for the BuildSchemaDictionary fallback-sanitization regression test.
+    /// <see cref="System.Text.Json.Schema.JsonSchemaExporter"/> emits
+    /// <c>"format": "uuid"</c> for <see cref="Guid"/> and <c>"format": "date-time"</c>
+    /// for <see cref="DateTime"/>; both <c>format</c> values are on Anthropic's
+    /// forbidden-keyword list (DEC-058 / R-067) and would crash a constrained-decoding
+    /// request with HTTP 400 unless the fallback path strips them.
+    /// </summary>
+    private sealed record SchemaFixtureWithForbiddenKeywords(Guid Id, DateTime CreatedAt);
 }
