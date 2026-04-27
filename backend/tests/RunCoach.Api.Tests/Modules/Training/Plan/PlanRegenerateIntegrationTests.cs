@@ -6,9 +6,7 @@ using Marten;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 using RunCoach.Api.Infrastructure;
-using RunCoach.Api.Modules.Coaching.Idempotency;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Coaching.Onboarding;
@@ -17,6 +15,7 @@ using RunCoach.Api.Modules.Identity.Entities;
 using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Plan.Models;
 using RunCoach.Api.Tests.Infrastructure;
+using Wolverine;
 
 namespace RunCoach.Api.Tests.Modules.Training.Plan;
 
@@ -36,9 +35,27 @@ namespace RunCoach.Api.Tests.Modules.Training.Plan;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The four scenarios split across two surfaces:
+/// All four scenarios drive the live HTTP + Wolverine bus pipeline:
 /// </para>
 /// <list type="bullet">
+/// <item>
+///   <description>
+///   Scenarios (a), (b), (d) resolve <see cref="IMessageBus"/> from the
+///   fixture's DI container and call
+///   <c>bus.InvokeAsync&lt;RegeneratePlanResponse&gt;(cmd, ct)</c>. Wolverine's
+///   <see cref="RegeneratePlanHandler"/> runs under the transactional
+///   middleware against a real Marten session, exercising the full
+///   <see cref="OnboardingProjection"/> + <see cref="UserProfileFromOnboardingProjection"/>
+///   + <see cref="PlanProjection"/> chain end-to-end on the assembly fixture's
+///   shared Postgres. The fixture replaces the production
+///   <see cref="IPlanGenerationService"/> registration with
+///   <see cref="StubPlanGenerationService"/> in
+///   <see cref="RunCoachAppFactory.ConfigureWebHost"/>, so Wolverine's codegen
+///   wires the stub directly — no LLM cost per run. This is the canonical
+///   pattern for any future Wolverine handler integration coverage (Slice 3
+///   <c>PlanAdaptedFromLog</c>, Slice 4 <c>ConversationTurnRecorded</c>).
+///   </description>
+/// </item>
 /// <item>
 ///   <description>
 ///   Scenario (c) runs through the live HTTP pipeline because the 409 gate
@@ -46,31 +63,17 @@ namespace RunCoach.Api.Tests.Modules.Training.Plan;
 ///   dispatched. No Wolverine routing is exercised here.
 ///   </description>
 /// </item>
-/// <item>
-///   <description>
-///   Scenarios (a), (b), (d) drive the
-///   <see cref="RegeneratePlanHandler.Handle"/> entry point directly against
-///   a real Marten <see cref="IDocumentSession"/> resolved from the fixture's
-///   DI container. This exercises the full Marten + EF projection stack
-///   (<see cref="OnboardingProjection"/> + <see cref="UserProfileFromOnboardingProjection"/>
-///   + <see cref="PlanProjection"/>) under one transaction commit per call —
-///   the same wiring Wolverine's transactional middleware brackets in
-///   production. Going around <c>IMessageBus.InvokeAsync</c> avoids the test
-///   harness needing to seed Wolverine handler discovery for the WAF-derived
-///   host (a known Slice 1 limitation tracked in <c>InvokeAsyncTransactionScopeTests</c>'s
-///   prose; the Wolverine routing seam itself is exercised by the smoke
-///   curl proof captured at T05.1 commit).
-///   </description>
-/// </item>
 /// </list>
 /// <para>
-/// The stub <see cref="StubPlanGenerationService"/> returns a deterministic
-/// canonical-Slice-1 event sequence
-/// (<c>[PlanGenerated, MesoCycleCreated×4, FirstMicroCycleCreated]</c>) with
+/// <see cref="StubPlanGenerationService"/> returns the deterministic canonical
+/// Slice 1 event sequence
+/// (<c>[PlanGenerated, MesoCycleCreated x4, FirstMicroCycleCreated]</c>) with
 /// the <see cref="PlanGenerated.PreviousPlanId"/> slot threaded through from
 /// the parameter the handler passes. This is the same shape
 /// <c>PlanGenerationService</c> produces in production; the only thing the
-/// stub elides is the six LLM calls.
+/// stub elides is the six LLM calls. The structured-output chain itself is
+/// covered by <c>PlanGenerationServiceTests</c> (eval-cached unit tier) and
+/// the committed manual smoke proof at T05.1 (commit <c>13464e0</c>).
 /// </para>
 /// </remarks>
 [Trait("Category", "Integration")]
@@ -408,32 +411,22 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
 
     private async Task<RegeneratePlanResponse> InvokeHandlerAsync(RegeneratePlanCommand cmd)
     {
-        // Open a single per-call DI scope so `IDocumentSession`,
-        //   `IIdempotencyStore`, and `IPlanGenerationService` (via the stub
-        //   factory below) all share one session — the same lifetime contract
-        //   Wolverine's transactional middleware enforces in production.
+        // Drive the regenerate handler through the live Wolverine bus the
+        //   controller uses in production. `IMessageBus` is registered as
+        //   scoped, so the per-call DI scope here mirrors the per-request
+        //   scope the controller resolves. Wolverine's transactional
+        //   middleware brackets the handler invocation with a single Marten
+        //   `SaveChangesAsync`, which the EF
+        //   `UseEntityFrameworkCoreTransactionParticipant` wiring enrols the
+        //   inline `UserProfileFromOnboardingProjection` write into per
+        //   DEC-060 / R-069. No manual `SaveChangesAsync` here — that would
+        //   open a second session and hide a regression in the framework
+        //   bracket.
         using var scope = Factory.Services.CreateScope();
-        var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
-        var idempotency = new MartenIdempotencyStore(session);
-        var planGen = new StubPlanGenerationService();
-
-        var response = await RegeneratePlanHandler.Handle(
-            cmd,
-            session,
-            planGen,
-            idempotency,
-            NullLogger<RegeneratePlanHandler>.Instance,
-            TestContext.Current.CancellationToken);
-
-        // The Wolverine handler itself never calls SaveChangesAsync — the
-        //   transactional middleware does. Stand in for the framework here so
-        //   the staged events + idempotency marker actually commit. The
-        //   MartenEntityFrameworkCore transaction-participant wiring then
-        //   runs the inline projection's EF write inside the same DB
-        //   transaction (per DEC-060 / R-069).
-        await session.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-        return response;
+        var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+        return await bus
+            .InvokeAsync<RegeneratePlanResponse>(cmd, TestContext.Current.CancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task SeedInitialPlanStreamAsync(Guid userId, Guid planId)
@@ -546,51 +539,5 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
 
         antiforgeryToken = await PrimeAntiforgeryAsync(client, container);
         return (client, container, antiforgeryToken);
-    }
-
-    /// <summary>
-    /// Deterministic stub for <see cref="IPlanGenerationService"/> used by
-    /// every direct-handler integration test in this class. Returns the
-    /// canonical Slice 1 event sequence threading <paramref name="previousPlanId"/>
-    /// onto <see cref="PlanGenerated.PreviousPlanId"/> exactly the way the
-    /// production service does — so the integration tests cover the
-    /// regenerate handler's wiring (idempotency check, view load,
-    /// stream-creation, PlanLinkedToUser append) without depending on the
-    /// live LLM.
-    /// </summary>
-    private sealed class StubPlanGenerationService : IPlanGenerationService
-    {
-        public Task<IReadOnlyList<object>> GeneratePlanAsync(
-            OnboardingView profileSnapshot,
-            Guid userId,
-            Guid planId,
-            RegenerationIntent? intent,
-            Guid? previousPlanId,
-            CancellationToken ct)
-        {
-            _ = profileSnapshot;
-            _ = intent;
-
-            var generated = new PlanGenerated(
-                planId,
-                userId,
-                BuildMacro(goal: "Regenerated plan"),
-                new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero),
-                PromptVersion: "coaching-v1",
-                ModelId: "claude-sonnet-4-5",
-                PreviousPlanId: previousPlanId);
-
-            var events = new object[]
-            {
-                generated,
-                new MesoCycleCreated(1, BuildMeso(1, PhaseType.Base, isDeload: false)),
-                new MesoCycleCreated(2, BuildMeso(2, PhaseType.Base, isDeload: false)),
-                new MesoCycleCreated(3, BuildMeso(3, PhaseType.Build, isDeload: false)),
-                new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, isDeload: true)),
-                new FirstMicroCycleCreated(BuildMicro()),
-            };
-
-            return Task.FromResult<IReadOnlyList<object>>(events);
-        }
     }
 }

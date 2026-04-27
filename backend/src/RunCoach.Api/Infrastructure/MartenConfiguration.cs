@@ -181,9 +181,22 @@ public static class MartenConfiguration
 
         // CritterStackDefaults covers both Marten and Wolverine in the shared
         // JasperFx code-generation pipeline — one setting, both tools aligned.
+        //
+        // `SourceCodeWritingEnabled = false` in Development keeps codegen
+        // purely in-memory so the test host (which boots in Development) does
+        // not flush handler chains to `src/RunCoach.Api/Internal/Generated/`.
+        // That matters because integration tests register
+        // `StubPlanGenerationService` (a type from the test assembly) as
+        // `IPlanGenerationService`. With source writing on, Wolverine emits a
+        // generated handler that references the test-only type into the API
+        // project's tree, and the next plain `dotnet build` of `RunCoach.Api`
+        // fails CS0234 on the dangling cross-assembly reference.
+        // Production-mode static codegen still writes via the explicit
+        // `dotnet run -- codegen write` step (DEC-048).
         services.CritterStackDefaults(x =>
         {
             x.Development.ResourceAutoCreate = AutoCreate.CreateOrUpdate;
+            x.Development.SourceCodeWritingEnabled = false;
             x.Production.ResourceAutoCreate = AutoCreate.None;
             x.Production.GeneratedCodeMode = TypeLoadMode.Static;
         });

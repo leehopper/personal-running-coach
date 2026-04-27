@@ -56,6 +56,19 @@ builder.Services.AddRunCoachMarten();
 // per-environment code-generation mode.
 builder.Host.UseWolverine(opts =>
 {
+    // Pin handler discovery to this assembly. Wolverine's default
+    // entry-assembly heuristic walks the call stack and lands on whichever
+    // assembly hosts the running entry point. Under
+    // `WebApplicationFactory<Program>` that assembly is the test project
+    // (`RunCoach.Api.Tests`), so the default scan finds zero handlers and
+    // every `bus.InvokeAsync<T>(cmd, ct)` from a controller fails with
+    // `IndeterminateRoutesException` even though the handler types live in
+    // this assembly. Pinning `ApplicationAssembly` explicitly is the
+    // Wolverine-documented fix for "automated test harness scenarios"
+    // (see `WolverineOptions.ApplicationAssembly` XML doc) and matches the
+    // production runtime resolution as well.
+    opts.ApplicationAssembly = typeof(Program).Assembly;
+
     opts.Policies.AutoApplyTransactions();
 
     // DEC-057 concurrency contract: when two same-stream submissions race past

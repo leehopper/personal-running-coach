@@ -2017,4 +2017,255 @@ Operational complexity (orphan-detection query + on-call playbook + race conditi
 
 ---
 
+## DEC-061: `EfCoreSingleStreamProjection` registers via `opts.Add(...)`; document projections register via `opts.Projections.Add(...)` (Marten 8.32 EF projection registration shape)
+
+**Date:** 2026-04-26
+**Category:** Persistence / Marten registration
+**Status:** Accepted
+**Drives:** Slice 1 (T01.4 carry-forward fix in `MartenConfiguration.cs`); pattern reused in Slice 3 + Slice 4
+**Supersedes:** Implicit assumption baked into T01.4 (#92) implementation that all projections register via `opts.Projections.Add(...)`
+
+### Decision
+
+`EfCoreSingleStreamProjection<TDoc, TId, TDbContext>` and `EfCoreMultiStreamProjection<TDoc, TId, TDbContext>` (and `EfCoreEventProjection<TDbContext>`) MUST register via the `Marten.EntityFrameworkCore` extension method `opts.Add(IProjection, ProjectionLifecycle)` on `StoreOptions`. They MUST NOT register via the standard `opts.Projections.Add(IProjection, ProjectionLifecycle)` overload that Marten document projections use.
+
+```csharp
+// Marten document projection — standard call site
+opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
+
+// EF Core projection — Marten.EntityFrameworkCore extension call site
+opts.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
+```
+
+The two methods differ only by the missing `Projections.` segment. IntelliSense surfaces both. The broken form compiles cleanly and fails at runtime during `DocumentStore` construction with `InvalidDocumentException: Could not determine an 'id/Id' field or property for requested document type {EFEntity}`.
+
+### Rationale
+
+The two registration paths route the projection through fundamentally different Marten subsystems:
+
+1. **`opts.Projections.Add(...)` — document path.** Inspects the projection's `TDoc` generic argument and resolves a `DocumentMapping` for it via `StoreOptions.Storage`. `DocumentMapping.CompileAndValidate()` runs `FindIdMember` looking for `Id` / `id` / `ID` / `[Identity]`-decorated members. EF entities (PK named after the entity, e.g., `UserProfile.UserId`) fail this discovery and throw `InvalidDocumentException`.
+2. **`opts.Add(...)` — EF projection path.** Registers an EF Core projection directly. Installs a transaction participant that calls `TDbContext.SaveChangesAsync` inside Marten's transaction (the atomic dual-write hook from DEC-060). Registers the EF entity tables with Weasel for migration. Never invokes `DocumentMapping` for the EF target type.
+
+Per R-070 verification against the Marten source, `Marten.EntityFrameworkCore` 8.32.1 ships only the `opts.Add(...)` extension as the public registration site — there is no `IServiceCollection`-side `IntegrateWithEntityFrameworkCore<TDbContext>()`, no `[EfCoreProjection]` attribute, no `services.AddMartenEfCore<TDbContext>()`, and no `AddMartenStore(...).IntegrateWithEfCore(...)`. Everything lives on `StoreOptions`.
+
+### Companion requirement: `ITenanted` for conjoined tenancy
+
+When the event store uses `opts.Events.TenancyStyle = TenancyStyle.Conjoined` (which RunCoach does), EF projection targets MUST implement `Marten.Metadata.ITenanted` (`string? TenantId { get; set; }`). Marten validates this at startup with `InvalidProjectionException` if missing. The base infrastructure populates `TenantId` from the slice context automatically; the EF entity must declare the property and map it as a column in `OnModelCreating` (or `EntityTypeConfiguration`).
+
+`UserProfile` therefore gains:
+
+```csharp
+public class UserProfile : ITenanted
+{
+    public Guid UserId { get; set; }
+    public string? TenantId { get; set; }
+    // … existing slot columns …
+}
+```
+
+…and the `EntityTypeConfiguration` declares `builder.Property(x => x.TenantId).HasMaxLength(...)` as a column. RLS (Postgres Row Level Security) per Marten 8.31's PR #4259 then extends to EF entity tables when the entity is `ITenanted` — the security boundary stays consistent between Marten documents and EF projection targets.
+
+### Failure-mode fingerprint
+
+The original code triggered:
+
+```
+Marten.Exceptions.InvalidDocumentException:
+  Could not determine an 'id/Id' field or property for requested document type
+  RunCoach.Api.Modules.Identity.Entities.UserProfile
+```
+
+This exception text is unambiguously the document-mapping path (`src/Marten/Schema/DocumentMapping.cs` `CompileAndValidate()`). It NEVER fires for an EF entity that registered through `opts.Add(...)`. The presence of this exception in any future stack trace is therefore a canonical signal that an EF projection has been mis-routed.
+
+A separate, distinct symptom exists for the case where the EF entity isn't picked up by `RunCoachDbContext.OnModelCreating`: at projection RUNTIME (not startup), EF throws `InvalidOperationException: The entity type '{EFEntity}' was not found` from `dbContext.Set<TDoc>()`. The wording is different. Diagnose by running `dbContext.Model.FindEntityType(typeof(TDoc))` in a unit test — null = fix the model registration; non-null = exonerate that branch.
+
+### Alternatives considered
+
+| Option | Why rejected |
+|---|---|
+| Keep `opts.Projections.Add(...)` and add `Id` shadow property to `UserProfile` to satisfy `FindIdMember` | Worse failure mode: `opts.Projections.Add` would *succeed* in document mapping and silently create a parallel `mt_doc_userprofile` table alongside the EF table. Split-brain. |
+| Use `[Identity]` attribute on `UserProfile.UserId` | Same problem — keeps the projection on the document path, which doesn't install the transaction participant. Wrong subsystem. |
+| Switch projection lifecycle to `Async` to avoid the document-mapping inspection | Inspection runs at registration time regardless of lifecycle. Doesn't fix the symptom. Also disables atomic dual-write per DEC-060. |
+| Drop `Marten.EntityFrameworkCore` and write a hand-rolled `IProjection` that opens a `DbContext` manually | Reimplements the package's transaction-participant infrastructure. Defeats the point of DEC-060's atomic-dual-write guarantee. |
+
+### Verification
+
+Empirical test that doesn't require `WebApplicationFactory<Program>`:
+
+```csharp
+[Fact]
+public void marten_options_compose_without_exception()
+{
+    using var store = DocumentStore.For(opts =>
+    {
+        opts.Connection(TestConnectionString);
+        opts.Events.TenancyStyle = TenancyStyle.Conjoined;
+        opts.Policies.AllDocumentsAreMultiTenanted();
+
+        opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
+        opts.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
+    });
+
+    store.Storage.AllDocumentMappings.ShouldNotContain(
+        m => m.DocumentType == typeof(UserProfile),
+        "UserProfile must NOT be registered as a Marten document");
+}
+```
+
+This is the canonical regression guard. Mirror the JasperFx test pattern (`src/EfCoreTests/`) — build a bare `DocumentStore` from the same `StoreOptions`, then assert `UserProfile` is absent from `Storage.AllDocumentMappings`. Runs in <500 ms against Testcontainers Postgres.
+
+A compile-time smoke check supplements the runtime fixture:
+
+```csharp
+typeof(EfCoreSingleStreamProjection<UserProfile, Guid, RunCoachDbContext>)
+    .ShouldBeAssignableFrom(typeof(UserProfileFromOnboardingProjection));
+```
+
+### Implementation plan
+
+1. `MartenConfiguration.cs` — change `opts.Projections.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline)` → `opts.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline)`. Keep the line for `OnboardingProjection` (the standard document projection) on `opts.Projections.Add(...)`.
+2. `UserProfile.cs` — implement `Marten.Metadata.ITenanted` (`string? TenantId { get; set; }`).
+3. `UserProfileConfiguration.cs` (or wherever `OnModelCreating` configures the entity) — map `TenantId` as a column with appropriate length / index. Add a new EF migration `AddUserProfileTenantId` that adds the column.
+4. Add `MartenStoreOptionsCompositionTests.cs` under `tests/Modules/Coaching/Onboarding/` with the two assertions above. Goal: catch any future regression of this exact failure-mode at the cheapest available verification layer.
+
+### Slice 3 / Slice 4 implications
+
+Same rule applies to every future `EfCore*Projection` registration:
+
+- **Slice 3** — when the adaptation handler adds `UserProfileFromActivityProjection` (per DEC-060), it registers via `opts.Add(...)`.
+- **Slice 4** — when `ConversationTurnRecorded` lands and a multi-stream projection updates `UserProfile.LastChatAt`, that projection registers via `opts.Add(...)`.
+- The `MartenStoreOptionsCompositionTests` fixture extends with each new EF projection — one assertion per `Storage.AllDocumentMappings.ShouldNotContain(...)`.
+
+### Out of scope
+
+- The secondary `LayeredPromptSanitizerTests` corpus failures from T06.1 (#115) — separate research/fix-up pass once the integration-test path unblocks and the failures surface with full diagnostic output.
+- Whether to also schema-pin `opts.DatabaseSchemaName` and `RunCoachDbContext.OnModelCreating`'s `HasDefaultSchema(...)` to the same value — flagged as a related-but-distinct gotcha in R-070; deferred unless the migration step in this DEC surfaces a split.
+
+### Cross-references
+
+- R-070: `docs/research/artifacts/batch-23b-marten-ef-projection-registration-regression.md`.
+- DEC-060 / R-069: `docs/decisions/decision-log.md` § DEC-060 / `docs/research/artifacts/batch-23a-marten-ef-dual-write-atomicity.md` — DEC-061 corrects the registration shape that DEC-060's implementation depends on.
+- Marten EF Core Projections docs: `martendb.io/events/projections/efcore.html` (verified 2026-04-26).
+- Marten 8.31.0 RLS for conjoined tenancy: PR #4259.
+
+---
+
+## DEC-062: Tailwind-only animation baseline for Slice 1; defer `motion/react` adoption until a streaming or gesture surface forces it
+
+**Date:** 2026-04-25
+**Category:** Frontend / Styling & dependency hygiene
+**Status:** Accepted
+**Drives:** Slice 1 close-out (#101 MessageBubble + TranscriptScroller, #102 TopicProgressIndicator, #103 OnboardingChat "building your plan" placeholder, #112 RegeneratePlanDialog) — codifies the deferral those workers already shipped under
+**Supersedes:** R-065's recommendation to ship Slice 1 with `motion/react` (artifact `docs/research/artifacts/batch-21a-onboarding-chat-ux-react19.md` § 6.2)
+
+### Decision
+
+Slice 1's animation surface stays on **Tailwind utility classes only**. `motion/react` is **not** added to `frontend/package.json` for this slice. The four worker-flagged animation upgrades (segmented-progress colour transitions, transcript-scroller scroll behaviour, "building your plan" shimmer, RegeneratePlanDialog open/close) ship — and remain — on:
+
+- `transition-colors duration-200 ease-out` (and the `transition-{property}` family) for state-change tweens,
+- `animate-pulse` / `animate-spin` for loading shimmers,
+- `motion-safe:` / `motion-reduce:` variants for the WCAG 2.3.3 reduced-motion contract.
+
+Radix dialog (used by shadcn/ui `Dialog`) provides its own enter/exit data-state attributes; we drive those with `data-[state=open]:animate-in data-[state=closed]:animate-out` from `tailwindcss-animate` (already pulled in transitively by shadcn/ui), not with `AnimatePresence`.
+
+### Rationale
+
+R-065 listed `motion/react` for two specific use cases that **Slice 1 does not contain**:
+
+1. **Streaming token-by-token assistant responses** with `AnimatePresence` + variants per token — the onboarding chat in Slice 1 is request/response, not streaming. Streaming lands in Slice 4.
+2. **Spring-physics drag/dismiss gestures** — Slice 1 has zero gestural surfaces. Touch-drag dismissal is not on the backlog before mid-run chat (post-Slice 4).
+
+Slice 1's actual animation surface is three classes of static-shift:
+
+| Surface | Animation type | Tailwind expression |
+|---|---|---|
+| TopicProgressIndicator segments | colour shift on completed/current/pending | `transition-colors duration-200 ease-out` |
+| "Building your plan" placeholder | indefinite shimmer | `animate-pulse` |
+| RegeneratePlanDialog open/close | scale + fade | Radix `data-[state=open]:animate-in` (tailwindcss-animate) |
+
+None of these need a JS animation runtime, an `AnimatePresence` boundary, or `useReducedMotion()` plumbing. CSS handles all three with smaller bundle cost (Tailwind utilities = zero runtime; `motion/react` per R-065's own bundle table is **~18–25 KB gzipped net**) and zero new dependency surface.
+
+The four worker reports (#101/#102/#103/#112) independently arrived at this implementation under deadline pressure. Rather than treat that as technical debt to thread back through, we promote the convergent practice to a documented baseline and re-open the question only when a use case arrives that Tailwind genuinely can't cover.
+
+### Trigger to revisit
+
+Adopt `motion/react` (and thread it through any deferred chat polish) only when **one or both** of these land:
+
+1. **Slice 4 streaming chat UI** — token-by-token rendering with per-message enter/exit transitions, `AnimatePresence` for transcript additions/removals, or animated typing indicators that need spring physics rather than `animate-pulse`.
+2. **Mid-run / post-run chat panel with gestural dismiss** — drag-to-dismiss, swipe-back, or any spring-physics-driven interaction that CSS transitions cannot drive deterministically.
+
+When either trigger fires, the adopting slice: (a) `npm install motion@^12`, (b) sets up `useReducedMotion()` + `motion-reduce:` parity in the same component, (c) updates this DEC with a status of **Superseded** pointing to the adoption DEC. No piecemeal pre-adoption — wait for the trigger.
+
+### Alternatives considered
+
+| Option | Why rejected |
+|---|---|
+| **(a) Add `motion/react` now** and thread the deferred animations through #101/#102/#103/#112 retroactively | Adds ~18–25 KB gzipped to every page in the bundle for animations CSS already covers. Forces backfill churn on four already-merged workers' code. Pulls in `useReducedMotion()` + variants boilerplate for animations whose reduced-motion fallback is already trivially `motion-reduce:transition-none`. |
+| Adopt `motion/react` only for the dialog and keep #101/#102/#103 on Tailwind | Inconsistent — half the chat UI on JS, half on CSS, with no rule for which is which. The hybrid creates "should this be `motion.div` or `transition-colors`" decision fatigue per component. Pick a baseline and a trigger to leave it. |
+| Use `framer-motion` (the legacy package name) instead of `motion@^12` | `framer-motion` was renamed to `motion` per R-065 § 6.2; the v12 line that supports React 19 ships only under the `motion` package. Choosing the legacy name now would mean an immediate rename later. |
+| Defer the decision indefinitely (no DEC) | Leaves four worker reports with floating "we deferred motion/react" notes and no documented authority. Next slice's developer re-runs the same analysis. The deferral itself is the decision worth recording. |
+
+### Verification
+
+- `frontend/CLAUDE.md` § Styling explicitly names Tailwind as the animation baseline and states `motion/react` is deferred until a streaming or gestural surface forces it. Future workers reading the file find the rule before reaching for the dependency.
+- `frontend/package.json` does **not** list `motion`, `framer-motion`, or `motion/react`. (Empirical: `grep` returns no hits as of 2026-04-25.)
+- The lone code-comment reference at `frontend/src/app/modules/onboarding/components/topic-progress-indicator.helpers.ts` line 32 ("`motion/react` is reserved for richer animations elsewhere") aligns with this DEC and remains accurate as written.
+- No regression test or build assertion is appropriate here — adding one would conflate a dependency-hygiene policy with a runtime invariant. The policy is enforced by code review and this DEC.
+
+### Cross-references
+
+- R-065: `docs/research/artifacts/batch-21a-onboarding-chat-ux-react19.md` § 6.2 (Library choice: motion/react), § 6.3 (`prefers-reduced-motion`), § Slice 1 bundle table.
+- Worker reports: #101 (MessageBubble + TranscriptScroller), #102 (TopicProgressIndicator), #103 (OnboardingChat "building your plan" placeholder), #112 (RegeneratePlanDialog) — all flagged the deferral; this DEC closes the loop.
+- `frontend/CLAUDE.md` § Styling — the operational restatement of this rule for daily development.
+
+---
+
+## DEC-063: Disable parallel test-collection execution in `RunCoach.Api.Tests`; sequential is the canonical mode
+
+**Date:** 2026-04-25
+**Category:** Backend / Testing infrastructure
+**Status:** Accepted
+**Drives:** Slice 1 close-out follow-up #117 — codifies the fix for the parallel-test-isolation flake observed across worker dispatch rounds (#99, #110, #111).
+
+### Decision
+
+`backend/tests/RunCoach.Api.Tests` runs **all test collections sequentially**. `dotnet test` (default invocation) is the canonical, deterministic command — no `-parallel none` flag is required, and CI does not pass one.
+
+Enforced via two redundant mechanisms:
+
+1. **`[assembly: CollectionBehavior(DisableTestParallelization = true)]`** in `backend/tests/RunCoach.Api.Tests/Infrastructure/AssemblyInfo.cs` — primary, compile-time, embedded in the assembly metadata, travels with the binary.
+2. **`backend/tests/RunCoach.Api.Tests/xunit.runner.json`** with `parallelizeTestCollections: false`, `parallelizeAssemblies: false`, `maxParallelThreads: 1` — runner-side override, copied to output via `<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>` in the `.csproj`.
+
+Both mechanisms target the same outcome; both are kept so direct MTP invocation, `dotnet test`, and any future runner-config-driven scenarios all converge on the same execution model.
+
+### Rationale
+
+`RunCoachAppFactory` is registered as `[assembly: AssemblyFixture(...)]` (R-046 pattern), booting **one** shared SUT for the entire test assembly: a Testcontainers `postgres:17-alpine` instance, a Marten `IDocumentStore` (with its async-daemon), Wolverine, EF, ASP.NET Identity, and JWT signing material. Under xUnit v3's default scheduling — collections run in parallel, tests within a collection run sequentially — multiple `*IntegrationTests` classes simultaneously hit the **shared** `IDocumentStore`'s schema-migration advisory lock and the Marten async daemon's projection writer.
+
+This produced an intermittent, non-deterministic flake captured across three worker dispatch rounds (#99, #110, #111). Each `dotnet test` invocation failed a **different** set of 9-11 tests with one of two recurring signatures:
+
+- `Marten.Storage.AdvisoryLock`: "Unable to attain a global lock in time order to apply database changes"
+- `ObjectDisposedException` on `IDocumentStore` shutdown when one collection finished while another still had in-flight writes
+
+Sequential execution under `dotnet test -- -parallel none` was already proven 841/841 green (verified 2026-04-26 post-#113). Codifying that mode as the default (a) removes the human-memory burden of remembering the flag, (b) makes CI green out-of-the-box without modifying `.github/workflows/ci.yml`, and (c) aligns local and CI execution on a single supported command.
+
+### Alternatives considered
+
+- **Per-collection isolated databases or schemas (one-store-per-collection-per-test).** Restores collection-level parallelism but requires partitioning the assembly fixture into `[Collection]`-scoped fixtures, each with its own `PostgreSqlContainer` (or schema), Marten store, and Wolverine host. Higher complexity, slower SUT boot, increased Testcontainers footprint. Deferred — sequential execution is fast enough today, and this remains the future fix if suite runtime becomes a bottleneck.
+- **Keep `-parallel none` as a documented invocation-time flag.** Rejected: every developer and every CI pipeline has to remember to pass it; first omission re-introduces the flake. The whole point of the close-out is to make `dotnet test` deterministic.
+- **Inline projections only (`ProjectionLifecycle.Inline`).** Already applied per DEC-060 for transactional correctness; on its own does not eliminate the advisory-lock contention because schema migrations still run once per `IDocumentStore` boot and remain shared across collections.
+
+### Trade-off
+
+Total wall-clock test time grows because collections no longer overlap. Today's suite (841 tests, ~minutes locally) absorbs this without operational pain. If the suite grows large enough that wall-clock matters, revisit the per-collection isolation alternative above — DEC-063 is explicitly written to be reversed by a future "`*IntegrationTests` collections each own their database" decision, not amended in place.
+
+### References
+
+- `backend/tests/RunCoach.Api.Tests/Infrastructure/AssemblyInfo.cs` — the `CollectionBehavior` attribute and the `AssemblyFixture` it sits next to.
+- `backend/tests/RunCoach.Api.Tests/xunit.runner.json` — runner-side config.
+- `backend/CLAUDE.md` § Test Parallelism — the operational restatement of this rule.
+- DEC-060 — Marten projection-lifecycle decision; complementary, not a substitute.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

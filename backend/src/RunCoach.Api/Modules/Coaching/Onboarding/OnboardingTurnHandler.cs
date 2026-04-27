@@ -178,10 +178,15 @@ public sealed partial class OnboardingTurnHandler
             .ConfigureAwait(false);
 
         // (5) call the LLM with the byte-stable schema + 1h ephemeral cache marker.
+        // The handler discards the per-call usage tuple — onboarding telemetry
+        // tracks cache effectiveness on the underlying Anthropic SDK span; the
+        // chain-wide rollup that surfaces <c>cache_hit_rate</c> belongs to
+        // <see cref="Modules.Training.Plan.PlanGenerationService"/> per
+        // Slice 1 § Unit 2 R02.8.
         OnboardingTurnOutput output;
         try
         {
-            output = await llm
+            (output, _) = await llm
                 .GenerateStructuredAsync<OnboardingTurnOutput>(
                     composition.SystemPrompt,
                     composition.UserMessage,
@@ -201,7 +206,7 @@ public sealed partial class OnboardingTurnHandler
         if (!validation.IsValid)
         {
             LogValidationFailedFirstAttempt(logger, cmd.UserId, currentTopic, validation.Violation);
-            var retried = await llm
+            var (retried, _) = await llm
                 .GenerateStructuredAsync<OnboardingTurnOutput>(
                     composition.SystemPrompt,
                     AppendDiscriminatorReinforcement(composition.UserMessage, currentTopic),

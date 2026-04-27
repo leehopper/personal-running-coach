@@ -192,7 +192,7 @@ public sealed class PlanGenerationServiceTests
                     throw new InvalidOperationException("simulated meso 4 failure");
                 }
 
-                return BuildMeso(mesoCalls, PhaseType.Base, isDeload: false);
+                return WithZeroUsage(BuildMeso(mesoCalls, PhaseType.Base, isDeload: false));
             });
 
         // Act
@@ -231,7 +231,7 @@ public sealed class PlanGenerationServiceTests
             .Returns(call =>
             {
                 capturedMacroPrompts.Add(call.ArgAt<string>(1));
-                return BuildMacro();
+                return WithZeroUsage(BuildMacro());
             });
 
         var view = CreateCompletedView();
@@ -399,6 +399,17 @@ public sealed class PlanGenerationServiceTests
         return (sut, llm, assembler);
     }
 
+    /// <summary>
+    /// Wraps a structured-output payload in the <c>(Result, Usage)</c> tuple
+    /// shape <see cref="ICoachingLlm.GenerateStructuredAsync{T}(string, string, CancellationToken)"/>
+    /// returns. Tests that don't care about the per-call usage counters return
+    /// <see cref="AnthropicUsage.Zero"/> so the chain-wide rollup arithmetic
+    /// still has a well-defined value (cache_hit_rate = 0.0 when no tokens
+    /// flowed).
+    /// </summary>
+    private static (T Result, AnthropicUsage Usage) WithZeroUsage<T>(T result) =>
+        (result, AnthropicUsage.Zero);
+
     private static void ConfigureMacroSuccess(ICoachingLlm llm)
     {
         llm
@@ -408,7 +419,7 @@ public sealed class PlanGenerationServiceTests
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(_ => BuildMacro());
+            .Returns(_ => WithZeroUsage(BuildMacro()));
     }
 
     private static void ConfigureLlmHappyPath(
@@ -428,7 +439,7 @@ public sealed class PlanGenerationServiceTests
             .Returns(_ =>
             {
                 mesoCounter++;
-                return BuildMeso(mesoCounter, PhaseType.Base, isDeload: false);
+                return WithZeroUsage(BuildMeso(mesoCounter, PhaseType.Base, isDeload: false));
             });
 
         llm
@@ -438,7 +449,7 @@ public sealed class PlanGenerationServiceTests
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(_ => BuildMicro());
+            .Returns(_ => WithZeroUsage(BuildMicro()));
 
         if (cacheCapture is not null)
         {
