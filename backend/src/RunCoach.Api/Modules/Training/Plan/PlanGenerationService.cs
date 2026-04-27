@@ -120,6 +120,12 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         var systemPrompt = composition.SystemPrompt;
         var basePrompt = composition.UserMessage;
 
+        // Capture the active prompt version immediately after composition so the
+        // version recorded on PlanGenerated always matches the prompt bytes that
+        // were sent — not whatever version happens to be active after the
+        // six LLM calls complete (~30s+ later).
+        var promptVersion = _promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId);
+
         LogChainStart(_logger, planId, userId, previousPlanId);
 
         // Tier 1 — macro plan.
@@ -163,8 +169,6 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                 cacheControl: CacheControl.Ephemeral1h,
                 ct)
             .ConfigureAwait(false);
-
-        var promptVersion = _promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId);
 
         // Assemble the canonical Slice 1 plan event sequence.
         var planGenerated = new PlanGenerated(
