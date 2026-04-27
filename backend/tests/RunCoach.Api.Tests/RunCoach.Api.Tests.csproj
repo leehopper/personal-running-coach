@@ -35,4 +35,17 @@
     <ProjectReference Include="..\..\src\RunCoach.Api\RunCoach.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      Copy the xUnit v3 runner config next to the built assembly so the runner
+      picks up `parallelizeTestCollections: false` at execution time. The
+      assembly-level [CollectionBehavior(DisableTestParallelization = true)]
+      attribute in Infrastructure/AssemblyInfo.cs is the primary mechanism;
+      this file is the belt-and-suspenders runner-side override.
+    -->
+    <Content Include="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
