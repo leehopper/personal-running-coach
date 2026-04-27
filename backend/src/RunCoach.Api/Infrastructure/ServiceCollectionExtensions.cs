@@ -4,6 +4,7 @@ using RunCoach.Api.Modules.Coaching.Idempotency;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Computations;
+using RunCoach.Api.Modules.Training.Plan;
 
 namespace RunCoach.Api.Infrastructure;
 
@@ -69,6 +70,12 @@ public static class ServiceCollectionExtensions
         // cross-tenant session.
         services.AddScoped<IIdempotencyStore, MartenIdempotencyStore>();
         services.AddHostedService<IdempotencySweeper>();
+
+        // Plan generation orchestrator — plain DI service per Slice 1 § Unit 2
+        // (DEC-057 / R-066). NOT a Wolverine handler: invoked inline by the
+        // caller's `[AggregateHandler]` body so events commit on the caller's
+        // session inside one Marten transaction.
+        services.AddScoped<IPlanGenerationService, PlanGenerationService>();
 
         return services;
     }

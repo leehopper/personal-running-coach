@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 
 /// <summary>
@@ -10,5 +12,5 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// </param>
 /// <param name="Text">The user's free-text input for the current onboarding turn.</param>
 public sealed record OnboardingTurnRequestDto(
-    Guid IdempotencyKey,
+    [property: JsonRequired] Guid IdempotencyKey,
     string Text);
