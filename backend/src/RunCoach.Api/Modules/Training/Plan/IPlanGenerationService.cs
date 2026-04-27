@@ -59,9 +59,10 @@ public interface IPlanGenerationService
     /// Settings → Plan (Slice 1 § Unit 5). When non-null it is appended at the
     /// END of the plan-generation user message under the stable label
     /// <c>[Regeneration intent provided by user]</c> so the prefix above it
-    /// stays byte-identical to the initial-generation prompt. The free-text
-    /// MUST already be sanitized by the caller via
-    /// <c>IPromptSanitizer.SanitizeAsync(intent.FreeText, PromptSection.RegenerationIntentFreeText, ct)</c>.
+    /// stays byte-identical to the initial-generation prompt. Sanitization is
+    /// performed inside the assembler's <c>ComposeForPlanGenerationAsync</c>
+    /// on the <c>RegenerationIntentFreeText</c> section per DEC-059 — callers
+    /// pass the raw runner input and do NOT pre-sanitize.
     /// </param>
     /// <param name="previousPlanId">
     /// The prior plan id when this generation came from the regenerate-from-settings

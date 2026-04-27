@@ -4,7 +4,6 @@ using Marten.Events;
 using Microsoft.Extensions.Logging;
 using RunCoach.Api.Modules.Coaching.Idempotency;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
-using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Plan;
 
 namespace RunCoach.Api.Modules.Coaching.Onboarding;
@@ -89,8 +88,7 @@ public sealed partial class OnboardingTurnHandler
     /// <param name="cmd">The submit-user-turn command.</param>
     /// <param name="session">Marten session bracketed by Wolverine's transactional middleware.</param>
     /// <param name="llm">Coaching LLM adapter.</param>
-    /// <param name="assembler">Context assembler.</param>
-    /// <param name="sanitizer">Prompt-injection sanitizer (used by the assembler — passed via DI here for tests that swap layers).</param>
+    /// <param name="assembler">Context assembler. Holds its own <c>IPromptSanitizer</c> reference and applies sanitization per-section inside <c>ComposeForOnboardingAsync</c> / <c>ComposeForPlanGenerationAsync</c> per DEC-059.</param>
     /// <param name="idempotency">Idempotency store backed by the same <paramref name="session"/>.</param>
     /// <param name="planGen">Plan generation orchestrator (six-call macro/meso/micro chain).</param>
     /// <param name="time">Time provider for event timestamps.</param>
@@ -102,7 +100,6 @@ public sealed partial class OnboardingTurnHandler
         IDocumentSession session,
         ICoachingLlm llm,
         IContextAssembler assembler,
-        IPromptSanitizer sanitizer,
         IIdempotencyStore idempotency,
         IPlanGenerationService planGen,
         TimeProvider time,
@@ -113,16 +110,10 @@ public sealed partial class OnboardingTurnHandler
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(llm);
         ArgumentNullException.ThrowIfNull(assembler);
-        ArgumentNullException.ThrowIfNull(sanitizer);
         ArgumentNullException.ThrowIfNull(idempotency);
         ArgumentNullException.ThrowIfNull(planGen);
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(logger);
-
-        // Sanitizer parameter is intentional — IContextAssembler already holds
-        // its own reference but injecting it here keeps the handler's
-        // dependency surface explicit per spec § Unit 1 R01.6.
-        _ = sanitizer;
 
         // (1) idempotency short-circuit: on hit return the byte-identical prior
         //     response, append nothing, write nothing.

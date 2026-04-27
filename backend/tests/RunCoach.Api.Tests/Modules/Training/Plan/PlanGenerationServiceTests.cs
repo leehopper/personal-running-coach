@@ -158,7 +158,11 @@ public sealed class PlanGenerationServiceTests
 
         // Act
         var events = await sut.GeneratePlanAsync(
-            CreateCompletedView(), UserId, PlanId, intent: null, previousPlanId: null,
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            intent: null,
+            previousPlanId: null,
             TestContext.Current.CancellationToken);
 
         // Assert — PlanGenerated records version-A (captured at composition time),

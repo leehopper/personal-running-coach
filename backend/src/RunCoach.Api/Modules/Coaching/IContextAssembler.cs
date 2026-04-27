@@ -71,10 +71,11 @@ public interface IContextAssembler
     /// </param>
     /// <param name="intent">
     /// Optional regeneration intent supplied by the runner when invoking
-    /// Settings → Plan (Slice 1 § Unit 5). The free-text MUST already be
-    /// sanitized by the caller via
-    /// <c>IPromptSanitizer.SanitizeAsync(intent.FreeText, PromptSection.RegenerationIntentFreeText, ct)</c>.
-    /// This method does NOT re-sanitize.
+    /// Settings → Plan (Slice 1 § Unit 5). Carries the raw free-text — the
+    /// implementation runs <c>IPromptSanitizer.SanitizeAsync</c> on the
+    /// <c>RegenerationIntentFreeText</c> section before interpolation per
+    /// DEC-059. Implementations that lack a sanitizer dependency must throw
+    /// <see cref="InvalidOperationException"/> when this argument is non-null.
     /// </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The composed plan-generation prompt — system + base user message.</returns>

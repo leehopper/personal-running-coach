@@ -271,6 +271,31 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         ct.ThrowIfCancellationRequested();
 
+        // Sanitize the optional regeneration-intent free-text per DEC-059 /
+        // R-068. Sanitization lives inside the assembler (per-section seam)
+        // rather than at the call site so every prompt-build path is forced
+        // through the layered Unicode-strip + 12-pattern regex catalog +
+        // Spotlighting delimiter wrap. When a caller supplies an intent this
+        // assembler instance MUST be the sanitizer-aware constructor — fail
+        // fast otherwise to surface the wiring mistake at the call site.
+        string? sanitizedIntentBody = null;
+        if (intent is not null)
+        {
+            if (_sanitizer is null)
+            {
+                throw new InvalidOperationException(
+                    "ContextAssembler was constructed without IPromptSanitizer support, " +
+                    "which is mandatory for plan generation with a RegenerationIntent. " +
+                    "Use the six-arg constructor (with IPromptSanitizer, IHostEnvironment, " +
+                    "IOptions<PromptStoreSettings>) for the regenerate-from-settings flow.");
+            }
+
+            var sanitizationResult = await _sanitizer
+                .SanitizeAsync(intent.FreeText, SanitizationPromptSection.RegenerationIntentFreeText, ct)
+                .ConfigureAwait(false);
+            sanitizedIntentBody = sanitizationResult.Sanitized;
+        }
+
         // System prompt comes from the versioned coaching-system YAML so the
         // bytes are identical across every call in the macro/meso/micro chain
         // — Anthropic's prompt-prefix cache hashes this block (DEC-047 / R-067).
@@ -283,7 +308,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         // does not change within a single chain). Tier-specific suffixes
         // (macro vs meso week-N vs micro) are appended by the calling service
         // AFTER this base, keeping the prefix bytes returned here byte-stable.
-        var userMessage = BuildPlanGenerationUserMessage(profileSnapshot, intent);
+        var userMessage = BuildPlanGenerationUserMessage(profileSnapshot, sanitizedIntentBody);
 
         return new PlanGenerationPromptComposition(
             SystemPrompt: systemPrompt,
@@ -449,11 +474,14 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// above it is byte-identical across initial-generation and regenerate
     /// calls — the calling chain appends tier-specific suffixes (macro vs
     /// meso vs micro) AFTER this base, keeping these bytes inside the
-    /// cacheable prefix per DEC-047.
+    /// cacheable prefix per DEC-047. The <paramref name="sanitizedIntentBody"/>
+    /// has already been run through <see cref="IPromptSanitizer"/> at the
+    /// <c>RegenerationIntentFreeText</c> section policy by the caller —
+    /// this builder is a pure formatting step and does no sanitization.
     /// </summary>
     private static string BuildPlanGenerationUserMessage(
         OnboardingView profileSnapshot,
-        RegenerationIntent? intent)
+        string? sanitizedIntentBody)
     {
         var sb = new StringBuilder();
 
@@ -465,11 +493,11 @@ public sealed partial class ContextAssembler : IContextAssembler
         AppendSlotLine(sb, "InjuryHistory", profileSnapshot.InjuryHistory);
         AppendSlotLine(sb, "Preferences", profileSnapshot.Preferences);
 
-        if (intent is not null)
+        if (sanitizedIntentBody is not null)
         {
             sb.AppendLine();
             sb.AppendLine("[Regeneration intent provided by user]");
-            sb.Append(intent.FreeText);
+            sb.Append(sanitizedIntentBody);
         }
 
         return sb.ToString();

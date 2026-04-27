@@ -43,7 +43,6 @@ public class OnboardingTurnHandlerUnitTests
             deps.Session,
             deps.Llm,
             deps.Assembler,
-            deps.Sanitizer,
             deps.Idempotency,
             deps.PlanGen,
             deps.Time,
@@ -78,7 +77,6 @@ public class OnboardingTurnHandlerUnitTests
             deps.Session,
             deps.Llm,
             deps.Assembler,
-            deps.Sanitizer,
             deps.Idempotency,
             deps.PlanGen,
             deps.Time,
@@ -117,7 +115,6 @@ public class OnboardingTurnHandlerUnitTests
             deps.Session,
             deps.Llm,
             deps.Assembler,
-            deps.Sanitizer,
             deps.Idempotency,
             deps.PlanGen,
             deps.Time,
@@ -158,7 +155,6 @@ public class OnboardingTurnHandlerUnitTests
             deps.Session,
             deps.Llm,
             deps.Assembler,
-            deps.Sanitizer,
             deps.Idempotency,
             deps.PlanGen,
             deps.Time,
@@ -185,7 +181,6 @@ public class OnboardingTurnHandlerUnitTests
             deps.Session,
             deps.Llm,
             deps.Assembler,
-            deps.Sanitizer,
             deps.Idempotency,
             deps.PlanGen,
             deps.Time,
@@ -264,7 +259,6 @@ public class OnboardingTurnHandlerUnitTests
             Session = Substitute.For<IDocumentSession>();
             Llm = Substitute.For<ICoachingLlm>();
             Assembler = Substitute.For<IContextAssembler>();
-            Sanitizer = Substitute.For<IPromptSanitizer>();
             Idempotency = Substitute.For<IIdempotencyStore>();
             PlanGen = Substitute.For<IPlanGenerationService>();
             Time = new FakeTimeProvider(new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero));
@@ -281,8 +275,6 @@ public class OnboardingTurnHandlerUnitTests
         public ICoachingLlm Llm { get; }
 
         public IContextAssembler Assembler { get; }
-
-        public IPromptSanitizer Sanitizer { get; }
 
         public IIdempotencyStore Idempotency { get; }
 

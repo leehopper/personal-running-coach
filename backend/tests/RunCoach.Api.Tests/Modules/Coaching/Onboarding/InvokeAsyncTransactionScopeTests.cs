@@ -54,7 +54,6 @@ public class InvokeAsyncTransactionScopeTests
         var session = Substitute.For<IDocumentSession>();
         var llm = Substitute.For<ICoachingLlm>();
         var assembler = Substitute.For<IContextAssembler>();
-        var sanitizer = Substitute.For<IPromptSanitizer>();
         var idempotency = Substitute.For<IIdempotencyStore>();
         var planGen = Substitute.For<IPlanGenerationService>();
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero));
@@ -102,7 +101,6 @@ public class InvokeAsyncTransactionScopeTests
             session,
             llm,
             assembler,
-            sanitizer,
             idempotency,
             planGen,
             time,
