@@ -80,6 +80,8 @@ public sealed class PlanProjection : SingleStreamProjection<PlanProjectionDto, G
     public static void Apply(MesoCycleCreated @event, PlanProjectionDto dto)
     {
         var weeks = dto.MesoWeeks.ToList();
+
+        // WeekIndex on the event and WeekNumber on MesoWeekOutput are the same value in the current schema — both are 1-based week ordinals.
         var existingIndex = weeks.FindIndex(w => w.WeekNumber == @event.WeekIndex);
         if (existingIndex >= 0)
         {
