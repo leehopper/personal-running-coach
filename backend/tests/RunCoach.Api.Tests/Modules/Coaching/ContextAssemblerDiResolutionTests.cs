@@ -50,7 +50,7 @@ public sealed class ContextAssemblerDiResolutionTests(RunCoachAppFactory factory
         // exception (e.g., prompts file IO) is acceptable here; we only fail on
         // the precise DI-misconfiguration signature.
         Func<Task> act = () =>
-            assembler.ComposeForOnboardingAsync(view, OnboardingTopic.PrimaryGoal, "race-training", default);
+            assembler.ComposeForOnboardingAsync(view, OnboardingTopic.PrimaryGoal, "race-training", TestContext.Current.CancellationToken);
 
         await act.Should()
             .NotThrowAsync<InvalidOperationException>(
