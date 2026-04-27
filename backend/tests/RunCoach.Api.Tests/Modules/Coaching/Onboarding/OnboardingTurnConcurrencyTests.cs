@@ -178,7 +178,7 @@ public sealed class OnboardingTurnConcurrencyTests(RunCoachAppFactory factory)
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(BuildValidLlmOutput());
+            .Returns(_ => (BuildValidLlmOutput(), AnthropicUsage.Zero));
 
         var assembler = Substitute.For<IContextAssembler>();
         assembler.ComposeForOnboardingAsync(
