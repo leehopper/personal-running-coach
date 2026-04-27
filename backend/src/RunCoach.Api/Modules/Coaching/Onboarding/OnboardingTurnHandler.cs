@@ -63,10 +63,10 @@ public sealed partial class OnboardingTurnHandler
     private const string PromptPrefix = "[Pattern-B-Invariant]";
     private const double ExtractionConfidenceFloor = 0.6;
 
-    // Wire-format JsonDocuments embedded inside the response DTO + Marten
-    // event payloads must be camelCase so they round-trip cleanly to the
-    // frontend Zod schemas (the controller's default formatter handles the
-    // outer DTO via camelCase, but JsonDocument payloads are opaque to it).
+    // Wire-format JSON embedded inside the response DTO + Marten event payloads
+    // must be camelCase so they round-trip cleanly to the frontend Zod schemas
+    // (the controller's default formatter handles the outer DTO via camelCase,
+    // but opaque JSON payloads are not touched by it).
     private static readonly JsonSerializerOptions WireSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -272,7 +272,7 @@ public sealed partial class OnboardingTurnHandler
             var (completed, total) = OnboardingCompletionGate.Progress(working);
             response = new OnboardingTurnResponseDto(
                 Kind: OnboardingTurnKind.Complete,
-                AssistantBlocks: assistantBlocks,
+                AssistantBlocks: JsonSerializer.SerializeToDocument(output.Reply, WireSerializerOptions).RootElement.Clone(),
                 Topic: null,
                 SuggestedInputType: null,
                 Progress: new OnboardingProgressDto(completed, total),
@@ -296,7 +296,7 @@ public sealed partial class OnboardingTurnHandler
                 : SuggestInputType(nextTopic);
             response = new OnboardingTurnResponseDto(
                 Kind: OnboardingTurnKind.Ask,
-                AssistantBlocks: assistantBlocks,
+                AssistantBlocks: JsonSerializer.SerializeToDocument(output.Reply, WireSerializerOptions).RootElement.Clone(),
                 Topic: nextTopic,
                 SuggestedInputType: nextInputType,
                 Progress: new OnboardingProgressDto(completed, total),

@@ -193,7 +193,7 @@ public class OnboardingTurnHandlerUnitTests
 
     private static OnboardingTurnResponseDto BuildAskResponseDto() => new(
         Kind: OnboardingTurnKind.Ask,
-        AssistantBlocks: JsonSerializer.SerializeToDocument(Array.Empty<AnthropicContentBlock>()),
+        AssistantBlocks: JsonSerializer.SerializeToDocument(Array.Empty<AnthropicContentBlock>()).RootElement.Clone(),
         Topic: OnboardingTopic.PrimaryGoal,
         SuggestedInputType: SuggestedInputType.SingleSelect,
         Progress: new OnboardingProgressDto(0, 5),
