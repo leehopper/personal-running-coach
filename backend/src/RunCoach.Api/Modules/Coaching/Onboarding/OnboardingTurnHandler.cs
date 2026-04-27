@@ -41,9 +41,12 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// <item>If the deterministic completion gate is now satisfied (and the LLM
 ///   agreed via <c>ReadyForPlan</c>) — invoke
 ///   <see cref="IPlanGenerationService.GeneratePlanAsync"/>, stage the returned
-///   plan events on a new <c>StartStream&lt;Plan&gt;(planId, ...)</c>, append
-///   <see cref="PlanLinkedToUser"/> + <see cref="OnboardingCompleted"/> to the
-///   onboarding stream — all on the same session.</item>
+///   plan events on a new <c>StartStream&lt;PlanAggregate&gt;(planId, ...)</c>,
+///   append <see cref="PlanLinkedToUser"/> + <see cref="OnboardingCompleted"/>
+///   to the onboarding stream — all on the same session. The
+///   <see cref="OnboardingAggregate"/> / <see cref="PlanAggregate"/> markers
+///   keep the event-store metadata decoupled from the inline projection's
+///   read-model document type per DEC-060.</item>
 /// <item>Record the response on <see cref="IIdempotencyStore.Record{T}"/>.</item>
 /// </list>
 /// </para>
@@ -145,7 +148,7 @@ public sealed partial class OnboardingTurnHandler
         var isFirstTurn = view is null;
         if (isFirstTurn)
         {
-            session.Events.StartStream<OnboardingView>(streamId, new OnboardingStarted(streamId, now));
+            session.Events.StartStream<OnboardingAggregate>(streamId, new OnboardingStarted(streamId, now));
         }
         else if (view!.Status == OnboardingStatus.Completed)
         {
@@ -262,7 +265,7 @@ public sealed partial class OnboardingTurnHandler
                 .GeneratePlanAsync(working, cmd.UserId, planId, intent: null, previousPlanId: null, ct)
                 .ConfigureAwait(false);
 
-            session.Events.StartStream<RunCoach.Api.Modules.Training.Plan.Models.PlanProjectionDto>(planId, planEvents.ToArray());
+            session.Events.StartStream<PlanAggregate>(planId, planEvents.ToArray());
             session.Events.Append(streamId, new PlanLinkedToUser(cmd.UserId, planId));
             session.Events.Append(streamId, new OnboardingCompleted(planId, now));
 
