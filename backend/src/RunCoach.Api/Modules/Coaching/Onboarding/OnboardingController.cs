@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Marten;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,6 +29,12 @@ public sealed partial class OnboardingController(
 {
     private const string AlreadyCompleteType = "https://runcoach.app/problems/onboarding-already-complete";
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
+
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() },
+    };
 
     /// <summary>POST /api/v1/onboarding/turns — submit a single onboarding turn.</summary>
     /// <remarks>
@@ -123,11 +130,16 @@ public sealed partial class OnboardingController(
     /// Appends a fresh <see cref="AnswerCaptured"/> event to the runner's
     /// onboarding stream so the audit trail is preserved (the prior captured
     /// answer remains addressable in the event log). Returns the updated view.
+    /// Validates <see cref="ReviseAnswerRequestDto.NormalizedValue"/> against
+    /// the topic-specific answer DTO before appending; returns 400 if the
+    /// payload is malformed or does not match the expected schema, preventing
+    /// corrupt events from landing in the durable event stream.
     /// </remarks>
     [HttpPost("answers/revise")]
     [Microsoft.AspNetCore.Antiforgery.RequireAntiforgeryToken]
     [ProducesResponseType(typeof(OnboardingStateDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ReviseAnswer(
         [FromBody] ReviseAnswerRequestDto request,
         CancellationToken ct)
@@ -143,6 +155,12 @@ public sealed partial class OnboardingController(
         if (view is null)
         {
             return NotFound();
+        }
+
+        var validationError = ValidateNormalizedValue(request.Topic, request.NormalizedValue);
+        if (validationError is not null)
+        {
+            return BadRequest(new ValidationProblemDetails(validationError));
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -183,6 +201,74 @@ public sealed partial class OnboardingController(
         Level = LogLevel.Information,
         Message = "Onboarding turn rejected: stream already complete user={UserId}")]
     private static partial void LogAlreadyComplete(ILogger logger, Guid userId);
+
+    /// <summary>
+    /// Deserializes <paramref name="payload"/> against the topic-specific answer DTO
+    /// and returns a non-null error dictionary when the payload is malformed or does
+    /// not conform to the expected schema. Returns <c>null</c> when validation succeeds.
+    /// Validates that the payload root is an object and that all required properties
+    /// for the topic-specific DTO are present and non-null.
+    /// </summary>
+    private static Dictionary<string, string[]>? ValidateNormalizedValue(
+        OnboardingTopic topic,
+        JsonDocument payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        if (payload.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            return new Dictionary<string, string[]>
+            {
+                ["normalizedValue"] = [$"Payload must be a JSON object for topic '{topic}'."],
+            };
+        }
+
+        try
+        {
+            var json = payload.RootElement.GetRawText();
+            var isValid = topic switch
+            {
+                OnboardingTopic.PrimaryGoal => TryDeserializeValid<PrimaryGoalAnswer>(json),
+                OnboardingTopic.TargetEvent => TryDeserializeValid<TargetEventAnswer>(json),
+                OnboardingTopic.CurrentFitness => TryDeserializeValid<CurrentFitnessAnswer>(json),
+                OnboardingTopic.WeeklySchedule => TryDeserializeValid<WeeklyScheduleAnswer>(json),
+                OnboardingTopic.InjuryHistory => TryDeserializeValid<InjuryHistoryAnswer>(json),
+                OnboardingTopic.Preferences => TryDeserializeValid<PreferencesAnswer>(json),
+                _ => false,
+            };
+
+            if (!isValid)
+            {
+                return new Dictionary<string, string[]>
+                {
+                    ["normalizedValue"] = [$"Payload does not match the expected schema for topic '{topic}'."],
+                };
+            }
+
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            return new Dictionary<string, string[]>
+            {
+                ["normalizedValue"] = [$"Payload JSON is malformed for topic '{topic}': {ex.Message}"],
+            };
+        }
+    }
+
+    private static bool TryDeserializeValid<T>(string json)
+        where T : class
+    {
+        try
+        {
+            var result = JsonSerializer.Deserialize<T>(json, CaseInsensitiveOptions);
+            return result is not null;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 
     private bool TryGetUserId(out Guid userId)
     {
