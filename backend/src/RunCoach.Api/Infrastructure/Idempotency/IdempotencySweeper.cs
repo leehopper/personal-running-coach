@@ -1,7 +1,7 @@
 using Marten;
 using MartenSessionOptions = Marten.Services.SessionOptions;
 
-namespace RunCoach.Api.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Infrastructure.Idempotency;
 
 /// <summary>
 /// Background sweeper that deletes <see cref="IdempotencyMarker"/> documents
@@ -18,16 +18,16 @@ namespace RunCoach.Api.Modules.Coaching.Idempotency;
 /// across iterations; opening a fresh session per sweep is the documented
 /// pattern.
 /// </remarks>
-public sealed partial class IdempotencySweeper(
+internal sealed partial class IdempotencySweeper(
     IDocumentStore store,
     TimeProvider timeProvider,
     ILogger<IdempotencySweeper> logger) : BackgroundService
 {
     /// <summary>Markers older than this are eligible for deletion.</summary>
-    public static readonly TimeSpan RetentionWindow = TimeSpan.FromHours(48);
+    internal static readonly TimeSpan RetentionWindow = TimeSpan.FromHours(48);
 
     /// <summary>Interval between sweeps.</summary>
-    public static readonly TimeSpan SweepInterval = TimeSpan.FromHours(1);
+    internal static readonly TimeSpan SweepInterval = TimeSpan.FromHours(1);
 
     private readonly IDocumentStore _store = store;
     private readonly TimeProvider _timeProvider = timeProvider;
@@ -36,8 +36,8 @@ public sealed partial class IdempotencySweeper(
     /// <summary>
     /// Deletes <see cref="IdempotencyMarker"/> documents whose
     /// <see cref="IdempotencyMarker.RecordedAt"/> is older than
-    /// <see cref="RetentionWindow"/>. Exposed for test harnesses that need
-    /// to drive a sweep deterministically without waiting for the timer.
+    /// <see cref="RetentionWindow"/>. Internal so test harnesses can drive
+    /// a sweep deterministically without waiting for the timer.
     /// </summary>
     /// <remarks>
     /// Conjoined tenancy makes <c>DeleteWhere</c> tenant-scoped and offers no
@@ -48,7 +48,7 @@ public sealed partial class IdempotencySweeper(
     /// (idempotency keys are per-request and the window is 48h), so the
     /// per-tenant fan-out is acceptable.
     /// </remarks>
-    public async Task SweepAsync(CancellationToken ct)
+    internal async Task SweepAsync(CancellationToken ct)
     {
         var cutoff = _timeProvider.GetUtcNow() - RetentionWindow;
 
@@ -91,9 +91,8 @@ public sealed partial class IdempotencySweeper(
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // First sweep runs immediately so test harnesses that resolve the
-        // service can drive deterministic deletion via `SweepAsync` without
-        // racing the timer.
+        // First sweep runs immediately on host boot rather than waiting
+        // SweepInterval before the first cleanup pass.
         while (!stoppingToken.IsCancellationRequested)
         {
             try

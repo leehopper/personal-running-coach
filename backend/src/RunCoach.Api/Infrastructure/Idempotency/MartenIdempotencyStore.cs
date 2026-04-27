@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Marten;
 
-namespace RunCoach.Api.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Infrastructure.Idempotency;
 
 /// <summary>
 /// Marten-document-backed <see cref="IIdempotencyStore"/>. Both

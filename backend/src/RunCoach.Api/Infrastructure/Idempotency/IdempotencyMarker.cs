@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Marten.Schema;
 
-namespace RunCoach.Api.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Infrastructure.Idempotency;
 
 /// <summary>
 /// Marten document storing the response of a previously processed idempotent
@@ -21,7 +21,7 @@ namespace RunCoach.Api.Modules.Coaching.Idempotency;
 /// without coupling this primitive to a single response type.</param>
 /// <param name="RecordedAt">UTC timestamp the response was first recorded;
 /// drives the 48h expiry sweep run by <see cref="IdempotencySweeper"/>.</param>
-public sealed record IdempotencyMarker(
+internal sealed record IdempotencyMarker(
     [property: Identity] Guid Key,
     Guid UserId,
     JsonDocument Response,

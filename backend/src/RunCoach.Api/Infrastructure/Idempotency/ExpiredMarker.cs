@@ -1,4 +1,4 @@
-namespace RunCoach.Api.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Infrastructure.Idempotency;
 
 /// <summary>
 /// Projection target used by <see cref="IdempotencySweeper"/> when scanning

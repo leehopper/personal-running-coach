@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
-using RunCoach.Api.Modules.Coaching.Idempotency;
+using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Tests.Infrastructure;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Idempotency;

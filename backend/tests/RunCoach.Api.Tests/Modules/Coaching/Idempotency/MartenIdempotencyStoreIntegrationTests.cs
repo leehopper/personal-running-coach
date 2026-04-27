@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Marten;
 using Microsoft.Extensions.DependencyInjection;
-using RunCoach.Api.Modules.Coaching.Idempotency;
+using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Tests.Infrastructure;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Idempotency;

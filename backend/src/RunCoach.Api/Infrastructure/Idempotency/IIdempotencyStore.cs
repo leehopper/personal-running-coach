@@ -1,4 +1,4 @@
-namespace RunCoach.Api.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Infrastructure.Idempotency;
 
 /// <summary>
 /// Idempotency primitive used by Wolverine handlers (per-turn, regenerate, and
