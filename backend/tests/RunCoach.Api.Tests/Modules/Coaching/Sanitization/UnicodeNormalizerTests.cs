@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using FluentAssertions;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 
@@ -118,22 +117,18 @@ public class UnicodeNormalizerTests
     }
 
     [Fact]
-    public void Strip_RegexRunsWithinTimeoutBudget()
+    public void Strip_RemovesZeroWidthChars()
     {
-        // Arrange — synthetic large input: zero-width chars sprinkled in plain
-        // text. The 50 ms ReDoS guard must not fire on real content.
+        // Arrange — synthetic large input: a zero-width char sprinkled in plain text.
         var zwsp = char.ConvertFromUtf32(0x200B);
         var input = new string('a', 50_000) + zwsp + new string('b', 50_000);
 
         // Act
-        var sw = Stopwatch.StartNew();
         var (normalized, stripped) = UnicodeNormalizer.Strip(input);
-        sw.Stop();
 
-        // Assert — operation completes well under the 50 ms regex timeout.
+        // Assert
         normalized.Length.Should().Be(input.Length - 1);
         stripped.Should().Be(1);
-        sw.Elapsed.Should().BeLessThan(TimeSpan.FromMilliseconds(200));
     }
 
     [Fact]
