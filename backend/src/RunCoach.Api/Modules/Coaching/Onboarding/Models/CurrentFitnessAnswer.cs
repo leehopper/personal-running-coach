@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 
 namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 
@@ -36,5 +37,27 @@ public sealed record CurrentFitnessAnswer
     /// Gets the runner's self-reported fitness summary in their own words.
     /// </summary>
     [Description("Self-reported fitness summary in the runner's own words.")]
-    public required string Description { get; init; }
+    public required string Description { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Throws <see cref="InvalidOperationException"/> when exactly one of
+    /// <see cref="RecentRaceDistanceKm"/> and <see cref="RecentRaceTimeIso"/> is set.
+    /// Both must be non-null (a full race result) or both must be null (no race result).
+    /// Call this immediately after deserialization to catch half-populated payloads
+    /// before they reach downstream calculations.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when only one of the two recent-race fields is populated.
+    /// </exception>
+    public void EnsureValid()
+    {
+        var hasDistance = RecentRaceDistanceKm.HasValue;
+        var hasTime = RecentRaceTimeIso is not null;
+        if (hasDistance != hasTime)
+        {
+            throw new InvalidOperationException(
+                $"RecentRaceDistanceKm and RecentRaceTimeIso must both be set or both be null. " +
+                $"Got: DistanceKm={RecentRaceDistanceKm?.ToString(CultureInfo.InvariantCulture) ?? "null"}, TimeIso={RecentRaceTimeIso ?? "null"}.");
+        }
+    }
 }

@@ -133,8 +133,16 @@ public sealed class UserProfileFromOnboardingProjection
                 break;
 
             case OnboardingTopic.CurrentFitness:
-                snapshot.CurrentFitness = captured.NormalizedPayload.Deserialize<CurrentFitnessAnswer>();
-                break;
+                {
+                    var typed = captured.NormalizedPayload.Deserialize<CurrentFitnessAnswer>();
+                    if (typed is not null)
+                    {
+                        typed.EnsureValid();
+                        snapshot.CurrentFitness = typed;
+                    }
+
+                    break;
+                }
 
             case OnboardingTopic.WeeklySchedule:
                 snapshot.WeeklySchedule = captured.NormalizedPayload.Deserialize<WeeklyScheduleAnswer>();

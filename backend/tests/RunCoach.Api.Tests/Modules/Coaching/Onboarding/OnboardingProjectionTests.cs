@@ -294,7 +294,7 @@ public sealed class OnboardingProjectionTests
     [Fact]
     public void UserProfileFromOnboardingProjection_ApplyEvent_FullSequence_LandsAllSlotsAndPlanId()
     {
-        // Arrange — assemble the canonical eight-event onboarding sequence and replay through
+        // Arrange — assemble the canonical ten-event onboarding sequence and replay through
         // the projection as the production Marten codegen would. Asserts the terminal EF row
         // matches what an integration test would observe after `SaveChangesAsync`.
         var projection = new UserProfileFromOnboardingProjection();
@@ -413,14 +413,11 @@ public sealed class OnboardingProjectionTests
     }
 
     // The projection's apply logic does not invoke any DbContext / session methods on the
-    // happy path; a default-options DbContext + substituted session satisfy the override
-    // signature without requiring a real Npgsql connection. We never call SaveChangesAsync
+    // happy path; a substituted DbContext satisfies the override signature without requiring
+    // a real Npgsql connection or a configured EF provider. We never call SaveChangesAsync
     // here because the apply methods only mutate the in-memory snapshot.
-    private static RunCoachDbContext NullDbContext()
-    {
-        var options = new Microsoft.EntityFrameworkCore.DbContextOptions<RunCoachDbContext>();
-        return new RunCoachDbContext(options);
-    }
+    private static RunCoachDbContext NullDbContext() => Substitute.For<RunCoachDbContext>(
+        new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<RunCoachDbContext>().Options);
 
     private static IQuerySession NullSession() => Substitute.For<IQuerySession>();
 }
