@@ -34,7 +34,13 @@ public sealed class MartenIdempotencyStore(IDocumentSession session) : IIdempote
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        var payload = JsonSerializer.SerializeToDocument(response);
+        // Serialize to a JsonDocument then extract the root element as a JsonElement.
+        // JsonElement is a value type that does not own pooled buffers; the owning
+        // JsonDocument is disposed immediately after extraction, returning its
+        // PooledByteBufferWriter to the pool. The cloned element remains valid
+        // because Clone() copies the bytes into an independent allocation.
+        using var doc = JsonSerializer.SerializeToDocument(response);
+        var payload = doc.RootElement.Clone();
         var marker = new IdempotencyMarker(key, userId, payload, DateTimeOffset.UtcNow);
         _session.Store(marker);
     }
