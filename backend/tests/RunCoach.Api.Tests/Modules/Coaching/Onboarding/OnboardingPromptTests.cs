@@ -10,23 +10,21 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// </summary>
 public sealed class OnboardingPromptTests
 {
-    private static readonly string PromptFilePath = ResolvePromptFile();
-
     [Fact]
     public void OnboardingV1Yaml_FileExists()
     {
         // Arrange + Act
-        var actual = File.Exists(PromptFilePath);
+        var actual = File.Exists(ResolvePromptFile());
 
         // Assert
-        actual.Should().BeTrue($"the onboarding-v1 prompt file must exist at '{PromptFilePath}'");
+        actual.Should().BeTrue("the onboarding-v1 prompt file must exist under src/RunCoach.Api/Prompts/onboarding-v1.yaml");
     }
 
     [Fact]
     public void OnboardingV1Yaml_ContainsNoVdotTrademark()
     {
         // Arrange
-        var promptText = File.ReadAllText(PromptFilePath);
+        var promptText = File.ReadAllText(ResolvePromptFile());
 
         // Act
         var containsVdot = promptText.Contains("vdot", StringComparison.OrdinalIgnoreCase);
@@ -40,7 +38,7 @@ public sealed class OnboardingPromptTests
     public void OnboardingV1Yaml_UsesDanielsGilbertVocabulary()
     {
         // Arrange
-        var promptText = File.ReadAllText(PromptFilePath);
+        var promptText = File.ReadAllText(ResolvePromptFile());
 
         // Act
         var hasGenericVocab = promptText.Contains("Daniels-Gilbert zones", StringComparison.Ordinal)
@@ -55,7 +53,7 @@ public sealed class OnboardingPromptTests
     public void OnboardingV1Yaml_ContainsDataHandlingDirective()
     {
         // Arrange
-        var promptText = File.ReadAllText(PromptFilePath);
+        var promptText = File.ReadAllText(ResolvePromptFile());
 
         // Act
         var hasDirective = promptText.Contains("data_handling", StringComparison.Ordinal)
@@ -70,7 +68,7 @@ public sealed class OnboardingPromptTests
     public void OnboardingV1Yaml_DataHandlingDirectiveSitsAtEndOfSystemBlock()
     {
         // Arrange
-        var promptText = File.ReadAllText(PromptFilePath);
+        var promptText = File.ReadAllText(ResolvePromptFile());
         var dataHandlingIndex = promptText.IndexOf("data_handling", StringComparison.Ordinal);
         var contextTemplateIndex = promptText.IndexOf("context_template:", StringComparison.Ordinal);
 
@@ -92,7 +90,7 @@ public sealed class OnboardingPromptTests
     public void OnboardingV1Yaml_DocumentsAllSixTopics()
     {
         // Arrange
-        var promptText = File.ReadAllText(PromptFilePath);
+        var promptText = File.ReadAllText(ResolvePromptFile());
         var expectedTopics = new[]
         {
             "PrimaryGoal",
