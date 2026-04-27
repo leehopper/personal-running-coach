@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using FluentAssertions;
 using RunCoach.Api.Modules.Coaching.Onboarding;
@@ -206,7 +207,8 @@ public sealed class OnboardingTurnOutputShapeTests
         foreach (var type in aggregateEventTypes)
         {
             type.IsSealed.Should().BeTrue($"{type.Name} must be sealed for Marten serialization stability");
-            type.Name.Should().NotBeNullOrEmpty();
+            type.GetMethod("<Clone>$", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                .Should().NotBeNull($"{type.Name} must be a record type (compiler-generated <Clone>$ method absent)");
         }
     }
 
