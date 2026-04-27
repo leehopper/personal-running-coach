@@ -15,4 +15,4 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// </param>
 public sealed record ReviseAnswerRequestDto(
     [property: JsonRequired] OnboardingTopic Topic,
-    JsonDocument NormalizedValue);
+    [property: JsonRequired] JsonDocument NormalizedValue);
