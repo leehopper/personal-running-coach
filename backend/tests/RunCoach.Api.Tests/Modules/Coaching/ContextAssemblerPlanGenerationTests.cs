@@ -10,7 +10,7 @@ using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 
-namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
+namespace RunCoach.Api.Tests.Modules.Coaching;
 
 /// <summary>
 /// Stable-prefix + regeneration-intent placement tests for
@@ -139,31 +139,28 @@ public sealed class ContextAssemblerPlanGenerationTests
         await act.Should().ThrowAsync<ArgumentNullException>();
     }
 
-    [Fact]
-    public void RegenerationIntent_FreeText_ExceedingCap_Throws()
+    [Theory]
+    [InlineData(RegenerationIntent.MaxFreeTextLength, false)]
+    [InlineData(RegenerationIntent.MaxFreeTextLength + 1, true)]
+    public void RegenerationIntent_FreeText_LengthBoundary_BehavesAsExpected(int length, bool shouldThrow)
     {
         // Arrange
-        var oversized = new string('a', RegenerationIntent.MaxFreeTextLength + 1);
+        var text = new string('a', length);
 
         // Act
-        var act = () => new RegenerationIntent(oversized);
+        var act = () => new RegenerationIntent(text);
 
         // Assert
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*exceeds*");
-    }
-
-    [Fact]
-    public void RegenerationIntent_FreeText_AtCap_Allowed()
-    {
-        // Arrange
-        var atCap = new string('a', RegenerationIntent.MaxFreeTextLength);
-
-        // Act
-        var intent = new RegenerationIntent(atCap);
-
-        // Assert
-        intent.FreeText.Length.Should().Be(RegenerationIntent.MaxFreeTextLength);
+        if (shouldThrow)
+        {
+            act.Should().Throw<ArgumentException>()
+                .WithMessage("*exceeds*");
+        }
+        else
+        {
+            var intent = act();
+            intent.FreeText.Length.Should().Be(RegenerationIntent.MaxFreeTextLength);
+        }
     }
 
     [Fact]
