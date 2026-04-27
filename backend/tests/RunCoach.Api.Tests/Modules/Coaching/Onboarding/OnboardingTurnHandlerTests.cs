@@ -22,7 +22,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// guarantee — when <see cref="IPlanGenerationService"/> throws, the handler
 /// rethrows and never appends <see cref="OnboardingCompleted"/>.
 /// </summary>
-public class OnboardingTurnHandlerUnitTests
+public class OnboardingTurnHandlerTests
 {
     private const string SystemPrompt = "system-bytes";
     private const string UserMessage = "user-bytes";
