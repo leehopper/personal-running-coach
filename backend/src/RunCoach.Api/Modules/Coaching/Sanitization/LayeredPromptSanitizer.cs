@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Net;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -293,6 +294,14 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
     {
         var label = DelimiterLabel(section);
 
+        // HTML-escape `&`, `<`, and `>` in the body before interpolation so a
+        // payload containing the literal closing tag (e.g. `</CURRENT_USER_INPUT>`)
+        // cannot break out of containment. The LLM receives the escaped form;
+        // `&lt;`, `&gt;`, `&amp;` are semantically transparent to the model
+        // and cannot reconstruct a syntactically valid XML tag. `WebUtility.HtmlEncode`
+        // also escapes `"` and `'`, which is harmless inside element content.
+        var escapedBody = WebUtility.HtmlEncode(body);
+
         // Per R-068 § 5.3 / § 8: the per-turn nonce only applies to the
         // CurrentUserMessage section (and structurally, the regenerate intent
         // section, since both sit on the non-cached prompt tail). All other
@@ -306,12 +315,12 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
             var nonce = GenerateNonce();
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"<{label} id=\"{nonce}\">{body}</{label}>");
+                $"<{label} id=\"{nonce}\">{escapedBody}</{label}>");
         }
 
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"<{label}>{body}</{label}>");
+            $"<{label}>{escapedBody}</{label}>");
     }
 
     /// <summary>
