@@ -64,7 +64,11 @@ pre-push:
       # and runs all tests anyway, including integration tests that boot the
       # shared Testcontainers Postgres + Marten + Wolverine SUT (~3-5 min
       # under DEC-063 sequential). Direct invocation drops pre-push to ~3s.
-      run: dotnet build RunCoach.slnx --no-restore --nologo && EVAL_CACHE_MODE=Replay tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests -trait- "Category=Integration"
+      run: |
+        set -euo pipefail
+        dotnet build RunCoach.slnx --no-restore --nologo
+        test_runner="$(find tests/RunCoach.Api.Tests/bin/Debug -type f \( -name 'RunCoach.Api.Tests' -o -name 'RunCoach.Api.Tests.exe' \) | head -n 1)"
+        EVAL_CACHE_MODE=Replay "$test_runner" -trait- "Category=Integration"
     typescript-check:
       root: "frontend/"
       glob: "*.{ts,tsx}"
