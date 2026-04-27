@@ -15,7 +15,16 @@ namespace RunCoach.Api.Infrastructure.Idempotency;
 /// (DEC-047 pattern).
 /// </summary>
 /// <param name="Key">Client-supplied idempotency key. Marten document identity.</param>
-/// <param name="UserId">Owning user id — also the tenant id.</param>
+/// <param name="UserId">Owning user / tenant id. Sourced from the active session's
+/// <c>TenantId</c> at <see cref="MartenIdempotencyStore.Record{TResponse}"/> time
+/// so it always agrees with Marten's tenant_id column. Duplicating the value in
+/// the document body lets the cross-tenant sweeper group expired markers by
+/// tenant without re-projecting Marten's tenant column.</param>
+/// <param name="PayloadTypeName">Assembly-qualified name of the originally
+/// recorded <c>TResponse</c>. Validated by
+/// <see cref="MartenIdempotencyStore.SeenAsync{TResponse}"/> to refuse
+/// cross-version replays where a redeployed handler would otherwise silently
+/// mis-deserialize an older marker into the new response shape.</param>
 /// <param name="Response">The original response payload, serialized as a
 /// <see cref="JsonDocument"/> so any caller-defined response shape round-trips
 /// without coupling this primitive to a single response type.</param>
@@ -24,5 +33,6 @@ namespace RunCoach.Api.Infrastructure.Idempotency;
 internal sealed record IdempotencyMarker(
     [property: Identity] Guid Key,
     Guid UserId,
+    string PayloadTypeName,
     JsonDocument Response,
     DateTimeOffset RecordedAt);

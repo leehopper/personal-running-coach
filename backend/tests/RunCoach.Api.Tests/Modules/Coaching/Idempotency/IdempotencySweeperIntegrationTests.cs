@@ -56,11 +56,13 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
             seedSession.Store(new IdempotencyMarker(
                 oldKey,
                 tenantId,
+                "sweeper-test",
                 JsonSerializer.SerializeToDocument(new { kind = "old" }),
                 oldRecordedAt));
             seedSession.Store(new IdempotencyMarker(
                 freshKey,
                 tenantId,
+                "sweeper-test",
                 JsonSerializer.SerializeToDocument(new { kind = "fresh" }),
                 freshRecordedAt));
             await seedSession.SaveChangesAsync(ct);
@@ -99,6 +101,7 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
             sessionA.Store(new IdempotencyMarker(
                 keyA,
                 tenantA,
+                "sweeper-test",
                 JsonSerializer.SerializeToDocument(new { tenant = "A" }),
                 expiredAt));
             await sessionA.SaveChangesAsync(ct);
@@ -109,6 +112,7 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
             sessionB.Store(new IdempotencyMarker(
                 keyB,
                 tenantB,
+                "sweeper-test",
                 JsonSerializer.SerializeToDocument(new { tenant = "B" }),
                 expiredAt));
             await sessionB.SaveChangesAsync(ct);
@@ -152,6 +156,7 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
             seedSession.Store(new IdempotencyMarker(
                 key,
                 tenantId,
+                "sweeper-test",
                 JsonSerializer.SerializeToDocument(new { kind = "boundary" }),
                 cutoff));
             await seedSession.SaveChangesAsync(ct);
@@ -211,6 +216,7 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
             seedSession.Store(new IdempotencyMarker(
                 key,
                 tenantId,
+                "sweeper-test",
                 JsonSerializer.SerializeToDocument(new { kind = "expired" }),
                 expiredAt));
             await seedSession.SaveChangesAsync(ct);
@@ -261,6 +267,7 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
             seedSession.Store(new IdempotencyMarker(
                 key,
                 tenantId,
+                "sweeper-test",
                 JsonSerializer.SerializeToDocument(new { kind = "expired" }),
                 expiredAt));
             await seedSession.SaveChangesAsync(ct);
