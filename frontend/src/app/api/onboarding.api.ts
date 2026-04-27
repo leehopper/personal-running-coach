@@ -31,7 +31,14 @@ export const onboardingApi = apiSlice.injectEndpoints({
         method: 'POST',
         body,
       }),
-      invalidatesTags: ['Onboarding'],
+      // Intentionally NOT invalidating ['Onboarding'] here. The submit
+      // response itself carries the next-topic / suggestedInputType /
+      // progress fields, and the page-level `useOnboardingTurn` hook merges
+      // those directly into the Redux slice. Re-fetching `getOnboardingState`
+      // would race the slice merge and cause `transcriptReplaced` to wipe the
+      // freshly appended turns (the state endpoint does not surface the
+      // verbatim transcript). The revise endpoint still invalidates because
+      // it overwrites a captured answer outside the chat dispatcher.
     }),
     reviseAnswer: builder.mutation<OnboardingStateDto, ReviseAnswerRequestDto>({
       query: (body) => ({

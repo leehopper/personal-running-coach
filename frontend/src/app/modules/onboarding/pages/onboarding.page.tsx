@@ -49,10 +49,21 @@ export const OnboardingPage = (): ReactElement => {
       // the server has confirmed; cross-refresh transcript text comes in
       // a follow-up endpoint.
       const replayedTopics = canonicalTopicsForCount(stateDto.completedTopics)
+      const hasOutstandingClarification =
+        stateDto.currentTopic !== null &&
+        stateDto.outstandingClarifications.includes(stateDto.currentTopic)
       const replay: OnboardingChatState = {
         turns: [],
         currentTopic: stateDto.currentTopic,
-        suggestedInputType: pickInputTypeForTopic(stateDto.currentTopic),
+        // When the current topic has an outstanding clarification, the
+        // canned single/multi/numeric/date control can't carry the
+        // free-form follow-up the runner needs to provide. Fall back to
+        // Text on resume so the runner can answer the assistant's
+        // outstanding clarifying question; the next ask turn will return
+        // the canonical control once the clarification clears.
+        suggestedInputType: hasOutstandingClarification
+          ? SuggestedInputType.Text
+          : pickInputTypeForTopic(stateDto.currentTopic),
         completedTopics: replayedTopics,
         isSubmitting: false,
         isComplete: stateDto.isComplete,
