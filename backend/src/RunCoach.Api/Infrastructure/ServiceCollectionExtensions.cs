@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Idempotency;
 using RunCoach.Api.Modules.Coaching.Prompts;
@@ -40,7 +41,22 @@ public static class ServiceCollectionExtensions
 
         // Coaching module — scoped services (per-request lifetime).
         services.AddScoped<ICoachingLlm, ClaudeCoachingLlm>();
-        services.AddScoped<IContextAssembler, ContextAssembler>();
+
+        // ContextAssembler exposes two public constructors — a 3-arg legacy
+        // form for plan-only tests and a 6-arg onboarding-aware form. The
+        // default container's "most-resolvable parameters" heuristic picked
+        // the 3-arg constructor at runtime in this project, leaving
+        // `_sanitizer` null and breaking `ComposeForOnboardingAsync` with an
+        // InvalidOperationException on every onboarding turn. Explicit
+        // factory registration locks the production path to the 6-arg
+        // constructor regardless of constructor-selection quirks.
+        services.AddScoped<IContextAssembler>(sp => new ContextAssembler(
+            sp.GetRequiredService<IPromptStore>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<IPromptSanitizer>(),
+            sp.GetRequiredService<IHostEnvironment>(),
+            sp.GetRequiredService<IOptions<PromptStoreSettings>>(),
+            sp.GetRequiredService<ILogger<ContextAssembler>>()));
 
         // Prompt-injection sanitizer (Slice 1 § Unit 6 / DEC-059 / R-068).
         // Stateless layered sanitizer — singleton-safe; the pattern catalog
