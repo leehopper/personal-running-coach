@@ -61,6 +61,15 @@ public sealed partial class OnboardingTurnHandler
     private const string PromptPrefix = "[Pattern-B-Invariant]";
     private const double ExtractionConfidenceFloor = 0.6;
 
+    // Wire-format JsonDocuments embedded inside the response DTO + Marten
+    // event payloads must be camelCase so they round-trip cleanly to the
+    // frontend Zod schemas (the controller's default formatter handles the
+    // outer DTO via camelCase, but JsonDocument payloads are opaque to it).
+    private static readonly JsonSerializerOptions WireSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
     // The type is a stateless logical handler container: Wolverine codegen
     // emits a non-static handler stub that calls the static `Handle` method,
     // and `ILogger<OnboardingTurnHandler>` needs a non-static type argument.
@@ -216,8 +225,8 @@ public sealed partial class OnboardingTurnHandler
         }
 
         // (7) stage the per-turn events on the onboarding stream.
-        var assistantBlocks = JsonSerializer.SerializeToDocument(output.Reply);
-        var userBlocks = JsonSerializer.SerializeToDocument(BuildUserTextBlocks(cmd.Text));
+        var assistantBlocks = JsonSerializer.SerializeToDocument(output.Reply, WireSerializerOptions);
+        var userBlocks = JsonSerializer.SerializeToDocument(BuildUserTextBlocks(cmd.Text), WireSerializerOptions);
 
         session.Events.Append(streamId, new TopicAsked(currentTopic, now));
         session.Events.Append(streamId, new UserTurnRecorded(userBlocks, now));
@@ -279,11 +288,23 @@ public sealed partial class OnboardingTurnHandler
         {
             var nextTopic = OnboardingCompletionGate.NextTopic(working) ?? currentTopic;
             var (completed, total) = OnboardingCompletionGate.Progress(working);
+
+            // When the LLM still needs clarification on the next topic, the
+            // canned single/multi/numeric/date control can't carry the
+            // free-form follow-up the runner needs to provide (e.g. session
+            // minutes for WeeklySchedule, time goal for TargetEvent). Fall
+            // back to Text so the runner can answer the assistant's
+            // clarifying question; once captured, the gate clears the topic
+            // and the next turn re-issues the canonical control.
+            var hasOutstandingClarification = working.OutstandingClarifications.Contains(nextTopic);
+            var nextInputType = hasOutstandingClarification
+                ? SuggestedInputType.Text
+                : SuggestInputType(nextTopic);
             response = new OnboardingTurnResponseDto(
                 Kind: OnboardingTurnKind.Ask,
                 AssistantBlocks: assistantBlocks,
                 Topic: nextTopic,
-                SuggestedInputType: SuggestInputType(nextTopic),
+                SuggestedInputType: nextInputType,
                 Progress: new OnboardingProgressDto(completed, total),
                 PlanId: null);
         }
@@ -320,6 +341,10 @@ public sealed partial class OnboardingTurnHandler
     {
         return extracted.Topic switch
         {
+            // Captured-answer payloads stay PascalCase (default STJ) because they
+            // are read back inside the inline OnboardingProjection via
+            // `JsonDocument.Deserialize<T>()` whose property matching is the
+            // server-default casing. These payloads never reach the wire.
             OnboardingTopic.PrimaryGoal when extracted.NormalizedPrimaryGoal is not null
                 => (OnboardingTopic.PrimaryGoal, JsonSerializer.SerializeToDocument(extracted.NormalizedPrimaryGoal)),
             OnboardingTopic.TargetEvent when extracted.NormalizedTargetEvent is not null
