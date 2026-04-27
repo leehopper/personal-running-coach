@@ -5,12 +5,12 @@
 ## Status
 
 - **Current Cycle:** MVP-0 + Adaptation Loop
-- **Active Slice:** Slice 1 (Onboarding → Plan) — **implementation complete, moving to PR review** as of 2026-04-26. All 33 atomic tasks (#89-#115) plus 7 cleanup follow-ups (#117-#123) shipped. Slice 0 (Foundation) closed 2026-04-23 with PR #63 (Unit 3 Frontend Auth UX) on top of PR #49 (Unit 1 persistence substrate) and PR #50 (Unit 2 Auth API).
-- **Active Slice Spec:** `docs/specs/13-spec-slice-1-onboarding/13-spec-slice-1-onboarding.md` written 2026-04-25, with five `.feature` files (54 BDD scenarios) alongside it. Six demoable units including Unit 6 (`IPromptSanitizer` infrastructure).
-- **Verification status:** backend `dotnet test` 848/848 PASS deterministically (DEC-063 sequential collection); frontend `vitest run` 176/176 PASS; frontend `npm run build` exit 0; cw-validate report PASS on all six gates (A through F); zero credential matches in slice spec dir.
-- **Decisions locked during implementation:** DEC-057 (single-handler/single-session/single-transaction per R-066), DEC-058 (Pattern B byte-stable schema per R-067), DEC-059 (layered containment-first sanitizer per R-068), DEC-060 (handler bodies emit events; projections own EF state per R-069), DEC-061 (`opts.Add(...)` registration shape for EF projections per R-070), DEC-062 (Tailwind-only animation baseline; defer `motion/react`), DEC-063 (xunit collection-parallelism disabled — non-parallel is canonical until per-collection DB isolation lands).
-- **Next Step:** Open PR for Slice 1 close-out. Recommended docker-compose smoke for the four Playwright e2e specs (`auth`, `onboarding`, `plan-render`, `regenerate-plan`) before tagging the close-out commit; CI will also run them on PR open.
-- **Blockers:** None.
+- **Active Slice:** Slice 1B (Pre-Slice-2 Hardening) — **planned, awaiting research** as of 2026-04-27. Slice 1 (Onboarding → Plan) shipped 2026-04-26 across PRs #67–#71 (stacked: slice-1a-onboarding-api, slice-1b-onboarding-chat, slice-1c-plan-view, slice-1d-plan-regenerate, slice-1e-sanitizer-closeout) and is closed out by PR-1F (slice-1f-docs-closeout). Slice 1's end-to-end debugging surfaced four contract-drift bugs (PascalCase wire leak, RTK tag-invalidation race, multi-select clarification dead-end, `Completed`/`Total` field rename) that were patched at the call site; Slice 1B closes the structural gaps so the same class can't recur in Slice 2.
+- **Active Slice Spec:** Slice 1B requirements at `docs/plans/mvp-0-cycle/slice-1b-hardening.md`. Spec written fresh at build time per project precedent.
+- **Verification status (Slice 1):** backend `dotnet test` 793 unit/eval PASS on pre-push (~2.5s after the lefthook fix); integration suite gates on PR CI per DEC-063. Frontend `vitest run` 176/176 PASS. All four Playwright e2e specs PASS end-to-end against a real Anthropic backend.
+- **Decisions locked during Slice 1:** DEC-057 (single-handler/single-session/single-transaction per R-066), DEC-058 (Pattern B byte-stable schema per R-067), DEC-059 (layered containment-first sanitizer per R-068), DEC-060 (handler bodies emit events; projections own EF state per R-069), DEC-061 (`opts.Add(...)` registration shape for EF projections per R-070), DEC-062 (Tailwind-only animation baseline; defer `motion/react`), DEC-063 (xunit collection-parallelism disabled — non-parallel is canonical until per-collection DB isolation lands).
+- **Next Step:** Hand the Slice 1B research prompts (R-071 OpenAPI + Zod codegen, R-072 Marten event upcasting) to the research agent. Slice 1B spec written once both artifacts land. Slice 2 implementation does NOT start until Slice 1B merges.
+- **Blockers:** None for Slice 1 close-out (PRs #67–#71 + #PR-1F open). Slice 1B blocked on R-071 / R-072 artifacts.
 
 This status block is the single source of truth for "where are we?" — mirrored into `ROADMAP.md` so `/catchup` finds it. Update both whenever a slice completes or the active slice changes.
 
@@ -118,6 +118,7 @@ Each slice ships top-to-bottom through every layer (DB → repo → controller �
 |---|---|---|
 | 0 | Foundation | [`./slice-0-foundation.md`](./slice-0-foundation.md) |
 | 1 | Onboarding → Plan | [`./slice-1-onboarding.md`](./slice-1-onboarding.md) |
+| 1B | Pre-Slice-2 Hardening | [`./slice-1b-hardening.md`](./slice-1b-hardening.md) |
 | 2 | Workout Logging | [`./slice-2-logging.md`](./slice-2-logging.md) |
 | 3 | Adaptation Loop | [`./slice-3-adaptation.md`](./slice-3-adaptation.md) |
 | 4 | Open Conversation | [`./slice-4-conversation.md`](./slice-4-conversation.md) |
@@ -186,6 +187,39 @@ Each slice ships top-to-bottom through every layer (DB → repo → controller �
 - `batch-6a-llm-eval-strategies.md` + `batch-6b-dotnet-llm-testing-tooling.md` — eval patterns for onboarding scenarios.
 - `batch-7a-ichatclient-structured-output-bridge.md` — structured output for per-turn onboarding responses.
 - `batch-4b-special-populations-safety.md` — safety considerations for onboarding profile questions (injury history, pregnancy, chronic conditions) even though pre-public-release safety scaffolding is deferred.
+
+---
+
+### Slice 1B — Pre-Slice-2 Hardening
+
+**Requirements:** [`./slice-1b-hardening.md`](./slice-1b-hardening.md)
+
+**Acceptance — "the next class of bug can't happen the same way":**
+
+- [ ] …backend DTOs and frontend Zod schemas share a single source of truth via OpenAPI codegen wired into `npm run build`; CI fails when committed generated files drift from the live spec.
+- [ ] …a Marten event payload can add, rename, or evolve a property without breaking projection of pre-existing streams, and the strategy is exercised by a regression test against a synthetic old-shape stream.
+- [ ] …the React app survives a child render-time exception with a top-level error boundary that logs and renders a recovery affordance instead of a blank screen.
+- [ ] …`IIdempotencyStore`, `IPlanGenerationService`, and `RegeneratePlanHandler` each have a DI-resolution regression test of the same shape as `ContextAssemblerDiResolutionTests`, so a future "most-resolvable-parameters" silent regression cannot ship.
+- [ ] …the Slice 0 deferred follow-up "frontend Zod schemas must mirror `RegisterRequest` DataAnnotations" closes here, subsumed by the codegen above.
+
+**Scope**
+
+- Backend: no production-code changes beyond OpenAPI exposure verification (Swashbuckle is already wired). Adds Marten event upcasting registration (one of: built-in `Upcast`, custom `IEventUpcaster<TOld, TNew>`, or versioned event types — research-resolved). Adds three DI-resolution regression tests. Adds OTel span shape for upcaster invocations.
+- Frontend: codegen pipeline (`openapi-typescript` + `openapi-zod-client` or research-recommended alternative); migration of ~12 hand-maintained Zod schemas to generated forms; legacy file deletion. Top-level error boundary in router root. One Playwright test forcing a child throw.
+- Tests: regression tests per acceptance criteria above. No new feature tests.
+
+**Key risks**
+
+- Codegen tool produces an awkward shape for the Pattern-B Anthropic-structured-output schemas (`OnboardingTurnOutput`'s six nullable typed slots + `Topic` discriminator) — research prompt R-071 specifically asks the artifact to verify this case. Fallback: feature-flag the codegen for non-Pattern-B endpoints and migrate Pattern-B last once the shape is validated.
+- Marten upcasting may need to coordinate across both standard projection registration (`opts.Projections.Add(...)`) and EF projection registration (`opts.Add(...)` per DEC-061). Research prompt R-072 confirms the upcaster intercepts BEFORE the projection's apply method regardless of registration site.
+- Generated Zod schemas inflate bundle size more than expected. Research prompt R-071 quantifies the expected delta on a representative endpoint.
+
+**Relevant research artifacts**
+
+- (queued) `batch-24a-openapi-typescript-zod-codegen.md` (R-071) — tooling, build wiring, drift-check.
+- (queued) `batch-24b-marten-event-upcasting-strategy.md` (R-072) — Marten 8.32 upcasting strategy across both projection styles.
+- (existing) `batch-22b-anthropic-discriminated-structured-output.md` — Pattern B schema shape that the codegen must round-trip cleanly.
+- (existing) `batch-23b-marten-ef-projection-registration-regression.md` — DEC-061's `opts.Add(...)` rule that the upcasting strategy must coexist with.
 
 ---
 

@@ -1,9 +1,9 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 1 (Onboarding → Plan) — **implementation complete, moving to PR review** as of 2026-04-26. All 33 atomic tasks shipped plus 7 cleanup follow-ups (test parallelism, e2e contract alignment, dual-write atomicity probe per R-069 §11, Wolverine handler discovery under `WebApplicationFactory<Program>`, `AnthropicUsage` exposure for cache-hit-rate telemetry). Backend `dotnet test` 848/848 PASS; frontend `vitest run` 176/176 PASS; cw-validate report PASS on all six gates.
-**Next step:** Open PR for Slice 1 close-out. Recommended docker-compose smoke for the four Playwright e2e specs (`auth`, `onboarding`, `plan-render`, `regenerate-plan`) before tagging the close-out commit; CI runs them on PR open.
-**Blockers:** None.
+**Active slice:** Slice 1B (Pre-Slice-2 Hardening) — **planned, awaiting research** as of 2026-04-27. Slice 1 (Onboarding → Plan) closed 2026-04-26 across PRs #67–#71 (stacked: slice-1a-onboarding-api, slice-1b-onboarding-chat, slice-1c-plan-view, slice-1d-plan-regenerate, slice-1e-sanitizer-closeout) and PR-1F (slice-1f-docs-closeout). Slice 1's end-to-end debugging surfaced four contract-drift bugs (PascalCase wire leak, RTK tag-invalidation race, multi-select clarification dead-end, `Completed`/`Total` field rename) that were patched at the call site; Slice 1B closes the structural gaps so the same class can't recur in Slice 2.
+**Next step:** Hand the Slice 1B research prompts (R-071 OpenAPI + Zod codegen, R-072 Marten event upcasting) to the research agent. Slice 1B spec written once both artifacts land. Slice 2 implementation does NOT start until Slice 1B merges.
+**Blockers:** Slice 1B blocked on R-071 / R-072 artifacts. None for Slice 1 close-out.
 
 **Architectural decisions locked during Slice 1:** DEC-057 (single-handler/single-Marten-session/single-transaction), DEC-058 (Pattern B byte-stable schema), DEC-059 (layered containment-first sanitizer), DEC-060 (handler bodies emit events; projections own EF state), DEC-061 (`opts.Add(...)` registration shape for EF projections), DEC-062 (Tailwind-only animation baseline), DEC-063 (xunit collection-parallelism disabled).
 
@@ -109,6 +109,7 @@ Tiered model routing (Haiku / Sonnet / Opus) for ~60% cost reduction; Batch API 
 
 - Performance regression testing in CI — deferred per DEC-034 (GitHub runner variance).
 - Trivy container image scanning — add when deploying Docker images.
+- **Trademark build-time analyzer** — Roslyn rule that flags "VDOT" (case-insensitive, with explicit carve-outs in `docs/`, `NOTICE`, `CLAUDE.md`, `README.md`, and the existing live-guard assertions) as a compile error in `Prompts/*` and API response paths. DEC-042's runtime check in `ContextAssemblerTests` is the current safety net; promote to compile-time before the first non-builder contributor joins the repo. Surfaced in the Slice 1B production-grade gap audit (2026-04-27).
 
 ### Pre-public-release gate (from `docs/features/backlog.md`)
 
