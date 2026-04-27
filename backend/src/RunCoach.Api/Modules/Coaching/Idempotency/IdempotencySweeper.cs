@@ -134,6 +134,4 @@ public sealed partial class IdempotencySweeper(
         Level = LogLevel.Warning,
         Message = "IdempotencyMarker sweep failed; will retry on next interval")]
     private static partial void LogSweepFailed(ILogger logger, Exception exception);
-
-    private sealed record ExpiredMarker(Guid Key, Guid UserId);
 }

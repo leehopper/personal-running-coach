@@ -29,6 +29,12 @@ public sealed class MartenIdempotencyStore(IDocumentSession session) : IIdempote
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Uses <c>Insert</c> rather than <c>Store</c>: the marker is the
+    /// canonical "first response wins" record, so a duplicate key must
+    /// surface a Marten <c>DocumentAlreadyExistsException</c> instead of
+    /// silently upserting the second writer's payload over the first.
+    /// </remarks>
     public void Record<TResponse>(Guid key, Guid userId, TResponse response)
         where TResponse : class
     {
@@ -36,6 +42,6 @@ public sealed class MartenIdempotencyStore(IDocumentSession session) : IIdempote
 
         var payload = JsonSerializer.SerializeToDocument(response);
         var marker = new IdempotencyMarker(key, userId, payload, DateTimeOffset.UtcNow);
-        _session.Store(marker);
+        _session.Insert(marker);
     }
 }
