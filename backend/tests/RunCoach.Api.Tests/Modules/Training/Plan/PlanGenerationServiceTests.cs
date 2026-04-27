@@ -114,6 +114,60 @@ public sealed class PlanGenerationServiceTests
     }
 
     [Fact]
+    public async Task GeneratePlanAsync_PromptVersionCapturedBeforeLlmCalls_NotAffectedByLaterVersionChange()
+    {
+        // Arrange — prompt store returns version A on the first call (composition
+        // time) and version B on every subsequent call (simulates a hot-reload
+        // that flips the active version mid-chain). The emitted PlanGenerated
+        // must record version A — the one that built the prompt — not version B.
+        var assembler = Substitute.For<IContextAssembler>();
+        assembler
+            .ComposeForPlanGenerationAsync(
+                Arg.Any<OnboardingView>(),
+                Arg.Any<RegenerationIntent?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new PlanGenerationPromptComposition(
+                SystemPrompt: "stable test system prompt",
+                UserMessage: "PROFILE SNAPSHOT"));
+
+        var llm = Substitute.For<ICoachingLlm>();
+        ConfigureLlmHappyPath(llm);
+
+        var promptStore = Substitute.For<IPromptStore>();
+        var callCount = 0;
+        promptStore
+            .GetActiveVersion(ContextAssembler.CoachingPromptId)
+            .Returns(_ => ++callCount == 1 ? "version-A" : "version-B");
+
+        var settings = Options.Create(new CoachingLlmSettings
+        {
+            ApiKey = "[REDACTED]",
+            ModelId = "test-model-id",
+        });
+
+        var timeProvider = Substitute.For<TimeProvider>();
+        timeProvider.GetUtcNow().Returns(Now);
+
+        var sut = new PlanGenerationService(
+            assembler,
+            llm,
+            promptStore,
+            settings,
+            timeProvider,
+            NullLogger<PlanGenerationService>.Instance);
+
+        // Act
+        var events = await sut.GeneratePlanAsync(
+            CreateCompletedView(), UserId, PlanId, intent: null, previousPlanId: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert — PlanGenerated records version-A (captured at composition time),
+        // not version-B (what the store returns after the version flip).
+        var generated = events[0].Should().BeOfType<PlanGenerated>().Which;
+        generated.PromptVersion.Should().Be("version-A");
+    }
+
+    [Fact]
     public async Task GeneratePlanAsync_PreviousPlanIdNonNull_ThreadsOntoPlanGenerated()
     {
         // Arrange — Unit 5 regenerate flow passes the prior plan id; the
@@ -133,7 +187,8 @@ public sealed class PlanGenerationServiceTests
     [Fact]
     public async Task GeneratePlanAsync_PreviousPlanIdNull_LeavesPlanGeneratedPreviousNull()
     {
-        // Arrange — Unit 1 onboarding-terminal flow passes null; the projection
+        // Arrange
+        // Unit 1 onboarding-terminal flow passes null; the projection
         // surface treats null as "this is the first plan".
         var (sut, llm, _) = CreateSut();
         ConfigureLlmHappyPath(llm);
@@ -471,6 +526,8 @@ public sealed class PlanGenerationServiceTests
         }
     }
 
+    // Minimal fixture — only PrimaryGoal is needed because PlanGenerationService
+    // delegates slot-completeness to the assembler mock.
     private static OnboardingView CreateCompletedView() => new()
     {
         Id = Guid.Parse("00000000-0000-0000-0000-000000000010"),
