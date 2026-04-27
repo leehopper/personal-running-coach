@@ -21,8 +21,20 @@ namespace RunCoach.Api.Modules.Coaching.Idempotency;
 public sealed partial class IdempotencySweeper(
     IDocumentStore store,
     TimeProvider timeProvider,
-    ILogger<IdempotencySweeper> logger) : BackgroundService
+    ILogger<IdempotencySweeper> logger,
+    int scanPageSize = IdempotencySweeper.DefaultScanPageSize) : BackgroundService
 {
+    /// <summary>
+    /// Default maximum number of expired markers processed per sweep. The hourly
+    /// cadence means any overflow beyond this limit is caught in the next interval.
+    /// The scan projects only <c>(Key, UserId)</c> GUID pairs — not the full
+    /// <c>Response</c> payload — so each row is 32 bytes; 500 rows is 16 KB,
+    /// keeping heap impact negligible at scale. Pass a smaller value via the
+    /// optional <c>scanPageSize</c> constructor argument to drive paged-batch
+    /// behaviour in tests.
+    /// </summary>
+    public const int DefaultScanPageSize = 500;
+
     /// <summary>Markers older than this are eligible for deletion.</summary>
     public static readonly TimeSpan RetentionWindow = TimeSpan.FromHours(48);
 
@@ -32,6 +44,7 @@ public sealed partial class IdempotencySweeper(
     private readonly IDocumentStore _store = store;
     private readonly TimeProvider _timeProvider = timeProvider;
     private readonly ILogger<IdempotencySweeper> _logger = logger;
+    private readonly int _scanPageSize = scanPageSize;
 
     /// <summary>
     /// Deletes <see cref="IdempotencyMarker"/> documents whose
@@ -42,17 +55,20 @@ public sealed partial class IdempotencySweeper(
     /// <remarks>
     /// Conjoined tenancy makes <c>DeleteWhere</c> tenant-scoped and offers no
     /// <c>AnyTenant</c> overload. The cross-tenant sweep therefore (a) queries
-    /// expired markers across every tenant via <see cref="LinqExtensions.AnyTenant{T}"/>,
+    /// expired markers across every tenant via <see cref="LinqExtensions.AnyTenant{T}"/>
+    /// bounded to <c>_scanPageSize</c> rows (default <see cref="DefaultScanPageSize"/>),
     /// (b) groups them by tenant id, and (c) issues one tenant-scoped delete
-    /// session per group. The number of expired markers per sweep is bounded
-    /// (idempotency keys are per-request and the window is 48h), so the
-    /// per-tenant fan-out is acceptable.
+    /// session per group. The scan projects only <c>(Key, UserId)</c> GUID pairs
+    /// — not the full <c>Response</c> payload — so heap impact is
+    /// O(_scanPageSize * 32 bytes). Any overflow beyond the page size in a single
+    /// hour is caught by the next interval.
     /// </remarks>
     public async Task SweepAsync(CancellationToken ct)
     {
         var cutoff = _timeProvider.GetUtcNow() - RetentionWindow;
 
         // Cross-tenant scan to find all expired markers along with their owning tenant id.
+        // Take() bounds the in-memory list; any remainder is swept on the next interval.
         IReadOnlyList<ExpiredMarker> expired;
         await using (var scanSession = _store.QuerySession(new MartenSessionOptions
         {
@@ -61,6 +77,8 @@ public sealed partial class IdempotencySweeper(
         {
             expired = await scanSession.Query<IdempotencyMarker>()
                 .Where(m => m.AnyTenant() && m.RecordedAt < cutoff)
+                .OrderBy(m => m.RecordedAt)
+                .Take(_scanPageSize)
                 .Select(m => new ExpiredMarker(m.Key, m.UserId))
                 .ToListAsync(ct)
                 .ConfigureAwait(false);

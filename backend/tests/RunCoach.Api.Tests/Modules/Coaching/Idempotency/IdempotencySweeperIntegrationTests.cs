@@ -49,16 +49,10 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
 
         await using (var seedSession = store.LightweightSession(tenantId.ToString()))
         {
-            seedSession.Store(new IdempotencyMarker(
-                oldKey,
-                tenantId,
-                JsonSerializer.SerializeToDocument(new { kind = "old" }),
-                oldRecordedAt));
-            seedSession.Store(new IdempotencyMarker(
-                freshKey,
-                tenantId,
-                JsonSerializer.SerializeToDocument(new { kind = "fresh" }),
-                freshRecordedAt));
+            using var oldDoc = JsonSerializer.SerializeToDocument(new { kind = "old" });
+            using var freshDoc = JsonSerializer.SerializeToDocument(new { kind = "fresh" });
+            seedSession.Store(new IdempotencyMarker(oldKey, tenantId, oldDoc.RootElement.Clone(), oldRecordedAt));
+            seedSession.Store(new IdempotencyMarker(freshKey, tenantId, freshDoc.RootElement.Clone(), freshRecordedAt));
             await seedSession.SaveChangesAsync(ct);
         }
 
@@ -92,21 +86,15 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
 
         await using (var sessionA = store.LightweightSession(tenantA.ToString()))
         {
-            sessionA.Store(new IdempotencyMarker(
-                keyA,
-                tenantA,
-                JsonSerializer.SerializeToDocument(new { tenant = "A" }),
-                expiredAt));
+            using var docA = JsonSerializer.SerializeToDocument(new { tenant = "A" });
+            sessionA.Store(new IdempotencyMarker(keyA, tenantA, docA.RootElement.Clone(), expiredAt));
             await sessionA.SaveChangesAsync(ct);
         }
 
         await using (var sessionB = store.LightweightSession(tenantB.ToString()))
         {
-            sessionB.Store(new IdempotencyMarker(
-                keyB,
-                tenantB,
-                JsonSerializer.SerializeToDocument(new { tenant = "B" }),
-                expiredAt));
+            using var docB = JsonSerializer.SerializeToDocument(new { tenant = "B" });
+            sessionB.Store(new IdempotencyMarker(keyB, tenantB, docB.RootElement.Clone(), expiredAt));
             await sessionB.SaveChangesAsync(ct);
         }
 
@@ -126,6 +114,49 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
         {
             var actual = await verifyB.LoadAsync<IdempotencyMarker>(keyB, ct);
             actual.Should().BeNull(because: "sweep must run cross-tenant via AllowAnyTenant");
+        }
+    }
+
+    [Fact]
+    public async Task SweepAsync_PagedScan_Drains_All_Markers_Across_Two_Sweeps()
+    {
+        // Arrange — seed 2*pageSize markers under one tenant, all expired.
+        // A sweeper with pageSize=3 keeps the test fast; 6 markers require
+        // exactly 2 sweeps to drain, proving the bounded scan hands off
+        // overflow to the next interval rather than silently skipping rows.
+        const int pageSize = 3;
+        const int total = pageSize * 2; // 6 markers
+        var ct = TestContext.Current.CancellationToken;
+        var store = Factory.Services.GetRequiredService<IDocumentStore>();
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero));
+        var expiredAt = time.GetUtcNow() - TimeSpan.FromHours(49);
+        var tenantId = Guid.NewGuid();
+        var keys = Enumerable.Range(0, total).Select(_ => Guid.NewGuid()).ToList();
+
+        await using (var seed = store.LightweightSession(tenantId.ToString()))
+        {
+            foreach (var key in keys)
+            {
+                using var doc = JsonSerializer.SerializeToDocument(new { id = key });
+                seed.Store(new IdempotencyMarker(key, tenantId, doc.RootElement.Clone(), expiredAt));
+            }
+
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var sweeper = new IdempotencySweeper(store, time, NullLogger<IdempotencySweeper>.Instance, pageSize);
+
+        // Act — sweep 1 deletes up to pageSize markers; sweep 2 drains the rest.
+        await sweeper.SweepAsync(ct);
+        await sweeper.SweepAsync(ct);
+
+        // Assert — all 6 markers gone after 2 sweeps of pageSize=3.
+        await using var verify = store.LightweightSession(tenantId.ToString());
+        foreach (var key in keys)
+        {
+            var actual = await verify.LoadAsync<IdempotencyMarker>(key, ct);
+            actual.Should().BeNull(
+                because: $"marker {key} should be deleted within 2 sweeps of pageSize={pageSize}");
         }
     }
 
