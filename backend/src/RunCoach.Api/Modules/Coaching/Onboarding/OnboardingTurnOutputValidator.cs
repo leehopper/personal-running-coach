@@ -27,6 +27,24 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 public static class OnboardingTurnOutputValidator
 {
     /// <summary>
+    /// Single source of truth mapping each <see cref="OnboardingTopic"/> to the
+    /// <see cref="ExtractedAnswer"/> slot that carries its normalized data.
+    /// Both <see cref="CountNonNullSlots"/> and <see cref="SlotMatchesTopic"/>
+    /// are derived from this map, ensuring the topic→slot relationship is
+    /// defined exactly once.
+    /// </summary>
+    private static readonly Dictionary<OnboardingTopic, Func<ExtractedAnswer, object?>> TopicSlotAccessors =
+        new()
+        {
+            [OnboardingTopic.PrimaryGoal] = e => e.NormalizedPrimaryGoal,
+            [OnboardingTopic.TargetEvent] = e => e.NormalizedTargetEvent,
+            [OnboardingTopic.CurrentFitness] = e => e.NormalizedCurrentFitness,
+            [OnboardingTopic.WeeklySchedule] = e => e.NormalizedWeeklySchedule,
+            [OnboardingTopic.InjuryHistory] = e => e.NormalizedInjuryHistory,
+            [OnboardingTopic.Preferences] = e => e.NormalizedPreferences,
+        };
+
+    /// <summary>
     /// Validates the Pattern-B-Invariant against a deserialized turn output.
     /// </summary>
     /// <param name="output">The deserialized LLM turn output.</param>
@@ -103,50 +121,9 @@ public static class OnboardingTurnOutputValidator
             NonNullSlotCount: nonNullCount);
     }
 
-    private static int CountNonNullSlots(ExtractedAnswer extracted)
-    {
-        var count = 0;
-        if (extracted.NormalizedPrimaryGoal is not null)
-        {
-            count++;
-        }
+    private static int CountNonNullSlots(ExtractedAnswer extracted) =>
+        TopicSlotAccessors.Values.Count(accessor => accessor(extracted) is not null);
 
-        if (extracted.NormalizedTargetEvent is not null)
-        {
-            count++;
-        }
-
-        if (extracted.NormalizedCurrentFitness is not null)
-        {
-            count++;
-        }
-
-        if (extracted.NormalizedWeeklySchedule is not null)
-        {
-            count++;
-        }
-
-        if (extracted.NormalizedInjuryHistory is not null)
-        {
-            count++;
-        }
-
-        if (extracted.NormalizedPreferences is not null)
-        {
-            count++;
-        }
-
-        return count;
-    }
-
-    private static bool SlotMatchesTopic(ExtractedAnswer extracted, OnboardingTopic topic) => topic switch
-    {
-        OnboardingTopic.PrimaryGoal => extracted.NormalizedPrimaryGoal is not null,
-        OnboardingTopic.TargetEvent => extracted.NormalizedTargetEvent is not null,
-        OnboardingTopic.CurrentFitness => extracted.NormalizedCurrentFitness is not null,
-        OnboardingTopic.WeeklySchedule => extracted.NormalizedWeeklySchedule is not null,
-        OnboardingTopic.InjuryHistory => extracted.NormalizedInjuryHistory is not null,
-        OnboardingTopic.Preferences => extracted.NormalizedPreferences is not null,
-        _ => false,
-    };
+    private static bool SlotMatchesTopic(ExtractedAnswer extracted, OnboardingTopic topic) =>
+        TopicSlotAccessors.TryGetValue(topic, out var accessor) && accessor(extracted) is not null;
 }
