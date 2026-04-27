@@ -25,7 +25,7 @@ namespace RunCoach.Api.Modules.Training.Plan.Models;
 /// the Slice 1 frontend - Slice 1 only ever populates the entry for week 1.
 /// </para>
 /// </remarks>
-public sealed class PlanProjectionDto
+public sealed record PlanProjectionDto
 {
     /// <summary>Gets or sets the plan id (also the Marten stream id for the plan stream).</summary>
     public Guid PlanId { get; set; }
