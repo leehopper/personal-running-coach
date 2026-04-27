@@ -46,7 +46,8 @@ public sealed class SanitizationOTelTests : IDisposable
     [Fact]
     public async Task SanitizeAsync_EmitsGuardrailSpanWithDocumentedAttributes()
     {
-        // Arrange
+        // Arrange — see Clear+LastOrDefault rationale in the sibling test.
+        _captured.Clear();
         var sut = new LayeredPromptSanitizer(NullLogger<LayeredPromptSanitizer>.Instance);
         const string secretishLookingPii = "I am John Doe, born 1985-04-12, ssn 123-45-6789";
 
@@ -59,7 +60,7 @@ public sealed class SanitizationOTelTests : IDisposable
 
         // Assert
         var span = _captured
-            .FirstOrDefault(a => a.OperationName == LayeredPromptSanitizer.SanitizationSpanName);
+            .LastOrDefault(a => a.OperationName == LayeredPromptSanitizer.SanitizationSpanName);
 
         span.Should().NotBeNull("the sanitizer emits a child span per call");
 
@@ -86,7 +87,13 @@ public sealed class SanitizationOTelTests : IDisposable
     [Fact]
     public async Task SanitizeAsync_FindingsAttribute_IsValidPiiFreeJson()
     {
-        // Arrange
+        // Arrange — clear _captured so we only inspect activities fired by
+        // this test's SanitizeAsync call. Without this, ambient sanitizer
+        // calls from other tests in the suite (the listener filters by
+        // ActivitySource name, not by test-scoped Activity.Id) can land in
+        // _captured before this method runs and cause `.LastOrDefault(...)`
+        // to return a stale span with unrelated findings.
+        _captured.Clear();
         var sut = new LayeredPromptSanitizer(NullLogger<LayeredPromptSanitizer>.Instance);
 
         // Act — exercise a clear hit so `findings` is a non-empty array.
@@ -95,9 +102,12 @@ public sealed class SanitizationOTelTests : IDisposable
             PromptSection.CurrentUserMessage,
             TestContext.Current.CancellationToken);
 
-        // Assert
+        // Assert — match the most recent matching span (LastOrDefault) so a
+        // race in listener registration order doesn't pin us to a span from
+        // an earlier test. The Clear() above already ensures the list is
+        // small; this is belt-and-braces.
         var span = _captured
-            .FirstOrDefault(a => a.OperationName == LayeredPromptSanitizer.SanitizationSpanName);
+            .LastOrDefault(a => a.OperationName == LayeredPromptSanitizer.SanitizationSpanName);
         span.Should().NotBeNull();
 
         var findingsTag = span!.GetTagItem("runcoach.sanitization.findings") as string;
