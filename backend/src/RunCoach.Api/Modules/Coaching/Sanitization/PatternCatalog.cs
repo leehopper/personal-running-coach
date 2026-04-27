@@ -163,7 +163,7 @@ internal sealed class PatternCatalog
     /// Single compiled pattern in the catalog. Carries its stable id (e.g.
     /// "PI-01") and category for telemetry, plus the precompiled regex.
     /// </summary>
-    public sealed record CatalogPattern(
+    internal sealed record CatalogPattern(
         string PatternId,
         SanitizationCategory Category,
         Regex Regex);
