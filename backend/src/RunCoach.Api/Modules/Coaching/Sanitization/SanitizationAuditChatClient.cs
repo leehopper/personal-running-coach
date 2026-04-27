@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
@@ -47,17 +48,19 @@ public sealed class SanitizationAuditChatClient : DelegatingChatClient
     }
 
     /// <inheritdoc />
-    public override Task<ChatResponse> GetResponseAsync(
+    public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
         ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(messages);
 
-        using var activity = Source.StartActivity(AuditSpanName, ActivityKind.Internal);
-        StampGuardrailAttributes(activity, messages);
+        var messageList = messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
 
-        return base.GetResponseAsync(messages, options, cancellationToken);
+        using var activity = Source.StartActivity(AuditSpanName, ActivityKind.Internal);
+        StampGuardrailAttributes(activity, messageList);
+
+        return await base.GetResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -68,32 +71,30 @@ public sealed class SanitizationAuditChatClient : DelegatingChatClient
     {
         ArgumentNullException.ThrowIfNull(messages);
 
-        // For streaming we annotate the activity at start; the underlying
-        // pipeline owns its own spans for the actual transport.
-        using var activity = Source.StartActivity(AuditSpanName, ActivityKind.Internal);
-        StampGuardrailAttributes(activity, messages);
+        var messageList = messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
 
-        return base.GetStreamingResponseAsync(messages, options, cancellationToken);
+        // Audit-only span: records initiation attributes and policy version.
+        // Duration reflects span start to stream-kickoff, not stream completion,
+        // because holding the activity open across an IAsyncEnumerable yields
+        // would require an iterator wrapper that adds complexity without benefit
+        // for a guardrail audit signal. Duration measurement is not a goal here.
+        using var activity = Source.StartActivity(AuditSpanName, ActivityKind.Internal);
+        StampGuardrailAttributes(activity, messageList);
+
+        return base.GetStreamingResponseAsync(messageList, options, cancellationToken);
     }
 
     private static void StampGuardrailAttributes(
         Activity? activity,
-        IEnumerable<ChatMessage> messages)
+        IReadOnlyCollection<ChatMessage> messages)
     {
         if (activity is null)
         {
             return;
         }
 
-        var messageCount = 0;
-        foreach (var unused in messages)
-        {
-            _ = unused;
-            messageCount++;
-        }
-
         activity.SetTag("openinference.span.kind", "GUARDRAIL");
         activity.SetTag("runcoach.sanitization.policy_version", PatternCatalog.PolicyVersion);
-        activity.SetTag("runcoach.sanitization.audit.message_count", messageCount);
+        activity.SetTag("runcoach.sanitization.audit.message_count", messages.Count);
     }
 }
