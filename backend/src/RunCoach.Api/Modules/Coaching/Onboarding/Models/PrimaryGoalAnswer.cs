@@ -18,5 +18,5 @@ public sealed record PrimaryGoalAnswer
     /// Gets the runner-supplied free-text description that informed the categorical mapping.
     /// </summary>
     [Description("Runner-supplied free-text description that informed the categorical mapping.")]
-    public required string Description { get; init; }
+    public required string Description { get; init; } = string.Empty;
 }
