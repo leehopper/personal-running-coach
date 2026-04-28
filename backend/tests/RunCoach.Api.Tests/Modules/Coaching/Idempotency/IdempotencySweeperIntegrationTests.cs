@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FluentAssertions;
 using Marten;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Tests.Infrastructure;
 using MartenSessionOptions = Marten.Services.SessionOptions;
@@ -23,18 +25,27 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Idempotency;
 public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {
     [Fact]
-    public void Sweeper_Is_Registered_As_HostedService()
+    public void Sweeper_Is_Registered_As_HostedService_By_Production_Wiring()
     {
-        // Arrange — the production registration must surface the sweeper as
-        // an IHostedService so the generic host runs it on StartAsync.
-        var hosted = Factory.Services.GetServices<IHostedService>().ToList();
+        // Arrange — exercise AddApplicationModules directly against a fresh
+        // ServiceCollection. The SUT factory cannot witness this because it
+        // removes the hosted-service descriptor in ConfigureWebHost (the
+        // production wall-clock TimeProvider would race the FakeTimeProvider
+        // tests use). Verifying against a separate collection isolates the
+        // production-registration assertion from that test-fixture override.
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
 
         // Act
-        var actual = hosted.OfType<IdempotencySweeper>().ToList();
+        services.AddApplicationModules(configuration);
 
         // Assert
-        actual.Should().ContainSingle(
-            because: "ServiceCollectionExtensions registers IdempotencySweeper via AddHostedService<T>()");
+        var sweeperDescriptor = services.SingleOrDefault(
+            d => d.ServiceType == typeof(IHostedService)
+                && d.ImplementationType == typeof(IdempotencySweeper));
+
+        sweeperDescriptor.Should().NotBeNull(
+            because: "AddApplicationModules must register IdempotencySweeper as an IHostedService for production hosts to run it");
     }
 
     [Fact]

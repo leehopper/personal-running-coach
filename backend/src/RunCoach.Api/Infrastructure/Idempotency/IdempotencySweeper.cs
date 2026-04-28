@@ -18,16 +18,20 @@ namespace RunCoach.Api.Infrastructure.Idempotency;
 /// across iterations; opening a fresh session per sweep is the documented
 /// pattern.
 /// </remarks>
-internal sealed partial class IdempotencySweeper(
+// Public visibility is required because NSubstitute (Castle.DynamicProxy)
+// cannot construct proxies for `ILogger<IdempotencySweeper>` when the
+// generic argument is internal — even with InternalsVisibleTo on the test
+// project, the dynamic-proxy assembly is separate and cannot see internals.
+public sealed partial class IdempotencySweeper(
     IDocumentStore store,
     TimeProvider timeProvider,
     ILogger<IdempotencySweeper> logger) : BackgroundService
 {
     /// <summary>Markers older than this are eligible for deletion.</summary>
-    internal static readonly TimeSpan RetentionWindow = TimeSpan.FromHours(48);
+    public static readonly TimeSpan RetentionWindow = TimeSpan.FromHours(48);
 
     /// <summary>Interval between sweeps.</summary>
-    internal static readonly TimeSpan SweepInterval = TimeSpan.FromHours(1);
+    public static readonly TimeSpan SweepInterval = TimeSpan.FromHours(1);
 
     private readonly IDocumentStore _store = store;
     private readonly TimeProvider _timeProvider = timeProvider;
@@ -36,8 +40,10 @@ internal sealed partial class IdempotencySweeper(
     /// <summary>
     /// Deletes <see cref="IdempotencyMarker"/> documents whose
     /// <see cref="IdempotencyMarker.RecordedAt"/> is older than
-    /// <see cref="RetentionWindow"/>. Internal so test harnesses can drive
-    /// a sweep deterministically without waiting for the timer.
+    /// <see cref="RetentionWindow"/>. Test harnesses can drive a sweep
+    /// deterministically by constructing the sweeper with a
+    /// <see cref="TimeProvider"/> they control and calling this method,
+    /// rather than waiting on the periodic timer.
     /// </summary>
     /// <remarks>
     /// Conjoined tenancy makes <c>DeleteWhere</c> tenant-scoped and offers no
@@ -48,7 +54,7 @@ internal sealed partial class IdempotencySweeper(
     /// (idempotency keys are per-request and the window is 48h), so the
     /// per-tenant fan-out is acceptable.
     /// </remarks>
-    internal async Task SweepAsync(CancellationToken ct)
+    public async Task SweepAsync(CancellationToken ct)
     {
         var cutoff = _timeProvider.GetUtcNow() - RetentionWindow;
 

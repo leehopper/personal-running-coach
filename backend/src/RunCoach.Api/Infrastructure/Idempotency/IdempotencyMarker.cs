@@ -30,7 +30,11 @@ namespace RunCoach.Api.Infrastructure.Idempotency;
 /// without coupling this primitive to a single response type.</param>
 /// <param name="RecordedAt">UTC timestamp the response was first recorded;
 /// drives the 48h expiry sweep run by <see cref="IdempotencySweeper"/>.</param>
-internal sealed record IdempotencyMarker(
+// Public visibility is required by Marten — `Requested document type
+// 'IdempotencyMarker' must be scoped as 'public' in order to be used as a
+// document type inside of Marten` is thrown at runtime by the JasperFx
+// codegen pipeline if this is internal, even with InternalsVisibleTo.
+public sealed record IdempotencyMarker(
     [property: Identity] Guid Key,
     Guid UserId,
     string PayloadTypeName,
