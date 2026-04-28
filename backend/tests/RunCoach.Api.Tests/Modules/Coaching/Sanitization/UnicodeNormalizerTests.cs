@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using FluentAssertions;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 
@@ -118,22 +117,24 @@ public class UnicodeNormalizerTests
     }
 
     [Fact]
-    public void Strip_RegexRunsWithinTimeoutBudget()
+    public void Strip_LargeInput_CompletesWithinRegexTimeoutBudget()
     {
         // Arrange — synthetic large input: zero-width chars sprinkled in plain
-        // text. The 50 ms ReDoS guard must not fire on real content.
+        // text. The 50 ms ReDoS guard inside `Regex.MatchTimeout` is what
+        // enforces the budget; if the regex backtracked pathologically on this
+        // input the call would throw `RegexMatchTimeoutException` and this
+        // test would fail. A wall-clock assertion would add no extra coverage
+        // and would flake on slow CI runners — the timeout itself is asserted
+        // structurally by `RegexTimeout_Is50Milliseconds`.
         var zwsp = char.ConvertFromUtf32(0x200B);
         var input = new string('a', 50_000) + zwsp + new string('b', 50_000);
 
         // Act
-        var sw = Stopwatch.StartNew();
         var (normalized, stripped) = UnicodeNormalizer.Strip(input);
-        sw.Stop();
 
-        // Assert — operation completes well under the 50 ms regex timeout.
+        // Assert — every non-zero-width char survived, exactly one was stripped.
         normalized.Length.Should().Be(input.Length - 1);
         stripped.Should().Be(1);
-        sw.Elapsed.Should().BeLessThan(TimeSpan.FromMilliseconds(200));
     }
 
     [Fact]
