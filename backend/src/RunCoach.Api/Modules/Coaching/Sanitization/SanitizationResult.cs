@@ -13,9 +13,22 @@ namespace RunCoach.Api.Modules.Coaching.Sanitization;
 /// Anthropic prompt-cache prefix stability per DEC-047.
 /// </param>
 /// <param name="Neutralized">
-/// True if any content was actually stripped (Unicode-strip or DAN-family
-/// neutralize on <see cref="PromptSection.CurrentUserMessage"/>). False when
-/// findings exist in log-only mode without modification.
+/// True if any content was actually stripped from the input text. Two cases
+/// set this:
+/// <list type="bullet">
+///   <item><description>
+///     Tier 1 Unicode normalization removed at least one character. This is
+///     section-agnostic — Tier 1 always neutralizes per the layered
+///     sanitizer summary, regardless of the section policy.
+///   </description></item>
+///   <item><description>
+///     A Tier 2 pattern in <c>NeutralizeOnCurrentUserMessage</c> matched and
+///     was stripped. Today only <see cref="PromptSection.CurrentUserMessage"/>
+///     promotes any pattern to neutralize-mode, so Tier 2 strips fire only
+///     for that section.
+///   </description></item>
+/// </list>
+/// False when findings exist in log-only mode without modification.
 /// </param>
 /// <param name="Findings">
 /// Ordered list of detector hits. PII-free — see <see cref="SanitizationFinding"/>.
