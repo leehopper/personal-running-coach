@@ -190,6 +190,17 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
             because: "the recorded PayloadTypeName does not match the requested TResponse, so SeenAsync must treat the marker as a miss");
     }
 
+    public override async ValueTask DisposeAsync()
+    {
+        // Marker docs live in `runcoach_events` (Marten doc tables share the
+        // event-store schema), which Respawn skips. Without this reset, seeded
+        // markers leak into sibling fixtures that assert on the marker count
+        // (e.g. IdempotencySweeperIntegrationTests.SweepAsync_With_No_Expired_Markers_Is_NoOp).
+        await Factory.Services.ResetAllMartenDataAsync();
+        await base.DisposeAsync();
+        GC.SuppressFinalize(this);
+    }
+
     private static MartenIdempotencyStore Build(IDocumentSession session) =>
         new(session, TimeProvider.System, NullLogger<MartenIdempotencyStore>.Instance);
 
