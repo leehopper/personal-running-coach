@@ -290,6 +290,11 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
     {
         var label = DelimiterLabel(section);
 
+        // Escape user-controlled angle brackets / ampersands so a payload
+        // containing a literal `</LABEL>` cannot terminate the section early
+        // and inject text outside the intended boundary.
+        var escapedBody = EscapeDelimiterBody(body);
+
         // Per R-068 § 5.3 / § 8: the per-turn nonce only applies to the
         // CurrentUserMessage section (and structurally, the regenerate intent
         // section, since both sit on the non-cached prompt tail). All other
@@ -303,13 +308,19 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
             var nonce = GenerateNonce();
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"<{label} id=\"{nonce}\">{body}</{label}>");
+                $"<{label} id=\"{nonce}\">{escapedBody}</{label}>");
         }
 
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"<{label}>{body}</{label}>");
+            $"<{label}>{escapedBody}</{label}>");
     }
+
+    private static string EscapeDelimiterBody(string body) =>
+        body
+            .Replace("&", "&amp;", StringComparison.Ordinal)
+            .Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal);
 
     /// <summary>
     /// PII-free serializable shape for the OTel <c>findings</c> attribute and

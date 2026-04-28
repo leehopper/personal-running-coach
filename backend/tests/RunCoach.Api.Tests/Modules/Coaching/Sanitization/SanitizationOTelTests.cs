@@ -57,9 +57,13 @@ public sealed class SanitizationOTelTests : IDisposable
             PromptSection.UserProfileInjuryNote,
             TestContext.Current.CancellationToken);
 
-        // Assert
+        // Assert — filter by the section tag so a parallel test capturing
+        // a different sanitizer span cannot bind these assertions to the
+        // wrong activity (xUnit defaults to per-class parallelism).
         var span = _captured
-            .FirstOrDefault(a => a.OperationName == LayeredPromptSanitizer.SanitizationSpanName);
+            .FirstOrDefault(a => a.OperationName == LayeredPromptSanitizer.SanitizationSpanName
+                && a.GetTagItem("runcoach.sanitization.section")?.ToString()
+                    == PromptSection.UserProfileInjuryNote.ToString());
 
         span.Should().NotBeNull("the sanitizer emits a child span per call");
 
@@ -95,9 +99,11 @@ public sealed class SanitizationOTelTests : IDisposable
             PromptSection.CurrentUserMessage,
             TestContext.Current.CancellationToken);
 
-        // Assert
+        // Assert — filter by section so parallel tests don't cross-bind.
         var span = _captured
-            .FirstOrDefault(a => a.OperationName == LayeredPromptSanitizer.SanitizationSpanName);
+            .FirstOrDefault(a => a.OperationName == LayeredPromptSanitizer.SanitizationSpanName
+                && a.GetTagItem("runcoach.sanitization.section")?.ToString()
+                    == PromptSection.CurrentUserMessage.ToString());
         span.Should().NotBeNull();
 
         var findingsTag = span!.GetTagItem("runcoach.sanitization.findings") as string;
