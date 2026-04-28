@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Marten.Metadata;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 
 namespace RunCoach.Api.Modules.Identity.Entities;
@@ -25,7 +26,7 @@ namespace RunCoach.Api.Modules.Identity.Entities;
 /// (DEC-060 prohibition on dual-write).
 /// </remarks>
 [Table("UserProfile")]
-public class UserProfile
+public class UserProfile : ITenanted
 {
     /// <summary>
     /// Gets or sets shared primary / foreign key with <see cref="ApplicationUser.Id"/>.
@@ -34,6 +35,19 @@ public class UserProfile
     [Key]
     [ForeignKey(nameof(User))]
     public Guid UserId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Marten conjoined-tenancy tenant id, populated by
+    /// <see cref="Modules.Coaching.Onboarding.UserProfileFromOnboardingProjection"/>
+    /// from the event-stream tenant id (<c>userId.ToString()</c> per DEC-047).
+    /// Required by <c>Marten.EntityFrameworkCore</c>'s
+    /// <c>EfCoreSingleStreamProjection</c> when the event store uses
+    /// <c>TenancyStyle.Conjoined</c> — the projection writes <c>tenant_id</c>
+    /// onto the EF row alongside the EF primary key. The column is intentionally
+    /// nullable so existing rows seeded before this regression fix continue to
+    /// load; the projection backfills the value on the next applied event.
+    /// </summary>
+    public string? TenantId { get; set; }
 
     /// <summary>Gets or sets navigation to the parent <see cref="ApplicationUser"/>.</summary>
     public ApplicationUser? User { get; set; }

@@ -66,23 +66,27 @@ public sealed class UserProfileFromOnboardingProjection
                     UserId = identity,
                     CreatedOn = started.StartedAt,
                 };
+                snapshot.TenantId = @event.TenantId;
                 snapshot.ModifiedOn = started.StartedAt;
                 return snapshot;
 
             case AnswerCaptured captured:
-                snapshot ??= NewProfile(identity, captured.CapturedAt);
+                snapshot ??= NewProfile(identity, captured.CapturedAt, @event.TenantId);
+                snapshot.TenantId = @event.TenantId;
                 ApplyAnswerCaptured(snapshot, captured);
                 snapshot.ModifiedOn = captured.CapturedAt;
                 return snapshot;
 
             case PlanLinkedToUser linked:
-                snapshot ??= NewProfile(identity, @event.Timestamp);
+                snapshot ??= NewProfile(identity, @event.Timestamp, @event.TenantId);
+                snapshot.TenantId = @event.TenantId;
                 snapshot.CurrentPlanId = linked.PlanId;
                 snapshot.ModifiedOn = @event.Timestamp;
                 return snapshot;
 
             case OnboardingCompleted completed:
-                snapshot ??= NewProfile(identity, completed.CompletedAt);
+                snapshot ??= NewProfile(identity, completed.CompletedAt, @event.TenantId);
+                snapshot.TenantId = @event.TenantId;
                 snapshot.OnboardingCompletedAt = completed.CompletedAt;
                 snapshot.CurrentPlanId ??= completed.PlanId;
                 snapshot.ModifiedOn = completed.CompletedAt;
@@ -102,11 +106,12 @@ public sealed class UserProfileFromOnboardingProjection
         }
     }
 
-    private static UserProfile NewProfile(Guid userId, DateTimeOffset createdOn)
+    private static UserProfile NewProfile(Guid userId, DateTimeOffset createdOn, string tenantId)
     {
         return new UserProfile
         {
             UserId = userId,
+            TenantId = tenantId,
             CreatedOn = createdOn,
             ModifiedOn = createdOn,
         };

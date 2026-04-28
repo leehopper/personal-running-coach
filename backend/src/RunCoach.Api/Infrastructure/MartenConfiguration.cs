@@ -9,6 +9,7 @@ using Marten.Services;
 using Marten.Storage;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching.Onboarding;
+using RunCoach.Api.Modules.Identity.Entities;
 using Wolverine.Marten;
 
 namespace RunCoach.Api.Infrastructure;
@@ -75,7 +76,71 @@ public static class MartenConfiguration
                 // SaveChangesAsync is called within Marten's transaction, ensuring
                 // atomicity").
                 opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
-                opts.Projections.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
+
+                // EF-Core-backed projection registration. The
+                // `Marten.EntityFrameworkCore` extension (`opts.Add(...)`
+                // rather than `opts.Projections.Add(...)`) wires the projection
+                // as a transaction participant via `RegisterEfCoreStorage` and
+                // walks the `RunCoachDbContext` model with
+                // `AddEntityTablesFromDbContext`. Writes route through
+                // `CustomProjectionStorageProviders[typeof(UserProfile)]`,
+                // so Marten never persists the row itself.
+                //
+                // Two concrete preconditions had to land together to make this
+                // wiring boot under <c>TenancyStyle.Conjoined</c>:
+                //
+                // 1. <c>UserProfile</c> implements
+                //    <c>Marten.Metadata.ITenanted</c>. Marten's
+                //    <c>EfCoreSingleStreamProjection.ValidateConfiguration</c>
+                //    explicitly fails the host start with
+                //    <c>InvalidProjectionException</c> if the EF target type
+                //    does not implement <c>ITenanted</c> when events use
+                //    Conjoined tenancy.
+                // 2. The explicit <c>Schema.For&lt;UserProfile&gt;().Identity</c>
+                //    selector below. Marten's
+                //    <c>StoreOptions.ApplyConfiguration()</c> walks every
+                //    projection's published types and runs
+                //    <c>DocumentMapping.CompileAndValidate()</c> on each, which
+                //    requires an <c>Id</c>/<c>id</c> member or a configured
+                //    identity selector. <c>UserProfile</c> uses <c>UserId</c>
+                //    (a shared PK/FK with <c>ApplicationUser</c>), so the
+                //    selector points there. Marten still creates an unused
+                //    <c>mt_doc_userprofile</c> doc table — harmless because
+                //    the storage delegate diverts every read and write to the
+                //    EF row. The doc-table creation is also why
+                //    <c>RunCoachDbContext.OnModelCreating</c> pins
+                //    <c>HasDefaultSchema("public")</c>: without it,
+                //    <c>AddEntityTablesFromDbContext</c> would relocate the
+                //    Identity / DataProtection tables into
+                //    <c>runcoach_events</c> and the cross-schema FKs would
+                //    fail at boot.
+                opts.Schema.For<UserProfile>().Identity(x => x.UserId);
+                var efTablesBefore = opts.Storage.ExtendedSchemaObjects.Count;
+                opts.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecycle.Inline);
+
+                // The EF-Core extension also calls `AddEntityTablesFromDbContext`
+                // which appends every <c>RunCoachDbContext</c> entity (Identity,
+                // <c>UserProfile</c>, DataProtection) onto
+                // <c>opts.Storage.ExtendedSchemaObjects</c> so Weasel will
+                // create-or-migrate them at host start. The EF migrations
+                // already own those tables (via
+                // <c>RunCoachDbContext.Database.MigrateAsync</c> in production
+                // and the integration-test fixture), and Weasel's
+                // <c>Table.readExistingAsync</c> trips a NullReferenceException
+                // when it tries to reconcile an EF-style PK column against the
+                // tracked schema — Weasel resolves the PK column by name and
+                // returns null if the EF migration's exact spelling does not
+                // match. Pruning the EF tables from the Marten/Weasel migration
+                // set avoids both the duplicate ownership and the NRE; the
+                // projection storage delegate still works because it routes
+                // through the live <c>RunCoachDbContext</c>, not through the
+                // schema-objects list.
+                if (opts.Storage.ExtendedSchemaObjects.Count > efTablesBefore)
+                {
+                    opts.Storage.ExtendedSchemaObjects.RemoveRange(
+                        efTablesBefore,
+                        opts.Storage.ExtendedSchemaObjects.Count - efTablesBefore);
+                }
 
                 opts.Projections.Errors.SkipUnknownEvents = true;
 
