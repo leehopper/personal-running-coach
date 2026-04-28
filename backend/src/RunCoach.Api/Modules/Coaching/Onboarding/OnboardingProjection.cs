@@ -88,6 +88,16 @@ public sealed class OnboardingProjection : SingleStreamProjection<OnboardingView
         {
             case OnboardingTopic.PrimaryGoal:
                 view.PrimaryGoal = DeserializePayload<PrimaryGoalAnswer>(@event.NormalizedPayload);
+
+                // TargetEvent is only meaningful when PrimaryGoal == RaceTraining. If the
+                // runner switches off race training (e.g. RaceTraining → GeneralFitness),
+                // a previously-captured TargetEvent must be cleared to avoid stale race
+                // metadata on the view.
+                if (view.PrimaryGoal?.Goal != Models.PrimaryGoal.RaceTraining)
+                {
+                    view.TargetEvent = null;
+                }
+
                 break;
             case OnboardingTopic.TargetEvent:
                 view.TargetEvent = DeserializePayload<TargetEventAnswer>(@event.NormalizedPayload);

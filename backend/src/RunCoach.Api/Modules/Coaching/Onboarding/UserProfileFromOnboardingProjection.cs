@@ -125,6 +125,15 @@ public sealed class UserProfileFromOnboardingProjection
                 {
                     var typed = captured.NormalizedPayload.Deserialize<PrimaryGoalAnswer>();
                     snapshot.PrimaryGoal = typed?.Goal;
+
+                    // TargetEvent is only meaningful when PrimaryGoal == RaceTraining
+                    // (see UserProfile xmldoc). Drop stale race metadata if the runner
+                    // switches off race training.
+                    if (snapshot.PrimaryGoal != Models.PrimaryGoal.RaceTraining)
+                    {
+                        snapshot.TargetEvent = null;
+                    }
+
                     break;
                 }
 

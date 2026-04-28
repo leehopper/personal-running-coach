@@ -164,6 +164,9 @@ public sealed class OnboardingProjectionTests
         actual.ModifiedOn.Should().Be(Now);
         actual.OnboardingCompletedAt.Should().BeNull();
         actual.CurrentPlanId.Should().BeNull();
+        actual.TenantId.Should().Be(
+            UserId.ToString(),
+            because: "EfCoreSingleStreamProjection requires ITenanted under TenancyStyle.Conjoined; the projection must stamp the EF row's TenantId from the event envelope so conjoined tenancy is atomic with the apply");
     }
 
     [Fact]
@@ -229,6 +232,92 @@ public sealed class OnboardingProjectionTests
         actual!.TargetEvent.Should().NotBeNull();
         actual.TargetEvent!.EventName.Should().Be("Hartford Half Marathon");
         actual.TargetEvent.DistanceKm.Should().Be(21.0975);
+    }
+
+    [Fact]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_PrimaryGoalChangesAwayFromRaceTraining_ClearsTargetEvent()
+    {
+        // Arrange — runner first commits to RaceTraining + a target race, then later
+        // corrects PrimaryGoal to GeneralFitness. The TargetEvent slot is only meaningful
+        // under RaceTraining, so the projection must drop the stale race metadata.
+        var projection = new UserProfileFromOnboardingProjection();
+        var snapshot = new UserProfile
+        {
+            UserId = UserId,
+            CreatedOn = Now,
+            ModifiedOn = Now,
+            PrimaryGoal = PrimaryGoal.RaceTraining,
+            TargetEvent = new TargetEventAnswer
+            {
+                EventName = "Hartford Half Marathon",
+                DistanceKm = 21.0975,
+                EventDateIso = "2026-10-11",
+                TargetFinishTimeIso = "PT1H45M0S",
+            },
+        };
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+            {
+                Goal = PrimaryGoal.GeneralFitness,
+                Description = "Just want to stay healthy.",
+            }),
+            Confidence: 0.92,
+            CapturedAt: Now.AddMinutes(5));
+
+        // Act
+        var actual = projection.ApplyEvent(
+            snapshot,
+            UserId,
+            WrapEvent(captured),
+            NullDbContext(),
+            NullSession());
+
+        // Assert
+        actual!.PrimaryGoal.Should().Be(PrimaryGoal.GeneralFitness);
+        actual.TargetEvent.Should().BeNull(
+            because: "TargetEvent is only meaningful under RaceTraining; switching to a non-race goal must drop the stale race metadata");
+    }
+
+    [Fact]
+    public void OnboardingProjection_PrimaryGoalChangesAwayFromRaceTraining_ClearsTargetEventOnView()
+    {
+        // Arrange — same invariant on the in-memory `OnboardingView`. Replays
+        // RaceTraining → TargetEvent → GeneralFitness and asserts the view drops
+        // TargetEvent so the chat surface and EF row stay in sync.
+        var view = new OnboardingView
+        {
+            UserId = UserId,
+            PrimaryGoal = new PrimaryGoalAnswer
+            {
+                Goal = PrimaryGoal.RaceTraining,
+                Description = "Half marathon.",
+            },
+            TargetEvent = new TargetEventAnswer
+            {
+                EventName = "Hartford Half Marathon",
+                DistanceKm = 21.0975,
+                EventDateIso = "2026-10-11",
+                TargetFinishTimeIso = "PT1H45M0S",
+            },
+        };
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+            {
+                Goal = PrimaryGoal.GeneralFitness,
+                Description = "Just want to stay healthy.",
+            }),
+            Confidence: 0.92,
+            CapturedAt: Now.AddMinutes(5));
+
+        // Act
+        OnboardingProjection.Apply(captured, view);
+
+        // Assert
+        view.PrimaryGoal!.Goal.Should().Be(PrimaryGoal.GeneralFitness);
+        view.TargetEvent.Should().BeNull(
+            because: "OnboardingView mirrors the EF projection invariant: TargetEvent only persists under RaceTraining");
     }
 
     [Fact]
@@ -403,12 +492,17 @@ public sealed class OnboardingProjectionTests
         return new AnswerCaptured(topic, JsonSerializer.SerializeToDocument(answer), Confidence: 0.9, CapturedAt: at);
     }
 
-    private static IEvent WrapEvent(object data, DateTimeOffset? timestamp = null)
+    private static IEvent WrapEvent(object data, DateTimeOffset? timestamp = null, string? tenantId = null)
     {
         var stub = Substitute.For<IEvent>();
         stub.Data.Returns(data);
         stub.Timestamp.Returns(timestamp ?? Now);
         stub.StreamId.Returns(UserId);
+
+        // DEC-047 conjoined-tenancy id: `tenantId == streamId.ToString()`. Tests default
+        // to that shape so the EF projection's `snapshot.TenantId = @event.TenantId`
+        // stamping has a deterministic value to assert against.
+        stub.TenantId.Returns(tenantId ?? UserId.ToString());
         return stub;
     }
 
