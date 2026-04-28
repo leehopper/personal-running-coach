@@ -5,7 +5,7 @@ using JasperFx.Events.Daemon;
 using Marten;
 using Marten.Services;
 using Marten.Storage;
-using RunCoach.Api.Modules.Coaching.Idempotency;
+using RunCoach.Api.Infrastructure.Idempotency;
 using Wolverine.Marten;
 
 namespace RunCoach.Api.Infrastructure;

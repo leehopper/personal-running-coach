@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Marten.Schema;
 
-namespace RunCoach.Api.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Infrastructure.Idempotency;
 
 /// <summary>
 /// Marten document storing the response of a previously processed idempotent
@@ -15,14 +15,28 @@ namespace RunCoach.Api.Modules.Coaching.Idempotency;
 /// (DEC-047 pattern).
 /// </summary>
 /// <param name="Key">Client-supplied idempotency key. Marten document identity.</param>
-/// <param name="UserId">Owning user id — also the tenant id.</param>
+/// <param name="UserId">Owning user / tenant id. Sourced from the active session's
+/// <c>TenantId</c> at <see cref="MartenIdempotencyStore.Record{TResponse}"/> time
+/// so it always agrees with Marten's tenant_id column. Duplicating the value in
+/// the document body lets the cross-tenant sweeper group expired markers by
+/// tenant without re-projecting Marten's tenant column.</param>
+/// <param name="PayloadTypeName">Assembly-qualified name of the originally
+/// recorded <c>TResponse</c>. Validated by
+/// <see cref="MartenIdempotencyStore.SeenAsync{TResponse}"/> to refuse
+/// cross-version replays where a redeployed handler would otherwise silently
+/// mis-deserialize an older marker into the new response shape.</param>
 /// <param name="Response">The original response payload, serialized as a
 /// <see cref="JsonDocument"/> so any caller-defined response shape round-trips
 /// without coupling this primitive to a single response type.</param>
 /// <param name="RecordedAt">UTC timestamp the response was first recorded;
 /// drives the 48h expiry sweep run by <see cref="IdempotencySweeper"/>.</param>
+// Public visibility is required by Marten — `Requested document type
+// 'IdempotencyMarker' must be scoped as 'public' in order to be used as a
+// document type inside of Marten` is thrown at runtime by the JasperFx
+// codegen pipeline if this is internal, even with InternalsVisibleTo.
 public sealed record IdempotencyMarker(
     [property: Identity] Guid Key,
     Guid UserId,
+    string PayloadTypeName,
     JsonDocument Response,
     DateTimeOffset RecordedAt);

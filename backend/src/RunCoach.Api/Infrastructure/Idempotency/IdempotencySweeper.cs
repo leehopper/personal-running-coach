@@ -1,7 +1,7 @@
 using Marten;
 using MartenSessionOptions = Marten.Services.SessionOptions;
 
-namespace RunCoach.Api.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Infrastructure.Idempotency;
 
 /// <summary>
 /// Background sweeper that deletes <see cref="IdempotencyMarker"/> documents
@@ -18,6 +18,10 @@ namespace RunCoach.Api.Modules.Coaching.Idempotency;
 /// across iterations; opening a fresh session per sweep is the documented
 /// pattern.
 /// </remarks>
+// Public visibility is required because NSubstitute (Castle.DynamicProxy)
+// cannot construct proxies for `ILogger<IdempotencySweeper>` when the
+// generic argument is internal — even with InternalsVisibleTo on the test
+// project, the dynamic-proxy assembly is separate and cannot see internals.
 public sealed partial class IdempotencySweeper(
     IDocumentStore store,
     TimeProvider timeProvider,
@@ -36,8 +40,10 @@ public sealed partial class IdempotencySweeper(
     /// <summary>
     /// Deletes <see cref="IdempotencyMarker"/> documents whose
     /// <see cref="IdempotencyMarker.RecordedAt"/> is older than
-    /// <see cref="RetentionWindow"/>. Exposed for test harnesses that need
-    /// to drive a sweep deterministically without waiting for the timer.
+    /// <see cref="RetentionWindow"/>. Test harnesses can drive a sweep
+    /// deterministically by constructing the sweeper with a
+    /// <see cref="TimeProvider"/> they control and calling this method,
+    /// rather than waiting on the periodic timer.
     /// </summary>
     /// <remarks>
     /// Conjoined tenancy makes <c>DeleteWhere</c> tenant-scoped and offers no
@@ -91,9 +97,8 @@ public sealed partial class IdempotencySweeper(
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // First sweep runs immediately so test harnesses that resolve the
-        // service can drive deterministic deletion via `SweepAsync` without
-        // racing the timer.
+        // First sweep runs immediately on host boot rather than waiting
+        // SweepInterval before the first cleanup pass.
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -134,6 +139,4 @@ public sealed partial class IdempotencySweeper(
         Level = LogLevel.Warning,
         Message = "IdempotencyMarker sweep failed; will retry on next interval")]
     private static partial void LogSweepFailed(ILogger logger, Exception exception);
-
-    private sealed record ExpiredMarker(Guid Key, Guid UserId);
 }

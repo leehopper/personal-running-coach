@@ -1,10 +1,11 @@
 using FluentAssertions;
 using Marten;
 using Microsoft.Extensions.DependencyInjection;
-using RunCoach.Api.Modules.Coaching.Idempotency;
+using Microsoft.Extensions.Logging.Abstractions;
+using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Tests.Infrastructure;
 
-namespace RunCoach.Api.Tests.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Tests.Infrastructure.Idempotency;
 
 /// <summary>
 /// Integration tests that round-trip <see cref="IdempotencyMarker"/> documents
@@ -25,7 +26,7 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         var store = Factory.Services.GetRequiredService<IDocumentStore>();
 
         await using var session = store.LightweightSession(userId.ToString());
-        var idempotency = new MartenIdempotencyStore(session);
+        var idempotency = Build(session);
 
         // Act
         var actual = await idempotency.SeenAsync<TestResponse>(key, ct);
@@ -47,14 +48,14 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         // Act — Record stages, SaveChangesAsync commits within the same session.
         await using (var write = store.LightweightSession(userId.ToString()))
         {
-            new MartenIdempotencyStore(write).Record(key, userId, expected);
+            Build(write).Record(key, expected);
             await write.SaveChangesAsync(ct);
         }
 
         TestResponse? actual;
         await using (var read = store.LightweightSession(userId.ToString()))
         {
-            actual = await new MartenIdempotencyStore(read).SeenAsync<TestResponse>(key, ct);
+            actual = await Build(read).SeenAsync<TestResponse>(key, ct);
         }
 
         // Assert
@@ -64,7 +65,7 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
     }
 
     [Fact]
-    public async Task Record_Persists_RecordedAt_And_UserId_On_Marker()
+    public async Task Record_Persists_RecordedAt_TenantId_And_PayloadType_On_Marker()
     {
         // Arrange
         var ct = TestContext.Current.CancellationToken;
@@ -76,7 +77,7 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         // Act
         await using (var write = store.LightweightSession(userId.ToString()))
         {
-            new MartenIdempotencyStore(write).Record(key, userId, new TestResponse("noted", 1));
+            Build(write).Record(key, new TestResponse("noted", 1));
             await write.SaveChangesAsync(ct);
         }
 
@@ -89,7 +90,8 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         // Assert — direct document inspection proves we wrote the canonical fields.
         actual.Should().NotBeNull();
         actual!.Key.Should().Be(key);
-        actual.UserId.Should().Be(userId);
+        actual.UserId.Should().Be(userId, because: "Record sources UserId from the active session's TenantId");
+        actual.PayloadTypeName.Should().Be(typeof(TestResponse).FullName);
         actual.RecordedAt.Should().BeAfter(beforeWrite);
         actual.Response.Should().NotBeNull();
     }
@@ -107,10 +109,7 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         // Act — record under owner tenant.
         await using (var ownerSession = store.LightweightSession(ownerUserId.ToString()))
         {
-            new MartenIdempotencyStore(ownerSession).Record(
-                sharedKey,
-                ownerUserId,
-                new TestResponse("owner-only", 42));
+            Build(ownerSession).Record(sharedKey, new TestResponse("owner-only", 42));
             await ownerSession.SaveChangesAsync(ct);
         }
 
@@ -119,14 +118,12 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         TestResponse? actualOwnerTenant;
         await using (var otherSession = store.LightweightSession(otherUserId.ToString()))
         {
-            actualOtherTenant = await new MartenIdempotencyStore(otherSession)
-                .SeenAsync<TestResponse>(sharedKey, ct);
+            actualOtherTenant = await Build(otherSession).SeenAsync<TestResponse>(sharedKey, ct);
         }
 
         await using (var ownerSession = store.LightweightSession(ownerUserId.ToString()))
         {
-            actualOwnerTenant = await new MartenIdempotencyStore(ownerSession)
-                .SeenAsync<TestResponse>(sharedKey, ct);
+            actualOwnerTenant = await Build(ownerSession).SeenAsync<TestResponse>(sharedKey, ct);
         }
 
         // Assert
@@ -142,14 +139,61 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         // Arrange
         var store = Factory.Services.GetRequiredService<IDocumentStore>();
         using var session = store.LightweightSession(Guid.NewGuid().ToString());
-        var idempotency = new MartenIdempotencyStore(session);
+        var idempotency = Build(session);
 
         // Act
-        var act = () => idempotency.Record<TestResponse>(Guid.NewGuid(), Guid.NewGuid(), null!);
+        var act = () => idempotency.Record<TestResponse>(Guid.NewGuid(), null!);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
     }
 
+    [Fact]
+    public void Record_Throws_When_Session_Is_Not_Tenanted()
+    {
+        // Arrange — open a session without a tenant id; Marten reports "*DEFAULT*".
+        var store = Factory.Services.GetRequiredService<IDocumentStore>();
+        using var session = store.LightweightSession();
+        var idempotency = Build(session);
+
+        // Act
+        var act = () => idempotency.Record(Guid.NewGuid(), new TestResponse("x", 0));
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>(
+            because: "Idempotency markers must inherit tenant id from the active session, not a default tenant");
+    }
+
+    [Fact]
+    public async Task SeenAsync_Returns_Null_When_PayloadType_Mismatches()
+    {
+        // Arrange — record with TestResponse, attempt to read as OtherResponse.
+        var ct = TestContext.Current.CancellationToken;
+        var key = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var store = Factory.Services.GetRequiredService<IDocumentStore>();
+
+        await using (var write = store.LightweightSession(userId.ToString()))
+        {
+            Build(write).Record(key, new TestResponse("v1", 99));
+            await write.SaveChangesAsync(ct);
+        }
+
+        OtherResponse? actual;
+        await using (var read = store.LightweightSession(userId.ToString()))
+        {
+            actual = await Build(read).SeenAsync<OtherResponse>(key, ct);
+        }
+
+        // Assert — cross-version replay protection: mismatched type returns miss.
+        actual.Should().BeNull(
+            because: "the recorded PayloadTypeName does not match the requested TResponse, so SeenAsync must treat the marker as a miss");
+    }
+
+    private static MartenIdempotencyStore Build(IDocumentSession session) =>
+        new(session, TimeProvider.System, NullLogger<MartenIdempotencyStore>.Instance);
+
     private sealed record TestResponse(string Status, int Counter);
+
+    private sealed record OtherResponse(string Other);
 }

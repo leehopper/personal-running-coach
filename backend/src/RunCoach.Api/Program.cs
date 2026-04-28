@@ -58,13 +58,31 @@ builder.Host.UseWolverine(opts =>
 {
     opts.Policies.AutoApplyTransactions();
 
-    // DEC-057 concurrency contract: when two same-stream submissions race past
-    // the idempotency check under `EventAppendMode.Rich`, Marten throws on the
-    // second commit. Routing both to the dead-letter queue prevents the
-    // standard Wolverine retry loop from re-running the handler against a
-    // now-stale stream version.
+    // DEC-057 / DEC-060 first-write-wins contract. Three sibling Marten
+    // exceptions can surface from the same handler when two requests race past
+    // the idempotency check, and all three must short-circuit to the
+    // dead-letter queue rather than ride the default Wolverine retry loop —
+    // each one indicates a stale view of state that retrying cannot resolve.
+    //
+    //   - `ExistingStreamIdCollisionException`: stream-side `StartStream`
+    //     under `EventAppendMode.Rich` — first-turn StartStream race where
+    //     two submissions both try to create the same stream.
+    //   - `ConcurrentUpdateException`: stream-side `Append` against a stream
+    //     version that has already advanced — a subsequent-turn append race.
+    //   - `DocumentAlreadyExistsException`: document-side `Insert` collision
+    //     raised by `MartenIdempotencyStore.Record` when two concurrent
+    //     callers attempt to write the same idempotency marker. Without this
+    //     third registration the duplicate-key throw falls through to the
+    //     default retry pipeline and re-runs the handler, defeating the
+    //     "first response wins" contract the marker exists to enforce.
+    //
+    // Note: `DocumentAlreadyExistsException` is a sibling — not a parent — of
+    // the two stream-collision exceptions in Marten's hierarchy, so the rule
+    // must be registered explicitly; the existing two registrations do not
+    // cover it transitively.
     opts.OnException<Marten.Exceptions.ExistingStreamIdCollisionException>().MoveToErrorQueue();
     opts.OnException<Marten.Exceptions.ConcurrentUpdateException>().MoveToErrorQueue();
+    opts.OnException<Marten.Exceptions.DocumentAlreadyExistsException>().MoveToErrorQueue();
 
     // Must match Marten's `AddAsyncDaemon(DaemonMode.Solo)` — `HotCold` takes
     // advisory locks that collide with `ApplyAllDatabaseChangesOnStartup`.
