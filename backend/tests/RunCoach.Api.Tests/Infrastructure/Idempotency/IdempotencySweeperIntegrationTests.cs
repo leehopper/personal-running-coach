@@ -14,7 +14,7 @@ using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Tests.Infrastructure;
 using MartenSessionOptions = Marten.Services.SessionOptions;
 
-namespace RunCoach.Api.Tests.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Tests.Infrastructure.Idempotency;
 
 /// <summary>
 /// Integration coverage for <see cref="IdempotencySweeper"/>. Asserts the
@@ -317,15 +317,15 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
         // Arrange — substitute IDocumentStore that throws on QuerySession to
         // simulate a transient backend failure. The CA1031 catch-all in
         // IdempotencySweeper.ExecuteAsync must keep the loop alive and only
-        // log a warning. Uses NSubstitute throughout — no DB needed.
+        // log a warning. Uses an in-memory CapturingLogger so assertions are
+        // structural (recorded log entries) rather than reflection-based.
         var ct = TestContext.Current.CancellationToken;
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero));
         var store = Substitute.For<IDocumentStore>();
         store.QuerySession(Arg.Any<MartenSessionOptions>())
             .Throws(new InvalidOperationException("transient backend failure"));
 
-        var logger = Substitute.For<ILogger<IdempotencySweeper>>();
-        logger.IsEnabled(LogLevel.Warning).Returns(true);
+        var logger = new CapturingLogger<IdempotencySweeper>();
 
         var sweeper = new IdempotencySweeper(store, time, logger);
 
@@ -350,24 +350,9 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
         stillRunning.Should().BeTrue(
             because: "CA1031 catch-all in ExecuteAsync must keep the BackgroundService alive across transient store errors");
 
-        // Count `LogSweepFailed` invocations directly. NSubstitute's
-        // Received() overload requires an exact count; the loop fires SweepAsync
-        // on entry plus once per fake-time advance, so the call count is
-        // timing-dependent. We only need to prove "at least one warning fired".
-        var warningCount = logger.ReceivedCalls()
-            .Count(c => c.GetMethodInfo().Name == nameof(ILogger.Log)
-                && c.GetArguments() is { Length: >= 1 } args
-                && args[0] is LogLevel level
-                && level == LogLevel.Warning);
-        warningCount.Should().BeGreaterThan(
-            0,
-            because: "the catch-all in ExecuteAsync must surface the transient failure via LogSweepFailed");
-
-        var querySessionCount = store.ReceivedCalls()
-            .Count(c => c.GetMethodInfo().Name == nameof(IDocumentStore.QuerySession));
-        querySessionCount.Should().BeGreaterThan(
-            0,
-            because: "the loop must have invoked QuerySession at least once before the failure was caught");
+        logger.Entries.Should().Contain(
+            e => e.Level == LogLevel.Warning && e.Exception is InvalidOperationException,
+            because: "LogSweepFailed must surface the transient store failure as a warning carrying the original exception");
     }
 
     public override async ValueTask DisposeAsync()
@@ -377,5 +362,46 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
         await Factory.Services.ResetAllMartenDataAsync();
         await base.DisposeAsync();
         GC.SuppressFinalize(this);
+    }
+
+    private sealed record LogEntry(LogLevel Level, EventId EventId, Exception? Exception, string Message);
+
+    private sealed class NullScope : IDisposable
+    {
+        public static readonly NullScope Instance = new();
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>
+    /// In-memory <see cref="ILogger{TCategoryName}"/> that records every
+    /// emitted entry, so tests can assert against structured properties of
+    /// the log output (level, exception, formatted message) rather than
+    /// inspecting reflection-shaped <c>NSubstitute</c> received-calls.
+    /// </summary>
+    private sealed class CapturingLogger<TCategoryName> : ILogger<TCategoryName>
+    {
+        private readonly List<LogEntry> _entries = [];
+
+        public IReadOnlyList<LogEntry> Entries => _entries;
+
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull
+            => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            ArgumentNullException.ThrowIfNull(formatter);
+            _entries.Add(new LogEntry(logLevel, eventId, exception, formatter(state, exception)));
+        }
     }
 }

@@ -13,9 +13,11 @@ namespace RunCoach.Api.Infrastructure.Idempotency;
 /// </summary>
 public sealed partial class MartenIdempotencyStore(
     IDocumentSession session,
+    TimeProvider timeProvider,
     ILogger<MartenIdempotencyStore> logger) : IIdempotencyStore
 {
     private readonly IDocumentSession _session = session;
+    private readonly TimeProvider _timeProvider = timeProvider;
     private readonly ILogger<MartenIdempotencyStore> _logger = logger;
 
     /// <inheritdoc />
@@ -74,7 +76,7 @@ public sealed partial class MartenIdempotencyStore(
                 "IIdempotencyStore.Record cannot record an anonymous or unbounded generic response type.");
 
         var payload = JsonSerializer.SerializeToDocument(response);
-        var marker = new IdempotencyMarker(key, sessionTenant, typeName, payload, DateTimeOffset.UtcNow);
+        var marker = new IdempotencyMarker(key, sessionTenant, typeName, payload, _timeProvider.GetUtcNow());
         _session.Insert(marker);
     }
 

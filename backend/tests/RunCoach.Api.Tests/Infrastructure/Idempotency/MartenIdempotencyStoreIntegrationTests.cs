@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Tests.Infrastructure;
 
-namespace RunCoach.Api.Tests.Modules.Coaching.Idempotency;
+namespace RunCoach.Api.Tests.Infrastructure.Idempotency;
 
 /// <summary>
 /// Integration tests that round-trip <see cref="IdempotencyMarker"/> documents
@@ -191,7 +191,7 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
     }
 
     private static MartenIdempotencyStore Build(IDocumentSession session) =>
-        new(session, NullLogger<MartenIdempotencyStore>.Instance);
+        new(session, TimeProvider.System, NullLogger<MartenIdempotencyStore>.Instance);
 
     private sealed record TestResponse(string Status, int Counter);
 
