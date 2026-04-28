@@ -267,55 +267,62 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
 
         // Act
         await sweeper.StartAsync(ct);
-
-        // Wait for the loop's first sweep to log "completed" — that's the
-        // observable signal the loop has parked on `Task.Delay(SweepInterval,
-        // fakeTime, ct)` and is ready to react to a fake-time Advance.
-        await AsyncWait.UntilAsync(
-            () => logger.Entries.Any(e => e.Level == LogLevel.Debug),
-            TimeSpan.FromSeconds(5),
-            "the BackgroundService loop must run its first sweep and emit LogSweepCompleted before the test seeds and advances time",
-            ct);
-
-        var firstSweepLogCount = logger.Entries.Count(e => e.Level == LogLevel.Debug);
-
-        var expiredAt = time.GetUtcNow() - TimeSpan.FromHours(50);
-        await using (var seedSession = store.LightweightSession(tenantId.ToString()))
+        try
         {
-            seedSession.Store(new IdempotencyMarker(
-                key,
-                tenantId,
-                "sweeper-test",
-                JsonSerializer.SerializeToDocument(new { kind = "expired" }),
-                expiredAt));
-            await seedSession.SaveChangesAsync(ct);
-        }
+            // Wait for the loop's first sweep to log "completed" — that's the
+            // observable signal the loop has parked on `Task.Delay(SweepInterval,
+            // fakeTime, ct)` and is ready to react to a fake-time Advance.
+            await AsyncWait.UntilAsync(
+                () => logger.Entries.Any(e => e.Level == LogLevel.Debug),
+                TimeSpan.FromSeconds(5),
+                "the BackgroundService loop must run its first sweep and emit LogSweepCompleted before the test seeds and advances time",
+                ct);
 
-        // Advance past the sweep interval to release the loop's `Task.Delay`
-        // and trigger the second sweep iteration.
-        time.Advance(IdempotencySweeper.SweepInterval + TimeSpan.FromSeconds(1));
+            var firstSweepLogCount = logger.Entries.Count(e => e.Level == LogLevel.Debug);
 
-        // Wait for the second sweep to delete the seeded marker. Two
-        // observable signals confirm the iteration ran: a new
-        // LogSweepCompleted entry, and the marker being gone from the DB.
-        // Poll on the latter since it's the load-bearing assertion.
-        await AsyncWait.UntilAsync(
-            async () =>
+            var expiredAt = time.GetUtcNow() - TimeSpan.FromHours(50);
+            await using (var seedSession = store.LightweightSession(tenantId.ToString()))
             {
-                await using var poll = store.LightweightSession(tenantId.ToString());
-                return await poll.LoadAsync<IdempotencyMarker>(key, ct) is null;
-            },
-            TimeSpan.FromSeconds(10),
-            "advancing the FakeTimeProvider past SweepInterval must release the loop's Task.Delay and trigger a fresh sweep that deletes the seeded marker",
-            ct);
+                seedSession.Store(new IdempotencyMarker(
+                    key,
+                    tenantId,
+                    "sweeper-test",
+                    JsonSerializer.SerializeToDocument(new { kind = "expired" }),
+                    expiredAt));
+                await seedSession.SaveChangesAsync(ct);
+            }
 
-        await sweeper.StopAsync(ct);
+            // Advance past the sweep interval to release the loop's `Task.Delay`
+            // and trigger the second sweep iteration.
+            time.Advance(IdempotencySweeper.SweepInterval + TimeSpan.FromSeconds(1));
 
-        // Assert — the second sweep also produced a completed-log entry.
-        var totalSweepLogs = logger.Entries.Count(e => e.Level == LogLevel.Debug);
-        totalSweepLogs.Should().BeGreaterThan(
-            firstSweepLogCount,
-            because: "the second sweep must run a full iteration and emit its own LogSweepCompleted");
+            // Wait for the second sweep to delete the seeded marker. Two
+            // observable signals confirm the iteration ran: a new
+            // LogSweepCompleted entry, and the marker being gone from the DB.
+            // Poll on the latter since it's the load-bearing assertion.
+            await AsyncWait.UntilAsync(
+                async () =>
+                {
+                    await using var poll = store.LightweightSession(tenantId.ToString());
+                    return await poll.LoadAsync<IdempotencyMarker>(key, ct) is null;
+                },
+                TimeSpan.FromSeconds(10),
+                "advancing the FakeTimeProvider past SweepInterval must release the loop's Task.Delay and trigger a fresh sweep that deletes the seeded marker",
+                ct);
+
+            // Assert — the second sweep also produced a completed-log entry.
+            var totalSweepLogs = logger.Entries.Count(e => e.Level == LogLevel.Debug);
+            totalSweepLogs.Should().BeGreaterThan(
+                firstSweepLogCount,
+                because: "the second sweep must run a full iteration and emit its own LogSweepCompleted");
+        }
+        finally
+        {
+            // Always stop the BackgroundService so a failed assertion does not
+            // leak the loop into the next test, where it would race the shared
+            // RunCoachAppFactory's Marten state.
+            await sweeper.StopAsync(ct);
+        }
     }
 
     [Fact]
@@ -338,38 +345,45 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
 
         // Act
         await sweeper.StartAsync(ct);
+        try
+        {
+            // Wait for the first iteration's SweepAsync to throw and the
+            // CA1031 catch-all to record a warning — that's the signal the
+            // loop has parked on the fake-time delay.
+            await AsyncWait.UntilAsync(
+                () => logger.Entries.Any(e => e.Level == LogLevel.Warning),
+                TimeSpan.FromSeconds(5),
+                "the first SweepAsync iteration must throw and the catch-all must record a warning before the test advances fake time",
+                ct);
 
-        // Wait for the first iteration's SweepAsync to throw and the
-        // CA1031 catch-all to record a warning — that's the signal the
-        // loop has parked on the fake-time delay.
-        await AsyncWait.UntilAsync(
-            () => logger.Entries.Any(e => e.Level == LogLevel.Warning),
-            TimeSpan.FromSeconds(5),
-            "the first SweepAsync iteration must throw and the catch-all must record a warning before the test advances fake time",
-            ct);
+            // Advance past SweepInterval to trigger a second iteration, which
+            // also throws. The loop must still be alive — wait for a second
+            // warning rather than sleeping a fixed interval.
+            time.Advance(IdempotencySweeper.SweepInterval + TimeSpan.FromSeconds(1));
+            await AsyncWait.UntilAsync(
+                () => logger.Entries.Count(e => e.Level == LogLevel.Warning) >= 2,
+                TimeSpan.FromSeconds(5),
+                "advancing past SweepInterval must trigger a second iteration; the catch-all must record a second warning, proving the loop is still alive",
+                ct);
 
-        // Advance past SweepInterval to trigger a second iteration, which
-        // also throws. The loop must still be alive — wait for a second
-        // warning rather than sleeping a fixed interval.
-        time.Advance(IdempotencySweeper.SweepInterval + TimeSpan.FromSeconds(1));
-        await AsyncWait.UntilAsync(
-            () => logger.Entries.Count(e => e.Level == LogLevel.Warning) >= 2,
-            TimeSpan.FromSeconds(5),
-            "advancing past SweepInterval must trigger a second iteration; the catch-all must record a second warning, proving the loop is still alive",
-            ct);
+            // Assert — loop survived the failure window and the warning was emitted.
+            var executeTask = sweeper.ExecuteTask;
+            var stillRunning = executeTask is not null && !executeTask.IsCompleted;
+            stillRunning.Should().BeTrue(
+                because: "CA1031 catch-all in ExecuteAsync must keep the BackgroundService alive across transient store errors");
 
-        var executeTask = sweeper.ExecuteTask;
-        var stillRunning = executeTask is not null && !executeTask.IsCompleted;
-
-        await sweeper.StopAsync(ct);
-
-        // Assert — loop survived the failure window and the warning was emitted.
-        stillRunning.Should().BeTrue(
-            because: "CA1031 catch-all in ExecuteAsync must keep the BackgroundService alive across transient store errors");
-
-        logger.Entries.Should().Contain(
-            e => e.Level == LogLevel.Warning && e.Exception is InvalidOperationException,
-            because: "LogSweepFailed must surface the transient store failure as a warning carrying the original exception");
+            logger.Entries.Should().Contain(
+                e => e.Level == LogLevel.Warning && e.Exception is InvalidOperationException,
+                because: "LogSweepFailed must surface the transient store failure as a warning carrying the original exception");
+        }
+        finally
+        {
+            // Always stop the BackgroundService so a failed assertion does not
+            // leak the loop. Particularly important here because the substitute
+            // IDocumentStore keeps throwing on every iteration; a leaked loop
+            // would spam the test runner with warnings until the host disposes.
+            await sweeper.StopAsync(ct);
+        }
     }
 
     public override async ValueTask DisposeAsync()
