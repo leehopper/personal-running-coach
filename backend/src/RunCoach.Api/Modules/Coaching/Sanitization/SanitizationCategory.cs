@@ -36,4 +36,12 @@ public enum SanitizationCategory
 
     /// <summary>Base64-shaped advisory pattern matched (PI-12).</summary>
     RegexHitBase64Advisory,
+
+    /// <summary>
+    /// Regex evaluation hit the 50 ms <c>RegexMatchTimeoutException</c> guard.
+    /// Recorded with <see cref="SanitizationFinding.Stripped"/> = false so the audit
+    /// trail captures the suspicious-input signal without breaking the
+    /// <see cref="IPromptSanitizer"/> no-throw contract.
+    /// </summary>
+    RegexTimeout,
 }

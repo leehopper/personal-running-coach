@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -62,27 +64,55 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
 
         var rawInput = input ?? string.Empty;
         var originalLength = rawInput.Length;
-
-        // Tier 1: Unicode normalization (always neutralize).
-        var (normalized, strippedChars) = UnicodeNormalizer.Strip(rawInput);
-
         var findings = new List<SanitizationFinding>(capacity: 4);
 
-        if (strippedChars > 0)
+        // Tier 1: Unicode normalization (always neutralize). Per-category
+        // counts let us emit independent UnicodeTag and ZeroWidth findings
+        // when both are present so the audit trail keeps the dimension.
+        // The 50 ms ReDoS guard inside the strip regex can throw — catch and
+        // record a RegexTimeout finding rather than violating the
+        // IPromptSanitizer no-throw contract.
+        string normalized;
+        int tagBlockChars;
+        int zeroWidthChars;
+        try
         {
-            // Heuristic: if the strip regex matched any tag-block char in the
-            // original, classify as UnicodeTag; otherwise zero-width.
-            var category = ContainsTagBlock(rawInput)
-                ? SanitizationCategory.UnicodeTag
-                : SanitizationCategory.ZeroWidth;
+            var outcome = UnicodeNormalizer.Strip(rawInput);
+            normalized = outcome.Normalized;
+            tagBlockChars = outcome.TagBlockChars;
+            zeroWidthChars = outcome.ZeroWidthChars;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // Tier-1 timeout: fall back to passthrough; record the suspicious
+            // input as a timeout finding. Tier 2 still runs against rawInput.
+            normalized = rawInput;
+            tagBlockChars = 0;
+            zeroWidthChars = 0;
+            RecordTimeoutFinding(findings, section, "U-TIMEOUT", originalLength);
+        }
 
+        if (tagBlockChars > 0)
+        {
             findings.Add(new SanitizationFinding(
-                Category: category,
-                PatternId: category == SanitizationCategory.UnicodeTag ? "U-TAGS" : "U-ZW",
+                Category: SanitizationCategory.UnicodeTag,
+                PatternId: "U-TAGS",
                 OriginalLength: originalLength,
-                SanitizedLength: normalized.Length,
+                SanitizedLength: originalLength - tagBlockChars,
                 Stripped: true));
         }
+
+        if (zeroWidthChars > 0)
+        {
+            findings.Add(new SanitizationFinding(
+                Category: SanitizationCategory.ZeroWidth,
+                PatternId: "U-ZW",
+                OriginalLength: originalLength,
+                SanitizedLength: originalLength - zeroWidthChars,
+                Stripped: true));
+        }
+
+        var strippedChars = tagBlockChars + zeroWidthChars;
 
         // Tier 2: regex catalog. Patterns considered depend on section policy.
         // Detection runs against the post-Tier-1 `normalized` snapshot so that
@@ -101,7 +131,21 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
                 continue;
             }
 
-            if (!pattern.Regex.IsMatch(normalized))
+            bool matched;
+            try
+            {
+                matched = pattern.Regex.IsMatch(normalized);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                // Per-pattern detection timeout. Skip strip; continue with
+                // the next pattern so a single bad pattern can't poison the
+                // catalog.
+                RecordTimeoutFinding(findings, section, pattern.PatternId + "-TIMEOUT", working.Length);
+                continue;
+            }
+
+            if (!matched)
             {
                 continue;
             }
@@ -112,7 +156,17 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
 
             if (stripThisPattern)
             {
-                working = pattern.Regex.Replace(working, string.Empty);
+                try
+                {
+                    working = pattern.Regex.Replace(working, string.Empty);
+                }
+                catch (RegexMatchTimeoutException)
+                {
+                    // Strip Replace timed out — preserve `working` and record.
+                    RecordTimeoutFinding(findings, section, pattern.PatternId + "-STRIP-TIMEOUT", preLength);
+                    continue;
+                }
+
                 postLength = working.Length;
                 anyNeutralized = true;
             }
@@ -152,12 +206,14 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
 
     /// <summary>
     /// Generates a 16-hex-char per-turn nonce. Uses
-    /// <see cref="Guid.NewGuid"/> rather than the time provider because the
-    /// value is intentionally non-deterministic (it is the only such element
-    /// in the sanitizer output) and lives on the non-cached prompt tail.
+    /// <see cref="RandomNumberGenerator.GetHexString(int, bool)"/> for an
+    /// explicit CSPRNG contract (64 bits of entropy). The value is
+    /// intentionally non-deterministic — it is the only such element in the
+    /// sanitizer output — and lives on the non-cached prompt tail so cache
+    /// prefix stability is preserved per DEC-047.
     /// </summary>
     internal static string GenerateNonce() =>
-        Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture)[..16];
+        RandomNumberGenerator.GetHexString(16, lowercase: true);
 
     private static void StampActivityAttributes(
         Activity? activity,
@@ -185,23 +241,21 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
         activity.SetTag("runcoach.sanitization.section", section.ToString());
     }
 
-    private static bool ContainsTagBlock(string input)
+    private static void RecordTimeoutFinding(
+        List<SanitizationFinding> findings,
+        PromptSection section,
+        string patternId,
+        int referenceLength)
     {
-        // Tag-block code points (U+E0000–U+E007F) are non-BMP and arrive as
-        // surrogate pairs in UTF-16. Walk the string and decode each pair.
-        for (var i = 0; i < input.Length - 1; i++)
-        {
-            if (char.IsHighSurrogate(input[i]) && char.IsLowSurrogate(input[i + 1]))
-            {
-                var codepoint = char.ConvertToUtf32(input[i], input[i + 1]);
-                if (codepoint >= 0xE0000 && codepoint <= 0xE007F)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        // Length fields equal — the timeout means we did not modify the input.
+        // PII-discipline: only the patternId, section, and length are recorded.
+        findings.Add(new SanitizationFinding(
+            Category: SanitizationCategory.RegexTimeout,
+            PatternId: patternId,
+            OriginalLength: referenceLength,
+            SanitizedLength: referenceLength,
+            Stripped: false));
+        _ = section; // Section is captured by the OTel span attribute set by the caller.
     }
 
     private static bool IsPatternConsidered(string patternId, PromptSection section)
@@ -316,11 +370,30 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
             $"<{label}>{escapedBody}</{label}>");
     }
 
+    /// <summary>
+    /// Escapes characters that an LLM could interpret as a section terminator
+    /// in the surrounding spotlighting delimiter (<c>&lt;LABEL&gt;…&lt;/LABEL&gt;</c>).
+    /// Escapes ASCII <c>&amp;</c> / <c>&lt;</c> / <c>&gt;</c> AND a defense-in-depth
+    /// list of bracket-homoglyph code points: fullwidth (U+FF1C/U+FF1E),
+    /// mathematical (U+27E8/U+27E9), single guillemets (U+2039/U+203A) and
+    /// CJK angle brackets (U+3008–U+300B). NFKC normalization would be
+    /// broader but also folds e.g. ① → 1, so we use a surgical replace list.
+    /// </summary>
     private static string EscapeDelimiterBody(string body) =>
         body
             .Replace("&", "&amp;", StringComparison.Ordinal)
             .Replace("<", "&lt;", StringComparison.Ordinal)
-            .Replace(">", "&gt;", StringComparison.Ordinal);
+            .Replace(">", "&gt;", StringComparison.Ordinal)
+            .Replace("＜", "&lt;", StringComparison.Ordinal)
+            .Replace("＞", "&gt;", StringComparison.Ordinal)
+            .Replace("⟨", "&lt;", StringComparison.Ordinal)
+            .Replace("⟩", "&gt;", StringComparison.Ordinal)
+            .Replace("‹", "&lt;", StringComparison.Ordinal)
+            .Replace("›", "&gt;", StringComparison.Ordinal)
+            .Replace("〈", "&lt;", StringComparison.Ordinal)
+            .Replace("〉", "&gt;", StringComparison.Ordinal)
+            .Replace("《", "&lt;", StringComparison.Ordinal)
+            .Replace("》", "&gt;", StringComparison.Ordinal);
 
     /// <summary>
     /// PII-free serializable shape for the OTel <c>findings</c> attribute and

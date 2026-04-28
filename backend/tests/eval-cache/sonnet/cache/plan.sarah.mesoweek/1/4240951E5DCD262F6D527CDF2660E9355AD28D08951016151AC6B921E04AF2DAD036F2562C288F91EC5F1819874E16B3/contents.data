@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":15,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week ahead. Gentle walking or stretching is fine if you feel restless.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Three running days per week means your off days are doing real work — this is where adaptation happens.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 5 km at 7:00–8:00 /km. This is your aerobic foundation run — keep it conversational and relaxed. If you can't hold a sentence, slow down.\"},\"wednesday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Two runs down this week, one to go. Trust the process.\"},\"thursday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 5 km at 7:00–8:00 /km. Same easy effort as Tuesday — consistency at this pace builds your aerobic base more effectively than pushing harder.\"},\"friday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Your legs should feel fresh heading into Saturday's long run.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long run, 5 km at 7:00–8:00 /km. Your longest run of the week — same easy pace, but the goal is time on feet. No need to push. This run builds endurance and mental confidence.\"},\"week_summary\":\"Welcome to Week 1, Sarah! This is your first week and we're starting right where you are — 15 km across three easy runs, all at a comfortable 7:00–8:00 /km pace. The entire focus this week is establishing your rhythm: show up, run easy, recover well. There's no need to prove anything yet. Your aerobic system is being built run by run, and every easy kilometre you complete is a genuine deposit into your 5K fitness. The most important thing this week is finishing all three runs feeling like you could have done a little more — that's exactly the right feeling.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 3756,
+    "outputTokenCount": 530,
+    "totalTokenCount": 4286
+  }
+}

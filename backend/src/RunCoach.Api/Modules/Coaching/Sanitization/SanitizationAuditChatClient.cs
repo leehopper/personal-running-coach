@@ -31,22 +31,13 @@ namespace RunCoach.Api.Modules.Coaching.Sanitization;
 /// (T01.5 / DEC-058). Today it remains DI-resolvable as a building block.
 /// </para>
 /// </remarks>
-public sealed class SanitizationAuditChatClient : DelegatingChatClient
+/// <param name="innerClient">The inner chat client this audit layer wraps.</param>
+public sealed class SanitizationAuditChatClient(IChatClient innerClient) : DelegatingChatClient(innerClient)
 {
     /// <summary>Name of the rollup span emitted around the inner client call.</summary>
     internal const string AuditSpanName = "runcoach.llm.sanitization.audit";
 
     private static readonly ActivitySource Source = new(LayeredPromptSanitizer.ActivitySourceName);
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SanitizationAuditChatClient"/> class.
-    /// Initializes a new instance wrapping <paramref name="innerClient"/>.
-    /// </summary>
-    /// <param name="innerClient">The inner chat client this audit layer wraps.</param>
-    public SanitizationAuditChatClient(IChatClient innerClient)
-        : base(innerClient)
-    {
-    }
 
     /// <inheritdoc />
     public override async Task<ChatResponse> GetResponseAsync(

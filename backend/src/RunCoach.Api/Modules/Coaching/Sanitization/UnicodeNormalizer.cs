@@ -33,24 +33,49 @@ internal static partial class UnicodeNormalizer
     internal static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(50);
 
     /// <summary>
-    /// Strips Unicode-tag and zero-width characters from <paramref name="input"/>.
+    /// Strips Unicode-tag and zero-width characters from <paramref name="input"/>,
+    /// returning per-category strip counts so the audit layer can emit
+    /// independent findings for each class even when both are present in the
+    /// same input.
     /// </summary>
     /// <param name="input">Input string. <c>null</c> is treated as empty.</param>
     /// <returns>
-    /// Tuple of (normalized text, count of UTF-16 code units removed). The
-    /// count is the difference between the original and normalized lengths
-    /// in <see cref="char"/> units.
+    /// <see cref="UnicodeNormalizationOutcome"/> carrying the normalized text plus
+    /// separate counts (in UTF-16 code units) for tag-block (U+E0000–U+E007F)
+    /// and zero-width / BOM (U+200B–U+200F, U+2060–U+2064, U+FEFF) strips.
     /// </returns>
-    public static (string Normalized, int StrippedCharCount) Strip(string? input)
+    /// <exception cref="System.Text.RegularExpressions.RegexMatchTimeoutException">
+    /// Thrown if the strip regex hits its 50 ms ReDoS guard. Callers in the
+    /// sanitizer pipeline catch this and emit a <see cref="SanitizationCategory.RegexTimeout"/>
+    /// finding rather than letting it escape the public API.
+    /// </exception>
+    public static UnicodeNormalizationOutcome Strip(string? input)
     {
         if (string.IsNullOrEmpty(input))
         {
-            return (string.Empty, 0);
+            return new UnicodeNormalizationOutcome(string.Empty, 0, 0);
         }
 
-        var normalized = StripRegex().Replace(input, string.Empty);
-        var stripped = input.Length - normalized.Length;
-        return (normalized, stripped);
+        var tagBlockChars = 0;
+        var zeroWidthChars = 0;
+
+        var normalized = StripRegex().Replace(input, m =>
+        {
+            // Tag-block matches are surrogate pairs (length 2, lead = U+DB40).
+            // Zero-width / BOM matches are BMP single chars (length 1).
+            if (m.Length == 2 && m.Value[0] == '\uDB40')
+            {
+                tagBlockChars += m.Length;
+            }
+            else
+            {
+                zeroWidthChars += m.Length;
+            }
+
+            return string.Empty;
+        });
+
+        return new UnicodeNormalizationOutcome(normalized, tagBlockChars, zeroWidthChars);
     }
 
     /// <summary>

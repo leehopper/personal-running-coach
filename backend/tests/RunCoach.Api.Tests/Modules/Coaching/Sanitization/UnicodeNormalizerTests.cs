@@ -19,7 +19,8 @@ public class UnicodeNormalizerTests
         string? input = null;
 
         // Act
-        var (normalized, stripped) = UnicodeNormalizer.Strip(input);
+        var (normalized, tagBlockChars, zeroWidthChars) = UnicodeNormalizer.Strip(input);
+        var stripped = tagBlockChars + zeroWidthChars;
 
         // Assert
         normalized.Should().BeEmpty();
@@ -33,7 +34,8 @@ public class UnicodeNormalizerTests
         var input = "I ran 10 miles today and felt great.";
 
         // Act
-        var (normalized, stripped) = UnicodeNormalizer.Strip(input);
+        var (normalized, tagBlockChars, zeroWidthChars) = UnicodeNormalizer.Strip(input);
+        var stripped = tagBlockChars + zeroWidthChars;
 
         // Assert
         normalized.Should().Be(input);
@@ -59,11 +61,35 @@ public class UnicodeNormalizerTests
         var input = $"a{zw}b";
 
         // Act
-        var (normalized, stripped) = UnicodeNormalizer.Strip(input);
+        var (normalized, tagBlockChars, zeroWidthChars) = UnicodeNormalizer.Strip(input);
+        var stripped = tagBlockChars + zeroWidthChars;
 
         // Assert — label disambiguates the parameterized failure message.
         normalized.Should().Be("ab", $"the {label} (U+{codepoint:X4}) char must be stripped");
         stripped.Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(0x200A, "HAIR-SPACE-just-below-200B")]
+    [InlineData(0x2065, "just-above-2064")]
+    [InlineData(0x2059, "just-below-2060")]
+    [InlineData(0xFEFE, "just-below-FEFF")]
+    public void Strip_BoundaryAdjacent_LeavesUntouched(int codepoint, string label)
+    {
+        // Arrange — boundary code points just outside the stripped ranges.
+        // Guards against accidental regex widening (e.g.  -‏ instead
+        // of ​-‏) that would silently strip legitimate hair-space
+        // chars from user input.
+        var ch = char.ConvertFromUtf32(codepoint);
+        var input = $"a{ch}b";
+
+        // Act
+        var (normalized, tagBlockChars, zeroWidthChars) = UnicodeNormalizer.Strip(input);
+        var stripped = tagBlockChars + zeroWidthChars;
+
+        // Assert — the boundary char must pass through unchanged.
+        normalized.Should().Be(input, $"U+{codepoint:X4} ({label}) is outside the stripped range");
+        stripped.Should().Be(0);
     }
 
     [Fact]
@@ -78,7 +104,8 @@ public class UnicodeNormalizerTests
         var input = $"hello{tagI}{tagG}{tagN}world";
 
         // Act
-        var (normalized, stripped) = UnicodeNormalizer.Strip(input);
+        var (normalized, tagBlockChars, zeroWidthChars) = UnicodeNormalizer.Strip(input);
+        var stripped = tagBlockChars + zeroWidthChars;
 
         // Assert — every tag-block char is two UTF-16 units; three chars × 2 = 6.
         normalized.Should().Be("helloworld");
@@ -94,7 +121,8 @@ public class UnicodeNormalizerTests
         var input = $"x{first}y{last}z";
 
         // Act
-        var (normalized, stripped) = UnicodeNormalizer.Strip(input);
+        var (normalized, tagBlockChars, zeroWidthChars) = UnicodeNormalizer.Strip(input);
+        var stripped = tagBlockChars + zeroWidthChars;
 
         // Assert
         normalized.Should().Be("xyz");
@@ -109,7 +137,8 @@ public class UnicodeNormalizerTests
         var input = $"good run {emoji}";
 
         // Act
-        var (normalized, stripped) = UnicodeNormalizer.Strip(input);
+        var (normalized, tagBlockChars, zeroWidthChars) = UnicodeNormalizer.Strip(input);
+        var stripped = tagBlockChars + zeroWidthChars;
 
         // Assert
         normalized.Should().Be(input);
@@ -130,7 +159,8 @@ public class UnicodeNormalizerTests
         var input = new string('a', 50_000) + zwsp + new string('b', 50_000);
 
         // Act
-        var (normalized, stripped) = UnicodeNormalizer.Strip(input);
+        var (normalized, tagBlockChars, zeroWidthChars) = UnicodeNormalizer.Strip(input);
+        var stripped = tagBlockChars + zeroWidthChars;
 
         // Assert — every non-zero-width char survived, exactly one was stripped.
         normalized.Length.Should().Be(input.Length - 1);

@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":52,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long easy run at 5:24–6:11/km. Cap at 90 min. Focus on relaxed effort and aerobic base — no need to push pace today.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Your body consolidates the long run stimulus best with genuine recovery. Think of this as training, not time off.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run at 5:24–6:11/km, around 10–11 km. Keep effort conversational — if in doubt, slow down.\"},\"wednesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Threshold workout: 2 km easy warm-up, 4×6 min at 4:29/km with 90 sec easy jog recovery, 2 km cool-down. Total ~11 km. This is controlled discomfort, not a race.\"},\"thursday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run at 5:30–6:11/km, around 9 km. Keep effort low — this run exists to flush fatigue, not add stress.\"},\"friday\":{\"slot_type\":\"CrossTrain\",\"workout_type\":null,\"notes\":\"Low-impact cross-training: 30–45 min of cycling, swimming, or yoga. Keeps aerobic stimulus without pounding. Great for your Achilles history.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy aerobic run at 5:24–6:11/km, around 11 km. Relaxed effort throughout — finish feeling like you could go further.\"},\"week_summary\":\"Welcome to your maintenance plan, Maria. This first week is calibrated just below your recent peak (you ran 47 km two weeks ago after a slight dip, so we're easing back to a sustainable rhythm around 52 km). The structure balances your aerobic base with one quality session mid-week — enough stimulus to hold your hard-earned fitness without digging a hole. Your Achilles history is respected throughout: we've kept the cross-train day on Friday as a buffer before Saturday's easy run, and there's no back-to-back hard effort. The goal this week is simple: arrive at Sunday's long run feeling sharp, not depleted.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 3999,
+    "outputTokenCount": 593,
+    "totalTokenCount": 4592
+  }
+}

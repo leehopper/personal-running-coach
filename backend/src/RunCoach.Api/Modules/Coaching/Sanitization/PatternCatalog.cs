@@ -13,11 +13,16 @@ namespace RunCoach.Api.Modules.Coaching.Sanitization;
 /// </summary>
 /// <remarks>
 /// <para>
-/// All patterns use <c>\s+</c> (not literal space) to defeat space-injection
-/// bypasses. All patterns compile with
-/// <see cref="RegexOptions.IgnoreCase"/> | <see cref="RegexOptions.CultureInvariant"/>
-/// | <see cref="RegexOptions.Compiled"/> and a 50 ms
-/// <see cref="Regex.MatchTimeout"/> ReDoS guard.
+/// Patterns that contain a whitespace token between mandatory components use
+/// <c>\s+</c> or <c>\s*</c> (depending on whether emptiness between tokens is
+/// allowed) — never a literal space — to defeat space-injection bypasses.
+/// PI-12 (base64 advisory) has no whitespace token because valid base64 is
+/// inherently space-free. Patterns compile with
+/// <see cref="RegexOptions.CultureInvariant"/> |
+/// <see cref="RegexOptions.Compiled"/> plus a 50 ms
+/// <see cref="Regex.MatchTimeout"/> ReDoS guard;
+/// <see cref="RegexOptions.IgnoreCase"/> is added for every pattern except
+/// PI-12, where the case-sensitive base64 alphabet matters.
 /// </para>
 /// <para>
 /// The catalog deliberately omits a standalone <c>\bignore\b</c> pattern —
@@ -35,9 +40,61 @@ internal sealed class PatternCatalog
     /// </summary>
     public const string PolicyVersion = "v1.1.0";
 
-    private PatternCatalog()
+    private PatternCatalog(ImmutableArray<CatalogPattern> patterns)
     {
-        Patterns = ImmutableArray.Create(
+        Patterns = patterns;
+    }
+
+    /// <summary>
+    /// Gets singleton instance — patterns are stateless and compiled once at
+    /// type-load.
+    /// </summary>
+    public static PatternCatalog Default { get; } = new(BuildDefaultPatterns());
+
+    /// <summary>
+    /// Gets identifiers of the patterns promoted to neutralize-mode for
+    /// <see cref="PromptSection.CurrentUserMessage"/> at MVP-0. Per Slice 1
+    /// § Unit 6: DAN-family triggers (PI-04, PI-05, PI-06) carry near-zero
+    /// false-positive risk in a running context and so are stripped on hit
+    /// for the current user message only.
+    /// </summary>
+    public static IReadOnlySet<string> NeutralizeOnCurrentUserMessage { get; } =
+        new HashSet<string>(StringComparer.Ordinal) { "PI-04", "PI-05", "PI-06" };
+
+    /// <summary>
+    /// Gets identifiers of the patterns evaluated for the "light" tier sections
+    /// (short proper nouns: <see cref="PromptSection.UserProfileName"/>,
+    /// <see cref="PromptSection.GoalStateRaceName"/>). Only role-spoof
+    /// tokens (PI-07) are checked.
+    /// </summary>
+    public static IReadOnlySet<string> LightTierPatterns { get; } =
+        new HashSet<string>(StringComparer.Ordinal) { "PI-07" };
+
+    /// <summary>Gets the compiled patterns. Order is the canonical PI-01..PI-12 order.</summary>
+    public ImmutableArray<CatalogPattern> Patterns { get; }
+
+    /// <summary>
+    /// Test-only factory: build a catalog backed by an arbitrary pattern set.
+    /// Intended for regression tests that exercise edge behavior (e.g. ReDoS
+    /// timeout handling) without polluting the production catalog. Visible
+    /// to the test assembly via <c>InternalsVisibleTo</c>.
+    /// </summary>
+    internal static PatternCatalog ForTesting(ImmutableArray<CatalogPattern> patterns) =>
+        new(patterns);
+
+    private static Regex Compile(string pattern, bool ignoreCase = true)
+    {
+        var options = RegexOptions.CultureInvariant | RegexOptions.Compiled;
+        if (ignoreCase)
+        {
+            options |= RegexOptions.IgnoreCase;
+        }
+
+        return new Regex(pattern, options, UnicodeNormalizer.RegexTimeout);
+    }
+
+    private static ImmutableArray<CatalogPattern> BuildDefaultPatterns() =>
+        ImmutableArray.Create(
             new CatalogPattern(
                 "PI-01",
                 SanitizationCategory.RegexHitDirectOverride,
@@ -86,46 +143,6 @@ internal sealed class PatternCatalog
                 "PI-12",
                 SanitizationCategory.RegexHitBase64Advisory,
                 Compile(@"[A-Za-z0-9+/]{60,}={0,2}", ignoreCase: false)));
-    }
-
-    /// <summary>
-    /// Gets singleton instance — patterns are stateless and compiled once at
-    /// type-load.
-    /// </summary>
-    public static PatternCatalog Default { get; } = new PatternCatalog();
-
-    /// <summary>
-    /// Gets identifiers of the patterns promoted to neutralize-mode for
-    /// <see cref="PromptSection.CurrentUserMessage"/> at MVP-0. Per Slice 1
-    /// § Unit 6: DAN-family triggers (PI-04, PI-05, PI-06) carry near-zero
-    /// false-positive risk in a running context and so are stripped on hit
-    /// for the current user message only.
-    /// </summary>
-    public static IReadOnlySet<string> NeutralizeOnCurrentUserMessage { get; } =
-        new HashSet<string>(StringComparer.Ordinal) { "PI-04", "PI-05", "PI-06" };
-
-    /// <summary>
-    /// Gets identifiers of the patterns evaluated for the "light" tier sections
-    /// (short proper nouns: <see cref="PromptSection.UserProfileName"/>,
-    /// <see cref="PromptSection.GoalStateRaceName"/>). Only role-spoof
-    /// tokens (PI-07) are checked.
-    /// </summary>
-    public static IReadOnlySet<string> LightTierPatterns { get; } =
-        new HashSet<string>(StringComparer.Ordinal) { "PI-07" };
-
-    /// <summary>Gets the compiled patterns. Order is the canonical PI-01..PI-12 order.</summary>
-    public ImmutableArray<CatalogPattern> Patterns { get; }
-
-    private static Regex Compile(string pattern, bool ignoreCase = true)
-    {
-        var options = RegexOptions.CultureInvariant | RegexOptions.Compiled;
-        if (ignoreCase)
-        {
-            options |= RegexOptions.IgnoreCase;
-        }
-
-        return new Regex(pattern, options, UnicodeNormalizer.RegexTimeout);
-    }
 
     /// <summary>
     /// Single compiled pattern in the catalog. Carries its stable id (e.g.

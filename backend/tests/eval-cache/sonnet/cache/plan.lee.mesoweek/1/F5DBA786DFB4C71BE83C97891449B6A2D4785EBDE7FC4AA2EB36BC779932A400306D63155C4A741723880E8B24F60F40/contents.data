@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":40,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long run at easy effort: 5:52–6:43/km. Target 14 km. Keep it conversational — this is about time on feet, not pace. A great chance to settle into the plan and get comfortable on your feet.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. After Sunday's long run, let your body absorb the work. Rest is training too.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run 8 km at 5:52–6:43/km. Keep effort genuinely easy — if in doubt, slow down. This builds aerobic base without adding fatigue.\"},\"wednesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Tempo run: 2 km easy warm-up, 4 km at threshold pace (4:53/km), 2 km easy cool-down. Total ~8 km. This is your first taste of race-relevant effort — focus on smooth, controlled running.\"},\"thursday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or very light mobility work. Your legs earned a break after Wednesday's tempo. Prioritize sleep and hydration today.\"},\"friday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run 8 km at 5:52–6:43/km. A recovery-friendly effort to keep the aerobic engine ticking. If your legs still feel heavy from Wednesday, dial it back to the slower end of the range.\"},\"saturday\":{\"slot_type\":\"CrossTrain\",\"workout_type\":null,\"notes\":\"Optional light cross-training (cycling, swimming, or yoga). 30–45 min, low intensity. Great for active recovery and keeping the IT band happy without extra run stress.\"},\"week_summary\":\"Welcome to Week 1, Lee — and to a plan built specifically around your goal of 1:45:00 at the Spring Half Marathon on July 11th. This opening week matches your recent training volume (40 km) so nothing feels like a shock to the system. The focus is establishing your weekly rhythm: a long run on Sunday, one quality session mid-week (tempo), and easy aerobic work filling the rest. With your IT band history in mind, Saturday's cross-training slot gives you a low-impact option to stay active without stacking run stress. The 10% weekly progression rule means we'll build carefully from here — your fitness is already solid, and the goal is to sharpen it systematically over the coming weeks.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 3984,
+    "outputTokenCount": 627,
+    "totalTokenCount": 4611
+  }
+}
