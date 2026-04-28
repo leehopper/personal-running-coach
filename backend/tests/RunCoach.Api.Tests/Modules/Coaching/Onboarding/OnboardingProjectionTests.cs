@@ -69,6 +69,71 @@ public sealed class OnboardingProjectionTests
     }
 
     [Fact]
+    public void OnboardingProjection_Apply_TopicAsked_SetsCurrentTopicAndBumpsVersion()
+    {
+        // Arrange — TopicAsked is the chat-surface signal for "the assistant just asked X".
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+
+        // Act
+        OnboardingProjection.Apply(new TopicAsked(OnboardingTopic.TargetEvent, Now.AddMinutes(1)), view);
+
+        // Assert
+        view.CurrentTopic.Should().Be(OnboardingTopic.TargetEvent);
+        view.Version.Should().Be(
+            2,
+            because: "every Apply overload must bump Version so callers can detect drift between the view and the underlying event stream");
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_UserTurnRecorded_BumpsVersionAndPreservesSlots()
+    {
+        // Arrange — user turns are informational for the view; the transcript itself lives
+        // on the event stream and never materializes onto OnboardingView.
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        var seededGoal = new PrimaryGoalAnswer
+        {
+            Goal = PrimaryGoal.RaceTraining,
+            Description = "Half marathon.",
+        };
+        OnboardingProjection.Apply(
+            new AnswerCaptured(
+                OnboardingTopic.PrimaryGoal,
+                JsonSerializer.SerializeToDocument(seededGoal),
+                Confidence: 0.9,
+                CapturedAt: Now),
+            view);
+        var versionBeforeTurn = view.Version;
+        using var doc = JsonSerializer.SerializeToDocument(new { type = "text", text = "I want to PR." });
+
+        // Act
+        OnboardingProjection.Apply(new UserTurnRecorded(doc, Now.AddMinutes(2)), view);
+
+        // Assert
+        view.Version.Should().Be(versionBeforeTurn + 1);
+        view.PrimaryGoal!.Goal.Should().Be(
+            PrimaryGoal.RaceTraining,
+            because: "informational turn events must not mutate captured-answer slots");
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_AssistantTurnRecorded_BumpsVersionAndPreservesSlots()
+    {
+        // Arrange — see UserTurnRecorded test; assistant turns share the same informational
+        // contract on the view (transcript content is event-stream-only).
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        var versionBeforeTurn = view.Version;
+        using var doc = JsonSerializer.SerializeToDocument(new { type = "text", text = "Got it." });
+
+        // Act
+        OnboardingProjection.Apply(new AssistantTurnRecorded(doc, Now.AddMinutes(3)), view);
+
+        // Assert
+        view.Version.Should().Be(versionBeforeTurn + 1);
+        view.CurrentTopic.Should().BeNull(
+            because: "assistant turns are informational; only TopicAsked sets the current-topic slot");
+    }
+
+    [Fact]
     public void OnboardingProjection_Apply_ClarificationRequested_AddsToList()
     {
         // Arrange
