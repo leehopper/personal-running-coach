@@ -1,3 +1,4 @@
+using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Computations;
@@ -39,6 +40,13 @@ public static class ServiceCollectionExtensions
         // Coaching module — scoped services (per-request lifetime).
         services.AddScoped<ICoachingLlm, ClaudeCoachingLlm>();
         services.AddScoped<IContextAssembler, ContextAssembler>();
+
+        // Idempotency primitive (DEC-060) — scoped so Wolverine handlers and
+        // the store share the same `IDocumentSession` instance per request.
+        // The sweeper is a hosted singleton that opens its own per-iteration
+        // cross-tenant session.
+        services.AddScoped<IIdempotencyStore, MartenIdempotencyStore>();
+        services.AddHostedService<IdempotencySweeper>();
 
         return services;
     }

@@ -1,9 +1,14 @@
+using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Respawn;
 using RunCoach.Api.Infrastructure;
+using RunCoach.Api.Infrastructure.Idempotency;
 using Testcontainers.PostgreSql;
 
 namespace RunCoach.Api.Tests.Infrastructure;
@@ -131,6 +136,14 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
             SchemasToInclude = ["public"],
             TablesToIgnore = [new Respawn.Graph.Table("__EFMigrationsHistory")],
         });
+
+        // Eagerly resolve `IDocumentStore` to force the SUT host to build now,
+        // sequentially, at fixture-init time. Marten's
+        // `ApplyAllDatabaseChangesOnStartup()` acquires a Postgres advisory
+        // lock at host-boot — without this warmup the lazy `Factory.Services`
+        // accesses inside test classes can race the lock on slow CI runners,
+        // producing "Unable to attain a global lock in time".
+        _ = Services.GetRequiredService<IDocumentStore>();
     }
 
     public override async ValueTask DisposeAsync()
@@ -202,5 +215,30 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         // client so `Request.IsHttps = true` and the middleware short-circuits
         // without any redirect.
         builder.UseSetting("https_port", "443");
+
+        // Strip the production-registered `IdempotencySweeper` hosted service
+        // from the SUT's DI graph for tests. Production wires the sweeper as
+        // an `IHostedService` bound to `TimeProvider.System`, so the moment
+        // the host boots (which we force eagerly in `InitializeAsync` to
+        // serialize Marten's startup advisory-lock acquisition), the sweeper
+        // begins running on real wall-clock time. Idempotency tests, however,
+        // construct their own `IdempotencySweeper` against a `FakeTimeProvider`
+        // and seed marker rows at fake-time offsets that may sit hours or days
+        // behind today's real clock. Leaving the hosted instance running races
+        // against test-owned markers: it can delete a "fresh" fake-time marker
+        // mid-assertion because the real-clock cutoff has long since passed
+        // it. Removing the descriptor here makes the sweeper test-driven only.
+        // Tests that exercise the sweep loop instantiate it directly via
+        // `new IdempotencySweeper(store, fakeTime, NullLogger<...>.Instance)`.
+        builder.ConfigureTestServices(services =>
+        {
+            var hostedDescriptor = services.SingleOrDefault(d =>
+                d.ServiceType == typeof(IHostedService)
+                && d.ImplementationType == typeof(IdempotencySweeper));
+            if (hostedDescriptor is not null)
+            {
+                services.Remove(hostedDescriptor);
+            }
+        });
     }
 }

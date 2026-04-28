@@ -5,6 +5,7 @@ using JasperFx.Events.Daemon;
 using Marten;
 using Marten.Services;
 using Marten.Storage;
+using RunCoach.Api.Infrastructure.Idempotency;
 using Wolverine.Marten;
 
 namespace RunCoach.Api.Infrastructure;
@@ -12,7 +13,7 @@ namespace RunCoach.Api.Infrastructure;
 /// <summary>
 /// Registers the Marten document store with the production-shape configuration:
 /// stream-per-user Guid identity, conjoined multitenancy on the
-/// <c>runcoach_events</c> schema, Quick append mode, Solo async daemon, and
+/// <c>runcoach_events</c> schema, Rich append mode, Solo async daemon, and
 /// Wolverine outbox integration via <c>IntegrateWithWolverine()</c>.
 /// Registration-only for Slice 0; no documents or streams are written yet.
 /// </summary>
@@ -33,7 +34,18 @@ public static class MartenConfiguration
                 opts.Events.DatabaseSchemaName = EventsSchema;
                 opts.Events.StreamIdentity = StreamIdentity.AsGuid;
                 opts.Events.TenancyStyle = TenancyStyle.Conjoined;
-                opts.Events.AppendMode = EventAppendMode.Quick;
+
+                // Rich mode (DEC-057): performs the two-step SQL append that
+                // tracks per-stream version numbers and enforces stream-version
+                // consistency at SaveChangesAsync time. Concurrent submits to
+                // the same stream that race past the idempotency check will
+                // collide — the second committer gets `ExistingStreamIdCollisionException`
+                // (first-turn StartStream race) or `ConcurrentUpdateException`
+                // (subsequent-turn Append race). Wolverine's concurrency policy
+                // in Program.cs routes both to the dead-letter queue. Quick
+                // mode skips version checks entirely, making the DEC-057
+                // concurrency guarantee design-only.
+                opts.Events.AppendMode = EventAppendMode.Rich;
                 opts.Events.UseIdentityMapForAggregates = true;
 
                 // `EnableAdvancedAsyncTracking` intentionally left at its
@@ -41,6 +53,14 @@ public static class MartenConfiguration
                 // load-bearing value. Flip on only when a concrete test-side
                 // `WaitForNonStaleData` assertion needs it.
                 opts.Policies.AllDocumentsAreMultiTenanted();
+
+                // Explicit document registration so JasperFx static codegen
+                // (`TypeLoadMode.Static` in Production) picks up the
+                // idempotency-marker document at build time. Auto-discovery
+                // only covers documents Marten observes via session calls,
+                // which is fine in Development but breaks Production
+                // pre-generated handler chains.
+                opts.Schema.For<IdempotencyMarker>();
 
                 opts.Projections.Errors.SkipUnknownEvents = true;
 
