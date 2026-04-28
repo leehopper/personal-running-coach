@@ -262,15 +262,22 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
         var tenantId = Guid.NewGuid();
         var key = Guid.NewGuid();
 
-        var sweeper = new IdempotencySweeper(store, time, NullLogger<IdempotencySweeper>.Instance);
+        var logger = new CapturingLogger<IdempotencySweeper>();
+        var sweeper = new IdempotencySweeper(store, time, logger);
 
         // Act
         await sweeper.StartAsync(ct);
 
-        // Give the loop a moment to run its first (no-op) sweep and park on
-        // `Task.Delay(SweepInterval, fakeTime, ct)`. Real-clock pump only —
-        // the fake-time delay won't progress until we Advance below.
-        await Task.Delay(200, ct);
+        // Wait for the loop's first sweep to log "completed" — that's the
+        // observable signal the loop has parked on `Task.Delay(SweepInterval,
+        // fakeTime, ct)` and is ready to react to a fake-time Advance.
+        await AsyncWait.UntilAsync(
+            () => logger.Entries.Any(e => e.Level == LogLevel.Debug),
+            TimeSpan.FromSeconds(5),
+            "the BackgroundService loop must run its first sweep and emit LogSweepCompleted before the test seeds and advances time",
+            ct);
+
+        var firstSweepLogCount = logger.Entries.Count(e => e.Level == LogLevel.Debug);
 
         var expiredAt = time.GetUtcNow() - TimeSpan.FromHours(50);
         await using (var seedSession = store.LightweightSession(tenantId.ToString()))
@@ -288,27 +295,27 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
         // and trigger the second sweep iteration.
         time.Advance(IdempotencySweeper.SweepInterval + TimeSpan.FromSeconds(1));
 
-        // Poll the DB up to ~10s waiting for the second sweep to delete the
-        // marker. Polling uses real time; the sweep iteration itself uses fake.
-        var deleted = false;
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (DateTime.UtcNow < deadline)
-        {
-            await using var poll = store.LightweightSession(tenantId.ToString());
-            if (await poll.LoadAsync<IdempotencyMarker>(key, ct) is null)
+        // Wait for the second sweep to delete the seeded marker. Two
+        // observable signals confirm the iteration ran: a new
+        // LogSweepCompleted entry, and the marker being gone from the DB.
+        // Poll on the latter since it's the load-bearing assertion.
+        await AsyncWait.UntilAsync(
+            async () =>
             {
-                deleted = true;
-                break;
-            }
-
-            await Task.Delay(50, ct);
-        }
+                await using var poll = store.LightweightSession(tenantId.ToString());
+                return await poll.LoadAsync<IdempotencyMarker>(key, ct) is null;
+            },
+            TimeSpan.FromSeconds(10),
+            "advancing the FakeTimeProvider past SweepInterval must release the loop's Task.Delay and trigger a fresh sweep that deletes the seeded marker",
+            ct);
 
         await sweeper.StopAsync(ct);
 
-        // Assert
-        deleted.Should().BeTrue(
-            because: "advancing the FakeTimeProvider past SweepInterval must release the loop's Task.Delay and trigger a fresh sweep that deletes the seeded marker");
+        // Assert — the second sweep also produced a completed-log entry.
+        var totalSweepLogs = logger.Entries.Count(e => e.Level == LogLevel.Debug);
+        totalSweepLogs.Should().BeGreaterThan(
+            firstSweepLogCount,
+            because: "the second sweep must run a full iteration and emit its own LogSweepCompleted");
     }
 
     [Fact]
@@ -332,14 +339,24 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
         // Act
         await sweeper.StartAsync(ct);
 
-        // Pump real time so the first iteration runs SweepAsync (which throws),
-        // the catch-all swallows it, and the loop parks on the fake-time delay.
-        await Task.Delay(200, ct);
+        // Wait for the first iteration's SweepAsync to throw and the
+        // CA1031 catch-all to record a warning — that's the signal the
+        // loop has parked on the fake-time delay.
+        await AsyncWait.UntilAsync(
+            () => logger.Entries.Any(e => e.Level == LogLevel.Warning),
+            TimeSpan.FromSeconds(5),
+            "the first SweepAsync iteration must throw and the catch-all must record a warning before the test advances fake time",
+            ct);
 
-        // Advance past SweepInterval to trigger a second iteration, which also
-        // throws. The loop must still be alive.
+        // Advance past SweepInterval to trigger a second iteration, which
+        // also throws. The loop must still be alive — wait for a second
+        // warning rather than sleeping a fixed interval.
         time.Advance(IdempotencySweeper.SweepInterval + TimeSpan.FromSeconds(1));
-        await Task.Delay(200, ct);
+        await AsyncWait.UntilAsync(
+            () => logger.Entries.Count(e => e.Level == LogLevel.Warning) >= 2,
+            TimeSpan.FromSeconds(5),
+            "advancing past SweepInterval must trigger a second iteration; the catch-all must record a second warning, proving the loop is still alive",
+            ct);
 
         var executeTask = sweeper.ExecuteTask;
         var stillRunning = executeTask is not null && !executeTask.IsCompleted;
@@ -362,46 +379,5 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
         await Factory.Services.ResetAllMartenDataAsync();
         await base.DisposeAsync();
         GC.SuppressFinalize(this);
-    }
-
-    private sealed record LogEntry(LogLevel Level, EventId EventId, Exception? Exception, string Message);
-
-    private sealed class NullScope : IDisposable
-    {
-        public static readonly NullScope Instance = new();
-
-        public void Dispose()
-        {
-        }
-    }
-
-    /// <summary>
-    /// In-memory <see cref="ILogger{TCategoryName}"/> that records every
-    /// emitted entry, so tests can assert against structured properties of
-    /// the log output (level, exception, formatted message) rather than
-    /// inspecting reflection-shaped <c>NSubstitute</c> received-calls.
-    /// </summary>
-    private sealed class CapturingLogger<TCategoryName> : ILogger<TCategoryName>
-    {
-        private readonly List<LogEntry> _entries = [];
-
-        public IReadOnlyList<LogEntry> Entries => _entries;
-
-        public IDisposable BeginScope<TState>(TState state)
-            where TState : notnull
-            => NullScope.Instance;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(
-            LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            ArgumentNullException.ThrowIfNull(formatter);
-            _entries.Add(new LogEntry(logLevel, eventId, exception, formatter(state, exception)));
-        }
     }
 }
