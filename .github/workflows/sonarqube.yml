@@ -51,7 +51,7 @@ jobs:
             /d:sonar.cs.opencover.reportsPaths="backend/TestResults/coverage.opencover.xml" \
             /d:sonar.sources="backend/src" \
             /d:sonar.tests="backend/tests" \
-            /d:sonar.exclusions="backend/tests/eval-cache/**,**/*.generated.cs,docs/**,.claude/**,backend/src/RunCoach.Api/Prompts/**,frontend/**" \
+            /d:sonar.exclusions="backend/tests/eval-cache/**,**/*.generated.cs,**/Migrations/**,docs/**,.claude/**,backend/src/RunCoach.Api/Prompts/**,frontend/**" \
             /d:sonar.test.inclusions="backend/tests/**" \
             /d:sonar.cs.roslyn.ignoreIssues=false
 
