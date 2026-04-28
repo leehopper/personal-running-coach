@@ -6,9 +6,13 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// <summary>
 /// Topic-discriminated extraction payload nested inside <see cref="OnboardingTurnOutput"/>.
 /// Pattern B: exactly one of the six <c>Normalized*</c> slots is non-null and matches
-/// <see cref="Topic"/>. The invariant is enforced at runtime by
-/// <c>OnboardingTurnOutputValidator</c> (T01.6) because Anthropic constrained decoding
-/// rejects <c>oneOf</c>.
+/// <see cref="Topic"/>. Anthropic constrained decoding rejects <c>oneOf</c>, so the
+/// per-slot nullability and Topic/slot alignment cannot be encoded in the JSON Schema
+/// the model sees; the <c>required</c> attribute on each slot only enforces presence,
+/// not "exactly one non-null". The slice-1a3 surface is the event-record schema and the
+/// projections that consume <c>AnswerCaptured</c> events — the runtime guard that
+/// rejects malformed turn outputs at the LLM-output boundary lives on the onboarding
+/// turn handler and lands with that handler in a downstream slice.
 /// </summary>
 public sealed record ExtractedAnswer
 {

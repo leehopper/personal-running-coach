@@ -1,3 +1,4 @@
+using System.Reflection;
 using FluentAssertions;
 using Marten.EntityFrameworkCore;
 using Marten.Metadata;
@@ -68,10 +69,17 @@ public sealed class MartenStoreOptionsCompositionTests
         // member shape. The migration `AddUserProfileTenantId` adds the column as
         // nullable text; flipping the column to non-null would break existing rows
         // seeded before the fix landed (the projection backfills on the next applied
-        // event).
+        // event). PropertyType.Should().Be<string>() returns System.String for both
+        // string and string?; NullabilityInfoContext is what reads the compiler's
+        // nullable-reference metadata, so the read/write nullability assertions below
+        // are what actually pin the contract.
         actualProperty.Should().NotBeNull();
         actualProperty!.PropertyType.Should().Be<string>();
         actualProperty.CanRead.Should().BeTrue();
         actualProperty.CanWrite.Should().BeTrue();
+
+        var nullability = new NullabilityInfoContext().Create(actualProperty);
+        nullability.ReadState.Should().Be(NullabilityState.Nullable);
+        nullability.WriteState.Should().Be(NullabilityState.Nullable);
     }
 }

@@ -10,7 +10,11 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// </summary>
 public sealed class OnboardingPromptTests
 {
-    private static readonly string PromptFilePath = ResolvePromptFile();
+    // Resolved per-test rather than via a static initializer so a missing or moved YAML
+    // surfaces as a single test failure (with the resolution error in the assertion
+    // message) instead of a TypeInitializationException that fails every fact in this
+    // class before any assertion runs.
+    private static string PromptFilePath => ResolvePromptFile();
 
     [Fact]
     public void OnboardingV1Yaml_FileExists()
