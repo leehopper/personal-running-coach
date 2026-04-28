@@ -33,7 +33,7 @@ internal sealed class PatternCatalog
     /// Bump on any pattern change so audit replay can pin the active rule
     /// set.
     /// </summary>
-    public const string PolicyVersion = "v1.0.0";
+    public const string PolicyVersion = "v1.1.0";
 
     private PatternCatalog()
     {
@@ -41,7 +41,7 @@ internal sealed class PatternCatalog
             new CatalogPattern(
                 "PI-01",
                 SanitizationCategory.RegexHitDirectOverride,
-                Compile(@"\bignore\s+(?:all\s+|any\s+|the\s+|your\s+|previous\s+|prior\s+|preceding\s+|earlier\s+|above\s+)+(?:instructions?|rules?|prompts?|directives?)\b")),
+                Compile(@"\b(?:ignore|forget|disregard)\s+(?:(?:(?:all|any|the|your|previous|prior|preceding|earlier)\s+)*(?:above|preceding|previous)\b|(?:all\s+|any\s+|the\s+|your\s+|previous\s+|prior\s+|preceding\s+|earlier\s+|above\s+)+(?:instructions?|rules?|prompts?|directives?)\b)")),
             new CatalogPattern(
                 "PI-02",
                 SanitizationCategory.RegexHitDirectOverride,
@@ -53,7 +53,7 @@ internal sealed class PatternCatalog
             new CatalogPattern(
                 "PI-04",
                 SanitizationCategory.RegexHitPersonaInjection,
-                Compile(@"\b(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be|from\s+now\s+on\s+you\s+are)\s+(?:a\s+|an\s+)?(?:DAN|STAN|AIM|DUDE|developer\s+mode|jailbroken|unrestricted)\b")),
+                Compile(@"\b(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be|from\s+now\s+on\s+you\s+are)\b[^.!?\n]{0,40}?\b(?:DAN|STAN|AIM|DUDE|developer\s+mode|jailbroken|unrestricted)\b")),
             new CatalogPattern(
                 "PI-05",
                 SanitizationCategory.RegexHitPersonaInjection,
@@ -61,7 +61,7 @@ internal sealed class PatternCatalog
             new CatalogPattern(
                 "PI-06",
                 SanitizationCategory.RegexHitPersonaInjection,
-                Compile(@"\bdeveloper\s+mode\s+(?:enabled|on|activated)\b")),
+                Compile(@"\b(?:(?:in|with|to|enter(?:ing)?|enable(?:d|ing)?|activate(?:d|ing)?)\s+developer\s+mode|developer\s+mode\s+(?:enabled|on|activated|engaged))\b")),
             new CatalogPattern(
                 "PI-07",
                 SanitizationCategory.RegexHitRoleSpoof,
@@ -69,7 +69,7 @@ internal sealed class PatternCatalog
             new CatalogPattern(
                 "PI-08",
                 SanitizationCategory.RegexHitSystemPromptLeak,
-                Compile(@"\b(?:reveal|show|print|output|repeat|echo)\s+(?:your|the)\s+(?:system\s+prompt|instructions|initial\s+message|initial\s+prompt|prompt\s+verbatim|prompt)\b")),
+                Compile(@"\b(?:reveal|show|print(?:\s+out)?|output|repeat|echo|tell|give|recite|display|leak)\s+(?:me\s+|us\s+)?(?:(?:your|the|all\s+(?:your|the|previous|prior))\s+)?(?:(?:contents?|text)s?\s+of\s+(?:your|the)\s+)?(?:(?:initial|original|prior|previous)\s+)?(?:system\s+prompt|instructions?|initial\s+message|initial\s+prompt|prompt\s+verbatim|message|prompt)\b")),
             new CatalogPattern(
                 "PI-09",
                 SanitizationCategory.RegexHitDirectOverride,
@@ -81,7 +81,7 @@ internal sealed class PatternCatalog
             new CatalogPattern(
                 "PI-11",
                 SanitizationCategory.RegexHitDirectOverride,
-                Compile(@"\bnew\s+instructions?\s*[:.]")),
+                Compile(@"\bnew\s+instructions?\b(?:\s+\w+){0,5}\s*[:.]")),
             new CatalogPattern(
                 "PI-12",
                 SanitizationCategory.RegexHitBase64Advisory,

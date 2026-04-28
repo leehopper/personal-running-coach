@@ -85,6 +85,12 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
         }
 
         // Tier 2: regex catalog. Patterns considered depend on section policy.
+        // Detection runs against the post-Tier-1 `normalized` snapshot so that
+        // overlapping patterns (e.g. PI-04 "act as ... developer mode" and
+        // PI-06 "developer mode enabled") both register findings even when an
+        // earlier strip would otherwise erase the substring a later pattern
+        // anchors on. Stripping still cascades on `working` so the final
+        // sanitized text reflects the union of all neutralized ranges.
         var working = normalized;
         var anyNeutralized = strippedChars > 0;
 
@@ -95,7 +101,7 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
                 continue;
             }
 
-            if (!pattern.Regex.IsMatch(working))
+            if (!pattern.Regex.IsMatch(normalized))
             {
                 continue;
             }
