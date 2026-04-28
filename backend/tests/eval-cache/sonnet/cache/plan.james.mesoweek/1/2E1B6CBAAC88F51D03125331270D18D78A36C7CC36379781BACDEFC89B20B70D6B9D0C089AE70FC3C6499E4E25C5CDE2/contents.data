@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Recovery\",\"weekly_target_km\":8,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week's work. Gentle foot mobility exercises if comfortable.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or very light walking if foot feels good. No running today — spacing your run days helps the plantar fascia recover between sessions.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20-min easy run at 5:25–6:12/km. Start with a 5-min walk warm-up. If any foot pain arises, switch to walk-run intervals (2 min walk, 2 min run). This is effort level 3/10 — conversational pace throughout.\"},\"wednesday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day between runs. This gap is intentional — the plantar fascia needs 48 hours between loads. Light stretching of the calf and Achilles is fine if cleared by your physio.\"},\"thursday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20-min easy run at 5:25–6:12/km. Same protocol as Tuesday — 5-min walk warm-up, walk-run if any discomfort. Focus on landing softly and keeping effort very low.\"},\"friday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Notice how your foot feels after two run days this week — this information is valuable for adjusting next week's plan.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Long run slot — 20-min easy run at 5:25–6:12/km. Same effort and rules as Tuesday and Thursday. The goal here isn't distance; it's consistent, pain-free time on feet. A 5-min walk cool-down is encouraged.\"},\"week_summary\":\"Welcome back, James. This first week is all about re-establishing a consistent, pain-free running rhythm after your plantar fasciitis. Three easy 20-minute runs with full rest days between them gives the plantar fascia adequate recovery time while gently reloading the tissue — which is actually part of how it heals. Your easy pace zone of 5:25–6:12/km is the only gear we're using right now, and that's not a limitation — it's the foundation everything else gets built on. No speed work, no tempo, no pushing through discomfort. If your foot talks to you mid-run, listen to it: drop to walk-run intervals immediately. How does this structure feel as a starting point?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 3962,
+    "outputTokenCount": 632,
+    "totalTokenCount": 4594
+  }
+}

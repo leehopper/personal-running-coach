@@ -1,6 +1,7 @@
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Prompts;
+using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Computations;
 
 namespace RunCoach.Api.Infrastructure;
@@ -40,6 +41,11 @@ public static class ServiceCollectionExtensions
         // Coaching module — scoped services (per-request lifetime).
         services.AddScoped<ICoachingLlm, ClaudeCoachingLlm>();
         services.AddScoped<IContextAssembler, ContextAssembler>();
+
+        // Prompt-injection sanitizer (Slice 1 § Unit 6 / DEC-059 / R-068).
+        // Stateless layered sanitizer — singleton-safe; the pattern catalog
+        // is precompiled once at type-load.
+        services.AddSingleton<IPromptSanitizer, LayeredPromptSanitizer>();
 
         // Idempotency primitive (DEC-060) — scoped so Wolverine handlers and
         // the store share the same `IDocumentSession` instance per request.

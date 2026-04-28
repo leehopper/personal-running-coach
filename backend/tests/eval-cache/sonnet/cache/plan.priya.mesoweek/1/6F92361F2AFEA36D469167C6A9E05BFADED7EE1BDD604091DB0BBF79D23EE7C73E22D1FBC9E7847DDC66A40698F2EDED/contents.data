@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":55,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"26 km at easy pace (5:08–5:53/km). Keep effort conversational — you should be able to speak in full sentences. This is your aerobic foundation run; resist the urge to push on feel-good days.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let Sunday's long run absorb. Quality sleep and hydration matter more than any extra miles right now.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"10 km easy (5:08–5:53/km). A gentle aerobic stimulus mid-week. Keep it genuinely easy — this run should feel almost too comfortable.\"},\"wednesday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest or light cross-training (yoga, mobility work). Let Tuesday's effort settle before Thursday's quality session.\"},\"thursday\":{\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"11 km total: 2 km easy warm-up, 6 km at threshold pace (4:16/km), 3 km easy cool-down. This is your first quality session — focus on controlled effort, not pushing beyond pace.\"},\"friday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. You've earned it. Recovery between Thursday's tempo and Saturday's run is important for adaptation.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"8 km easy (5:08–5:53/km). A relaxed aerobic top-up before Sunday's long run. Legs should feel ready — if not, slow down further.\"},\"week_summary\":\"Welcome to your marathon build, Priya. Week 1 opens at 55 km — a slight step down from your recent 60 km peak — giving your body a clean, confident starting point before we progressively build toward race day. The structure is 4 days running with strategic rest days protecting Thursday's tempo and Sunday's long run. Your threshold pace of 4:16/km and your marathon goal of 4:37/km are well within reach given your half-marathon fitness; this first week is about establishing rhythm and consistency, not chasing effort. The long run stays at 26 km, holding what you've already built. Trust the process — aerobic base weeks like this are where marathons are actually won.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 4016,
+    "outputTokenCount": 588,
+    "totalTokenCount": 4604
+  }
+}
