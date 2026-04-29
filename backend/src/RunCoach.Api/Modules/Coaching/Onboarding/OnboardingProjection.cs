@@ -88,15 +88,14 @@ public sealed class OnboardingProjection : SingleStreamProjection<OnboardingView
         {
             case OnboardingTopic.PrimaryGoal:
                 {
-                    var typed = DeserializePayload<PrimaryGoalAnswer>(@event.NormalizedPayload);
+                    var typed = DeserializeRequiredPayload<PrimaryGoalAnswer>(@event.NormalizedPayload, @event.Topic);
                     view.PrimaryGoal = typed;
 
                     // TargetEvent is only meaningful when PrimaryGoal == RaceTraining. If the
                     // runner switches off race training (e.g. RaceTraining -> GeneralFitness),
                     // a previously-captured TargetEvent must be cleared to avoid stale race
-                    // metadata on the view. A null payload (malformed event) must not silently
-                    // nuke TargetEvent — only clear when deserialization succeeded.
-                    if (typed is not null && typed.Goal != Models.PrimaryGoal.RaceTraining)
+                    // metadata on the view.
+                    if (typed.Goal != Models.PrimaryGoal.RaceTraining)
                     {
                         view.TargetEvent = null;
                     }
@@ -105,23 +104,23 @@ public sealed class OnboardingProjection : SingleStreamProjection<OnboardingView
                 }
 
             case OnboardingTopic.TargetEvent:
-                view.TargetEvent = DeserializePayload<TargetEventAnswer>(@event.NormalizedPayload);
+                view.TargetEvent = DeserializeRequiredPayload<TargetEventAnswer>(@event.NormalizedPayload, @event.Topic);
                 break;
 
             case OnboardingTopic.CurrentFitness:
-                view.CurrentFitness = DeserializePayload<CurrentFitnessAnswer>(@event.NormalizedPayload);
+                view.CurrentFitness = DeserializeRequiredPayload<CurrentFitnessAnswer>(@event.NormalizedPayload, @event.Topic);
                 break;
 
             case OnboardingTopic.WeeklySchedule:
-                view.WeeklySchedule = DeserializePayload<WeeklyScheduleAnswer>(@event.NormalizedPayload);
+                view.WeeklySchedule = DeserializeRequiredPayload<WeeklyScheduleAnswer>(@event.NormalizedPayload, @event.Topic);
                 break;
 
             case OnboardingTopic.InjuryHistory:
-                view.InjuryHistory = DeserializePayload<InjuryHistoryAnswer>(@event.NormalizedPayload);
+                view.InjuryHistory = DeserializeRequiredPayload<InjuryHistoryAnswer>(@event.NormalizedPayload, @event.Topic);
                 break;
 
             case OnboardingTopic.Preferences:
-                view.Preferences = DeserializePayload<PreferencesAnswer>(@event.NormalizedPayload);
+                view.Preferences = DeserializeRequiredPayload<PreferencesAnswer>(@event.NormalizedPayload, @event.Topic);
                 break;
 
             default:
@@ -173,9 +172,16 @@ public sealed class OnboardingProjection : SingleStreamProjection<OnboardingView
         view.Version++;
     }
 
-    private static T? DeserializePayload<T>(JsonDocument payload)
+    private static T DeserializeRequiredPayload<T>(JsonDocument payload, OnboardingTopic topic)
         where T : class
     {
-        return payload.Deserialize<T>();
+        var result = payload.Deserialize<T>();
+        if (result is null)
+        {
+            throw new InvalidOperationException(
+                $"AnswerCaptured event for topic '{topic}' has a null or unparseable payload of type {typeof(T).Name}; refusing to apply to avoid silent state corruption.");
+        }
+
+        return result;
     }
 }

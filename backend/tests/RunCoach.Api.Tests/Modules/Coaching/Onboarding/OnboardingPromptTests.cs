@@ -75,8 +75,7 @@ public sealed class OnboardingPromptTests
     {
         // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
-        var contextStart = promptText.IndexOf("context_template:", StringComparison.Ordinal);
-        var contextBlock = promptText[contextStart..];
+        var contextBlock = GetAnchorBlock(promptText, "context_template:");
 
         // Act + Assert — the user_message substitution must be enclosed in a SECTION_NAME
         // delimiter so prompt-injection payloads land inside a framed boundary per R-068.
@@ -96,8 +95,7 @@ public sealed class OnboardingPromptTests
     {
         // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
-        var contextStart = promptText.IndexOf("context_template:", StringComparison.Ordinal);
-        var contextBlock = promptText[contextStart..];
+        var contextBlock = GetAnchorBlock(promptText, "context_template:");
 
         // Act + Assert
         contextBlock.Should().Contain(
@@ -113,8 +111,7 @@ public sealed class OnboardingPromptTests
     {
         // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
-        var contextStart = promptText.IndexOf("context_template:", StringComparison.Ordinal);
-        var contextBlock = promptText[contextStart..];
+        var contextBlock = GetAnchorBlock(promptText, "context_template:");
 
         // Act + Assert
         contextBlock.Should().Contain(
@@ -131,6 +128,9 @@ public sealed class OnboardingPromptTests
         // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
         var contextStart = promptText.IndexOf("context_template:", StringComparison.Ordinal);
+        contextStart.Should().BeGreaterThanOrEqualTo(
+            0,
+            because: "the onboarding prompt must define a context_template block — without it, structural assertions can't proceed");
 
         // Look for the security comment that must precede the context_template block.
         // The comment documents that the renderer must supply CSPRNG nonces per turn.
@@ -152,7 +152,12 @@ public sealed class OnboardingPromptTests
 
         // Act + Assert — directive must appear before the context_template block boundary so it
         // lands inside the cacheable system-prompt prefix per R-068 §8 + DEC-059.
-        dataHandlingIndex.Should().BeGreaterThan(0, "data_handling directive must be present");
+        dataHandlingIndex.Should().BeGreaterThanOrEqualTo(
+            0,
+            because: "the onboarding prompt must define a data_handling directive — without it, structural assertions can't proceed");
+        contextTemplateIndex.Should().BeGreaterThanOrEqualTo(
+            0,
+            because: "the onboarding prompt must define a context_template block — without it, structural assertions can't proceed");
         contextTemplateIndex.Should().BeGreaterThan(
             dataHandlingIndex,
             "data_handling must sit inside the static_system_prompt block, before the context_template boundary");
@@ -186,6 +191,15 @@ public sealed class OnboardingPromptTests
                 expected,
                 $"the onboarding prompt must describe the '{expected}' topic in the topic schema");
         }
+    }
+
+    private static string GetAnchorBlock(string promptText, string anchor)
+    {
+        var anchorStart = promptText.IndexOf(anchor, StringComparison.Ordinal);
+        anchorStart.Should().BeGreaterThanOrEqualTo(
+            0,
+            because: $"the onboarding prompt must define a '{anchor}' block — without it, structural assertions can't proceed");
+        return promptText[anchorStart..];
     }
 
     private static string ResolvePromptFile()

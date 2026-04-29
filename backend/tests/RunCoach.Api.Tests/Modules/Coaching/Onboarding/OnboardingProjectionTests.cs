@@ -27,38 +27,49 @@ public sealed class OnboardingProjectionTests
     // Data provider for the Task #242 TenantId-backfill parameterized test. Placed here
     // (before [Fact] methods) to satisfy SA1204, which requires static members to precede
     // non-static members within the same access-modifier group.
-    public static TheoryData<object, DateTimeOffset> StateChangingEventsData()
+    public static TheoryData<OnboardingEventCase, DateTimeOffset> StateChangingEventsData()
     {
         var planId = new Guid("22222222-2222-2222-2222-222222222222");
-        return new TheoryData<object, DateTimeOffset>
+        return new TheoryData<OnboardingEventCase, DateTimeOffset>
         {
             {
-                new AnswerCaptured(
-                    OnboardingTopic.PrimaryGoal,
-                    JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
-                    {
-                        Goal = PrimaryGoal.GeneralFitness,
-                        Description = "Stay healthy.",
-                    }),
-                    Confidence: 0.8,
-                    CapturedAt: Now),
+                new OnboardingEventCase(
+                    "AnswerCaptured",
+                    ts => new AnswerCaptured(
+                        OnboardingTopic.PrimaryGoal,
+                        JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+                        {
+                            Goal = PrimaryGoal.GeneralFitness,
+                            Description = "Stay healthy.",
+                        }),
+                        Confidence: 0.8,
+                        CapturedAt: ts)),
                 Now
             },
-            { new PlanLinkedToUser(UserId, planId), Now },
-            { new OnboardingCompleted(planId, Now), Now },
+            {
+                new OnboardingEventCase("PlanLinkedToUser", _ => new PlanLinkedToUser(UserId, planId)),
+                Now
+            },
+            {
+                new OnboardingEventCase("OnboardingCompleted", ts => new OnboardingCompleted(planId, ts)),
+                Now
+            },
         };
     }
 
     // Data provider for the TurnEvents_NoStateChange parameterized test. Static and placed
     // here (before [Fact] methods) to satisfy SA1204.
-    public static IEnumerable<object[]> TurnEventsNoStateChangeData()
+    public static TheoryData<OnboardingEventCase> TurnEventsNoStateChangeData()
     {
         // Each test run gets its own JsonDocument; ownership is transferred to the event
         // record, which holds the document for the duration of the test iteration.
-        yield return [new TopicAsked(OnboardingTopic.PrimaryGoal, Now.AddMinutes(1))];
-        yield return [new UserTurnRecorded(JsonSerializer.SerializeToDocument(new { type = "text", text = "hi" }), Now.AddMinutes(1))];
-        yield return [new AssistantTurnRecorded(JsonSerializer.SerializeToDocument(new { type = "text", text = "hi" }), Now.AddMinutes(1))];
-        yield return [new ClarificationRequested(OnboardingTopic.TargetEvent, "Distance ambiguous", Now.AddMinutes(1))];
+        return new TheoryData<OnboardingEventCase>
+        {
+            new OnboardingEventCase("TopicAsked", ts => new TopicAsked(OnboardingTopic.PrimaryGoal, ts.AddMinutes(1))),
+            new OnboardingEventCase("UserTurnRecorded", ts => new UserTurnRecorded(JsonSerializer.SerializeToDocument(new { type = "text", text = "hi" }), ts.AddMinutes(1))),
+            new OnboardingEventCase("AssistantTurnRecorded", ts => new AssistantTurnRecorded(JsonSerializer.SerializeToDocument(new { type = "text", text = "hi" }), ts.AddMinutes(1))),
+            new OnboardingEventCase("ClarificationRequested", ts => new ClarificationRequested(OnboardingTopic.TargetEvent, "Distance ambiguous", ts.AddMinutes(1))),
+        };
     }
 
     [Fact]
@@ -466,7 +477,7 @@ public sealed class OnboardingProjectionTests
 
     [Theory]
     [MemberData(nameof(TurnEventsNoStateChangeData))]
-    public void UserProfileFromOnboardingProjection_ApplyEvent_TurnEvents_NoStateChange(object turnEvent)
+    public void UserProfileFromOnboardingProjection_ApplyEvent_TurnEvents_NoStateChange(OnboardingEventCase turnEventCase)
     {
         // Arrange — chat-transcript events live on the Marten stream only; they must not
         // dirty the EF change tracker.
@@ -474,7 +485,7 @@ public sealed class OnboardingProjectionTests
         var snapshot = new RunnerOnboardingProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
 
         // Act
-        var actual = projection.ApplyEvent(snapshot, UserId, WrapEvent(turnEvent), NullDbContext(), NullSession());
+        var actual = projection.ApplyEvent(snapshot, UserId, WrapEvent(turnEventCase.EventFactory(Now)), NullDbContext(), NullSession());
 
         // Assert
         actual.Should().BeSameAs(snapshot);
@@ -610,7 +621,7 @@ public sealed class OnboardingProjectionTests
     [Theory]
     [MemberData(nameof(StateChangingEventsData))]
     public void UserProfileFromOnboardingProjection_ApplyEvent_StateChangingEvents_StampTenantIdFromEventEnvelope(
-        object eventData,
+        OnboardingEventCase eventCase,
         DateTimeOffset timestamp)
     {
         // Arrange — snapshot already exists but TenantId was never set (simulates a
@@ -623,7 +634,7 @@ public sealed class OnboardingProjectionTests
             CreatedOn = Now,
             ModifiedOn = Now,
         };
-        var envelope = WrapEvent(eventData, timestamp: timestamp);
+        var envelope = WrapEvent(eventCase.EventFactory(timestamp), timestamp: timestamp);
 
         // Act
         var actual = projection.ApplyEvent(snapshot, UserId, envelope, NullDbContext(), NullSession());
@@ -721,6 +732,90 @@ public sealed class OnboardingProjectionTests
         view.CurrentPlanId.Should().Be(
             planB,
             because: "when the view's CurrentPlanId is null, ??= must seed it from the OnboardingCompleted event's PlanId");
+    }
+
+    // -------------------------------------------------------------------------
+    // Null-payload / malformed-payload throw tests (CodeRabbit fix).
+    // A malformed AnswerCaptured event MUST cause a replay failure rather than
+    // silently writing null to a view slot and bumping Version.
+    [Fact]
+    public void OnboardingProjection_Apply_AnswerCaptured_NullPayload_PrimaryGoal_Throws()
+    {
+        // Arrange — JsonDocument.Parse("null") deserializes to null for a reference type,
+        // simulating a malformed AnswerCaptured event committed to the stream.
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        using var nullDoc = JsonDocument.Parse("null");
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            nullDoc,
+            Confidence: 0.0,
+            CapturedAt: Now);
+
+        // Act & Assert
+        var act = () => OnboardingProjection.Apply(captured, view);
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*PrimaryGoal*")
+            .WithMessage("*refusing to apply*");
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_AnswerCaptured_NullPayload_CurrentFitness_Throws()
+    {
+        // Arrange — validates that non-PrimaryGoal topics also fail fast rather than
+        // silently writing null to the view slot.
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        using var nullDoc = JsonDocument.Parse("null");
+        var captured = new AnswerCaptured(
+            OnboardingTopic.CurrentFitness,
+            nullDoc,
+            Confidence: 0.0,
+            CapturedAt: Now);
+
+        // Act & Assert
+        var act = () => OnboardingProjection.Apply(captured, view);
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*CurrentFitness*")
+            .WithMessage("*refusing to apply*");
+    }
+
+    [Fact]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_NullPayload_PrimaryGoal_Throws()
+    {
+        // Arrange — same fail-fast contract on the EF projection.
+        var projection = new UserProfileFromOnboardingProjection();
+        var snapshot = new RunnerOnboardingProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
+        using var nullDoc = JsonDocument.Parse("null");
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            nullDoc,
+            Confidence: 0.0,
+            CapturedAt: Now);
+
+        // Act & Assert
+        var act = () => projection.ApplyEvent(snapshot, UserId, WrapEvent(captured), NullDbContext(), NullSession());
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*PrimaryGoal*")
+            .WithMessage("*refusing to apply*");
+    }
+
+    [Fact]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_NullPayload_TargetEvent_Throws()
+    {
+        // Arrange — validates that the TargetEvent branch in the EF projection also fails fast.
+        var projection = new UserProfileFromOnboardingProjection();
+        var snapshot = new RunnerOnboardingProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
+        using var nullDoc = JsonDocument.Parse("null");
+        var captured = new AnswerCaptured(
+            OnboardingTopic.TargetEvent,
+            nullDoc,
+            Confidence: 0.0,
+            CapturedAt: Now);
+
+        // Act & Assert
+        var act = () => projection.ApplyEvent(snapshot, UserId, WrapEvent(captured), NullDbContext(), NullSession());
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*TargetEvent*")
+            .WithMessage("*refusing to apply*");
     }
 
     private static List<(object Data, DateTimeOffset Timestamp)> BuildFullSequence(Guid planId)
@@ -830,4 +925,13 @@ public sealed class OnboardingProjectionTests
     }
 
     private static IQuerySession NullSession() => Substitute.For<IQuerySession>();
+
+    /// <summary>
+    /// Typed row for parameterized onboarding-event theory tests. The <see cref="EventFactory"/>
+    /// builds the event lazily so xUnit can serialize each row by <see cref="Name"/> alone.
+    /// </summary>
+    public sealed record OnboardingEventCase(string Name, Func<DateTimeOffset, object> EventFactory)
+    {
+        public override string ToString() => Name;
+    }
 }

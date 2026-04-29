@@ -8,8 +8,12 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// </summary>
 /// <param name="Kind">Discriminator: Ask or Complete.</param>
 /// <param name="AssistantBlocks">
-/// Anthropic content blocks from the assistant turn, captured opaquely as a <see cref="JsonDocument"/>
-/// so non-text block types (thinking, tool_use) round-trip to the frontend without lossy projection.
+/// Anthropic content blocks from the assistant turn, carried as a <see cref="JsonElement"/> so
+/// non-text block types (thinking, tool_use) round-trip to the frontend without lossy projection.
+/// Use <see cref="JsonElement"/> rather than <see cref="JsonDocument"/> because <c>JsonElement</c>
+/// is a struct that does not hold pooled memory and therefore does not require disposal. Producers
+/// must call <c>doc.RootElement.Clone()</c> to obtain an independent element that survives the
+/// source document's lifetime.
 /// </param>
 /// <param name="Topic">
 /// The current topic the assistant is asking about. Null when <paramref name="Kind"/> is Complete.
@@ -26,7 +30,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// </param>
 public sealed record OnboardingTurnResponseDto(
     OnboardingTurnKind Kind,
-    JsonDocument AssistantBlocks,
+    JsonElement AssistantBlocks,
     OnboardingTopic? Topic,
     SuggestedInputType? SuggestedInputType,
     OnboardingProgressDto Progress,

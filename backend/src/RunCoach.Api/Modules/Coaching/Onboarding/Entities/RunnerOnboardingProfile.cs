@@ -34,7 +34,6 @@ public class RunnerOnboardingProfile : ITenanted
     /// Cascade-deletes alongside the parent user.
     /// </summary>
     [Key]
-    [ForeignKey(nameof(User))]
     public Guid UserId { get; set; }
 
     /// <summary>
@@ -51,6 +50,7 @@ public class RunnerOnboardingProfile : ITenanted
     public string? TenantId { get; set; }
 
     /// <summary>Gets or sets navigation to the parent <see cref="ApplicationUser"/>.</summary>
+    [ForeignKey(nameof(UserId))]
     public ApplicationUser? User { get; set; }
 
     /// <summary>

@@ -239,4 +239,110 @@ public sealed class OnboardingTurnOutputShapeTests
         // Assert
         actual.Should().BeEquivalentTo(expected);
     }
+
+    [Fact]
+    public void OnboardingTurnResponseDto_AssistantBlocks_IsJsonElement_NotJsonDocument()
+    {
+        // Arrange — JsonElement is the required type for DTO properties; JsonDocument is
+        // IDisposable and holds pooled memory. This test pins the property type so a
+        // future edit cannot revert to JsonDocument without a test failure.
+        var property = typeof(OnboardingTurnResponseDto)
+            .GetProperty(nameof(OnboardingTurnResponseDto.AssistantBlocks));
+
+        // Assert
+        property.Should().NotBeNull();
+        property!.PropertyType.Should().Be<System.Text.Json.JsonElement>(
+            because: "DTO properties must use JsonElement (a non-owning struct) rather than JsonDocument (IDisposable, holds pooled memory)");
+    }
+
+    [Fact]
+    public void ReviseAnswerRequestDto_NormalizedValue_IsJsonElement_NotJsonDocument()
+    {
+        // Arrange — same invariant on the inbound request DTO.
+        var property = typeof(ReviseAnswerRequestDto)
+            .GetProperty(nameof(ReviseAnswerRequestDto.NormalizedValue));
+
+        // Assert
+        property.Should().NotBeNull();
+        property!.PropertyType.Should().Be<System.Text.Json.JsonElement>(
+            because: "DTO properties must use JsonElement (a non-owning struct) rather than JsonDocument (IDisposable, holds pooled memory)");
+    }
+
+    [Fact]
+    public void OnboardingTurnResponseDto_Ask_RoundTrips()
+    {
+        // Arrange — Ask branch: AssistantBlocks round-trips as JsonElement without disposal concerns.
+        var blocksJson = """[{"type":"text","text":"What is your primary goal?"}]""";
+        var blocksElement = JsonDocument.Parse(blocksJson).RootElement.Clone();
+        var progress = new OnboardingProgressDto(Completed: 0, Total: 6);
+        var expected = new OnboardingTurnResponseDto(
+            Kind: OnboardingTurnKind.Ask,
+            AssistantBlocks: blocksElement,
+            Topic: OnboardingTopic.PrimaryGoal,
+            SuggestedInputType: SuggestedInputType.Text,
+            Progress: progress,
+            PlanId: null);
+
+        // Act
+        var json = JsonSerializer.Serialize(expected, JsonOptions);
+        var actual = JsonSerializer.Deserialize<OnboardingTurnResponseDto>(json, JsonOptions);
+
+        // Assert
+        actual.Should().NotBeNull();
+        actual!.Kind.Should().Be(OnboardingTurnKind.Ask);
+        actual.Topic.Should().Be(OnboardingTopic.PrimaryGoal);
+        actual.PlanId.Should().BeNull();
+        actual.AssistantBlocks.ValueKind.Should().Be(System.Text.Json.JsonValueKind.Array);
+    }
+
+    [Fact]
+    public void OnboardingTurnResponseDto_Complete_RoundTrips()
+    {
+        // Arrange — Complete branch: no topic, no SuggestedInputType, PlanId set.
+        var blocksJson = """[{"type":"text","text":"Your plan is ready!"}]""";
+        var blocksElement = JsonDocument.Parse(blocksJson).RootElement.Clone();
+        var planId = Guid.NewGuid();
+        var progress = new OnboardingProgressDto(Completed: 6, Total: 6);
+        var expected = new OnboardingTurnResponseDto(
+            Kind: OnboardingTurnKind.Complete,
+            AssistantBlocks: blocksElement,
+            Topic: null,
+            SuggestedInputType: null,
+            Progress: progress,
+            PlanId: planId);
+
+        // Act
+        var json = JsonSerializer.Serialize(expected, JsonOptions);
+        var actual = JsonSerializer.Deserialize<OnboardingTurnResponseDto>(json, JsonOptions);
+
+        // Assert
+        actual.Should().NotBeNull();
+        actual!.Kind.Should().Be(OnboardingTurnKind.Complete);
+        actual.Topic.Should().BeNull();
+        actual.SuggestedInputType.Should().BeNull();
+        actual.PlanId.Should().Be(planId);
+        actual.AssistantBlocks.ValueKind.Should().Be(System.Text.Json.JsonValueKind.Array);
+    }
+
+    [Fact]
+    public void ReviseAnswerRequestDto_RoundTrips()
+    {
+        // Arrange — NormalizedValue carries the typed answer payload as a JsonElement.
+        // The handler will re-serialize to JsonDocument before appending to the event stream.
+        var answerJson = """{"goal":"RaceTraining","description":"Half marathon in October."}""";
+        var answerElement = JsonDocument.Parse(answerJson).RootElement.Clone();
+        var expected = new ReviseAnswerRequestDto(
+            Topic: OnboardingTopic.PrimaryGoal,
+            NormalizedValue: answerElement);
+
+        // Act
+        var json = JsonSerializer.Serialize(expected, JsonOptions);
+        var actual = JsonSerializer.Deserialize<ReviseAnswerRequestDto>(json, JsonOptions);
+
+        // Assert
+        actual.Should().NotBeNull();
+        actual!.Topic.Should().Be(OnboardingTopic.PrimaryGoal);
+        actual.NormalizedValue.ValueKind.Should().Be(System.Text.Json.JsonValueKind.Object);
+        actual.NormalizedValue.GetProperty("goal").GetString().Should().Be("RaceTraining");
+    }
 }

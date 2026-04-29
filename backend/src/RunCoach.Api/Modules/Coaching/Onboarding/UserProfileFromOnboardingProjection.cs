@@ -119,14 +119,7 @@ public sealed class UserProfileFromOnboardingProjection
         {
             case OnboardingTopic.PrimaryGoal:
                 {
-                    var typed = captured.NormalizedPayload.Deserialize<PrimaryGoalAnswer>();
-                    if (typed is null)
-                    {
-                        // Defensive: a literal-null payload should not silently nuke TargetEvent.
-                        // The outer caller is responsible for rejecting malformed events.
-                        break;
-                    }
-
+                    var typed = DeserializeRequiredPayload<PrimaryGoalAnswer>(captured.NormalizedPayload, captured.Topic);
                     snapshot.PrimaryGoal = typed.Goal;
                     if (typed.Goal != Models.PrimaryGoal.RaceTraining)
                     {
@@ -137,27 +130,40 @@ public sealed class UserProfileFromOnboardingProjection
                 }
 
             case OnboardingTopic.TargetEvent:
-                snapshot.TargetEvent = captured.NormalizedPayload.Deserialize<TargetEventAnswer>();
+                snapshot.TargetEvent = DeserializeRequiredPayload<TargetEventAnswer>(captured.NormalizedPayload, captured.Topic);
                 break;
 
             case OnboardingTopic.CurrentFitness:
-                snapshot.CurrentFitness = captured.NormalizedPayload.Deserialize<CurrentFitnessAnswer>();
+                snapshot.CurrentFitness = DeserializeRequiredPayload<CurrentFitnessAnswer>(captured.NormalizedPayload, captured.Topic);
                 break;
 
             case OnboardingTopic.WeeklySchedule:
-                snapshot.WeeklySchedule = captured.NormalizedPayload.Deserialize<WeeklyScheduleAnswer>();
+                snapshot.WeeklySchedule = DeserializeRequiredPayload<WeeklyScheduleAnswer>(captured.NormalizedPayload, captured.Topic);
                 break;
 
             case OnboardingTopic.InjuryHistory:
-                snapshot.InjuryHistory = captured.NormalizedPayload.Deserialize<InjuryHistoryAnswer>();
+                snapshot.InjuryHistory = DeserializeRequiredPayload<InjuryHistoryAnswer>(captured.NormalizedPayload, captured.Topic);
                 break;
 
             case OnboardingTopic.Preferences:
-                snapshot.Preferences = captured.NormalizedPayload.Deserialize<PreferencesAnswer>();
+                snapshot.Preferences = DeserializeRequiredPayload<PreferencesAnswer>(captured.NormalizedPayload, captured.Topic);
                 break;
 
             default:
                 throw new InvalidOperationException($"Unknown OnboardingTopic value '{captured.Topic}' encountered in EF projection");
         }
+    }
+
+    private static T DeserializeRequiredPayload<T>(JsonDocument payload, OnboardingTopic topic)
+        where T : class
+    {
+        var result = payload.Deserialize<T>();
+        if (result is null)
+        {
+            throw new InvalidOperationException(
+                $"AnswerCaptured event for topic '{topic}' has a null or unparseable payload of type {typeof(T).Name}; refusing to apply to avoid silent state corruption.");
+        }
+
+        return result;
     }
 }
