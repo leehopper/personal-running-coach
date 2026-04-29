@@ -12,6 +12,7 @@ using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Training.Plan;
+using RunCoach.Api.Modules.Training.Plan.Models;
 using Wolverine.Marten;
 
 namespace RunCoach.Api.Infrastructure;
@@ -127,6 +128,14 @@ public static class MartenConfiguration
                 // `GET /api/v1/plan/current` reads this document directly via
                 // `session.LoadAsync<PlanProjectionDto>(planId)` with zero
                 // LLM cost.
+                //
+                // The explicit identity selector below is required because
+                // `PlanProjectionDto` keys on `PlanId` (the per-plan stream id)
+                // rather than a conventional `Id` member - Marten's
+                // `DocumentMapping.CompileAndValidate()` runs over every
+                // projection's published types at host start and throws
+                // `InvalidDocumentException` without it.
+                opts.Schema.For<PlanProjectionDto>().Identity(x => x.PlanId);
                 opts.Projections.Add(new PlanProjection(), ProjectionLifecycle.Inline);
 
                 opts.Projections.Errors.SkipUnknownEvents = true;
