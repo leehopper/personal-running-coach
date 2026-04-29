@@ -20,6 +20,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(7)]
     public void WeeklyScheduleAnswer_MaxRunDaysPerWeek_InRange_Succeeds(int value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new WeeklyScheduleAnswer
         {
@@ -45,6 +47,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(8)]
     public void WeeklyScheduleAnswer_MaxRunDaysPerWeek_OutOfRange_Throws(int value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new WeeklyScheduleAnswer
         {
@@ -72,6 +76,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(120)]
     public void WeeklyScheduleAnswer_TypicalSessionMinutes_InRange_Succeeds(int value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new WeeklyScheduleAnswer
         {
@@ -97,6 +103,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(-100)]
     public void WeeklyScheduleAnswer_TypicalSessionMinutes_OutOfRange_Throws(int value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new WeeklyScheduleAnswer
         {
@@ -124,6 +132,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(42.195)]
     public void TargetEventAnswer_DistanceKm_InRange_Succeeds(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new TargetEventAnswer
         {
@@ -143,6 +153,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(-42.0)]
     public void TargetEventAnswer_DistanceKm_OutOfRange_Throws(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new TargetEventAnswer
         {
@@ -164,6 +176,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(150.0)]
     public void CurrentFitnessAnswer_TypicalWeeklyKm_InRange_Succeeds(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new CurrentFitnessAnswer
         {
@@ -183,6 +197,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(-10.0)]
     public void CurrentFitnessAnswer_TypicalWeeklyKm_OutOfRange_Throws(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new CurrentFitnessAnswer
         {
@@ -205,6 +221,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(42.195)]
     public void CurrentFitnessAnswer_LongestRecentRunKm_InRange_Succeeds(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new CurrentFitnessAnswer
         {
@@ -224,6 +242,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(-5.0)]
     public void CurrentFitnessAnswer_LongestRecentRunKm_OutOfRange_Throws(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new CurrentFitnessAnswer
         {
@@ -243,6 +263,8 @@ public sealed class AnswerRecordValidationTests
     [Fact]
     public void CurrentFitnessAnswer_RecentRaceDistanceKm_Null_Succeeds()
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new CurrentFitnessAnswer
         {
@@ -263,6 +285,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(21.0975)]
     public void CurrentFitnessAnswer_RecentRaceDistanceKm_NonNullInRange_Succeeds(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new CurrentFitnessAnswer
         {
@@ -282,6 +306,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(-10.0)]
     public void CurrentFitnessAnswer_RecentRaceDistanceKm_NonNullOutOfRange_Throws(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new CurrentFitnessAnswer
         {
@@ -304,6 +330,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(1.0)]
     public void ExtractedAnswer_Confidence_InRange_Succeeds(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new ExtractedAnswer
         {
@@ -332,6 +360,8 @@ public sealed class AnswerRecordValidationTests
     [InlineData(2.0)]
     public void ExtractedAnswer_Confidence_OutOfRange_Throws(double value)
     {
+        // Arrange (no setup needed)
+
         // Act
         var act = () => new ExtractedAnswer
         {

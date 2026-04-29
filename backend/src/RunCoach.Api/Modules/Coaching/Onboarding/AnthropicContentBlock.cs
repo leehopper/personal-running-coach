@@ -21,5 +21,5 @@ public sealed record AnthropicContentBlock
     /// Gets the runner-visible text payload for a Text block. Empty string for non-Text blocks.
     /// </summary>
     [Description("Runner-visible text payload for a Text block. Empty string for non-Text blocks.")]
-    public required string Text { get; init; }
+    public required string Text { get; init; } = string.Empty;
 }

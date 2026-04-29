@@ -84,5 +84,5 @@ public sealed record WeeklyScheduleAnswer
     /// Gets the runner-supplied free-text description of any constraints not captured by the day flags.
     /// </summary>
     [Description("Runner-supplied free-text description of constraints not captured by the day flags (e.g. 'no early mornings').")]
-    public required string Description { get; init; }
+    public required string Description { get; init; } = string.Empty;
 }

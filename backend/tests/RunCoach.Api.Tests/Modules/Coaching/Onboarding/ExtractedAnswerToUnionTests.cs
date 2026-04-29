@@ -11,51 +11,34 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// </summary>
 public sealed class ExtractedAnswerToUnionTests
 {
-    [Fact]
-    public void ToUnion_PrimaryGoal_MatchingSlot_ReturnsPrimaryGoalExtraction()
+    // One row per topic: (topic, dto factory, expected extraction type, expected value)
+    public static IEnumerable<object[]> HappyPathCases()
     {
-        // Arrange
-        var value = new PrimaryGoalAnswer { Goal = PrimaryGoal.GeneralFitness, Description = "Stay fit." };
-        var dto = BuildDto(OnboardingTopic.PrimaryGoal, normalizedPrimaryGoal: value);
+        var primaryGoalValue = new PrimaryGoalAnswer { Goal = PrimaryGoal.GeneralFitness, Description = "Stay fit." };
+        yield return
+        [
+            OnboardingTopic.PrimaryGoal,
+            BuildDto(OnboardingTopic.PrimaryGoal, normalizedPrimaryGoal: primaryGoalValue),
+            typeof(PrimaryGoalExtraction),
+            (object)primaryGoalValue,
+        ];
 
-        // Act
-        var result = dto.ToUnion();
-
-        // Assert
-        result.Should().BeOfType<PrimaryGoalExtraction>()
-            .Which.Value.Should().Be(value);
-        result.Confidence.Should().Be(dto.Confidence);
-        result.Topic.Should().Be(OnboardingTopic.PrimaryGoal);
-    }
-
-    [Fact]
-    public void ToUnion_TargetEvent_MatchingSlot_ReturnsTargetEventExtraction()
-    {
-        // Arrange
-        var value = new TargetEventAnswer
+        var targetEventValue = new TargetEventAnswer
         {
             EventName = "City Marathon",
             DistanceKm = 42.195,
             EventDateIso = "2026-10-01",
             TargetFinishTimeIso = null,
         };
-        var dto = BuildDto(OnboardingTopic.TargetEvent, normalizedTargetEvent: value);
+        yield return
+        [
+            OnboardingTopic.TargetEvent,
+            BuildDto(OnboardingTopic.TargetEvent, normalizedTargetEvent: targetEventValue),
+            typeof(TargetEventExtraction),
+            (object)targetEventValue,
+        ];
 
-        // Act
-        var result = dto.ToUnion();
-
-        // Assert
-        result.Should().BeOfType<TargetEventExtraction>()
-            .Which.Value.Should().Be(value);
-        result.Confidence.Should().Be(dto.Confidence);
-        result.Topic.Should().Be(OnboardingTopic.TargetEvent);
-    }
-
-    [Fact]
-    public void ToUnion_CurrentFitness_MatchingSlot_ReturnsCurrentFitnessExtraction()
-    {
-        // Arrange
-        var value = new CurrentFitnessAnswer
+        var currentFitnessValue = new CurrentFitnessAnswer
         {
             TypicalWeeklyKm = 40.0,
             LongestRecentRunKm = 15.0,
@@ -63,23 +46,15 @@ public sealed class ExtractedAnswerToUnionTests
             RecentRaceTimeIso = null,
             Description = "Running comfortably at easy pace.",
         };
-        var dto = BuildDto(OnboardingTopic.CurrentFitness, normalizedCurrentFitness: value);
+        yield return
+        [
+            OnboardingTopic.CurrentFitness,
+            BuildDto(OnboardingTopic.CurrentFitness, normalizedCurrentFitness: currentFitnessValue),
+            typeof(CurrentFitnessExtraction),
+            (object)currentFitnessValue,
+        ];
 
-        // Act
-        var result = dto.ToUnion();
-
-        // Assert
-        result.Should().BeOfType<CurrentFitnessExtraction>()
-            .Which.Value.Should().Be(value);
-        result.Confidence.Should().Be(dto.Confidence);
-        result.Topic.Should().Be(OnboardingTopic.CurrentFitness);
-    }
-
-    [Fact]
-    public void ToUnion_WeeklySchedule_MatchingSlot_ReturnsWeeklyScheduleExtraction()
-    {
-        // Arrange
-        var value = new WeeklyScheduleAnswer
+        var weeklyScheduleValue = new WeeklyScheduleAnswer
         {
             MaxRunDaysPerWeek = 4,
             TypicalSessionMinutes = 60,
@@ -92,61 +67,66 @@ public sealed class ExtractedAnswerToUnionTests
             Sunday = false,
             Description = string.Empty,
         };
-        var dto = BuildDto(OnboardingTopic.WeeklySchedule, normalizedWeeklySchedule: value);
+        yield return
+        [
+            OnboardingTopic.WeeklySchedule,
+            BuildDto(OnboardingTopic.WeeklySchedule, normalizedWeeklySchedule: weeklyScheduleValue),
+            typeof(WeeklyScheduleExtraction),
+            (object)weeklyScheduleValue,
+        ];
 
-        // Act
-        var result = dto.ToUnion();
-
-        // Assert
-        result.Should().BeOfType<WeeklyScheduleExtraction>()
-            .Which.Value.Should().Be(value);
-        result.Confidence.Should().Be(dto.Confidence);
-        result.Topic.Should().Be(OnboardingTopic.WeeklySchedule);
-    }
-
-    [Fact]
-    public void ToUnion_InjuryHistory_MatchingSlot_ReturnsInjuryHistoryExtraction()
-    {
-        // Arrange
-        var value = new InjuryHistoryAnswer
+        var injuryHistoryValue = new InjuryHistoryAnswer
         {
             HasActiveInjury = false,
             ActiveInjuryDescription = string.Empty,
             PastInjurySummary = "Occasional shin splints a few years ago.",
         };
-        var dto = BuildDto(OnboardingTopic.InjuryHistory, normalizedInjuryHistory: value);
+        yield return
+        [
+            OnboardingTopic.InjuryHistory,
+            BuildDto(OnboardingTopic.InjuryHistory, normalizedInjuryHistory: injuryHistoryValue),
+            typeof(InjuryHistoryExtraction),
+            (object)injuryHistoryValue,
+        ];
 
-        // Act
-        var result = dto.ToUnion();
-
-        // Assert
-        result.Should().BeOfType<InjuryHistoryExtraction>()
-            .Which.Value.Should().Be(value);
-        result.Confidence.Should().Be(dto.Confidence);
-        result.Topic.Should().Be(OnboardingTopic.InjuryHistory);
-    }
-
-    [Fact]
-    public void ToUnion_Preferences_MatchingSlot_ReturnsPreferencesExtraction()
-    {
-        // Arrange
-        var value = new PreferencesAnswer
+        var preferencesValue = new PreferencesAnswer
         {
             PreferredUnits = PreferredUnits.Kilometers,
             PreferTrail = false,
             ComfortableWithIntensity = true,
             Description = string.Empty,
         };
-        var dto = BuildDto(OnboardingTopic.Preferences, normalizedPreferences: value);
+        yield return
+        [
+            OnboardingTopic.Preferences,
+            BuildDto(OnboardingTopic.Preferences, normalizedPreferences: preferencesValue),
+            typeof(PreferencesExtraction),
+            (object)preferencesValue,
+        ];
+    }
+
+    [Theory]
+    [MemberData(nameof(HappyPathCases))]
+    public void ToUnion_MatchingSlot_ReturnsCorrectExtraction(
+        OnboardingTopic topic,
+        ExtractedAnswer dto,
+        Type expectedExtractionType,
+        object expectedValue)
+    {
+        // Arrange — dto and expected values are supplied by HappyPathCases.
 
         // Act
         var result = dto.ToUnion();
 
         // Assert
-        result.Should().BeOfType<PreferencesExtraction>()
-            .Which.Value.Should().Be(value);
+        result.Should().BeOfType(expectedExtractionType);
         result.Confidence.Should().Be(dto.Confidence);
-        result.Topic.Should().Be(OnboardingTopic.Preferences);
+        result.Topic.Should().Be(topic);
+
+        // Verify the typed Value property matches the input answer record.
+        var valueProperty = expectedExtractionType.GetProperty("Value");
+        valueProperty.Should().NotBeNull(because: "every AnswerExtraction subtype exposes a Value property");
+        valueProperty!.GetValue(result).Should().Be(expectedValue);
     }
 
     [Fact]

@@ -49,6 +49,18 @@ public sealed class OnboardingProjectionTests
         };
     }
 
+    // Data provider for the TurnEvents_NoStateChange parameterized test. Static and placed
+    // here (before [Fact] methods) to satisfy SA1204.
+    public static IEnumerable<object[]> TurnEventsNoStateChangeData()
+    {
+        // Each test run gets its own JsonDocument; ownership is transferred to the event
+        // record, which holds the document for the duration of the test iteration.
+        yield return [new TopicAsked(OnboardingTopic.PrimaryGoal, Now.AddMinutes(1))];
+        yield return [new UserTurnRecorded(JsonSerializer.SerializeToDocument(new { type = "text", text = "hi" }), Now.AddMinutes(1))];
+        yield return [new AssistantTurnRecorded(JsonSerializer.SerializeToDocument(new { type = "text", text = "hi" }), Now.AddMinutes(1))];
+        yield return [new ClarificationRequested(OnboardingTopic.TargetEvent, "Distance ambiguous", Now.AddMinutes(1))];
+    }
+
     [Fact]
     public void OnboardingProjection_Create_SetsInitialState()
     {
@@ -452,18 +464,17 @@ public sealed class OnboardingProjectionTests
         actual.CurrentPlanId.Should().Be(planId);
     }
 
-    [Fact]
-    public void UserProfileFromOnboardingProjection_ApplyEvent_TurnEvents_NoStateChange()
+    [Theory]
+    [MemberData(nameof(TurnEventsNoStateChangeData))]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_TurnEvents_NoStateChange(object turnEvent)
     {
         // Arrange — chat-transcript events live on the Marten stream only; they must not
         // dirty the EF change tracker.
         var projection = new UserProfileFromOnboardingProjection();
         var snapshot = new RunnerOnboardingProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
-        using var doc = JsonSerializer.SerializeToDocument(new { type = "text", text = "hi" });
-        var userTurn = new UserTurnRecorded(doc, Now.AddMinutes(1));
 
         // Act
-        var actual = projection.ApplyEvent(snapshot, UserId, WrapEvent(userTurn), NullDbContext(), NullSession());
+        var actual = projection.ApplyEvent(snapshot, UserId, WrapEvent(turnEvent), NullDbContext(), NullSession());
 
         // Assert
         actual.Should().BeSameAs(snapshot);

@@ -76,5 +76,5 @@ public sealed record CurrentFitnessAnswer
     /// Gets the runner's self-reported fitness summary in their own words.
     /// </summary>
     [Description("Self-reported fitness summary in the runner's own words.")]
-    public required string Description { get; init; }
+    public required string Description { get; init; } = string.Empty;
 }

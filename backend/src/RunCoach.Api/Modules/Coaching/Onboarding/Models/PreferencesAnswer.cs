@@ -30,5 +30,5 @@ public sealed record PreferencesAnswer
     /// Gets the runner-supplied free-text description of any other preferences.
     /// </summary>
     [Description("Runner-supplied free-text description of any other preferences not captured above.")]
-    public required string Description { get; init; }
+    public required string Description { get; init; } = string.Empty;
 }

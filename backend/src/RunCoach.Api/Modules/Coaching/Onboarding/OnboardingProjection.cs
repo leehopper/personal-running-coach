@@ -125,7 +125,7 @@ public sealed class OnboardingProjection : SingleStreamProjection<OnboardingView
                 break;
 
             default:
-                throw new InvalidOperationException($"Unknown OnboardingTopic value '{{@event.Topic}}' encountered in onboarding projection");
+                throw new InvalidOperationException($"Unknown OnboardingTopic value '{@event.Topic}' encountered in onboarding projection");
         }
 
         if (view.OutstandingClarifications.Contains(@event.Topic))

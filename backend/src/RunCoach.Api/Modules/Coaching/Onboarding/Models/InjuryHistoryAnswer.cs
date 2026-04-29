@@ -19,12 +19,12 @@ public sealed record InjuryHistoryAnswer
     /// Gets the runner-supplied description of the active injury or limitation, when present.
     /// </summary>
     [Description("Description of the active injury or limitation. Empty string when there is no active injury.")]
-    public required string ActiveInjuryDescription { get; init; }
+    public required string ActiveInjuryDescription { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the runner-supplied summary of past injuries or recurring issues that should
     /// inform the training plan.
     /// </summary>
     [Description("Summary of past injuries or recurring issues that should inform the training plan. Empty string if none.")]
-    public required string PastInjurySummary { get; init; }
+    public required string PastInjurySummary { get; init; } = string.Empty;
 }
