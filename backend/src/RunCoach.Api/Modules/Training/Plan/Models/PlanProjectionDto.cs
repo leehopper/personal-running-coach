@@ -4,8 +4,8 @@ namespace RunCoach.Api.Modules.Training.Plan.Models;
 
 /// <summary>
 /// Inline-projected read model for a Plan stream (spec 13 § Unit 2, R02.3).
-/// Materialized by <see cref="PlanProjection"/> from the seven event types on the
-/// stream and rendered directly by the frontend via
+/// Materialized by <see cref="PlanProjection"/> from the Plan stream's event
+/// types and rendered directly by the frontend via
 /// <c>GET /api/v1/plan/current</c> - no further server-side shaping. Slice 1
 /// adds <see cref="PlanGenerated"/> + four <see cref="MesoCycleCreated"/> +
 /// <see cref="FirstMicroCycleCreated"/> apply methods; later slices (Slice 3
