@@ -51,6 +51,8 @@ reviews:
     - "!**/*.generated.cs"                    # EF Core scaffolded / source-gen output
     - "!**/*.g.cs"                            # .NET incremental source generators
     - "!**/*.Designer.cs"                     # WinForms / resource designers
+    - "!**/Migrations/*.Designer.cs"          # EF Core migration designer files (generated)
+    - "!**/Migrations/*ModelSnapshot.cs"      # EF Core model snapshot (generated)
     - "!frontend/src/**/*.generated.ts"       # any codegen TS files
     - "!**/dist/**"                           # build output if ever committed
     - "!**/*.min.js"                          # redundant but explicit
