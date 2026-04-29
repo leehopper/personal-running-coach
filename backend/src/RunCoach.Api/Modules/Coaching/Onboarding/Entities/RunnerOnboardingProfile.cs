@@ -2,8 +2,9 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Marten.Metadata;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
+using RunCoach.Api.Modules.Identity.Entities;
 
-namespace RunCoach.Api.Modules.Identity.Entities;
+namespace RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 
 /// <summary>
 /// Per-user training profile populated by the onboarding flow (spec 13 § Unit 1,
@@ -11,7 +12,7 @@ namespace RunCoach.Api.Modules.Identity.Entities;
 /// <see cref="ApplicationUser"/> via a shared primary key (<see cref="UserId"/>
 /// is both PK and FK — no surrogate id, no nullable optional row). Slot columns
 /// are JSONB-typed via owned-entity <c>ToJson</c> mapping (configured in
-/// <see cref="UserProfileConfiguration"/>) and remain null until the
+/// <see cref="RunnerOnboardingProfileConfiguration"/>) and remain null until the
 /// corresponding onboarding topic is captured. The slot answer record types are
 /// canonically defined under <c>Modules.Coaching.Onboarding.Models</c> — both
 /// the EF column shape and the LLM constrained-decoding schema use the same
@@ -26,7 +27,7 @@ namespace RunCoach.Api.Modules.Identity.Entities;
 /// (DEC-060 prohibition on dual-write).
 /// </remarks>
 [Table("UserProfile")]
-public class UserProfile : ITenanted
+public class RunnerOnboardingProfile : ITenanted
 {
     /// <summary>
     /// Gets or sets shared primary / foreign key with <see cref="ApplicationUser.Id"/>.

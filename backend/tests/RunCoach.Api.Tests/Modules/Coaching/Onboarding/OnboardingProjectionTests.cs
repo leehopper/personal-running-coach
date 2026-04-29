@@ -5,8 +5,8 @@ using Marten;
 using NSubstitute;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Onboarding;
+using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
-using RunCoach.Api.Modules.Identity.Entities;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 
@@ -23,6 +23,31 @@ public sealed class OnboardingProjectionTests
     private static readonly DateTimeOffset Now = new(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly Guid UserId = new("11111111-1111-1111-1111-111111111111");
+
+    // Data provider for the Task #242 TenantId-backfill parameterized test. Placed here
+    // (before [Fact] methods) to satisfy SA1204, which requires static members to precede
+    // non-static members within the same access-modifier group.
+    public static TheoryData<object, DateTimeOffset> StateChangingEventsData()
+    {
+        var planId = new Guid("22222222-2222-2222-2222-222222222222");
+        return new TheoryData<object, DateTimeOffset>
+        {
+            {
+                new AnswerCaptured(
+                    OnboardingTopic.PrimaryGoal,
+                    JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+                    {
+                        Goal = PrimaryGoal.GeneralFitness,
+                        Description = "Stay healthy.",
+                    }),
+                    Confidence: 0.8,
+                    CapturedAt: Now),
+                Now
+            },
+            { new PlanLinkedToUser(UserId, planId), Now },
+            { new OnboardingCompleted(planId, Now), Now },
+        };
+    }
 
     [Fact]
     public void OnboardingProjection_Create_SetsInitialState()
@@ -240,7 +265,7 @@ public sealed class OnboardingProjectionTests
         // Arrange. The EF row stores only the `PrimaryGoal` scalar; the description
         // text lives on the Marten event stream and is not projected onto `UserProfile`.
         var projection = new UserProfileFromOnboardingProjection();
-        var snapshot = new UserProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
+        var snapshot = new RunnerOnboardingProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
         var answer = new PrimaryGoalAnswer
         {
             Goal = PrimaryGoal.RaceTraining,
@@ -271,7 +296,7 @@ public sealed class OnboardingProjectionTests
     {
         // Arrange — non-PrimaryGoal slots persist the full typed answer record.
         var projection = new UserProfileFromOnboardingProjection();
-        var snapshot = new UserProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
+        var snapshot = new RunnerOnboardingProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
         var target = new TargetEventAnswer
         {
             EventName = "Hartford Half Marathon",
@@ -306,7 +331,7 @@ public sealed class OnboardingProjectionTests
         // corrects PrimaryGoal to GeneralFitness. The TargetEvent slot is only meaningful
         // under RaceTraining, so the projection must drop the stale race metadata.
         var projection = new UserProfileFromOnboardingProjection();
-        var snapshot = new UserProfile
+        var snapshot = new RunnerOnboardingProfile
         {
             UserId = UserId,
             CreatedOn = Now,
@@ -391,7 +416,7 @@ public sealed class OnboardingProjectionTests
         // Arrange — the DEC-060 / R-069 atomic dual-write replacement: this single event
         // is what drives the EF `UserProfile.CurrentPlanId` write inside Marten's transaction.
         var projection = new UserProfileFromOnboardingProjection();
-        var snapshot = new UserProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
+        var snapshot = new RunnerOnboardingProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
         var planId = Guid.NewGuid();
         var linked = new PlanLinkedToUser(UserId, planId);
         var envelope = WrapEvent(linked, timestamp: Now.AddMinutes(10));
@@ -410,7 +435,7 @@ public sealed class OnboardingProjectionTests
         // Arrange
         var projection = new UserProfileFromOnboardingProjection();
         var planId = Guid.NewGuid();
-        var snapshot = new UserProfile
+        var snapshot = new RunnerOnboardingProfile
         {
             UserId = UserId,
             CreatedOn = Now,
@@ -433,7 +458,7 @@ public sealed class OnboardingProjectionTests
         // Arrange — chat-transcript events live on the Marten stream only; they must not
         // dirty the EF change tracker.
         var projection = new UserProfileFromOnboardingProjection();
-        var snapshot = new UserProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
+        var snapshot = new RunnerOnboardingProfile { UserId = UserId, CreatedOn = Now, ModifiedOn = Now };
         using var doc = JsonSerializer.SerializeToDocument(new { type = "text", text = "hi" });
         var userTurn = new UserTurnRecorded(doc, Now.AddMinutes(1));
 
@@ -453,7 +478,7 @@ public sealed class OnboardingProjectionTests
         // matches what an integration test would observe after `SaveChangesAsync`.
         var projection = new UserProfileFromOnboardingProjection();
         var planId = Guid.NewGuid();
-        UserProfile? snapshot = null;
+        RunnerOnboardingProfile? snapshot = null;
 
         var events = BuildFullSequence(planId);
 
@@ -473,6 +498,218 @@ public sealed class OnboardingProjectionTests
         snapshot.Preferences.Should().NotBeNull();
         snapshot.CurrentPlanId.Should().Be(planId);
         snapshot.OnboardingCompletedAt.Should().NotBeNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // Task #241 — null-snapshot tests for AnswerCaptured / PlanLinkedToUser /
+    // OnboardingCompleted. Each verifies that the projection seeds a brand-new
+    // RunnerOnboardingProfile when no prior row exists, mirroring the OnboardingStarted
+    // variant above.
+    [Fact]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_AnswerCaptured_WithNullSnapshot_SeedsNewProfile()
+    {
+        // Arrange
+        var projection = new UserProfileFromOnboardingProjection();
+        var answer = new PrimaryGoalAnswer
+        {
+            Goal = PrimaryGoal.GeneralFitness,
+            Description = "Stay healthy.",
+        };
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            JsonSerializer.SerializeToDocument(answer),
+            Confidence: 0.85,
+            CapturedAt: Now);
+
+        // Act
+        var actual = projection.ApplyEvent(
+            snapshot: null,
+            identity: UserId,
+            @event: WrapEvent(captured),
+            dbContext: NullDbContext(),
+            session: NullSession());
+
+        // Assert
+        actual.Should().NotBeNull();
+        actual!.UserId.Should().Be(UserId);
+        actual.TenantId.Should().Be(UserId.ToString());
+        actual.CreatedOn.Should().Be(Now);
+        actual.ModifiedOn.Should().Be(Now);
+        actual.PrimaryGoal.Should().Be(PrimaryGoal.GeneralFitness);
+    }
+
+    [Fact]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_PlanLinkedToUser_WithNullSnapshot_SeedsNewProfile()
+    {
+        // Arrange
+        var projection = new UserProfileFromOnboardingProjection();
+        var planId = Guid.NewGuid();
+        var linked = new PlanLinkedToUser(UserId, planId);
+        var envelope = WrapEvent(linked, timestamp: Now);
+
+        // Act
+        var actual = projection.ApplyEvent(
+            snapshot: null,
+            identity: UserId,
+            @event: envelope,
+            dbContext: NullDbContext(),
+            session: NullSession());
+
+        // Assert
+        actual.Should().NotBeNull();
+        actual!.UserId.Should().Be(UserId);
+        actual.TenantId.Should().Be(UserId.ToString());
+        actual.CreatedOn.Should().Be(Now);
+        actual.ModifiedOn.Should().Be(Now);
+        actual.CurrentPlanId.Should().Be(planId);
+    }
+
+    [Fact]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_OnboardingCompleted_WithNullSnapshot_SeedsNewProfile()
+    {
+        // Arrange
+        var projection = new UserProfileFromOnboardingProjection();
+        var planId = Guid.NewGuid();
+        var completed = new OnboardingCompleted(planId, Now);
+        var envelope = WrapEvent(completed);
+
+        // Act
+        var actual = projection.ApplyEvent(
+            snapshot: null,
+            identity: UserId,
+            @event: envelope,
+            dbContext: NullDbContext(),
+            session: NullSession());
+
+        // Assert
+        actual.Should().NotBeNull();
+        actual!.UserId.Should().Be(UserId);
+        actual.TenantId.Should().Be(UserId.ToString());
+        actual.CreatedOn.Should().Be(Now);
+        actual.ModifiedOn.Should().Be(Now);
+        actual.OnboardingCompletedAt.Should().Be(Now);
+        actual.CurrentPlanId.Should().Be(planId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Task #242 — parameterized test: every state-changing apply branch must
+    // backfill TenantId from the event envelope even when the snapshot already
+    // exists with TenantId = null (e.g. a row seeded before the conjoined-tenancy
+    // regression fix landed).
+    [Theory]
+    [MemberData(nameof(StateChangingEventsData))]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_StateChangingEvents_StampTenantIdFromEventEnvelope(
+        object eventData,
+        DateTimeOffset timestamp)
+    {
+        // Arrange — snapshot already exists but TenantId was never set (simulates a
+        // pre-fix row); the projection must backfill it from the event envelope on apply.
+        var projection = new UserProfileFromOnboardingProjection();
+        var snapshot = new RunnerOnboardingProfile
+        {
+            UserId = UserId,
+            TenantId = null,
+            CreatedOn = Now,
+            ModifiedOn = Now,
+        };
+        var envelope = WrapEvent(eventData, timestamp: timestamp);
+
+        // Act
+        var actual = projection.ApplyEvent(snapshot, UserId, envelope, NullDbContext(), NullSession());
+
+        // Assert
+        actual!.TenantId.Should().Be(
+            UserId.ToString(),
+            because: "EfCoreSingleStreamProjection requires ITenanted under TenancyStyle.Conjoined; every state-changing branch must stamp TenantId from the event envelope");
+    }
+
+    // -------------------------------------------------------------------------
+    // Task #243 — pin OnboardingCompleted PlanId fallback semantics (??= operator).
+    // Four tests: two for the EF projection, two for the in-memory OnboardingView.
+    [Fact]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_OnboardingCompleted_WithExistingCurrentPlanId_PreservesExistingValue()
+    {
+        // Arrange — snapshot already has a CurrentPlanId (planA) set by a prior
+        // PlanLinkedToUser event. The OnboardingCompleted event carries a different
+        // planId (planB). The ??= must leave planA intact.
+        var projection = new UserProfileFromOnboardingProjection();
+        var planA = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var planB = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var snapshot = new RunnerOnboardingProfile
+        {
+            UserId = UserId,
+            CreatedOn = Now,
+            ModifiedOn = Now,
+            CurrentPlanId = planA,
+        };
+        var completed = new OnboardingCompleted(planB, Now.AddMinutes(1));
+
+        // Act
+        var actual = projection.ApplyEvent(snapshot, UserId, WrapEvent(completed), NullDbContext(), NullSession());
+
+        // Assert
+        actual!.CurrentPlanId.Should().Be(
+            planA,
+            because: "??= must not overwrite an already-set CurrentPlanId with the plan id carried by OnboardingCompleted");
+    }
+
+    [Fact]
+    public void UserProfileFromOnboardingProjection_ApplyEvent_OnboardingCompleted_WithNullCurrentPlanId_SeedsFromEvent()
+    {
+        // Arrange — snapshot has no CurrentPlanId yet; OnboardingCompleted carries planB.
+        // The ??= must populate the slot from the event.
+        var projection = new UserProfileFromOnboardingProjection();
+        var planB = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var snapshot = new RunnerOnboardingProfile
+        {
+            UserId = UserId,
+            CreatedOn = Now,
+            ModifiedOn = Now,
+            CurrentPlanId = null,
+        };
+        var completed = new OnboardingCompleted(planB, Now.AddMinutes(1));
+
+        // Act
+        var actual = projection.ApplyEvent(snapshot, UserId, WrapEvent(completed), NullDbContext(), NullSession());
+
+        // Assert
+        actual!.CurrentPlanId.Should().Be(
+            planB,
+            because: "when CurrentPlanId is null, ??= must seed it from the OnboardingCompleted event's PlanId");
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_OnboardingCompleted_WithExistingCurrentPlanId_PreservesExistingValue()
+    {
+        // Arrange — view already has CurrentPlanId (planA); OnboardingCompleted carries planB.
+        var planA = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var planB = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        OnboardingProjection.Apply(new PlanLinkedToUser(UserId, planA), view);
+
+        // Act
+        OnboardingProjection.Apply(new OnboardingCompleted(planB, Now.AddMinutes(1)), view);
+
+        // Assert
+        view.CurrentPlanId.Should().Be(
+            planA,
+            because: "the in-memory view mirrors the EF projection ??= invariant: an existing CurrentPlanId must survive OnboardingCompleted");
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_OnboardingCompleted_WithNullCurrentPlanId_SeedsFromEvent()
+    {
+        // Arrange — view has no CurrentPlanId yet; OnboardingCompleted carries planB.
+        var planB = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+
+        // Act
+        OnboardingProjection.Apply(new OnboardingCompleted(planB, Now.AddMinutes(1)), view);
+
+        // Assert
+        view.CurrentPlanId.Should().Be(
+            planB,
+            because: "when the view's CurrentPlanId is null, ??= must seed it from the OnboardingCompleted event's PlanId");
     }
 
     private static List<(object Data, DateTimeOffset Timestamp)> BuildFullSequence(Guid planId)

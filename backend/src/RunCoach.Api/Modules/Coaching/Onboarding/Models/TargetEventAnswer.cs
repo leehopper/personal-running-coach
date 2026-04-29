@@ -8,6 +8,8 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// </summary>
 public sealed record TargetEventAnswer
 {
+    private readonly double _distanceKm;
+
     /// <summary>
     /// Gets the name of the goal race or event (e.g. "Berlin Marathon", "Local 10K").
     /// </summary>
@@ -18,7 +20,19 @@ public sealed record TargetEventAnswer
     /// Gets the target distance in kilometers for the event.
     /// </summary>
     [Description("Target distance in kilometers for the event.")]
-    public required double DistanceKm { get; init; }
+    public required double DistanceKm
+    {
+        get => _distanceKm;
+        init
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(DistanceKm), value, "Must be greater than 0.");
+            }
+
+            _distanceKm = value;
+        }
+    }
 
     /// <summary>
     /// Gets the target event date in ISO-8601 calendar form (yyyy-MM-dd).

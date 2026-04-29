@@ -87,33 +87,45 @@ public sealed class OnboardingProjection : SingleStreamProjection<OnboardingView
         switch (@event.Topic)
         {
             case OnboardingTopic.PrimaryGoal:
-                view.PrimaryGoal = DeserializePayload<PrimaryGoalAnswer>(@event.NormalizedPayload);
-
-                // TargetEvent is only meaningful when PrimaryGoal == RaceTraining. If the
-                // runner switches off race training (e.g. RaceTraining → GeneralFitness),
-                // a previously-captured TargetEvent must be cleared to avoid stale race
-                // metadata on the view.
-                if (view.PrimaryGoal?.Goal != Models.PrimaryGoal.RaceTraining)
                 {
-                    view.TargetEvent = null;
+                    var typed = DeserializePayload<PrimaryGoalAnswer>(@event.NormalizedPayload);
+                    view.PrimaryGoal = typed;
+
+                    // TargetEvent is only meaningful when PrimaryGoal == RaceTraining. If the
+                    // runner switches off race training (e.g. RaceTraining -> GeneralFitness),
+                    // a previously-captured TargetEvent must be cleared to avoid stale race
+                    // metadata on the view. A null payload (malformed event) must not silently
+                    // nuke TargetEvent — only clear when deserialization succeeded.
+                    if (typed is not null && typed.Goal != Models.PrimaryGoal.RaceTraining)
+                    {
+                        view.TargetEvent = null;
+                    }
+
+                    break;
                 }
 
-                break;
             case OnboardingTopic.TargetEvent:
                 view.TargetEvent = DeserializePayload<TargetEventAnswer>(@event.NormalizedPayload);
                 break;
+
             case OnboardingTopic.CurrentFitness:
                 view.CurrentFitness = DeserializePayload<CurrentFitnessAnswer>(@event.NormalizedPayload);
                 break;
+
             case OnboardingTopic.WeeklySchedule:
                 view.WeeklySchedule = DeserializePayload<WeeklyScheduleAnswer>(@event.NormalizedPayload);
                 break;
+
             case OnboardingTopic.InjuryHistory:
                 view.InjuryHistory = DeserializePayload<InjuryHistoryAnswer>(@event.NormalizedPayload);
                 break;
+
             case OnboardingTopic.Preferences:
                 view.Preferences = DeserializePayload<PreferencesAnswer>(@event.NormalizedPayload);
                 break;
+
+            default:
+                throw new InvalidOperationException($"Unknown OnboardingTopic value '{{@event.Topic}}' encountered in onboarding projection");
         }
 
         if (view.OutstandingClarifications.Contains(@event.Topic))

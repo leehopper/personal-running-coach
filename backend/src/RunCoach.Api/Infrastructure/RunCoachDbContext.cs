@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Identity.Entities;
 
 namespace RunCoach.Api.Infrastructure;
@@ -21,7 +22,7 @@ public class RunCoachDbContext(DbContextOptions<RunCoachDbContext> options)
 {
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
-    public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<RunnerOnboardingProfile> RunnerOnboardingProfiles => Set<RunnerOnboardingProfile>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

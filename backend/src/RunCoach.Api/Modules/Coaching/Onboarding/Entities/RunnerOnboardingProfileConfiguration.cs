@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using RunCoach.Api.Modules.Identity.Entities;
 
-namespace RunCoach.Api.Modules.Identity.Entities;
+namespace RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 
 /// <summary>
-/// EF Core fluent configuration for <see cref="UserProfile"/>. Carries the
+/// EF Core fluent configuration for <see cref="RunnerOnboardingProfile"/>. Carries the
 /// shared-key 1:1 relationship to <see cref="ApplicationUser"/> with cascade
 /// delete and the JSONB owned-entity <c>ToJson</c> mappings for the five
 /// DEC-047 record-typed slot answers. The categorical <c>PrimaryGoal</c> enum
@@ -12,15 +13,15 @@ namespace RunCoach.Api.Modules.Identity.Entities;
 /// JSONB. Per spec 13 § Unit 1 R01.3, JSONB lets the answer-record shapes
 /// evolve without DDL migrations.
 /// </summary>
-internal sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
+internal sealed class RunnerOnboardingProfileConfiguration : IEntityTypeConfiguration<RunnerOnboardingProfile>
 {
-    public void Configure(EntityTypeBuilder<UserProfile> builder)
+    public void Configure(EntityTypeBuilder<RunnerOnboardingProfile> builder)
     {
         // Shared-key 1:1 with ApplicationUser. UserId is both PK and FK.
         builder
             .HasOne(p => p.User)
             .WithOne()
-            .HasForeignKey<UserProfile>(p => p.UserId)
+            .HasForeignKey<RunnerOnboardingProfile>(p => p.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         // Five DEC-047 onboarding slot columns mapped as JSONB via owned-entity

@@ -4,7 +4,7 @@ using Marten.EntityFrameworkCore;
 using Marten.Metadata;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Onboarding;
-using RunCoach.Api.Modules.Identity.Entities;
+using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 
@@ -14,12 +14,12 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// failure modes documented in R-070:
 /// <list type="bullet">
 /// <item><description>If <see cref="UserProfileFromOnboardingProjection"/> is
-///   ever "simplified" back to a non-EF base (e.g. <c>SingleStreamProjection&lt;UserProfile&gt;</c>),
+///   ever "simplified" back to a non-EF base (e.g. <c>SingleStreamProjection&lt;RunnerOnboardingProfile&gt;</c>),
 ///   Marten's <c>DocumentMapping.CompileAndValidate()</c> will fail at host
-///   start because <see cref="UserProfile.UserId"/> is the PK rather than
+///   start because <see cref="RunnerOnboardingProfile.UserId"/> is the PK rather than
 ///   <c>Id</c> / <c>id</c>. Asserting the EF base class signature catches
 ///   that regression at compile / unit-test time.</description></item>
-/// <item><description>If <see cref="UserProfile"/> ever drops its
+/// <item><description>If <see cref="RunnerOnboardingProfile"/> ever drops its
 ///   <see cref="ITenanted"/> implementation, Marten's
 ///   <c>EfCoreSingleStreamProjection.ValidateConfiguration</c> override hard-fails
 ///   the host start with <c>InvalidProjectionException</c> whenever the event
@@ -45,25 +45,25 @@ public sealed class MartenStoreOptionsCompositionTests
         // `EfCoreSingleStreamProjection<TDoc, TId, TDbContext>`. Reverting to a plain
         // `SingleStreamProjection<UserProfile>` would silently re-route writes through
         // Marten's document storage and break atomicity with the EF row.
-        actualBase.Should().Be<EfCoreSingleStreamProjection<UserProfile, Guid, RunCoachDbContext>>(
+        actualBase.Should().Be<EfCoreSingleStreamProjection<RunnerOnboardingProfile, Guid, RunCoachDbContext>>(
             because: "DEC-061 / R-070 — the EF base class is what makes opts.Add(...) wire the projection as a transaction participant on the same Npgsql connection as the Marten event append");
     }
 
     [Fact]
-    public void UserProfile_Implements_ITenanted()
+    public void RunnerOnboardingProfile_Implements_ITenanted()
     {
         // Arrange / Act / Assert — Conjoined tenancy hard-requires ITenanted on every
         // EF projection target. Dropping the interface re-triggers
         // InvalidProjectionException at host start.
-        typeof(ITenanted).IsAssignableFrom(typeof(UserProfile)).Should().BeTrue(
+        typeof(ITenanted).IsAssignableFrom(typeof(RunnerOnboardingProfile)).Should().BeTrue(
             because: "Marten's EfCoreSingleStreamProjection.ValidateConfiguration fails the host start with InvalidProjectionException if the EF target type does not implement ITenanted under TenancyStyle.Conjoined (Slice 0 default)");
     }
 
     [Fact]
-    public void UserProfile_Has_Nullable_TenantId_Property()
+    public void RunnerOnboardingProfile_Has_Nullable_TenantId_Property()
     {
         // Arrange / Act
-        var actualProperty = typeof(UserProfile).GetProperty(nameof(ITenanted.TenantId));
+        var actualProperty = typeof(RunnerOnboardingProfile).GetProperty(nameof(ITenanted.TenantId));
 
         // Assert — the nullable string contract matches Marten.Metadata.ITenanted's
         // member shape. The migration `AddUserProfileTenantId` adds the column as

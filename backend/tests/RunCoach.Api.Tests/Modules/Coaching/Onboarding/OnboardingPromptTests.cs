@@ -71,6 +71,78 @@ public sealed class OnboardingPromptTests
     }
 
     [Fact]
+    public void OnboardingV1Yaml_ContextTemplateWrapsUserMessageInSectionNameTag()
+    {
+        // Arrange
+        var promptText = File.ReadAllText(PromptFilePath);
+        var contextStart = promptText.IndexOf("context_template:", StringComparison.Ordinal);
+        var contextBlock = promptText[contextStart..];
+
+        // Act + Assert — the user_message substitution must be enclosed in a SECTION_NAME
+        // delimiter so prompt-injection payloads land inside a framed boundary per R-068.
+        contextBlock.Should().Contain(
+            "<SECTION_NAME id=\"{{user_message_nonce}}\">",
+            "the context_template must open a SECTION_NAME tag with a nonce id before {{user_message}}");
+        contextBlock.Should().Contain(
+            "{{user_message}}",
+            "the context_template must still include the {{user_message}} placeholder inside the wrapper");
+        contextBlock.Should().Contain(
+            "</SECTION_NAME>",
+            "the context_template must close every SECTION_NAME tag opened around user-controlled content");
+    }
+
+    [Fact]
+    public void OnboardingV1Yaml_ContextTemplateWrapsConversationInSectionNameTag()
+    {
+        // Arrange
+        var promptText = File.ReadAllText(PromptFilePath);
+        var contextStart = promptText.IndexOf("context_template:", StringComparison.Ordinal);
+        var contextBlock = promptText[contextStart..];
+
+        // Act + Assert
+        contextBlock.Should().Contain(
+            "<SECTION_NAME id=\"{{conversation_nonce}}\">",
+            "the context_template must open a SECTION_NAME tag with a nonce id before {{conversation}}");
+        contextBlock.Should().Contain(
+            "{{conversation}}",
+            "the context_template must still include the {{conversation}} placeholder inside the wrapper");
+    }
+
+    [Fact]
+    public void OnboardingV1Yaml_ContextTemplateWrapsCurrentTopicInSectionNameTag()
+    {
+        // Arrange
+        var promptText = File.ReadAllText(PromptFilePath);
+        var contextStart = promptText.IndexOf("context_template:", StringComparison.Ordinal);
+        var contextBlock = promptText[contextStart..];
+
+        // Act + Assert
+        contextBlock.Should().Contain(
+            "<SECTION_NAME id=\"{{current_topic_nonce}}\">",
+            "the context_template must open a SECTION_NAME tag with a nonce id before {{current_topic}}");
+        contextBlock.Should().Contain(
+            "{{current_topic}}",
+            "the context_template must still include the {{current_topic}} placeholder inside the wrapper");
+    }
+
+    [Fact]
+    public void OnboardingV1Yaml_ContextTemplateContainsRendererNonceComment()
+    {
+        // Arrange
+        var promptText = File.ReadAllText(PromptFilePath);
+        var contextStart = promptText.IndexOf("context_template:", StringComparison.Ordinal);
+
+        // Look for the security comment that must precede the context_template block.
+        // The comment documents that the renderer must supply CSPRNG nonces per turn.
+        var precedingText = promptText[..contextStart];
+
+        // Act + Assert
+        precedingText.Should().Contain(
+            "nonce",
+            "the YAML must carry a comment before context_template instructing the renderer to supply per-turn CSPRNG nonces");
+    }
+
+    [Fact]
     public void OnboardingV1Yaml_DataHandlingDirectiveSitsAtEndOfSystemBlock()
     {
         // Arrange

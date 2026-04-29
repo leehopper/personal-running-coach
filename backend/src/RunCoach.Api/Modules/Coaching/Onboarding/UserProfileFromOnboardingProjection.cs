@@ -3,14 +3,14 @@ using JasperFx.Events;
 using Marten;
 using Marten.EntityFrameworkCore;
 using RunCoach.Api.Infrastructure;
+using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
-using RunCoach.Api.Modules.Identity.Entities;
 
 namespace RunCoach.Api.Modules.Coaching.Onboarding;
 
 /// <summary>
 /// EF Core single-stream projection that materializes the runner's onboarding events into
-/// the relational <see cref="UserProfile"/> row (spec 13 § Unit 1, R01.5; DEC-060 / R-069).
+/// the relational <see cref="RunnerOnboardingProfile"/> row (spec 13 § Unit 1, R01.5; DEC-060 / R-069).
 /// Marten.EntityFrameworkCore 8.32 wires this projection as a transaction participant on
 /// the same <c>NpgsqlConnection</c> as the Marten event append, so the EF write commits
 /// inside Marten's transaction — atomic by construction, no dual-write across stores.
@@ -32,7 +32,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// </para>
 /// </remarks>
 public sealed class UserProfileFromOnboardingProjection
-    : EfCoreSingleStreamProjection<UserProfile, Guid, RunCoachDbContext>
+    : EfCoreSingleStreamProjection<RunnerOnboardingProfile, Guid, RunCoachDbContext>
 {
     /// <summary>
     /// Pattern-matches every onboarding event type and mutates the <paramref name="snapshot"/>
@@ -41,15 +41,15 @@ public sealed class UserProfileFromOnboardingProjection
     /// </summary>
     /// <param name="snapshot">
     /// The current EF row (or <see langword="null"/> if no row exists yet — the first
-    /// <see cref="OnboardingStarted"/> seeds it).
+    /// <see cref="OnboardingStarted"/> seeds it). Type is <see cref="RunnerOnboardingProfile"/>.
     /// </param>
     /// <param name="identity">The stream id (the runner's user id).</param>
     /// <param name="event">The Marten event envelope.</param>
     /// <param name="dbContext">The per-slice EF DbContext bound to the Marten session connection.</param>
     /// <param name="session">The Marten query session for cross-aggregate lookups (unused here).</param>
     /// <returns>The mutated snapshot.</returns>
-    public override UserProfile? ApplyEvent(
-        UserProfile? snapshot,
+    public override RunnerOnboardingProfile? ApplyEvent(
+        RunnerOnboardingProfile? snapshot,
         Guid identity,
         IEvent @event,
         RunCoachDbContext dbContext,
@@ -61,35 +61,23 @@ public sealed class UserProfileFromOnboardingProjection
         switch (@event.Data)
         {
             case OnboardingStarted started:
-                snapshot ??= new UserProfile
-                {
-                    UserId = identity,
-                    CreatedOn = started.StartedAt,
-                };
-                snapshot.TenantId = @event.TenantId;
-                snapshot.ModifiedOn = started.StartedAt;
+                snapshot = EnsureProfile(snapshot, identity, started.StartedAt, @event.TenantId);
                 return snapshot;
 
             case AnswerCaptured captured:
-                snapshot ??= NewProfile(identity, captured.CapturedAt, @event.TenantId);
-                snapshot.TenantId = @event.TenantId;
+                snapshot = EnsureProfile(snapshot, identity, captured.CapturedAt, @event.TenantId);
                 ApplyAnswerCaptured(snapshot, captured);
-                snapshot.ModifiedOn = captured.CapturedAt;
                 return snapshot;
 
             case PlanLinkedToUser linked:
-                snapshot ??= NewProfile(identity, @event.Timestamp, @event.TenantId);
-                snapshot.TenantId = @event.TenantId;
+                snapshot = EnsureProfile(snapshot, identity, @event.Timestamp, @event.TenantId);
                 snapshot.CurrentPlanId = linked.PlanId;
-                snapshot.ModifiedOn = @event.Timestamp;
                 return snapshot;
 
             case OnboardingCompleted completed:
-                snapshot ??= NewProfile(identity, completed.CompletedAt, @event.TenantId);
-                snapshot.TenantId = @event.TenantId;
+                snapshot = EnsureProfile(snapshot, identity, completed.CompletedAt, @event.TenantId);
                 snapshot.OnboardingCompletedAt = completed.CompletedAt;
                 snapshot.CurrentPlanId ??= completed.PlanId;
-                snapshot.ModifiedOn = completed.CompletedAt;
                 return snapshot;
 
             // Conversational turns and clarification requests do not change EF state -
@@ -106,9 +94,17 @@ public sealed class UserProfileFromOnboardingProjection
         }
     }
 
-    private static UserProfile NewProfile(Guid userId, DateTimeOffset createdOn, string tenantId)
+    private static RunnerOnboardingProfile EnsureProfile(RunnerOnboardingProfile? snapshot, Guid identity, DateTimeOffset timestamp, string tenantId)
     {
-        return new UserProfile
+        snapshot ??= NewProfile(identity, timestamp, tenantId);
+        snapshot.TenantId = tenantId;
+        snapshot.ModifiedOn = timestamp;
+        return snapshot;
+    }
+
+    private static RunnerOnboardingProfile NewProfile(Guid userId, DateTimeOffset createdOn, string tenantId)
+    {
+        return new RunnerOnboardingProfile
         {
             UserId = userId,
             TenantId = tenantId,
@@ -117,19 +113,22 @@ public sealed class UserProfileFromOnboardingProjection
         };
     }
 
-    private static void ApplyAnswerCaptured(UserProfile snapshot, AnswerCaptured captured)
+    private static void ApplyAnswerCaptured(RunnerOnboardingProfile snapshot, AnswerCaptured captured)
     {
         switch (captured.Topic)
         {
             case OnboardingTopic.PrimaryGoal:
                 {
                     var typed = captured.NormalizedPayload.Deserialize<PrimaryGoalAnswer>();
-                    snapshot.PrimaryGoal = typed?.Goal;
+                    if (typed is null)
+                    {
+                        // Defensive: a literal-null payload should not silently nuke TargetEvent.
+                        // The outer caller is responsible for rejecting malformed events.
+                        break;
+                    }
 
-                    // TargetEvent is only meaningful when PrimaryGoal == RaceTraining
-                    // (see UserProfile xmldoc). Drop stale race metadata if the runner
-                    // switches off race training.
-                    if (snapshot.PrimaryGoal != Models.PrimaryGoal.RaceTraining)
+                    snapshot.PrimaryGoal = typed.Goal;
+                    if (typed.Goal != Models.PrimaryGoal.RaceTraining)
                     {
                         snapshot.TargetEvent = null;
                     }
@@ -156,6 +155,9 @@ public sealed class UserProfileFromOnboardingProjection
             case OnboardingTopic.Preferences:
                 snapshot.Preferences = captured.NormalizedPayload.Deserialize<PreferencesAnswer>();
                 break;
+
+            default:
+                throw new InvalidOperationException($"Unknown OnboardingTopic value '{captured.Topic}' encountered in EF projection");
         }
     }
 }

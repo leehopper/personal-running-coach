@@ -13,17 +13,44 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// </remarks>
 public sealed record WeeklyScheduleAnswer
 {
+    private readonly int _maxRunDaysPerWeek;
+    private readonly int _typicalSessionMinutes;
+
     /// <summary>
     /// Gets the maximum number of run days per week the runner can commit to (1-7).
     /// </summary>
     [Description("Maximum number of run days per week the runner can commit to. Valid range 1 through 7.")]
-    public required int MaxRunDaysPerWeek { get; init; }
+    public required int MaxRunDaysPerWeek
+    {
+        get => _maxRunDaysPerWeek;
+        init
+        {
+            if (value < 1 || value > 7)
+            {
+                throw new ArgumentOutOfRangeException(nameof(MaxRunDaysPerWeek), value, "Must be between 1 and 7 inclusive.");
+            }
+
+            _maxRunDaysPerWeek = value;
+        }
+    }
 
     /// <summary>
     /// Gets the typical session duration in minutes the runner has available per training day.
     /// </summary>
     [Description("Typical session duration in minutes the runner has available per training day.")]
-    public required int TypicalSessionMinutes { get; init; }
+    public required int TypicalSessionMinutes
+    {
+        get => _typicalSessionMinutes;
+        init
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(TypicalSessionMinutes), value, "Must be greater than 0.");
+            }
+
+            _typicalSessionMinutes = value;
+        }
+    }
 
     /// <summary>Gets a value indicating whether Monday is an available run day.</summary>
     [Description("Whether Monday is an available run day.")]
