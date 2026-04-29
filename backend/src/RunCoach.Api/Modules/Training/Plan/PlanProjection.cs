@@ -95,10 +95,14 @@ public sealed class PlanProjection : SingleStreamProjection<PlanProjectionDto, G
     {
         if (@event.WeekIndex < 1)
         {
+            // ParamName binds to the method parameter (@event) rather than the
+            // offending property (WeekIndex) - CA2208 / SonarAnalyzer S3928
+            // both reject any name not in the method's signature, so the
+            // precision is carried in the message instead.
             throw new ArgumentOutOfRangeException(
                 nameof(@event),
                 @event.WeekIndex,
-                $"WeekIndex must be 1-based (got {@event.WeekIndex}).");
+                $"{nameof(@event)}.{nameof(MesoCycleCreated.WeekIndex)} must be 1-based (got {@event.WeekIndex}).");
         }
 
         if (@event.Meso.WeekNumber != @event.WeekIndex)

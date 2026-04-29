@@ -177,7 +177,7 @@ public sealed class PlanProjectionTests
         // Assert
         act.Should()
             .Throw<ArgumentOutOfRangeException>()
-            .WithMessage("*WeekIndex must be 1-based*");
+            .WithMessage("*event.WeekIndex must be 1-based*");
     }
 
     [Fact]
