@@ -15,6 +15,10 @@ namespace RunCoach.Api.Tests.Modules.Training.Plan;
 /// </summary>
 public sealed class PlanProjectionTests
 {
+    private const string PromptVersion = "coaching-v1";
+
+    private const string ModelId = "claude-sonnet-4-5";
+
     private static readonly DateTimeOffset Now = new(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly Guid PlanId = new("22222222-2222-2222-2222-222222222222");
@@ -27,27 +31,32 @@ public sealed class PlanProjectionTests
     public void Create_PlanGenerated_PopulatesProvenanceAndMacro()
     {
         // Arrange
-        var macro = BuildMacro();
+        var expectedMacro = BuildMacro();
+        var expectedPlanId = PlanId;
+        var expectedUserId = UserId;
+        var expectedGeneratedAt = Now;
+        var expectedPromptVersion = PromptVersion;
+        var expectedModelId = ModelId;
         var generated = new PlanGenerated(
-            PlanId,
-            UserId,
-            macro,
-            Now,
-            PromptVersion: "coaching-v1",
-            ModelId: "claude-sonnet-4-5",
+            expectedPlanId,
+            expectedUserId,
+            expectedMacro,
+            expectedGeneratedAt,
+            expectedPromptVersion,
+            expectedModelId,
             PreviousPlanId: null);
 
         // Act
         var actual = PlanProjection.Create(generated);
 
         // Assert
-        actual.PlanId.Should().Be(PlanId);
-        actual.UserId.Should().Be(UserId);
-        actual.GeneratedAt.Should().Be(Now);
-        actual.PromptVersion.Should().Be("coaching-v1");
-        actual.ModelId.Should().Be("claude-sonnet-4-5");
+        actual.PlanId.Should().Be(expectedPlanId);
+        actual.UserId.Should().Be(expectedUserId);
+        actual.GeneratedAt.Should().Be(expectedGeneratedAt);
+        actual.PromptVersion.Should().Be(expectedPromptVersion);
+        actual.ModelId.Should().Be(expectedModelId);
         actual.PreviousPlanId.Should().BeNull();
-        actual.Macro.Should().BeSameAs(macro);
+        actual.Macro.Should().BeSameAs(expectedMacro);
         actual.MesoWeeks.Should().BeEmpty();
         actual.MicroWorkoutsByWeek.Should().BeEmpty();
     }
@@ -57,20 +66,21 @@ public sealed class PlanProjectionTests
     {
         // Arrange — Unit 5's regenerate handler threads the prior plan id onto
         // the new stream's creation event so the projection retains the audit link.
+        var expectedPreviousPlanId = PreviousPlanId;
         var generated = new PlanGenerated(
             PlanId,
             UserId,
             BuildMacro(),
             Now,
-            PromptVersion: "coaching-v1",
-            ModelId: "claude-sonnet-4-5",
-            PreviousPlanId: PreviousPlanId);
+            PromptVersion,
+            ModelId,
+            PreviousPlanId: expectedPreviousPlanId);
 
         // Act
         var actual = PlanProjection.Create(generated);
 
         // Assert
-        actual.PreviousPlanId.Should().Be(PreviousPlanId);
+        actual.PreviousPlanId.Should().Be(expectedPreviousPlanId);
     }
 
     [Fact]
@@ -78,15 +88,16 @@ public sealed class PlanProjectionTests
     {
         // Arrange
         var dto = PlanProjection.Create(BuildPlanGenerated());
+        var expectedCount = 2;
+        int[] expectedWeekNumbers = [1, 2];
 
         // Act
         PlanProjection.Apply(new MesoCycleCreated(1, BuildMeso(1, PhaseType.Base, isDeload: false)), dto);
         PlanProjection.Apply(new MesoCycleCreated(2, BuildMeso(2, PhaseType.Base, isDeload: false)), dto);
 
         // Assert
-        dto.MesoWeeks.Should().HaveCount(2);
-        dto.MesoWeeks[0].WeekNumber.Should().Be(1);
-        dto.MesoWeeks[1].WeekNumber.Should().Be(2);
+        dto.MesoWeeks.Should().HaveCount(expectedCount);
+        dto.MesoWeeks.Select(w => w.WeekNumber).Should().Equal(expectedWeekNumbers);
     }
 
     [Fact]
@@ -94,6 +105,10 @@ public sealed class PlanProjectionTests
     {
         // Arrange — the canonical Slice 1 four-meso sequence.
         var dto = PlanProjection.Create(BuildPlanGenerated());
+        var expectedCount = 4;
+        int[] expectedWeekNumbers = [1, 2, 3, 4];
+        var expectedFinalIsDeload = true;
+        var expectedFinalPhase = PhaseType.Build;
 
         // Act — append in ascending order as IPlanGenerationService emits them.
         PlanProjection.Apply(new MesoCycleCreated(1, BuildMeso(1, PhaseType.Base, isDeload: false)), dto);
@@ -102,10 +117,10 @@ public sealed class PlanProjectionTests
         PlanProjection.Apply(new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, isDeload: true)), dto);
 
         // Assert
-        dto.MesoWeeks.Should().HaveCount(4);
-        dto.MesoWeeks.Select(w => w.WeekNumber).Should().Equal(1, 2, 3, 4);
-        dto.MesoWeeks[3].IsDeloadWeek.Should().BeTrue();
-        dto.MesoWeeks[3].PhaseType.Should().Be(PhaseType.Build);
+        dto.MesoWeeks.Should().HaveCount(expectedCount);
+        dto.MesoWeeks.Select(w => w.WeekNumber).Should().Equal(expectedWeekNumbers);
+        dto.MesoWeeks[3].IsDeloadWeek.Should().Be(expectedFinalIsDeload);
+        dto.MesoWeeks[3].PhaseType.Should().Be(expectedFinalPhase);
     }
 
     [Fact]
@@ -114,6 +129,7 @@ public sealed class PlanProjectionTests
         // Arrange — defensive: even if Marten codegen reorders applies during
         // a re-projection run, the frontend still sees ascending week order.
         var dto = PlanProjection.Create(BuildPlanGenerated());
+        int[] expectedWeekNumbers = [1, 2, 3, 4];
 
         // Act — deliberately apply weeks in non-ascending order.
         PlanProjection.Apply(new MesoCycleCreated(3, BuildMeso(3, PhaseType.Build, isDeload: false)), dto);
@@ -122,7 +138,7 @@ public sealed class PlanProjectionTests
         PlanProjection.Apply(new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, isDeload: true)), dto);
 
         // Assert
-        dto.MesoWeeks.Select(w => w.WeekNumber).Should().Equal(1, 2, 3, 4);
+        dto.MesoWeeks.Select(w => w.WeekNumber).Should().Equal(expectedWeekNumbers);
     }
 
     [Fact]
@@ -131,16 +147,55 @@ public sealed class PlanProjectionTests
         // Arrange — a re-projection that re-applies the same week index keeps
         // the slot count stable and uses the latest payload.
         var dto = PlanProjection.Create(BuildPlanGenerated());
+        var expectedCount = 1;
+        var expectedReplacementWeeklyTargetKm = 60;
         var originalMeso = BuildMeso(1, PhaseType.Base, isDeload: false);
-        var replacementMeso = originalMeso with { WeeklyTargetKm = 60 };
+        var replacementMeso = originalMeso with { WeeklyTargetKm = expectedReplacementWeeklyTargetKm };
 
         // Act
         PlanProjection.Apply(new MesoCycleCreated(1, originalMeso), dto);
         PlanProjection.Apply(new MesoCycleCreated(1, replacementMeso), dto);
 
         // Assert
-        dto.MesoWeeks.Should().HaveCount(1);
-        dto.MesoWeeks[0].WeeklyTargetKm.Should().Be(60);
+        dto.MesoWeeks.Should().HaveCount(expectedCount);
+        dto.MesoWeeks[0].WeeklyTargetKm.Should().Be(expectedReplacementWeeklyTargetKm);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(int.MinValue)]
+    public void Apply_MesoCycleCreated_NonPositiveWeekIndex_Throws(int invalidWeekIndex)
+    {
+        // Arrange — guard against malformed events; week indices are 1-based by spec.
+        var dto = PlanProjection.Create(BuildPlanGenerated());
+        var meso = BuildMeso(1, PhaseType.Base, isDeload: false);
+
+        // Act
+        var act = () => PlanProjection.Apply(new MesoCycleCreated(invalidWeekIndex, meso), dto);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentOutOfRangeException>()
+            .WithMessage("*WeekIndex must be 1-based*");
+    }
+
+    [Fact]
+    public void Apply_MesoCycleCreated_WeekNumberMismatch_Throws()
+    {
+        // Arrange — the find-or-replace logic keys by WeekIndex but writes
+        // Meso payloads carrying their own WeekNumber; divergence would
+        // produce a slot indexed under one number and rendered under another.
+        var dto = PlanProjection.Create(BuildPlanGenerated());
+        var divergentMeso = BuildMeso(2, PhaseType.Base, isDeload: false);
+
+        // Act — event WeekIndex=1 but payload WeekNumber=2.
+        var act = () => PlanProjection.Apply(new MesoCycleCreated(1, divergentMeso), dto);
+
+        // Assert
+        act.Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*WeekIndex=1*WeekNumber=2*");
     }
 
     [Fact]
@@ -148,14 +203,15 @@ public sealed class PlanProjectionTests
     {
         // Arrange
         var dto = PlanProjection.Create(BuildPlanGenerated());
-        var micro = BuildMicro();
+        var expectedMicro = BuildMicro();
+        var expectedWeekKey = 1;
 
         // Act
-        PlanProjection.Apply(new FirstMicroCycleCreated(micro), dto);
+        PlanProjection.Apply(new FirstMicroCycleCreated(expectedMicro), dto);
 
         // Assert
-        dto.MicroWorkoutsByWeek.Should().ContainKey(1);
-        dto.MicroWorkoutsByWeek[1].Should().BeSameAs(micro);
+        dto.MicroWorkoutsByWeek.Should().ContainKey(expectedWeekKey);
+        dto.MicroWorkoutsByWeek[expectedWeekKey].Should().BeSameAs(expectedMicro);
     }
 
     [Fact]
@@ -164,18 +220,20 @@ public sealed class PlanProjectionTests
         // Arrange — a future slice may have already populated week 2, week 3, etc.
         // Re-applying the first-week event must not clobber those entries.
         var dto = PlanProjection.Create(BuildPlanGenerated());
-        var weekTwoMicro = BuildMicro();
+        var expectedWeekTwoMicro = BuildMicro();
+        var expectedRetainedWeekKey = 2;
+        var expectedNewlyPopulatedWeekKey = 1;
         dto.MicroWorkoutsByWeek = new Dictionary<int, MicroWorkoutListOutput>
         {
-            [2] = weekTwoMicro,
+            [expectedRetainedWeekKey] = expectedWeekTwoMicro,
         };
 
         // Act
         PlanProjection.Apply(new FirstMicroCycleCreated(BuildMicro()), dto);
 
         // Assert
-        dto.MicroWorkoutsByWeek.Should().ContainKeys(1, 2);
-        dto.MicroWorkoutsByWeek[2].Should().BeSameAs(weekTwoMicro);
+        dto.MicroWorkoutsByWeek.Should().ContainKeys(expectedNewlyPopulatedWeekKey, expectedRetainedWeekKey);
+        dto.MicroWorkoutsByWeek[expectedRetainedWeekKey].Should().BeSameAs(expectedWeekTwoMicro);
     }
 
     [Fact]
@@ -183,6 +241,10 @@ public sealed class PlanProjectionTests
     {
         // Arrange — the canonical Slice 1 plan event order:
         // [PlanGenerated, MesoCycleCreated x4, FirstMicroCycleCreated].
+        var expectedPlanId = PlanId;
+        var expectedUserId = UserId;
+        var expectedMesoCount = 4;
+        var expectedSingleMicroWeekKey = 1;
         var generated = BuildPlanGenerated();
 
         // Act
@@ -194,12 +256,12 @@ public sealed class PlanProjectionTests
         PlanProjection.Apply(new FirstMicroCycleCreated(BuildMicro()), dto);
 
         // Assert
-        dto.PlanId.Should().Be(PlanId);
-        dto.UserId.Should().Be(UserId);
+        dto.PlanId.Should().Be(expectedPlanId);
+        dto.UserId.Should().Be(expectedUserId);
         dto.Macro.Should().NotBeNull();
-        dto.MesoWeeks.Should().HaveCount(4);
-        dto.MicroWorkoutsByWeek.Should().ContainSingle().Which.Key.Should().Be(1);
-        dto.MicroWorkoutsByWeek[1].Workouts.Should().NotBeEmpty();
+        dto.MesoWeeks.Should().HaveCount(expectedMesoCount);
+        dto.MicroWorkoutsByWeek.Should().ContainSingle().Which.Key.Should().Be(expectedSingleMicroWeekKey);
+        dto.MicroWorkoutsByWeek[expectedSingleMicroWeekKey].Workouts.Should().NotBeEmpty();
     }
 
     private static PlanGenerated BuildPlanGenerated()
@@ -209,8 +271,8 @@ public sealed class PlanProjectionTests
             UserId,
             BuildMacro(),
             Now,
-            PromptVersion: "coaching-v1",
-            ModelId: "claude-sonnet-4-5",
+            PromptVersion,
+            ModelId,
             PreviousPlanId: null);
     }
 

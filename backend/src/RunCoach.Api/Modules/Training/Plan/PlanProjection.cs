@@ -77,8 +77,36 @@ public sealed class PlanProjection : SingleStreamProjection<PlanProjectionDto, G
     /// </summary>
     /// <param name="event">The meso-tier event for one week of the plan.</param>
     /// <param name="dto">The projection document being mutated.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <see cref="MesoCycleCreated.WeekIndex"/> is less than 1.
+    /// Week indices are 1-based by spec; a non-positive value indicates a
+    /// malformed event that must surface as a transaction failure rather than
+    /// silently corrupting <see cref="PlanProjectionDto.MesoWeeks"/>.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when <see cref="MesoCycleCreated.WeekIndex"/> and
+    /// <see cref="MesoWeekOutput.WeekNumber"/> on the embedded payload disagree.
+    /// The find-or-replace logic below keys by <c>WeekIndex</c> but writes the
+    /// payload (which carries its own <c>WeekNumber</c>); divergence between
+    /// them would leave the read model with a slot indexed under one number
+    /// and rendered under another.
+    /// </exception>
     public static void Apply(MesoCycleCreated @event, PlanProjectionDto dto)
     {
+        if (@event.WeekIndex < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(@event),
+                @event.WeekIndex,
+                $"WeekIndex must be 1-based (got {@event.WeekIndex}).");
+        }
+
+        if (@event.Meso.WeekNumber != @event.WeekIndex)
+        {
+            throw new InvalidOperationException(
+                $"Meso payload week mismatch: event WeekIndex={@event.WeekIndex} but Meso.WeekNumber={@event.Meso.WeekNumber}.");
+        }
+
         var weeks = dto.MesoWeeks.ToList();
         var existingIndex = weeks.FindIndex(w => w.WeekNumber == @event.WeekIndex);
         if (existingIndex >= 0)
