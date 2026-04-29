@@ -215,6 +215,28 @@ public sealed class PlanProjectionTests
     }
 
     [Fact]
+    public void Apply_FirstMicroCycleCreated_ReApply_ReplacesExistingWeek1Entry()
+    {
+        // Arrange — a Marten Daemon re-projection replays historical events
+        // against a partially built DTO. The week-1 slot may already be
+        // populated when the event is reapplied; the projection contract is to
+        // overwrite, never throw or skip. Locks in the idempotent-replay
+        // semantics of <see cref="PlanProjection.Apply(FirstMicroCycleCreated, PlanProjectionDto)"/>.
+        var dto = PlanProjection.Create(BuildPlanGenerated());
+        var expectedReplacementMicro = BuildMicro();
+        var expectedWeekKey = 1;
+        var expectedSlotCount = 1;
+        PlanProjection.Apply(new FirstMicroCycleCreated(BuildMicro()), dto);
+
+        // Act
+        PlanProjection.Apply(new FirstMicroCycleCreated(expectedReplacementMicro), dto);
+
+        // Assert
+        dto.MicroWorkoutsByWeek.Should().HaveCount(expectedSlotCount);
+        dto.MicroWorkoutsByWeek[expectedWeekKey].Should().BeSameAs(expectedReplacementMicro);
+    }
+
+    [Fact]
     public void Apply_FirstMicroCycleCreated_DoesNotMutateOtherKeys()
     {
         // Arrange — a future slice may have already populated week 2, week 3, etc.
