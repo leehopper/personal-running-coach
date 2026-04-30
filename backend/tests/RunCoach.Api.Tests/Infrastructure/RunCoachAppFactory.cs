@@ -239,6 +239,23 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
             {
                 services.Remove(hostedDescriptor);
             }
+
+            // The default IHost shutdown timeout is 30s. Wolverine's
+            // MessageStoreCollection.ReleaseAllOwnershipAsync runs an SQL
+            // UPDATE on wolverine_*_envelopes during StopAsync, and on CI
+            // runners that update can be cancelled mid-flight when the
+            // 30s budget — already eaten into by ~25s of test execution
+            // before the assembly fixture's DisposeAsync calls
+            // base.DisposeAsync() — runs out. The cancellation surfaces as
+            // an OperationCanceledException from
+            // Microsoft.Extensions.Hosting.Internal.Host.ForeachService,
+            // which xunit reports as a "Test Assembly Cleanup Failure" for
+            // every test in the assembly. Extending the shutdown budget to
+            // a generous value isolates cleanup time from per-test time and
+            // keeps the cleanup deterministic regardless of how many tests
+            // the suite grows to.
+            services.PostConfigure<HostOptions>(opts =>
+                opts.ShutdownTimeout = TimeSpan.FromMinutes(2));
         });
     }
 }
