@@ -248,6 +248,6 @@ public sealed class ContextAssemblerOnboardingTests
         }
 
         throw new InvalidOperationException(
-            "Could not locate src/RunCoach.Api/Prompts/onboarding-v1.yaml by walking up from the test assembly.");
+            $"Could not locate src/RunCoach.Api/Prompts/onboarding-v1.yaml by walking up from '{AppContext.BaseDirectory}'.");
     }
 }

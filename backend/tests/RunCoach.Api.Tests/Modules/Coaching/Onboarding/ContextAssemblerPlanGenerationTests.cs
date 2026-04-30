@@ -281,6 +281,6 @@ public sealed class ContextAssemblerPlanGenerationTests
         }
 
         throw new InvalidOperationException(
-            "Could not locate src/RunCoach.Api/Prompts by walking up from the test assembly.");
+            $"Could not locate src/RunCoach.Api/Prompts by walking up from '{AppContext.BaseDirectory}'.");
     }
 }

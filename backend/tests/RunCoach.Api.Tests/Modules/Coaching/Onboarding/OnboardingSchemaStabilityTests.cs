@@ -79,6 +79,9 @@ public sealed class OnboardingSchemaStabilityTests
     [InlineData("then")]
     [InlineData("not")]
     [InlineData("prefixItems")]
+    [InlineData("minProperties")]
+    [InlineData("maxProperties")]
+    [InlineData("else")]
     public void Frozen_ContainsZero_ForbiddenAnthropicKeyword(string forbiddenKeyword)
     {
         // Arrange

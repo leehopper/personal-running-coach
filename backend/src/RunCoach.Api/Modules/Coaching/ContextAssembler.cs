@@ -500,6 +500,15 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// every onboarding turn after the first reuses the same byte-equal
     /// string instance.
     /// </summary>
+    /// <remarks>
+    /// The file read intentionally does not accept a per-call
+    /// <see cref="CancellationToken"/>. The single resulting <see cref="Task"/>
+    /// is shared by every caller via the enclosing <see cref="Lazy{T}"/>; if the
+    /// first caller's token cancelled the underlying read the cached task would
+    /// fault for every subsequent caller. Per-call cancellation is provided one
+    /// level up via <see cref="Task.WaitAsync(CancellationToken)"/> on the cached
+    /// task, which detaches the caller without invalidating the shared result.
+    /// </remarks>
     private static async Task<string> LoadOnboardingSystemPromptAsync(string filePath)
     {
         if (!File.Exists(filePath))
