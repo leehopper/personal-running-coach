@@ -62,12 +62,7 @@ jobs:
         run: dotnet build backend/RunCoach.slnx --no-restore --no-incremental
 
       - name: Test with coverage
-        # MTP-native invocation per .NET SDK 10+: `--solution` flag (positional
-        # slnx is rejected with "Specifying a solution for 'dotnet test' should
-        # be via '--solution'."). With `global.json` setting
-        # `test.runner = Microsoft.Testing.Platform`, MTP arguments are passed
-        # directly without `--`.
-        run: dotnet test --solution backend/RunCoach.slnx --no-build /p:CollectCoverage=true --report-trx
+        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true -- --report-trx
         env:
           EVAL_CACHE_MODE: Replay
 
