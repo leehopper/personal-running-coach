@@ -101,7 +101,9 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
         var (client, container) = CreateCookieClient(customFactory);
 
         // Register + login (userId not needed for this test)
-        await RegisterAsync(client, container, GenerateEmail(), StrongPassword);
+        var email = GenerateEmail();
+        await RegisterAsync(client, container, email, StrongPassword);
+        await LoginAsync(client, container, email, StrongPassword);
         var token = await PrimeAntiforgeryAsync(client, container);
 
         // Act
@@ -220,7 +222,9 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
     {
         // Arrange
         var (client, container) = CreateCookieClient(Factory);
-        await RegisterAsync(client, container, GenerateEmail(), StrongPassword);
+        var email = GenerateEmail();
+        await RegisterAsync(client, container, email, StrongPassword);
+        await LoginAsync(client, container, email, StrongPassword);
 
         // Act
         var response = await client.GetAsync(
@@ -308,7 +312,9 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
     {
         // Arrange
         var (client, container) = CreateCookieClient(Factory);
-        await RegisterAsync(client, container, GenerateEmail(), StrongPassword);
+        var email = GenerateEmail();
+        await RegisterAsync(client, container, email, StrongPassword);
+        await LoginAsync(client, container, email, StrongPassword);
         var token = await PrimeAntiforgeryAsync(client, container);
 
         // Act

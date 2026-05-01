@@ -23,7 +23,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 [Authorize(Policy = AuthPolicies.CookieOrBearer)]
 public sealed partial class OnboardingController(
     IMessageBus bus,
-    IDocumentSession session,
+    IDocumentStore store,
     ILogger<OnboardingController> logger) : ControllerBase
 {
     private const string AlreadyCompleteType = "https://runcoach.app/problems/onboarding-already-complete";
@@ -57,8 +57,14 @@ public sealed partial class OnboardingController(
 
         try
         {
+            // InvokeForTenantAsync sets the user id as Marten's conjoined
+            // tenant on the handler's auto-applied IDocumentSession. Without
+            // it, the handler's session has no TenantId and every Marten
+            // operation against an OnboardingView / IdempotencyMarker (both
+            // multi-tenant under TenancyStyle.Conjoined) fails to resolve.
             var response = await bus
-                .InvokeAsync<OnboardingTurnResponseDto>(
+                .InvokeForTenantAsync<OnboardingTurnResponseDto>(
+                    userId.ToString(),
                     new SubmitUserTurn(userId, request.IdempotencyKey, request.Text ?? string.Empty),
                     ct)
                 .ConfigureAwait(false);
@@ -93,6 +99,12 @@ public sealed partial class OnboardingController(
             return MissingUserClaim();
         }
 
+        // Marten is configured with TenancyStyle.Conjoined; the OnboardingView
+        // and the EF projection are both tenant-scoped to the runner's user id.
+        // Open a per-request tenanted session — Wolverine middleware does the
+        // same thing in the SubmitTurn dispatch path, but GetState reads
+        // directly off Marten and has to set the tenant explicitly.
+        await using var session = store.LightweightSession(userId.ToString());
         var view = await session.LoadAsync<OnboardingView>(userId, ct).ConfigureAwait(false);
         if (view is null)
         {
@@ -139,6 +151,10 @@ public sealed partial class OnboardingController(
             return MissingUserClaim();
         }
 
+        // Per-request tenanted session — same rationale as GetState. The
+        // append + SaveChanges + reload must all run on the same session so
+        // the inline projection re-materializes before the read.
+        await using var session = store.LightweightSession(userId.ToString());
         var view = await session.LoadAsync<OnboardingView>(userId, ct).ConfigureAwait(false);
         if (view is null)
         {
