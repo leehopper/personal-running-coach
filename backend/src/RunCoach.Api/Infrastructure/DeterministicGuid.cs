@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -34,6 +35,14 @@ public static class DeterministicGuid
     /// <exception cref="ArgumentException">
     /// Thrown when <paramref name="streamPurpose"/> is null, empty, or whitespace.
     /// </exception>
+    [SuppressMessage(
+        "Security",
+        "S4790:Using weak hashing algorithms is security-sensitive",
+        Justification = "RFC 4122 §4.3 mandates SHA-1 for UUID v5; SHA-1 is used here as an identity-derivation function (deterministic id from a name+namespace pair), not for any security primitive (no signing, password hashing, MAC, or integrity check). The output is a 16-byte stream id, never a credential.")]
+    [SuppressMessage(
+        "Security",
+        "CA5350:Do Not Use Weak Cryptographic Algorithms",
+        Justification = "RFC 4122 §4.3 specifies SHA-1 for UUID v5; non-cryptographic identity derivation only.")]
     public static Guid From(Guid userId, string streamPurpose)
     {
         if (string.IsNullOrWhiteSpace(streamPurpose))
@@ -47,20 +56,21 @@ public static class DeterministicGuid
                 $"{userId:D}:{streamPurpose}"));
 
         Span<byte> hash = stackalloc byte[20];
-
-        // RFC 4122 §4.3 specifies SHA-1 as the hash for UUID v5; it is used as
-        // an identity-derivation function here, not for any security purpose.
-#pragma warning disable CA5350
         SHA1.HashData(input, hash);
-#pragma warning restore CA5350
 
         Span<byte> bytes = stackalloc byte[16];
         hash[..16].CopyTo(bytes);
 
-        // RFC 4122 §4.3: set version (5) and IETF variant bits.
+        // RFC 4122 §4.3: set version (5) and IETF variant bits in the canonical
+        // big-endian layout (byte 6 holds the version nibble, byte 8 holds the
+        // variant bits).
         bytes[6] = (byte)((bytes[6] & 0x0F) | 0x50);
         bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80);
 
-        return new Guid(bytes);
+        // Construct from big-endian bytes so the canonical layout is preserved
+        // (Guid's default ctor expects Windows mixed-endian; using the
+        // bigEndian:true overload introduced in .NET 8 keeps the version digit
+        // visible in `ToString("D")` and `ToByteArray(bigEndian: true)`).
+        return new Guid(bytes, bigEndian: true);
     }
 }
