@@ -28,7 +28,6 @@ public sealed record RegenerationIntent
     public const int MaxFreeTextLength = 500;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="RegenerationIntent"/> class.
     /// Initializes a new instance of the <see cref="RegenerationIntent"/> record.
     /// </summary>
     /// <param name="freeText">Sanitized free-text intent. Must not exceed <see cref="MaxFreeTextLength"/>.</param>
