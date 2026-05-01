@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -10,14 +9,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using RunCoach.Api.Infrastructure;
-using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
-using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Identity.Contracts;
 using RunCoach.Api.Tests.Infrastructure;
+using Wolverine;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 
@@ -62,45 +61,29 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
 
     /// <summary>
     /// Authenticated with cookie + valid request → 200 with OnboardingTurnResponseDto.
-    /// ICoachingLlm is replaced with a stub that returns a predictable Ask response
-    /// so the test is deterministic and never calls the real Anthropic API.
+    /// IMessageBus is stubbed to short-circuit the Wolverine handler chain so the
+    /// integration test stays focused on the controller's mapping behaviour and
+    /// never calls the real Anthropic API. Handler-side coverage is owned by
+    /// OnboardingTurnHandlerUnitTests + InvokeAsyncTransactionScopeTests.
     /// </summary>
     [Fact]
     public async Task SubmitTurn_Authenticated_Returns_200_With_ResponseDto()
     {
-        // Arrange — stub the LLM so we never call the real Anthropic API.
-        var llmStub = Substitute.For<ICoachingLlm>();
-        llmStub
-            .GenerateStructuredAsync<OnboardingTurnOutput>(
+        // Arrange — stub the bus to return a deterministic Ask response.
+        var expected = BuildAskResponseDto();
+        var busStub = Substitute.For<IMessageBus>();
+        busStub
+            .InvokeForTenantAsync<OnboardingTurnResponseDto>(
                 Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
-                Arg.Any<CacheControl?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(BuildAskOutput());
-
-        var assemblerStub = Substitute.For<IContextAssembler>();
-        assemblerStub
-            .ComposeForOnboardingAsync(
-                Arg.Any<OnboardingView>(),
-                Arg.Any<OnboardingTopic>(),
-                Arg.Any<string>(),
-                Arg.Any<CancellationToken>())
-            .Returns(new OnboardingPromptComposition(
-                SystemPrompt: "sys",
-                UserMessage: "user",
-                Findings: ImmutableArray<SanitizationFinding>.Empty,
-                Neutralized: false));
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<TimeSpan?>())
+            .Returns(expected);
 
         using var customFactory = Factory.WithWebHostBuilder(b =>
-            b.ConfigureTestServices(svc =>
-            {
-                svc.AddSingleton(llmStub);
-                svc.AddSingleton(assemblerStub);
-            }));
+            b.ConfigureTestServices(svc => svc.AddSingleton(busStub)));
         var (client, container) = CreateCookieClient(customFactory);
 
-        // Register + login (userId not needed for this test)
         var email = GenerateEmail();
         await RegisterAsync(client, container, email, StrongPassword);
         await LoginAsync(client, container, email, StrongPassword);
@@ -121,60 +104,28 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
     }
 
     /// <summary>
-    /// Already-complete stream → 409 with the onboarding-already-complete
-    /// ProblemDetails type.
+    /// Already-complete stream — bus throws OnboardingAlreadyCompleteException;
+    /// controller maps it to 409 ProblemDetails with the documented type URI.
     /// </summary>
     [Fact]
     public async Task SubmitTurn_AlreadyCompleteStream_Returns_409_ProblemDetails()
     {
-        // Arrange — stub LLM to prevent real API calls.
-        var llmStub = Substitute.For<ICoachingLlm>();
-        llmStub
-            .GenerateStructuredAsync<OnboardingTurnOutput>(
+        // Arrange — stub the bus to surface the contract exception.
+        var busStub = Substitute.For<IMessageBus>();
+        busStub
+            .InvokeForTenantAsync<OnboardingTurnResponseDto>(
                 Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
-                Arg.Any<CacheControl?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(BuildAskOutput());
-
-        var assemblerStub = Substitute.For<IContextAssembler>();
-        assemblerStub
-            .ComposeForOnboardingAsync(
-                Arg.Any<OnboardingView>(),
-                Arg.Any<OnboardingTopic>(),
-                Arg.Any<string>(),
-                Arg.Any<CancellationToken>())
-            .Returns(new OnboardingPromptComposition(
-                SystemPrompt: "sys",
-                UserMessage: "user",
-                Findings: ImmutableArray<SanitizationFinding>.Empty,
-                Neutralized: false));
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<TimeSpan?>())
+            .Throws(new OnboardingAlreadyCompleteException(Guid.NewGuid()));
 
         using var customFactory = Factory.WithWebHostBuilder(b =>
-            b.ConfigureTestServices(svc =>
-            {
-                svc.AddSingleton(llmStub);
-                svc.AddSingleton(assemblerStub);
-            }));
+            b.ConfigureTestServices(svc => svc.AddSingleton(busStub)));
         var (client, container) = CreateCookieClient(customFactory);
         var email = GenerateEmail();
-        var userId = await RegisterAsync(client, container, email, StrongPassword);
+        await RegisterAsync(client, container, email, StrongPassword);
         await LoginAsync(client, container, email, StrongPassword);
-
-        // Seed an OnboardingCompleted event directly onto the user's stream so
-        // the handler sees a terminal stream and throws
-        // OnboardingAlreadyCompleteException.
-        var now = DateTimeOffset.UtcNow;
-        var store = customFactory.Services.GetRequiredService<IDocumentStore>();
-        await using (var seedSession = store.LightweightSession(userId.ToString()))
-        {
-            seedSession.Events.StartStream<OnboardingView>(
-                userId,
-                new OnboardingStarted(userId, now));
-            seedSession.Events.Append(userId, new OnboardingCompleted(Guid.NewGuid(), now));
-            await seedSession.SaveChangesAsync(TestContext.Current.CancellationToken);
-        }
 
         var token = await PrimeAntiforgeryAsync(client, container);
 
@@ -468,19 +419,20 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
     private static string GenerateEmail() =>
         $"user-{Guid.NewGuid():N}@example.test";
 
-    private static OnboardingTurnOutput BuildAskOutput() => new()
-    {
-        Reply =
-        [
-            new AnthropicContentBlock
-            {
-                Type = AnthropicContentBlockType.Text,
-                Text = "What is your primary training goal?",
-            },
-        ],
-        Extracted = null,
-        NeedsClarification = false,
-        ClarificationReason = null,
-        ReadyForPlan = false,
-    };
+    private static OnboardingTurnResponseDto BuildAskResponseDto() =>
+        new(
+            Kind: OnboardingTurnKind.Ask,
+            AssistantBlocks: JsonSerializer.SerializeToElement(
+                new[]
+                {
+                    new AnthropicContentBlock
+                    {
+                        Type = AnthropicContentBlockType.Text,
+                        Text = "What is your primary training goal?",
+                    },
+                }),
+            Topic: OnboardingTopic.PrimaryGoal,
+            SuggestedInputType: SuggestedInputType.SingleSelect,
+            Progress: new OnboardingProgressDto(0, 5),
+            PlanId: null);
 }
