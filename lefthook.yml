@@ -48,7 +48,16 @@ pre-push:
     dotnet-test:
       root: "backend/"
       glob: "*.cs"
-      run: EVAL_CACHE_MODE=Replay dotnet test RunCoach.slnx --no-restore --filter "Category!=Integration"
+      # MTP-native invocation per .NET SDK 10+: `--solution` flag (positional
+      # slnx is rejected on SDK 10+), `--filter-not-trait "name=value"` for
+      # xunit v3 trait filtering (the legacy VSTest `--filter "Category!=X"`
+      # syntax is silently ignored by MTP and would still run integration
+      # tests). Routing to MTP requires `test.runner` set in `global.json` at
+      # the repo root — without that, SDK 10+ defaults to VSTest, which hangs
+      # in MSBuild evaluation against an MTP-only test project.
+      # `--report-trx` activates the trx reporter so the test summary lands on
+      # stdout (matches CI invocation in .github/workflows/ci.yml).
+      run: EVAL_CACHE_MODE=Replay dotnet test --solution RunCoach.slnx --filter-not-trait "Category=Integration" --report-trx
     eval-cache-replay:
       glob: "*.cs"
       run: bash backend/tests/scripts/prepush-eval-check.sh
