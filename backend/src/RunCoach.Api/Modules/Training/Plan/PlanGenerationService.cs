@@ -226,15 +226,17 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
 
     /// <summary>
     /// Appends the micro-tier suffix on the cacheable base prompt. Recaps both
-    /// the macro plan and the week-1 meso template so the LLM has the
-    /// progression context it needs to lay out detailed workouts.
+    /// the macro plan and the full week-1 meso template (phase / target km /
+    /// deload flag plus the day-by-day slot map) so the micro tier elaborates
+    /// the exact week the meso call laid out, instead of inventing day slots
+    /// from a 3-field summary.
     /// </summary>
     private static string BuildMicroUserMessage(
         string basePrompt,
         MacroPlanOutput macro,
         MesoWeekOutput weekOneMeso)
     {
-        var sb = new StringBuilder(basePrompt.Length + 512);
+        var sb = new StringBuilder(basePrompt.Length + 768);
         sb.Append(basePrompt);
         sb.AppendLine();
         sb.AppendLine();
@@ -243,8 +245,32 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         sb.AppendLine(CultureInfo.InvariantCulture, $"Week 1 phase: {weekOneMeso.PhaseType}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Week 1 weekly target km: {weekOneMeso.WeeklyTargetKm}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Week 1 is deload: {(weekOneMeso.IsDeloadWeek ? "true" : "false")}");
+        AppendWeekOneMesoTemplate(sb, weekOneMeso);
         sb.AppendLine("Generate the detailed workouts for week 1, one per scheduled run day.");
         return sb.ToString();
+    }
+
+    private static void AppendWeekOneMesoTemplate(StringBuilder sb, MesoWeekOutput weekOneMeso)
+    {
+        sb.AppendLine("Week 1 meso template (day-by-day):");
+        AppendMesoSlot(sb, "Sunday", weekOneMeso.Sunday);
+        AppendMesoSlot(sb, "Monday", weekOneMeso.Monday);
+        AppendMesoSlot(sb, "Tuesday", weekOneMeso.Tuesday);
+        AppendMesoSlot(sb, "Wednesday", weekOneMeso.Wednesday);
+        AppendMesoSlot(sb, "Thursday", weekOneMeso.Thursday);
+        AppendMesoSlot(sb, "Friday", weekOneMeso.Friday);
+        AppendMesoSlot(sb, "Saturday", weekOneMeso.Saturday);
+        if (!string.IsNullOrWhiteSpace(weekOneMeso.WeekSummary))
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Week 1 summary: {weekOneMeso.WeekSummary}");
+        }
+    }
+
+    private static void AppendMesoSlot(StringBuilder sb, string day, MesoDaySlotOutput slot)
+    {
+        var workoutType = slot.WorkoutType?.ToString() ?? "(none)";
+        var notes = string.IsNullOrWhiteSpace(slot.Notes) ? string.Empty : $" — {slot.Notes}";
+        sb.AppendLine(CultureInfo.InvariantCulture, $"  - {day}: {slot.SlotType} / {workoutType}{notes}");
     }
 
     private static void AppendMacroRecap(StringBuilder sb, MacroPlanOutput macro)

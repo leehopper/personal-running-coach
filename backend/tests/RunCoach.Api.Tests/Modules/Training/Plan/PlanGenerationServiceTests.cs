@@ -67,6 +67,28 @@ public sealed class PlanGenerationServiceTests
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>());
+
+        // Per CodeRabbit feedback: count assertions alone do not catch a
+        // micro-before-meso regression. Inspect the actual invocation
+        // sequence via ReceivedCalls() and assert macro → meso × N → micro.
+        var llmCallTypes = llm.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(ICoachingLlm.GenerateStructuredAsync))
+            .Select(c => c.GetMethodInfo().GetGenericArguments()[0])
+            .ToArray();
+
+        var expectedSequence = new List<Type>(2 + PlanGenerationService.MesoWeekCount)
+        {
+            typeof(MacroPlanOutput),
+        };
+        for (var i = 0; i < PlanGenerationService.MesoWeekCount; i++)
+        {
+            expectedSequence.Add(typeof(MesoWeekOutput));
+        }
+
+        expectedSequence.Add(typeof(MicroWorkoutListOutput));
+        llmCallTypes.Should().Equal(
+            expectedSequence,
+            because: "macro → meso×4 → micro must fire in canonical order");
     }
 
     [Fact]

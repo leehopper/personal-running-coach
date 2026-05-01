@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
+using Npgsql;
 using NSubstitute;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
@@ -109,11 +110,16 @@ public sealed class OnboardingTurnConcurrencyTests(RunCoachAppFactory factory)
         // detects the collision before issuing the SQL) or a MartenCommandException
         // wrapping the PostgreSQL unique-constraint violation (emitted when the
         // collision surfaces at the DB level inside SaveChangesAsync).
+        //
+        // Per CodeRabbit feedback: a bare `is MartenCommandException` would also
+        // accept unrelated SQL errors (foreign-key, syntax, etc.). Verify the
+        // wrapped Postgres exception carries SqlState 23505 (unique_violation),
+        // which is the exact signal that Marten's Rich-mode version gate fired.
         foreach (var ex in failures)
         {
             ex.Should().Match<Exception>(
-                e => e is ExistingStreamIdCollisionException || e is MartenCommandException,
-                because: "Rich-mode concurrent StartStream must throw ExistingStreamIdCollisionException or MartenCommandException — not silently succeed");
+                e => e is ExistingStreamIdCollisionException || IsUniqueViolation(e),
+                because: "Rich-mode concurrent StartStream must throw ExistingStreamIdCollisionException or a MartenCommandException wrapping a Postgres unique_violation (SqlState 23505) — not silently succeed");
         }
     }
 
@@ -125,6 +131,33 @@ public sealed class OnboardingTurnConcurrencyTests(RunCoachAppFactory factory)
         await Factory.Services.ResetAllMartenDataAsync();
         await base.DisposeAsync();
         GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Walks an exception chain looking for a Postgres unique-constraint
+    /// violation (SqlState 23505). Marten typically wraps the Npgsql exception
+    /// inside a MartenCommandException, so we drill through InnerException
+    /// rather than relying on the outer type alone.
+    /// </summary>
+    private static bool IsUniqueViolation(Exception ex)
+    {
+        if (ex is not MartenCommandException)
+        {
+            return false;
+        }
+
+        var current = ex.InnerException;
+        while (current is not null)
+        {
+            if (current is PostgresException pg && string.Equals(pg.SqlState, "23505", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            current = current.InnerException;
+        }
+
+        return false;
     }
 
     private static OnboardingTurnOutput BuildValidLlmOutput() => new()

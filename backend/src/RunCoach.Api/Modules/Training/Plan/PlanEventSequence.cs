@@ -73,6 +73,22 @@ public sealed record PlanEventSequence(
                 nameof(mesos));
         }
 
+        // Each entry must carry the canonical 1-based week index for its
+        // position so ToEvents() emits weeks 1..ExpectedMesoCount in order.
+        // A reordered or duplicated meso list would otherwise flatten through
+        // ToEvents() and quietly violate the wrapper's contract.
+        for (var index = 0; index < mesos.Count; index++)
+        {
+            var expectedWeek = index + 1;
+            if (mesos[index].WeekIndex != expectedWeek)
+            {
+                throw new ArgumentException(
+                    $"Meso events must be ordered for weeks 1..{ExpectedMesoCount}; " +
+                    $"position {index} carried WeekIndex={mesos[index].WeekIndex}, expected {expectedWeek}.",
+                    nameof(mesos));
+            }
+        }
+
         return mesos;
     }
 }
