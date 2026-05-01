@@ -169,7 +169,14 @@ public sealed class OnboardingTurnConcurrencyTests(RunCoachAppFactory factory)
     private async Task InvokeFirstTurnAsync(Guid userId, Guid idempotencyKey)
     {
         using var scope = Factory.Services.CreateScope();
-        var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+
+        // Marten is configured with TenancyStyle.Conjoined; the default DI
+        // session has no tenant assigned (in production, Wolverine middleware
+        // sets it from the message envelope). LightweightSession with the
+        // user id as tenant matches what the runtime would do for this
+        // command and lets MartenIdempotencyStore's tenant-scope guard pass.
+        var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
+        await using var session = store.LightweightSession(userId.ToString());
 
         var llm = Substitute.For<ICoachingLlm>();
         llm.GenerateStructuredAsync<OnboardingTurnOutput>(
