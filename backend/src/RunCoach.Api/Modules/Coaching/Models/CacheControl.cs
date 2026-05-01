@@ -32,17 +32,66 @@ namespace RunCoach.Api.Modules.Coaching.Models;
 /// across topics is what makes the prefix cache useful in the first place.
 /// </para>
 /// </remarks>
-public sealed record CacheControl(string Type, string Ttl)
+public sealed record CacheControl
 {
+    /// <summary>The only Anthropic-supported cache-control type discriminator.</summary>
+    private const string EphemeralType = "ephemeral";
+
+    /// <summary>The supported Anthropic cache-control TTL values.</summary>
+    private static readonly string[] SupportedTtls = ["5m", "1h"];
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CacheControl"/> record.
+    /// Validates that <paramref name="type"/> and <paramref name="ttl"/> match the
+    /// values Anthropic constrained decoding accepts; throws otherwise so the
+    /// adapter never silently sends unsupported cache-control to the API.
+    /// Prefer the <see cref="Ephemeral1h"/> / <see cref="Ephemeral5m"/> static
+    /// factories over direct construction.
+    /// </summary>
+    /// <param name="type">The cache-control type discriminator. Must be <c>"ephemeral"</c>.</param>
+    /// <param name="ttl">The cache TTL. Must be <c>"5m"</c> or <c>"1h"</c>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="type"/> or <paramref name="ttl"/> is not a value
+    /// Anthropic accepts. The Anthropic API would reject unsupported values with HTTP 400;
+    /// failing at construction surfaces the misconfiguration at the call site instead.
+    /// </exception>
+    public CacheControl(string type, string ttl)
+    {
+        if (!string.Equals(type, EphemeralType, StringComparison.Ordinal))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(type),
+                type,
+                $"Anthropic cache_control.type must be \"{EphemeralType}\".");
+        }
+
+        if (Array.IndexOf(SupportedTtls, ttl) < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(ttl),
+                ttl,
+                $"Anthropic cache_control.ttl must be one of: {string.Join(", ", SupportedTtls)}.");
+        }
+
+        Type = type;
+        Ttl = ttl;
+    }
+
     /// <summary>
     /// Gets the Anthropic <c>{ "type": "ephemeral", "ttl": "1h" }</c> breakpoint for
     /// long-prefix workloads (onboarding multi-turn, plan generation chain).
     /// </summary>
-    public static CacheControl Ephemeral1h { get; } = new("ephemeral", "1h");
+    public static CacheControl Ephemeral1h { get; } = new(EphemeralType, "1h");
 
     /// <summary>
     /// Gets the Anthropic <c>{ "type": "ephemeral", "ttl": "5m" }</c> breakpoint for
     /// short-burst workloads (default).
     /// </summary>
-    public static CacheControl Ephemeral5m { get; } = new("ephemeral", "5m");
+    public static CacheControl Ephemeral5m { get; } = new(EphemeralType, "5m");
+
+    /// <summary>Gets the cache-control type discriminator. Always <c>"ephemeral"</c>.</summary>
+    public string Type { get; init; }
+
+    /// <summary>Gets the cache time-to-live: <c>"5m"</c> or <c>"1h"</c>.</summary>
+    public string Ttl { get; init; }
 }

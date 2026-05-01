@@ -21,7 +21,7 @@ TEST_BIN="$BACKEND_DIR/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.T
 if [ ! -x "$TEST_BIN" ]; then
     dotnet build RunCoach.slnx --no-restore >/dev/null
 fi
-if EVAL_CACHE_MODE=Replay "$TEST_BIN" -trait "Category=Eval" 2>/dev/null; then
+if EVAL_CACHE_MODE=Replay "$TEST_BIN" -trait "Category=Eval"; then
     echo "[eval-cache] Replay passed — cache is CI-stable."
     exit 0
 fi
