@@ -2,7 +2,7 @@ using System.Text.Json;
 using Marten;
 using Marten.Events;
 using Microsoft.Extensions.Logging;
-using RunCoach.Api.Modules.Coaching.Idempotency;
+using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Plan;
@@ -278,7 +278,7 @@ public sealed partial class OnboardingTurnHandler
             var (completed, total) = OnboardingCompletionGate.Progress(working);
             response = new OnboardingTurnResponseDto(
                 Kind: OnboardingTurnKind.Complete,
-                AssistantBlocks: assistantBlocks,
+                AssistantBlocks: assistantBlocks.RootElement,
                 Topic: null,
                 SuggestedInputType: null,
                 Progress: new OnboardingProgressDto(completed, total),
@@ -302,7 +302,7 @@ public sealed partial class OnboardingTurnHandler
                 : SuggestInputType(nextTopic);
             response = new OnboardingTurnResponseDto(
                 Kind: OnboardingTurnKind.Ask,
-                AssistantBlocks: assistantBlocks,
+                AssistantBlocks: assistantBlocks.RootElement,
                 Topic: nextTopic,
                 SuggestedInputType: nextInputType,
                 Progress: new OnboardingProgressDto(completed, total),
@@ -311,7 +311,7 @@ public sealed partial class OnboardingTurnHandler
 
         // (9) record the idempotency marker LAST so the response we recorded
         //     matches what the caller is about to receive.
-        idempotency.Record(cmd.IdempotencyKey, cmd.UserId, response);
+        idempotency.Record(cmd.IdempotencyKey, response);
 
         return response;
     }

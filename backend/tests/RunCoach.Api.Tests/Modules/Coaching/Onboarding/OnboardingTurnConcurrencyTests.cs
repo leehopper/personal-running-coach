@@ -8,8 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
+using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
-using RunCoach.Api.Modules.Coaching.Idempotency;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
@@ -194,8 +194,11 @@ public sealed class OnboardingTurnConcurrencyTests(RunCoachAppFactory factory)
 
         var sanitizer = Substitute.For<IPromptSanitizer>();
         var planGen = Substitute.For<IPlanGenerationService>();
-        var idempotency = new MartenIdempotencyStore(session);
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero));
+        var idempotency = new MartenIdempotencyStore(
+            session,
+            time,
+            NullLogger<MartenIdempotencyStore>.Instance);
 
         await OnboardingTurnHandler.Handle(
             new SubmitUserTurn(userId, idempotencyKey, "hello"),

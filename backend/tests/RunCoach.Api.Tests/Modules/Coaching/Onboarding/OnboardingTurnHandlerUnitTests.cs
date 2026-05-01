@@ -4,8 +4,8 @@ using Marten;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
+using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
-using RunCoach.Api.Modules.Coaching.Idempotency;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
@@ -58,7 +58,7 @@ public class OnboardingTurnHandlerUnitTests
             Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
             Arg.Any<CacheControl?>(),
             Arg.Any<CancellationToken>());
-        deps.Idempotency.DidNotReceiveWithAnyArgs().Record<OnboardingTurnResponseDto>(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<OnboardingTurnResponseDto>());
+        deps.Idempotency.DidNotReceiveWithAnyArgs().Record<OnboardingTurnResponseDto>(Arg.Any<Guid>(), Arg.Any<OnboardingTurnResponseDto>());
     }
 
     [Fact]
@@ -193,12 +193,12 @@ public class OnboardingTurnHandlerUnitTests
             TestContext.Current.CancellationToken);
 
         // Assert — record was called with the response we are about to return.
-        deps.Idempotency.Received(1).Record(deps.IdempotencyKey, deps.UserId, response);
+        deps.Idempotency.Received(1).Record(deps.IdempotencyKey, response);
     }
 
     private static OnboardingTurnResponseDto BuildAskResponseDto() => new(
         Kind: OnboardingTurnKind.Ask,
-        AssistantBlocks: JsonSerializer.SerializeToDocument(Array.Empty<AnthropicContentBlock>()),
+        AssistantBlocks: JsonSerializer.SerializeToElement(Array.Empty<AnthropicContentBlock>()),
         Topic: OnboardingTopic.PrimaryGoal,
         SuggestedInputType: SuggestedInputType.SingleSelect,
         Progress: new OnboardingProgressDto(0, 5),

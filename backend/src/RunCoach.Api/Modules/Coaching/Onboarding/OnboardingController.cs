@@ -146,9 +146,10 @@ public sealed partial class OnboardingController(
         }
 
         var now = DateTimeOffset.UtcNow;
+        var normalizedPayload = JsonSerializer.SerializeToDocument(request.NormalizedValue);
         session.Events.Append(
             userId,
-            new AnswerCaptured(request.Topic, request.NormalizedValue, Confidence: 1.0, CapturedAt: now));
+            new AnswerCaptured(request.Topic, normalizedPayload, Confidence: 1.0, CapturedAt: now));
         await session.SaveChangesAsync(ct).ConfigureAwait(false);
 
         // Re-load post-revise so the response reflects the freshly applied
