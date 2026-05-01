@@ -134,6 +134,169 @@ public class OnboardingTurnHandlerUnitTests
             Arg.Any<RegenerationIntent?>(),
             Arg.Any<Guid?>(),
             Arg.Any<CancellationToken>());
+
+        // Audit trail: the handler must stage exactly one ClarificationRequested
+        // for the current topic with the reason carrying the topic name, and must
+        // NOT stage any AnswerCaptured (the synthesized fallback has no extraction).
+        var appended = CollectAppendedEvents(deps.Session);
+        var clarifications = appended.OfType<ClarificationRequested>().ToArray();
+        clarifications.Should().ContainSingle();
+        clarifications[0].Topic.Should().Be(OnboardingTopic.PrimaryGoal);
+        clarifications[0].Reason.Should().StartWith("Discriminator mismatch");
+        appended.OfType<AnswerCaptured>().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Handle_TerminalBranch_StagesPlanStreamAndCompletionEvents()
+    {
+        // Arrange — gate satisfied + LLM agrees ⇒ terminal branch fires.
+        var deps = new Dependencies();
+        var planId = Guid.Empty;
+        deps.AssemblerComposes(SystemPrompt, UserMessage);
+        deps.SeesNoIdempotencyHit();
+        deps.LlmReturnsSequence(BuildReadyForPlanOutput());
+
+        var fullView = BuildFullView(deps.UserId);
+        deps.Session.LoadAsync<OnboardingView>(deps.UserId, Arg.Any<CancellationToken>())
+            .Returns(fullView);
+
+        var fakeSequence = BuildFakePlanSequence(deps.UserId);
+        deps.PlanGen
+            .GeneratePlanAsync(
+                Arg.Any<OnboardingView>(),
+                Arg.Any<Guid>(),
+                Arg.Do<Guid>(id => planId = id),
+                Arg.Any<RegenerationIntent?>(),
+                Arg.Any<Guid?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(fakeSequence);
+
+        // Act
+        var response = await OnboardingTurnHandler.Handle(
+            new SubmitUserTurn(deps.UserId, deps.IdempotencyKey, "ready"),
+            deps.Session,
+            deps.Llm,
+            deps.Assembler,
+            deps.Sanitizer,
+            deps.Idempotency,
+            deps.PlanGen,
+            deps.Time,
+            NullLogger<OnboardingTurnHandler>.Instance,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.Kind.Should().Be(OnboardingTurnKind.Complete);
+        response.PlanId.Should().Be(planId);
+        response.PlanId.Should().NotBe(Guid.Empty);
+
+        // Plan stream creation goes through StartStream<PlanProjectionDto>.
+        var startCalls = deps.Session.Events.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == "StartStream"
+                && c.GetMethodInfo().IsGenericMethod
+                && c.GetMethodInfo().GetGenericArguments()[0] == typeof(RunCoach.Api.Modules.Training.Plan.Models.PlanProjectionDto))
+            .ToArray();
+        startCalls.Should().ContainSingle();
+        var startArgs = startCalls[0].GetArguments();
+        startArgs[0].Should().Be(planId);
+        var staged = (object[])startArgs[1]!;
+        staged.Should().HaveCount(6);
+        staged[0].Should().BeOfType<PlanGenerated>();
+
+        // PlanLinkedToUser + OnboardingCompleted are appended on the onboarding stream.
+        var appended = CollectAppendedEvents(deps.Session);
+        var links = appended.OfType<PlanLinkedToUser>().ToArray();
+        links.Should().ContainSingle();
+        links[0].UserId.Should().Be(deps.UserId);
+        links[0].PlanId.Should().Be(planId);
+
+        var completions = appended.OfType<OnboardingCompleted>().ToArray();
+        completions.Should().ContainSingle();
+        completions[0].PlanId.Should().Be(planId);
+    }
+
+    [Theory]
+    [InlineData(0.59, false, false)] // below floor → no AnswerCaptured
+    [InlineData(0.60, false, true)] // exact boundary → AnswerCaptured fires
+    [InlineData(0.95, true, false)] // NeedsClarification gates capture even with high confidence
+    public async Task Handle_AnswerCaptured_RespectsConfidenceFloorAndClarificationGate(
+        double confidence,
+        bool needsClarification,
+        bool expectAnswerCaptured)
+    {
+        // Arrange
+        var deps = new Dependencies();
+        deps.AssemblerComposes(SystemPrompt, UserMessage);
+        deps.SeesNoIdempotencyHit();
+        deps.LlmReturnsSequence(BuildOutputWithExtraction(
+            confidence: confidence,
+            needsClarification: needsClarification));
+
+        // Act
+        await OnboardingTurnHandler.Handle(
+            new SubmitUserTurn(deps.UserId, deps.IdempotencyKey, "fitness"),
+            deps.Session,
+            deps.Llm,
+            deps.Assembler,
+            deps.Sanitizer,
+            deps.Idempotency,
+            deps.PlanGen,
+            deps.Time,
+            NullLogger<OnboardingTurnHandler>.Instance,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var appended = CollectAppendedEvents(deps.Session);
+        var captures = appended.OfType<AnswerCaptured>().ToArray();
+        var expectedCaptureCount = expectAnswerCaptured ? 1 : 0;
+        captures.Should().HaveCount(expectedCaptureCount);
+
+        // When NeedsClarification=true the handler must still stage
+        // ClarificationRequested (the alternative audit-trail event).
+        if (needsClarification)
+        {
+            appended.OfType<ClarificationRequested>().Should().ContainSingle();
+        }
+    }
+
+    [Fact]
+    public async Task Handle_HappyPath_AssistantBlocks_UseCamelCasePropertyNames()
+    {
+        // Arrange — drive a happy-path Ask response through the WireSerializerOptions
+        // path (CamelCase). Asserts the serialized JsonDocument carries lowercase
+        // 'type' / 'text' so the SPA Zod schemas keep round-tripping.
+        var deps = new Dependencies();
+        deps.AssemblerComposes(SystemPrompt, UserMessage);
+        deps.SeesNoIdempotencyHit();
+        deps.LlmReturnsSequence(BuildValidOutput(OnboardingTopic.PrimaryGoal, PrimaryGoal.GeneralFitness));
+
+        // Act
+        var response = await OnboardingTurnHandler.Handle(
+            new SubmitUserTurn(deps.UserId, deps.IdempotencyKey, "fitness"),
+            deps.Session,
+            deps.Llm,
+            deps.Assembler,
+            deps.Sanitizer,
+            deps.Idempotency,
+            deps.PlanGen,
+            deps.Time,
+            NullLogger<OnboardingTurnHandler>.Instance,
+            TestContext.Current.CancellationToken);
+
+        // Assert — the serialized assistant blocks must use camelCase keys.
+        response.AssistantBlocks.ValueKind.Should().Be(JsonValueKind.Array);
+        var firstBlock = response.AssistantBlocks.EnumerateArray().First();
+
+        // Camelcase keys present.
+        firstBlock.TryGetProperty("type", out _).Should()
+            .BeTrue(because: "WireSerializerOptions.CamelCase must produce lowercase 'type'");
+        firstBlock.TryGetProperty("text", out _).Should()
+            .BeTrue(because: "WireSerializerOptions.CamelCase must produce lowercase 'text'");
+
+        // PascalCase keys absent — would indicate the camelCase policy was dropped.
+        firstBlock.TryGetProperty("Type", out _).Should()
+            .BeFalse(because: "PascalCase 'Type' would indicate a regression in the wire format");
+        firstBlock.TryGetProperty("Text", out _).Should()
+            .BeFalse(because: "PascalCase 'Text' would indicate a regression in the wire format");
     }
 
     [Fact]
@@ -227,6 +390,170 @@ public class OnboardingTurnHandlerUnitTests
             ReadyForPlan = false,
         };
     }
+
+    /// <summary>
+    /// Walks every Append(streamId, params object[]) call recorded against the
+    /// session's Events substitute and flattens the appended events into one
+    /// list — lets per-test assertions filter via .OfType&lt;T&gt;() instead of
+    /// fighting NSubstitute's expression-tree limits.
+    /// </summary>
+    private static List<object> CollectAppendedEvents(Marten.IDocumentSession session)
+    {
+        var collected = new List<object>();
+        foreach (var call in session.Events.ReceivedCalls())
+        {
+            if (!string.Equals(call.GetMethodInfo().Name, "Append", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var args = call.GetArguments();
+            if (args.Length < 2 || args[1] is not object[] events)
+            {
+                continue;
+            }
+
+            collected.AddRange(events);
+        }
+
+        return collected;
+    }
+
+    private static OnboardingTurnOutput BuildOutputWithExtraction(
+        double confidence,
+        bool needsClarification)
+    {
+        return new OnboardingTurnOutput
+        {
+            Reply = [new AnthropicContentBlock { Type = AnthropicContentBlockType.Text, Text = "ok" }],
+            Extracted = new ExtractedAnswer
+            {
+                Topic = OnboardingTopic.PrimaryGoal,
+                Confidence = confidence,
+                NormalizedPrimaryGoal = new PrimaryGoalAnswer { Goal = PrimaryGoal.GeneralFitness, Description = "test" },
+                NormalizedTargetEvent = null,
+                NormalizedCurrentFitness = null,
+                NormalizedWeeklySchedule = null,
+                NormalizedInjuryHistory = null,
+                NormalizedPreferences = null,
+            },
+            NeedsClarification = needsClarification,
+            ClarificationReason = needsClarification ? "needs more detail" : null,
+            ReadyForPlan = false,
+        };
+    }
+
+    private static OnboardingTurnOutput BuildReadyForPlanOutput() => new()
+    {
+        Reply = [new AnthropicContentBlock { Type = AnthropicContentBlockType.Text, Text = "all set" }],
+        Extracted = null,
+        NeedsClarification = false,
+        ClarificationReason = null,
+        ReadyForPlan = true,
+    };
+
+    private static OnboardingView BuildFullView(Guid userId) => new()
+    {
+        Id = userId,
+        UserId = userId,
+        Status = OnboardingStatus.InProgress,
+        PrimaryGoal = new PrimaryGoalAnswer { Goal = PrimaryGoal.GeneralFitness, Description = "fitness" },
+        TargetEvent = null,
+        CurrentFitness = new CurrentFitnessAnswer
+        {
+            TypicalWeeklyKm = 30,
+            LongestRecentRunKm = 12,
+            RecentRaceDistanceKm = null,
+            RecentRaceTimeIso = null,
+            Description = "moderate",
+        },
+        WeeklySchedule = new WeeklyScheduleAnswer
+        {
+            MaxRunDaysPerWeek = 4,
+            TypicalSessionMinutes = 45,
+            Monday = true,
+            Tuesday = false,
+            Wednesday = true,
+            Thursday = false,
+            Friday = true,
+            Saturday = false,
+            Sunday = true,
+            Description = "evenings",
+        },
+        InjuryHistory = new InjuryHistoryAnswer
+        {
+            HasActiveInjury = false,
+            ActiveInjuryDescription = string.Empty,
+            PastInjurySummary = "none",
+        },
+        Preferences = new PreferencesAnswer
+        {
+            PreferredUnits = PreferredUnits.Kilometers,
+            PreferTrail = false,
+            ComfortableWithIntensity = true,
+            Description = "ok",
+        },
+        OutstandingClarifications = [],
+    };
+
+    private static PlanEventSequence BuildFakePlanSequence(Guid userId)
+    {
+        var generatedAt = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+        var macro = new PlanGenerated(
+            PlanId: Guid.Parse("00000000-0000-0000-0000-000000000111"),
+            UserId: userId,
+            Macro: new RunCoach.Api.Modules.Coaching.Models.Structured.MacroPlanOutput
+            {
+                TotalWeeks = 4,
+                GoalDescription = "test",
+                Phases = Array.Empty<RunCoach.Api.Modules.Coaching.Models.Structured.PlanPhaseOutput>(),
+                Rationale = string.Empty,
+                Warnings = string.Empty,
+            },
+            GeneratedAt: generatedAt,
+            PromptVersion: "v1",
+            ModelId: "test-model",
+            PreviousPlanId: null);
+
+        var meso = new RunCoach.Api.Modules.Coaching.Models.Structured.MesoWeekOutput
+        {
+            WeekNumber = 1,
+            PhaseType = RunCoach.Api.Modules.Coaching.Models.Structured.PhaseType.Base,
+            WeeklyTargetKm = 20,
+            IsDeloadWeek = false,
+            Sunday = MesoRest(),
+            Monday = MesoRest(),
+            Tuesday = MesoRest(),
+            Wednesday = MesoRest(),
+            Thursday = MesoRest(),
+            Friday = MesoRest(),
+            Saturday = MesoRest(),
+            WeekSummary = "rest",
+        };
+
+        var mesos = new MesoCycleCreated[]
+        {
+            new(1, meso),
+            new(2, meso with { WeekNumber = 2 }),
+            new(3, meso with { WeekNumber = 3 }),
+            new(4, meso with { WeekNumber = 4 }),
+        };
+
+        var micro = new FirstMicroCycleCreated(
+            new RunCoach.Api.Modules.Coaching.Models.Structured.MicroWorkoutListOutput
+            {
+                Workouts = Array.Empty<RunCoach.Api.Modules.Coaching.Models.Structured.WorkoutOutput>(),
+            });
+
+        return new PlanEventSequence(macro, mesos, micro);
+    }
+
+    private static RunCoach.Api.Modules.Coaching.Models.Structured.MesoDaySlotOutput MesoRest() => new()
+    {
+        SlotType = RunCoach.Api.Modules.Coaching.Models.Structured.DaySlotType.Rest,
+        WorkoutType = null,
+        Notes = "rest",
+    };
 
     private static OnboardingTurnOutput BuildInvalidOutput()
     {

@@ -78,9 +78,11 @@ public sealed class PlanGenerationServiceTests
         var view = CreateCompletedView();
 
         // Act
-        var events = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
 
-        // Assert — sequence is exactly [PlanGenerated, MesoCycleCreated x4, FirstMicroCycleCreated].
+        // Assert — wrapper enforces shape; ToEvents flattens to canonical order.
+        sequence.Mesos.Should().HaveCount(PlanEventSequence.ExpectedMesoCount);
+        var events = sequence.ToEvents();
         events.Should().HaveCount(6);
         events[0].Should().BeOfType<PlanGenerated>();
         events[1].Should().BeOfType<MesoCycleCreated>();
@@ -89,7 +91,7 @@ public sealed class PlanGenerationServiceTests
         events[4].Should().BeOfType<MesoCycleCreated>();
         events[5].Should().BeOfType<FirstMicroCycleCreated>();
 
-        var weekIndices = events.OfType<MesoCycleCreated>().Select(e => e.WeekIndex).ToArray();
+        var weekIndices = sequence.Mesos.Select(e => e.WeekIndex).ToArray();
         weekIndices.Should().Equal(1, 2, 3, 4);
     }
 
@@ -102,10 +104,10 @@ public sealed class PlanGenerationServiceTests
         var view = CreateCompletedView();
 
         // Act
-        var events = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
 
         // Assert
-        var generated = events[0].Should().BeOfType<PlanGenerated>().Which;
+        var generated = sequence.Macro;
         generated.PlanId.Should().Be(PlanId);
         generated.UserId.Should().Be(UserId);
         generated.PromptVersion.Should().Be("v1");
@@ -123,11 +125,10 @@ public sealed class PlanGenerationServiceTests
         var view = CreateCompletedView();
 
         // Act
-        var events = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: PreviousPlanId, TestContext.Current.CancellationToken);
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: PreviousPlanId, TestContext.Current.CancellationToken);
 
         // Assert
-        var generated = events[0].Should().BeOfType<PlanGenerated>().Which;
-        generated.PreviousPlanId.Should().Be(PreviousPlanId);
+        sequence.Macro.PreviousPlanId.Should().Be(PreviousPlanId);
     }
 
     [Fact]
@@ -139,10 +140,10 @@ public sealed class PlanGenerationServiceTests
         ConfigureLlmHappyPath(llm);
 
         // Act
-        var events = await sut.GeneratePlanAsync(CreateCompletedView(), UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+        var sequence = await sut.GeneratePlanAsync(CreateCompletedView(), UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
 
         // Assert
-        events[0].Should().BeOfType<PlanGenerated>().Which.PreviousPlanId.Should().BeNull();
+        sequence.Macro.PreviousPlanId.Should().BeNull();
     }
 
     [Fact]
@@ -306,7 +307,7 @@ public sealed class PlanGenerationServiceTests
         };
 
         // Act
-        var actual = PlanGenerationService.WeekContext.FromMacro(macro, weekIndex);
+        var actual = WeekContext.FromMacro(macro, weekIndex);
 
         // Assert
         actual.WeekIndex.Should().Be(weekIndex);
@@ -328,7 +329,7 @@ public sealed class PlanGenerationServiceTests
         };
 
         // Act
-        var actual = PlanGenerationService.WeekContext.FromMacro(macro, weekIndex: 1);
+        var actual = WeekContext.FromMacro(macro, weekIndex: 1);
 
         // Assert
         actual.PhaseType.Should().Be(PhaseType.Base);
@@ -342,10 +343,30 @@ public sealed class PlanGenerationServiceTests
         var macro = BuildMacro();
 
         // Act
-        var act = () => PlanGenerationService.WeekContext.FromMacro(macro, weekIndex: 0);
+        var act = () => WeekContext.FromMacro(macro, weekIndex: 0);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void WeekContext_FromMacro_WeekIndexPastDeclaredPhases_ReturnsLastPhaseWithoutDeload()
+    {
+        // Arrange — 12-week macro (8 Base + 4 Build); the defensive path at
+        // PlanGenerationService.cs:340-341 fires when weekIndex exceeds the
+        // cumulative phase coverage (e.g. an LLM under-declared the macro).
+        var macro = BuildMacro();
+        const int weekIndexPastEnd = 13;
+
+        // Act
+        var actual = WeekContext.FromMacro(macro, weekIndexPastEnd);
+
+        // Assert — fall through returns the last declared phase (Build) with
+        // IsDeloadCandidate forced false so the deload heuristic stays off
+        // for under-declared territory.
+        actual.WeekIndex.Should().Be(weekIndexPastEnd);
+        actual.PhaseType.Should().Be(PhaseType.Build);
+        actual.IsDeloadCandidate.Should().BeFalse();
     }
 
     private static (PlanGenerationService Sut, ICoachingLlm Llm, IContextAssembler Assembler) CreateSut()

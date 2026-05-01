@@ -73,8 +73,8 @@ public static class ServiceCollectionExtensions
 
         // Plan generation orchestrator — plain DI service per Slice 1 § Unit 2
         // (DEC-057 / R-066). NOT a Wolverine handler: invoked inline by the
-        // caller's `[AggregateHandler]` body so events commit on the caller's
-        // session inside one Marten transaction.
+        // caller's static handler body (e.g. OnboardingTurnHandler.Handle) so
+        // events commit on the caller's session inside one Marten transaction.
         services.AddScoped<IPlanGenerationService, PlanGenerationService>();
 
         return services;

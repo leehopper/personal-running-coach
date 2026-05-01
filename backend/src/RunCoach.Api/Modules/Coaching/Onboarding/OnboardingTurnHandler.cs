@@ -1,7 +1,5 @@
 using System.Text.Json;
 using Marten;
-using Marten.Events;
-using Microsoft.Extensions.Logging;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Coaching.Sanitization;
@@ -10,9 +8,12 @@ using RunCoach.Api.Modules.Training.Plan;
 namespace RunCoach.Api.Modules.Coaching.Onboarding;
 
 /// <summary>
-/// Wolverine <c>[AggregateHandler]</c> for <see cref="SubmitUserTurn"/> per
-/// Slice 1 § Unit 1 R01.6 / DEC-057 / DEC-060. The handler performs every
-/// per-turn side-effect atomically through the single Marten
+/// Wolverine static command handler for <see cref="SubmitUserTurn"/> per
+/// Slice 1 § Unit 1 R01.6 / DEC-057 / DEC-060. The handler is dispatched via
+/// Wolverine's plain static-handler convention (no <c>[AggregateHandler]</c>
+/// attribute — the handler injects <see cref="IDocumentSession"/> directly and
+/// loads <see cref="OnboardingView"/> via <c>session.LoadAsync</c>). Every
+/// per-turn side-effect commits atomically through the single Marten
 /// <see cref="IDocumentSession"/> Wolverine's transactional middleware brackets
 /// around the handler body — there is no <c>RunCoachDbContext</c> injection,
 /// no <c>IMessageBus.InvokeAsync</c> call, no second Postgres transaction.
@@ -271,18 +272,17 @@ public sealed partial class OnboardingTurnHandler
                 .GeneratePlanAsync(working, cmd.UserId, planId, intent: null, previousPlanId: null, ct)
                 .ConfigureAwait(false);
 
-            session.Events.StartStream<RunCoach.Api.Modules.Training.Plan.Models.PlanProjectionDto>(planId, planEvents.ToArray());
+            session.Events.StartStream<RunCoach.Api.Modules.Training.Plan.Models.PlanProjectionDto>(
+                planId,
+                planEvents.ToEvents().ToArray());
             session.Events.Append(streamId, new PlanLinkedToUser(cmd.UserId, planId));
             session.Events.Append(streamId, new OnboardingCompleted(planId, now));
 
             var (completed, total) = OnboardingCompletionGate.Progress(working);
-            response = new OnboardingTurnResponseDto(
-                Kind: OnboardingTurnKind.Complete,
-                AssistantBlocks: assistantBlocks.RootElement,
-                Topic: null,
-                SuggestedInputType: null,
-                Progress: new OnboardingProgressDto(completed, total),
-                PlanId: planId);
+            response = OnboardingTurnResponseDto.Complete(
+                assistantBlocks: assistantBlocks.RootElement,
+                progress: new OnboardingProgressDto(completed, total),
+                planId: planId);
         }
         else
         {
@@ -300,13 +300,11 @@ public sealed partial class OnboardingTurnHandler
             var nextInputType = hasOutstandingClarification
                 ? SuggestedInputType.Text
                 : SuggestInputType(nextTopic);
-            response = new OnboardingTurnResponseDto(
-                Kind: OnboardingTurnKind.Ask,
-                AssistantBlocks: assistantBlocks.RootElement,
-                Topic: nextTopic,
-                SuggestedInputType: nextInputType,
-                Progress: new OnboardingProgressDto(completed, total),
-                PlanId: null);
+            response = OnboardingTurnResponseDto.Ask(
+                assistantBlocks: assistantBlocks.RootElement,
+                topic: nextTopic,
+                suggestedInputType: nextInputType,
+                progress: new OnboardingProgressDto(completed, total));
         }
 
         // (9) record the idempotency marker LAST so the response we recorded
@@ -422,13 +420,12 @@ public sealed partial class OnboardingTurnHandler
             },
         };
 
-        _ = topic;
         return new OnboardingTurnOutput
         {
             Reply = reply,
             Extracted = null,
             NeedsClarification = true,
-            ClarificationReason = "Discriminator mismatch",
+            ClarificationReason = $"Discriminator mismatch on {topic}",
             ReadyForPlan = false,
         };
     }

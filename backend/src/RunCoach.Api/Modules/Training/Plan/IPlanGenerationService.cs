@@ -8,8 +8,8 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// chain to generate a training plan from a captured onboarding profile snapshot.
 /// Per Slice 1 § Unit 2 R02.4-R02.6 / DEC-057 / R-066 this is intentionally NOT a
 /// Wolverine handler and NOT a Wolverine command — it is invoked inline by the
-/// caller's <c>[AggregateHandler]</c> body so the returned events commit on the
-/// caller's <c>IDocumentSession</c> inside one Marten transaction (no
+/// caller's static handler body so the returned events commit on the caller's
+/// <c>IDocumentSession</c> inside one Marten transaction (no
 /// <c>IMessageBus.InvokeAsync</c> opening a second session).
 /// </summary>
 /// <remarks>
@@ -17,12 +17,13 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// The service is pure orchestration: it composes the LLM prompt via
 /// <c>IContextAssembler.ComposeForPlanGenerationAsync</c>, calls
 /// <c>ICoachingLlm.GenerateStructuredAsync</c> exactly six times (1 macro + 4 meso +
-/// 1 micro), and returns the resulting events as a list. It does NOT touch
-/// <c>IDocumentSession</c>, does NOT call <c>SaveChangesAsync</c>, and does NOT
-/// stage events on any stream — the caller (Slice 1 § Unit 1's
+/// 1 micro), and returns the resulting events as a <see cref="PlanEventSequence"/>.
+/// It does NOT touch <c>IDocumentSession</c>, does NOT call <c>SaveChangesAsync</c>,
+/// and does NOT stage events on any stream — the caller (Slice 1 § Unit 1's
 /// <c>OnboardingTurnHandler</c> on the terminal turn, or Slice 1 § Unit 5's
 /// <c>RegeneratePlanHandler</c>) is responsible for invoking
-/// <c>session.Events.StartStream&lt;Plan&gt;(planId, events)</c> on its own session.
+/// <c>session.Events.StartStream&lt;PlanProjectionDto&gt;(planId, planEvents.ToEvents())</c>
+/// on its own session.
 /// </para>
 /// <para>
 /// Failure semantics: the Anthropic SDK's <c>MaxRetries</c> (3 by default) covers
@@ -52,7 +53,8 @@ public interface IPlanGenerationService
     /// <param name="planId">
     /// The new Plan stream's id (the caller passes
     /// <c>CombGuidIdGeneration.NewGuid()</c>); also doubles as the per-user-plan
-    /// stream id when the caller calls <c>session.Events.StartStream&lt;Plan&gt;(planId, events)</c>.
+    /// stream id when the caller calls
+    /// <c>session.Events.StartStream&lt;PlanProjectionDto&gt;(planId, planEvents.ToEvents())</c>.
     /// </param>
     /// <param name="intent">
     /// Optional regeneration intent free-text supplied by the runner via
@@ -71,13 +73,13 @@ public interface IPlanGenerationService
     /// </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>
-    /// An ordered list of events:
-    /// <c>[PlanGenerated, MesoCycleCreated×4, FirstMicroCycleCreated]</c> in
-    /// exactly that sequence. The caller stages this list onto its own
-    /// <c>IDocumentSession</c> via
-    /// <c>session.Events.StartStream&lt;Plan&gt;(planId, events)</c>.
+    /// A strongly-typed <see cref="PlanEventSequence"/> wrapping the
+    /// <c>[PlanGenerated, MesoCycleCreated×4, FirstMicroCycleCreated]</c>
+    /// sequence. Call <see cref="PlanEventSequence.ToEvents"/> to flatten to
+    /// the <c>IReadOnlyList&lt;object&gt;</c> shape Marten's
+    /// <c>session.Events.StartStream</c> expects.
     /// </returns>
-    Task<IReadOnlyList<object>> GeneratePlanAsync(
+    Task<PlanEventSequence> GeneratePlanAsync(
         OnboardingView profileSnapshot,
         Guid userId,
         Guid planId,

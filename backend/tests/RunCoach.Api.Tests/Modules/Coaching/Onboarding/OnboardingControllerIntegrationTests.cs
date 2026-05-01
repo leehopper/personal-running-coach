@@ -60,6 +60,34 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
     }
 
     /// <summary>
+    /// Authenticated but no antiforgery token → 400 ProblemDetails. Mirrors
+    /// the Auth pattern (Register_MissingAntiforgeryToken_Returns_400_ProblemDetails)
+    /// to make sure the [RequireAntiforgeryToken] attribute on /turns can't be
+    /// silently dropped without test failure.
+    /// </summary>
+    [Fact]
+    public async Task SubmitTurn_AuthenticatedNoAntiforgery_Returns_400_ProblemDetails()
+    {
+        // Arrange — register/login but skip PrimeAntiforgeryAsync so neither
+        // the cookie nor the header is attached on the POST.
+        var (client, container) = CreateCookieClient(Factory);
+        var email = GenerateEmail();
+        await RegisterAsync(client, container, email, StrongPassword);
+        await LoginAsync(client, container, email, StrongPassword);
+
+        // Act
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/onboarding/turns")
+        {
+            Content = JsonContent.Create(new OnboardingTurnRequestDto(Guid.NewGuid(), "hello")),
+        };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+    }
+
+    /// <summary>
     /// Authenticated with cookie + valid request → 200 with OnboardingTurnResponseDto.
     /// IMessageBus is stubbed to short-circuit the Wolverine handler chain so the
     /// integration test stays focused on the controller's mapping behaviour and
@@ -187,6 +215,48 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
     }
 
     /// <summary>
+    /// Multi-tenant isolation: authenticated as user B, calling GET /state
+    /// must NOT expose user A's seeded stream — Marten conjoined-tenancy must
+    /// hold even if tests share the same Postgres container. Catches refactors
+    /// that drop the per-request <c>store.LightweightSession(userId.ToString())</c>
+    /// tenant scoping.
+    /// </summary>
+    [Fact]
+    public async Task GetState_AuthenticatedAsUserB_DoesNotSeeUserAStream()
+    {
+        // Arrange — seed user A's stream directly via a tenanted session.
+        var (clientA, containerA) = CreateCookieClient(Factory);
+        var emailA = GenerateEmail();
+        var userAId = await RegisterAsync(clientA, containerA, emailA, StrongPassword);
+        await LoginAsync(clientA, containerA, emailA, StrongPassword);
+
+        var now = DateTimeOffset.UtcNow;
+        var store = Factory.Services.GetRequiredService<IDocumentStore>();
+        await using (var seedSession = store.LightweightSession(userAId.ToString()))
+        {
+            seedSession.Events.StartStream<OnboardingView>(
+                userAId,
+                new OnboardingStarted(userAId, now));
+            seedSession.Events.Append(userAId, new TopicAsked(OnboardingTopic.PrimaryGoal, now));
+            await seedSession.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        // User B logs in fresh — different identity, different tenant.
+        var (clientB, containerB) = CreateCookieClient(Factory);
+        var emailB = GenerateEmail();
+        await RegisterAsync(clientB, containerB, emailB, StrongPassword);
+        await LoginAsync(clientB, containerB, emailB, StrongPassword);
+
+        // Act
+        var response = await clientB.GetAsync(
+            "/api/v1/onboarding/state",
+            TestContext.Current.CancellationToken);
+
+        // Assert — user B sees no stream of their own and CANNOT see A's.
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    /// <summary>
     /// Authenticated with a seeded stream → 200 with a populated
     /// <see cref="OnboardingStateDto"/>.
     /// </summary>
@@ -252,6 +322,36 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    /// <summary>
+    /// Authenticated but no antiforgery token → 400 ProblemDetails.
+    /// Mirrors the SubmitTurn antiforgery negative test for the second
+    /// state-changing POST endpoint.
+    /// </summary>
+    [Fact]
+    public async Task ReviseAnswer_AuthenticatedNoAntiforgery_Returns_400_ProblemDetails()
+    {
+        // Arrange — register/login but skip PrimeAntiforgeryAsync.
+        var (client, container) = CreateCookieClient(Factory);
+        var email = GenerateEmail();
+        await RegisterAsync(client, container, email, StrongPassword);
+        await LoginAsync(client, container, email, StrongPassword);
+
+        // Act
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/onboarding/answers/revise")
+        {
+            Content = JsonContent.Create(
+                new ReviseAnswerRequestDto(
+                    OnboardingTopic.PrimaryGoal,
+                    JsonSerializer.SerializeToElement(
+                        new PrimaryGoalAnswer { Goal = PrimaryGoal.GeneralFitness, Description = "test" }))),
+        };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
     }
 
     /// <summary>
@@ -327,6 +427,61 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
         dto!.UserId.Should().Be(userId);
         dto.PrimaryGoal.Should().NotBeNull("the revised PrimaryGoal answer must be reflected in the returned DTO");
         dto.PrimaryGoal!.Goal.Should().Be(PrimaryGoal.BuildSpeed);
+    }
+
+    /// <summary>
+    /// Multi-tenant isolation: authenticated as user B, calling POST /answers/revise
+    /// must NOT mutate user A's seeded stream — Marten conjoined-tenancy
+    /// scoping must prevent the cross-tenant write. Asserts user B sees a 404
+    /// (their own stream does not exist) and user A's view remains untouched.
+    /// </summary>
+    [Fact]
+    public async Task ReviseAnswer_AuthenticatedAsUserB_CannotMutateUserAStream()
+    {
+        // Arrange — seed user A's stream via a tenanted session.
+        var (clientA, containerA) = CreateCookieClient(Factory);
+        var emailA = GenerateEmail();
+        var userAId = await RegisterAsync(clientA, containerA, emailA, StrongPassword);
+        await LoginAsync(clientA, containerA, emailA, StrongPassword);
+
+        var now = DateTimeOffset.UtcNow;
+        var store = Factory.Services.GetRequiredService<IDocumentStore>();
+        await using (var seedSession = store.LightweightSession(userAId.ToString()))
+        {
+            seedSession.Events.StartStream<OnboardingView>(
+                userAId,
+                new OnboardingStarted(userAId, now));
+            seedSession.Events.Append(userAId, new TopicAsked(OnboardingTopic.PrimaryGoal, now));
+            await seedSession.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        // User B logs in fresh — different identity, different tenant.
+        var (clientB, containerB) = CreateCookieClient(Factory);
+        var emailB = GenerateEmail();
+        await RegisterAsync(clientB, containerB, emailB, StrongPassword);
+        await LoginAsync(clientB, containerB, emailB, StrongPassword);
+        var token = await PrimeAntiforgeryAsync(clientB, containerB);
+
+        // Act — user B attempts to revise; the controller's tenanted session
+        // scopes to userB.ToString() so user A's stream is NOT visible.
+        using var request = BuildRequest(
+            HttpMethod.Post, "/api/v1/onboarding/answers/revise", token);
+        request.Content = JsonContent.Create(
+            new ReviseAnswerRequestDto(
+                OnboardingTopic.PrimaryGoal,
+                JsonSerializer.SerializeToElement(
+                    new PrimaryGoalAnswer { Goal = PrimaryGoal.BuildSpeed, Description = "user-B intrusion" })));
+        var response = await clientB.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert — user B's tenant has no stream so they get 404.
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Verify user A's stream is unchanged (no AnswerCaptured event was appended).
+        await using var verifySession = store.LightweightSession(userAId.ToString());
+        var aEvents = await verifySession.Events.FetchStreamAsync(
+            userAId,
+            token: TestContext.Current.CancellationToken);
+        aEvents.Should().NotContain(e => e.Data is AnswerCaptured);
     }
 
     // ------------------------------------------------------------------ //

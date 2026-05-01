@@ -28,6 +28,7 @@ public sealed partial class OnboardingController(
 {
     private const string AlreadyCompleteType = "https://runcoach.app/problems/onboarding-already-complete";
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
+    private const string InvalidTopicType = "https://runcoach.app/problems/invalid-onboarding-topic";
 
     /// <summary>POST /api/v1/onboarding/turns — submit a single onboarding turn.</summary>
     /// <remarks>
@@ -111,23 +112,7 @@ public sealed partial class OnboardingController(
             return NotFound();
         }
 
-        var (completed, total) = OnboardingCompletionGate.Progress(view);
-        var dto = new OnboardingStateDto(
-            UserId: view.UserId,
-            Status: view.Status,
-            CurrentTopic: view.CurrentTopic,
-            CompletedTopics: completed,
-            TotalTopics: total,
-            IsComplete: OnboardingCompletionGate.IsSatisfied(view) && view.Status == OnboardingStatus.Completed,
-            OutstandingClarifications: view.OutstandingClarifications,
-            PrimaryGoal: view.PrimaryGoal,
-            TargetEvent: view.TargetEvent,
-            CurrentFitness: view.CurrentFitness,
-            WeeklySchedule: view.WeeklySchedule,
-            InjuryHistory: view.InjuryHistory,
-            Preferences: view.Preferences,
-            CurrentPlanId: view.CurrentPlanId);
-        return Ok(dto);
+        return Ok(BuildStateDto(view));
     }
 
     /// <summary>POST /api/v1/onboarding/answers/revise — overwrite a captured answer.</summary>
@@ -151,6 +136,21 @@ public sealed partial class OnboardingController(
             return MissingUserClaim();
         }
 
+        // System.Text.Json deserializes int-backed enums without range checks,
+        // so a payload with `topic: 99` lands here as an OnboardingTopic with
+        // value 99. Reject explicitly with a 400 ProblemDetails before any
+        // event is appended — otherwise the inline projection's switch falls
+        // through to InvalidOperationException at apply time, surfacing as a
+        // 500 with no actionable error code for the client.
+        if (!Enum.IsDefined(request.Topic))
+        {
+            return Problem(
+                type: InvalidTopicType,
+                title: "The supplied onboarding topic is not a recognized value.",
+                detail: $"Topic value '{(int)request.Topic}' is outside the OnboardingTopic enum range.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         // Per-request tenanted session — same rationale as GetState. The
         // append + SaveChanges + reload must all run on the same session so
         // the inline projection re-materializes before the read.
@@ -162,7 +162,14 @@ public sealed partial class OnboardingController(
         }
 
         var now = DateTimeOffset.UtcNow;
-        var normalizedPayload = JsonSerializer.SerializeToDocument(request.NormalizedValue);
+
+        // AnswerCaptured carries the normalized payload as a JsonDocument so
+        // both projections can call JsonDocument.Deserialize<T>(). Wrap the
+        // serialize in a `using` so the rented ArrayPool buffers are returned
+        // after SaveChangesAsync writes the event bytes — the prior code
+        // rented and leaked. The await/save happens inside the using block
+        // so the document is still live during Marten's serialization.
+        using var normalizedPayload = JsonSerializer.SerializeToDocument(request.NormalizedValue);
         session.Events.Append(
             userId,
             new AnswerCaptured(request.Topic, normalizedPayload, Confidence: 1.0, CapturedAt: now));
@@ -176,8 +183,13 @@ public sealed partial class OnboardingController(
             return NotFound();
         }
 
+        return Ok(BuildStateDto(view));
+    }
+
+    private static OnboardingStateDto BuildStateDto(OnboardingView view)
+    {
         var (completed, total) = OnboardingCompletionGate.Progress(view);
-        var dto = new OnboardingStateDto(
+        return new OnboardingStateDto(
             UserId: view.UserId,
             Status: view.Status,
             CurrentTopic: view.CurrentTopic,
@@ -192,7 +204,6 @@ public sealed partial class OnboardingController(
             InjuryHistory: view.InjuryHistory,
             Preferences: view.Preferences,
             CurrentPlanId: view.CurrentPlanId);
-        return Ok(dto);
     }
 
     [LoggerMessage(

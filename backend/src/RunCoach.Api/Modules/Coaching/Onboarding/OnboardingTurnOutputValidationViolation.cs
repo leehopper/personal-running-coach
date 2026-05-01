@@ -22,4 +22,12 @@ public enum OnboardingTurnOutputValidationViolation
     /// <see cref="OnboardingTurnOutput.ClarificationReason"/> is null/empty.
     /// </summary>
     ClarificationWithoutReason = 4,
+
+    /// <summary>
+    /// One or more <see cref="AnthropicContentBlock"/> entries in
+    /// <see cref="OnboardingTurnOutput.Reply"/> violate the
+    /// Type-vs-Text contract (e.g. Type=Text with empty Text, or
+    /// Type=Thinking with non-empty Text).
+    /// </summary>
+    ContentBlockShape = 5,
 }
