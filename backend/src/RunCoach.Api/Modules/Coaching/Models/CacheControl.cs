@@ -35,13 +35,13 @@ namespace RunCoach.Api.Modules.Coaching.Models;
 public sealed record CacheControl(string Type, string Ttl)
 {
     /// <summary>
-    /// Gets anthropic <c>{ "type": "ephemeral", "ttl": "1h" }</c> breakpoint for
+    /// Gets the Anthropic <c>{ "type": "ephemeral", "ttl": "1h" }</c> breakpoint for
     /// long-prefix workloads (onboarding multi-turn, plan generation chain).
     /// </summary>
     public static CacheControl Ephemeral1h { get; } = new("ephemeral", "1h");
 
     /// <summary>
-    /// Gets anthropic <c>{ "type": "ephemeral", "ttl": "5m" }</c> breakpoint for
+    /// Gets the Anthropic <c>{ "type": "ephemeral", "ttl": "5m" }</c> breakpoint for
     /// short-burst workloads (default).
     /// </summary>
     public static CacheControl Ephemeral5m { get; } = new("ephemeral", "5m");

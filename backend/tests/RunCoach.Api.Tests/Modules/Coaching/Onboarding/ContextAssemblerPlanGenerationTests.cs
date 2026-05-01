@@ -131,6 +131,24 @@ public sealed class ContextAssemblerPlanGenerationTests
     }
 
     [Fact]
+    public async Task ComposeForPlanGenerationAsync_PropagatesCancellation_WhenTokenIsPreCancelled()
+    {
+        // Arrange — pre-cancelled token must surface immediately as
+        // OperationCanceledException without hitting the prompt store.
+        var sut = CreateSut();
+        var snapshot = CreateCompletedView();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act & Assert
+        await sut.Invoking(s => s.ComposeForPlanGenerationAsync(
+                snapshot,
+                intent: null,
+                cts.Token))
+            .Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
     public void RegenerationIntent_FreeText_ExceedingCap_Throws()
     {
         // Arrange

@@ -34,7 +34,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 public static class AnthropicSchemaSanitizer
 {
     /// <summary>
-    /// Gets jSON Schema keywords Anthropic rejects. Anthropic constrained decoding
+    /// Gets the JSON Schema keywords Anthropic rejects. Anthropic constrained decoding
     /// returns HTTP 400 with <c>invalid_request_error</c> when any of these
     /// appear in <c>output_config.format.schema</c>.
     /// </summary>
@@ -123,8 +123,7 @@ public static class AnthropicSchemaSanitizer
             throw new InvalidOperationException("Cannot materialize a null schema node to a dictionary.");
         }
 
-        var json = node.ToJsonString();
-        return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)
+        return node.Deserialize<Dictionary<string, JsonElement>>()
             ?? throw new InvalidOperationException("Failed to deserialize sanitized schema to a dictionary.");
     }
 }

@@ -30,22 +30,34 @@ namespace RunCoach.Api.Modules.Coaching;
 /// and context templates are rendered using <see cref="PromptRenderer"/>.
 /// </summary>
 /// <remarks>
-/// FUTURE: Before wiring user-facing endpoints, add prompt injection sanitization for
-/// all user-controlled free-text fields that flow into assembled prompt sections:
+/// Sanitization status by entry point:
 ///
-/// - <c>UserProfile.Name</c> (user_profile section)
-/// - <c>InjuryNote.Description</c> (user_profile section)
-/// - <c>RaceTime.Conditions</c> (user_profile section)
-/// - <c>UserPreferences.Constraints</c> (user_profile section)
-/// - <c>RaceGoal.RaceName</c> (goal_state section)
-/// - <c>WorkoutSummary.Notes</c> (training_history section)
-/// - <c>ConversationTurn.UserMessage</c> (conversation_history section)
-/// - <c>ContextAssemblerInput.CurrentUserMessage</c> (current_user_message section)
+/// - <see cref="ComposeForOnboardingAsync"/> — sanitizes the runner's free-text input
+///   via <see cref="IPromptSanitizer"/> per R-068 / DEC-059 (Slice 1 § Unit 6).
+///   Prior captured-slot answers are inlined as JSON from already-validated structured
+///   output and are not re-sanitized.
+/// - <see cref="ComposeForPlanGenerationAsync"/> — caller is responsible for sanitizing
+///   <see cref="RegenerationIntent.FreeText"/> before constructing the intent (see the
+///   record's XML doc). The captured profile snapshot is rendered from the same
+///   already-validated onboarding slots and is not re-sanitized.
+/// - <see cref="AssembleAsync"/> (legacy plan-generation path) — does NOT sanitize. Before
+///   wiring it to a user-facing endpoint, add prompt-injection sanitization for these
+///   user-controlled free-text fields:
+///
+///   - <c>UserProfile.Name</c> (user_profile section)
+///   - <c>InjuryNote.Description</c> (user_profile section)
+///   - <c>RaceTime.Conditions</c> (user_profile section)
+///   - <c>UserPreferences.Constraints</c> (user_profile section)
+///   - <c>RaceGoal.RaceName</c> (goal_state section)
+///   - <c>WorkoutSummary.Notes</c> (training_history section)
+///   - <c>ConversationTurn.UserMessage</c> (conversation_history section)
+///   - <c>ContextAssemblerInput.CurrentUserMessage</c> (current_user_message section)
 ///
 /// Sanitization should strip or neutralize patterns that could alter LLM instruction
 /// following (e.g., "ignore previous instructions", role-play injection, system prompt
-/// overrides). Consider a dedicated <c>IPromptSanitizer</c> applied at section boundaries.
-/// Currently safe — POC has no user-facing input endpoints; all data is programmatic test fixtures.
+/// overrides). The same <see cref="IPromptSanitizer"/> wired into the onboarding flow
+/// is the natural choice. The legacy path is currently exercised only by programmatic
+/// test fixtures, so sanitization is not yet required there.
 /// See also: <see cref="PromptRenderer"/> which sanitizes token values against template injection.
 /// </remarks>
 public sealed partial class ContextAssembler : IContextAssembler
@@ -420,12 +432,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         var sb = new StringBuilder();
 
         sb.AppendLine("ONBOARDING STATE (captured so far):");
-        AppendSlotLine(sb, "PrimaryGoal", view.PrimaryGoal);
-        AppendSlotLine(sb, "TargetEvent", view.TargetEvent);
-        AppendSlotLine(sb, "CurrentFitness", view.CurrentFitness);
-        AppendSlotLine(sb, "WeeklySchedule", view.WeeklySchedule);
-        AppendSlotLine(sb, "InjuryHistory", view.InjuryHistory);
-        AppendSlotLine(sb, "Preferences", view.Preferences);
+        AppendSlotSummary(sb, view);
 
         if (view.OutstandingClarifications.Count > 0)
         {
@@ -458,12 +465,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         var sb = new StringBuilder();
 
         sb.AppendLine("PROFILE SNAPSHOT (captured during onboarding):");
-        AppendSlotLine(sb, "PrimaryGoal", profileSnapshot.PrimaryGoal);
-        AppendSlotLine(sb, "TargetEvent", profileSnapshot.TargetEvent);
-        AppendSlotLine(sb, "CurrentFitness", profileSnapshot.CurrentFitness);
-        AppendSlotLine(sb, "WeeklySchedule", profileSnapshot.WeeklySchedule);
-        AppendSlotLine(sb, "InjuryHistory", profileSnapshot.InjuryHistory);
-        AppendSlotLine(sb, "Preferences", profileSnapshot.Preferences);
+        AppendSlotSummary(sb, profileSnapshot);
 
         if (intent is not null)
         {
@@ -473,6 +475,23 @@ public sealed partial class ContextAssembler : IContextAssembler
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Appends the six captured onboarding slots to the user message in the
+    /// canonical order. Shared by <see cref="BuildOnboardingUserMessage"/> and
+    /// <see cref="BuildPlanGenerationUserMessage"/> so the slot block stays
+    /// byte-identical across both flows — adding a slot to one without the
+    /// other would desync the cacheable prefix per DEC-047.
+    /// </summary>
+    private static void AppendSlotSummary(StringBuilder sb, OnboardingView view)
+    {
+        AppendSlotLine(sb, "PrimaryGoal", view.PrimaryGoal);
+        AppendSlotLine(sb, "TargetEvent", view.TargetEvent);
+        AppendSlotLine(sb, "CurrentFitness", view.CurrentFitness);
+        AppendSlotLine(sb, "WeeklySchedule", view.WeeklySchedule);
+        AppendSlotLine(sb, "InjuryHistory", view.InjuryHistory);
+        AppendSlotLine(sb, "Preferences", view.Preferences);
     }
 
     private static void AppendSlotLine<T>(StringBuilder sb, string label, T? value)

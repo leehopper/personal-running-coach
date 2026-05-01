@@ -240,7 +240,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     internal static Dictionary<string, JsonElement> BuildSchemaDictionary<T>()
     {
         var schemaNode = JsonSchemaHelper.GenerateSchema<T>();
-        return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(schemaNode.ToJsonString())
+        return schemaNode.Deserialize<Dictionary<string, JsonElement>>()
             ?? throw new InvalidOperationException(
                 $"Failed to materialize JSON schema dictionary for {typeof(T).Name}.");
     }

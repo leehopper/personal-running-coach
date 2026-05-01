@@ -183,12 +183,96 @@ public sealed class ContextAssemblerOnboardingTests
         composition.UserMessage.Should().Contain("TargetEvent: <not yet captured>");
     }
 
-    private static ContextAssembler CreateSut()
+    [Fact]
+    public async Task ComposeForOnboardingAsync_PropagatesCancellation_WhenTokenIsPreCancelled()
+    {
+        // Arrange — pre-cancelled token must surface immediately as
+        // OperationCanceledException without performing the sanitize/load work.
+        var sut = CreateSut();
+        var view = CreateInitialView();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act & Assert
+        await sut.Invoking(s => s.ComposeForOnboardingAsync(
+                view,
+                OnboardingTopic.PrimaryGoal,
+                "input",
+                cts.Token))
+            .Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task ComposeForOnboardingAsync_ThrowsFileNotFoundException_WhenPromptFileMissing()
+    {
+        // Arrange — point the assembler at a content root with a Prompts/
+        // subdirectory that does NOT contain onboarding-v1.yaml.
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(Path.Combine(tempRoot, "Prompts"));
+
+        try
+        {
+            var sut = CreateSutWithContentRoot(tempRoot);
+
+            // Act
+            var act = () => sut.ComposeForOnboardingAsync(
+                CreateInitialView(),
+                OnboardingTopic.PrimaryGoal,
+                "input",
+                TestContext.Current.CancellationToken);
+
+            // Assert
+            await act.Should().ThrowAsync<FileNotFoundException>()
+                .WithMessage("*Onboarding prompt YAML not found*");
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ComposeForOnboardingAsync_ThrowsInvalidOperationException_WhenStaticSystemPromptKeyMissing()
+    {
+        // Arrange — write a YAML file that lacks the static_system_prompt key.
+        var tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var promptsDir = Path.Combine(tempRoot, "Prompts");
+        Directory.CreateDirectory(promptsDir);
+        await File.WriteAllTextAsync(
+            Path.Combine(promptsDir, "onboarding-v1.yaml"),
+            "metadata:\n  version: v1\n",
+            TestContext.Current.CancellationToken);
+
+        try
+        {
+            var sut = CreateSutWithContentRoot(tempRoot);
+
+            // Act
+            var act = () => sut.ComposeForOnboardingAsync(
+                CreateInitialView(),
+                OnboardingTopic.PrimaryGoal,
+                "input",
+                TestContext.Current.CancellationToken);
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*missing the 'static_system_prompt' key*");
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    private static ContextAssembler CreateSut() =>
+        CreateSutWithContentRoot(LocateApiContentRoot());
+
+    private static ContextAssembler CreateSutWithContentRoot(string contentRoot)
     {
         var store = CreateMockPromptStore();
         var sanitizer = new LayeredPromptSanitizer(NullLogger<LayeredPromptSanitizer>.Instance);
         var environment = Substitute.For<IHostEnvironment>();
-        environment.ContentRootPath.Returns(LocateApiContentRoot());
+        environment.ContentRootPath.Returns(contentRoot);
 
         var promptSettings = Options.Create(new PromptStoreSettings
         {
