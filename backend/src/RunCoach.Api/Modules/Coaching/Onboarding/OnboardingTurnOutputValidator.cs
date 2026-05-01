@@ -43,6 +43,36 @@ public static class OnboardingTurnOutputValidator
     {
         ArgumentNullException.ThrowIfNull(output);
 
+        // Per-block content invariant: Type=Text needs non-empty payload,
+        // Type=Thinking needs empty payload. The closed-shape schema cannot
+        // express this dependency (DEC-058), so the validator enforces it
+        // at the .NET boundary before any further structural checks.
+        if (output.Reply is not null)
+        {
+            foreach (var block in output.Reply)
+            {
+                if (block is null)
+                {
+                    return new OnboardingTurnOutputValidationResult(
+                        IsValid: false,
+                        Violation: OnboardingTurnOutputValidationViolation.ContentBlockShape,
+                        NonNullSlotCount: 0);
+                }
+
+                try
+                {
+                    block.Validate();
+                }
+                catch (InvalidOperationException)
+                {
+                    return new OnboardingTurnOutputValidationResult(
+                        IsValid: false,
+                        Violation: OnboardingTurnOutputValidationViolation.ContentBlockShape,
+                        NonNullSlotCount: 0);
+                }
+            }
+        }
+
         // Clarification consistency check is independent of Extracted.
         if (output.NeedsClarification && string.IsNullOrWhiteSpace(output.ClarificationReason))
         {
