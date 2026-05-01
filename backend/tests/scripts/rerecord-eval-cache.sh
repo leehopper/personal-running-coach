@@ -42,7 +42,9 @@ echo "  Deleted."
 # Step 2: Record fresh
 echo "[3/5] Recording fresh eval responses (this calls the Anthropic API)..."
 cd "$BACKEND_DIR"
-EVAL_CACHE_MODE=Record dotnet test RunCoach.slnx --filter "Category=Eval" --no-restore
+# MTP-native syntax (.NET SDK 10+ via global.json test.runner): xunit v3
+# uses --filter-trait, not the legacy VSTest --filter "Category=X".
+EVAL_CACHE_MODE=Record dotnet test --solution RunCoach.slnx --filter-trait "Category=Eval" --report-trx
 echo "  Recording complete."
 
 # Step 3: Post-process TTL to 9999-12-31
@@ -69,7 +71,7 @@ echo "  Patched $PATCHED entry.json files."
 
 # Step 4: Verify Replay mode works
 echo "[5/5] Verifying Replay mode with new fixtures..."
-EVAL_CACHE_MODE=Replay dotnet test RunCoach.slnx --filter "Category=Eval" --no-restore
+EVAL_CACHE_MODE=Replay dotnet test --solution RunCoach.slnx --filter-trait "Category=Eval" --report-trx
 echo ""
 echo "=== Done. Cache is fresh and TTL-extended. ==="
 echo "Next: git add backend/tests/eval-cache/ && git commit"
