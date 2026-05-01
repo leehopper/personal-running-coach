@@ -1,3 +1,6 @@
+using System.Text.Json;
+using RunCoach.Api.Modules.Coaching.Models;
+
 namespace RunCoach.Api.Modules.Coaching;
 
 /// <summary>
@@ -28,4 +31,35 @@ public interface ICoachingLlm
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The deserialized structured response.</returns>
     Task<T> GenerateStructuredAsync<T>(string systemPrompt, string userMessage, CancellationToken ct);
+
+    /// <summary>
+    /// Sends a system prompt and user message to the LLM with optional
+    /// pre-built JSON schema and Anthropic prompt-cache breakpoint, and
+    /// returns a structured response deserialized to <typeparamref name="T"/>.
+    /// </summary>
+    /// <typeparam name="T">The structured output record type.</typeparam>
+    /// <param name="systemPrompt">The coaching system prompt.</param>
+    /// <param name="userMessage">The assembled user message.</param>
+    /// <param name="schema">
+    /// Optional pre-built JSON schema dictionary used as the
+    /// <c>output_config.format.schema</c> payload. Pass the byte-stable
+    /// <c>OnboardingSchema.Frozen</c> to keep the Anthropic grammar cache + prompt-prefix cache hot;
+    /// pass <see langword="null"/> to fall back to runtime generation via
+    /// <c>JsonSchemaHelper.GenerateSchema&lt;T&gt;()</c>.
+    /// </param>
+    /// <param name="cacheControl">
+    /// Optional Anthropic <c>cache_control</c> breakpoint to attach to the
+    /// system prompt block. When non-null the system prompt is sent as a
+    /// content-block array carrying this marker; when null the system prompt
+    /// is sent as a plain string and Anthropic does not cache it. Per DEC-047
+    /// the onboarding flow sets <see cref="CacheControl.Ephemeral1h"/>.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The deserialized structured response.</returns>
+    Task<T> GenerateStructuredAsync<T>(
+        string systemPrompt,
+        string userMessage,
+        IReadOnlyDictionary<string, JsonElement>? schema,
+        CacheControl? cacheControl,
+        CancellationToken ct);
 }
