@@ -78,8 +78,10 @@ Shipped with DEC-042: `Distance`, `Pace`, `PaceRange(Fast, Slow)`, `TrainingPace
 
 - `EvalTestBase` relative path navigation (`"../../../../../"`) — fragile if structure changes.
 - `AsIChatClient()` not on `ICoachingLlm` interface — add to interface or mark internal.
-- `WeekGroup` nested record uses mutable `List<WorkoutSummary>` — use `IReadOnlyList`.
+- `WeekGroup` nested record — (a) move to its own file under `Modules/Coaching/` (the `private sealed record` inside `ContextAssembler.cs` violates one-type-per-file; the carve-out is for serialization shapes only, and `WeekGroup` is an aggregation result), and (b) change `List<WorkoutSummary>` to `IReadOnlyList`. Surfaced again in PR #77 deep-review (conv-1).
 - Nested types in `YamlPromptStore` — extract to own files or document as intentional.
+
+> **Slice 1 in-cycle PR #77 deep-review follow-ups** (split `ContextAssembler` ctors / derive `Neutralized` / factory methods on `OnboardingTurnOutputValidationResult` / Pattern-B-Invariant permanent-design note) live in the cycle plan's "Captured During Cycle" table — they're scoped within slice 1, not cross-cycle.
 
 ### Structured output post-deserialization validation (pre-MVP-0)
 

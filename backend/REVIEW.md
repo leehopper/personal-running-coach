@@ -117,6 +117,15 @@
   `userId + ":" + streamPurpose` truncated to 16 bytes). This makes
   `StartStream<T>(deterministicId, ...)` naturally idempotent — retries hit
   a primary-key violation and are handled as "already started."
+- **Onboarding stream id carve-out:** The onboarding stream's id is the raw
+  `userId` (not `DeterministicGuid(userId, "onboarding")`). Reason:
+  `OnboardingProjection.Create(OnboardingStarted)` couples
+  `OnboardingView.Id = @event.UserId`, and Marten's `SingleStreamProjection`
+  treats the document id as the stream id. Decoupling them would require
+  reworking the projection's identity binding — out of scope for the
+  current slice. The `DeterministicGuid` helper exists in
+  `Infrastructure/DeterministicGuid.cs` for new 1:1-per-user aggregates that
+  do NOT have this projection-binding constraint.
 - For aggregates that are 1:many per user (e.g., Plan), use
   `CombGuidIdGeneration.NewGuid()` per instance and store the current id on
   the EF projection row.

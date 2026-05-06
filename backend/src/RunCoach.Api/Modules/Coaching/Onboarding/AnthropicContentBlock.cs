@@ -22,4 +22,42 @@ public sealed record AnthropicContentBlock
     /// </summary>
     [Description("Runner-visible text payload for a Text block. Empty string for non-Text blocks.")]
     public required string Text { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Validates the block-type / text-payload contract: <c>Text</c> blocks must carry non-empty
+    /// text, <c>Thinking</c> blocks must carry an empty string. The wire schema cannot express
+    /// this dependency (DEC-058 keeps the schema closed-shape for grammar caching), so the
+    /// invariant is enforced at the .NET boundary by callers (e.g. <c>OnboardingTurnOutputValidator</c>).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the block's <see cref="Type"/> and <see cref="Text"/> combination is invalid.
+    /// </exception>
+    public void Validate()
+    {
+        switch (Type)
+        {
+            case AnthropicContentBlockType.Text:
+                if (string.IsNullOrEmpty(Text))
+                {
+                    throw new InvalidOperationException(
+                        "AnthropicContentBlock with Type=Text must carry a non-empty Text payload.");
+                }
+
+                break;
+
+            case AnthropicContentBlockType.Thinking:
+                if (!string.IsNullOrEmpty(Text))
+                {
+                    throw new InvalidOperationException(
+                        "AnthropicContentBlock with Type=Thinking must carry an empty Text payload " +
+                        "(the schema reserves Text for runner-visible Text blocks only).");
+                }
+
+                break;
+
+            default:
+                throw new InvalidOperationException(
+                    $"Unknown AnthropicContentBlockType '{Type}'.");
+        }
+    }
 }

@@ -43,6 +43,11 @@ dotnet_diagnostic.SA1601.severity = none
 dotnet_diagnostic.SA1611.severity = none
 dotnet_diagnostic.SA1615.severity = none
 dotnet_diagnostic.SA1633.severity = none
+# SA1642's auto-fixer is not record-aware: it inserts an
+# "Initializes a new instance of the X class." line above any record
+# constructor docstring, even when the existing summary already says
+# "record". The duplicate then survives every `dotnet format` pass.
+dotnet_diagnostic.SA1642.severity = none
 
 [*.{csproj,json,yml,yaml}]
 indent_style = space

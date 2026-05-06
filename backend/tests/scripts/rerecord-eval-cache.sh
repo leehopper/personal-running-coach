@@ -42,7 +42,11 @@ echo "  Deleted."
 # Step 2: Record fresh
 echo "[3/5] Recording fresh eval responses (this calls the Anthropic API)..."
 cd "$BACKEND_DIR"
-EVAL_CACHE_MODE=Record dotnet test RunCoach.slnx --filter "Category=Eval" --no-restore
+# Invoke the test binary directly — matches the lefthook dotnet-test pattern.
+# xunit v3's native CLI accepts `-trait "Category=Eval"` as the inclusion
+# filter; the legacy VSTest `--filter` syntax is silently ignored on MTP.
+dotnet build RunCoach.slnx --no-restore >/dev/null
+EVAL_CACHE_MODE=Record "$BACKEND_DIR/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests" -trait "Category=Eval"
 echo "  Recording complete."
 
 # Step 3: Post-process TTL to 9999-12-31
@@ -69,7 +73,7 @@ echo "  Patched $PATCHED entry.json files."
 
 # Step 4: Verify Replay mode works
 echo "[5/5] Verifying Replay mode with new fixtures..."
-EVAL_CACHE_MODE=Replay dotnet test RunCoach.slnx --filter "Category=Eval" --no-restore
+EVAL_CACHE_MODE=Replay "$BACKEND_DIR/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests" -trait "Category=Eval"
 echo ""
 echo "=== Done. Cache is fresh and TTL-extended. ==="
 echo "Next: git add backend/tests/eval-cache/ && git commit"
