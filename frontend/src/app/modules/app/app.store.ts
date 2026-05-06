@@ -2,10 +2,12 @@ import { configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 import { apiSlice } from '~/api/api-slice'
 import { authSlice } from '~/modules/auth/store/auth.slice'
+import { onboardingSlice } from '~/modules/onboarding/store/onboarding.slice'
 
 export const store = configureStore({
   reducer: {
     [authSlice.name]: authSlice.reducer,
+    [onboardingSlice.name]: onboardingSlice.reducer,
     [apiSlice.reducerPath]: apiSlice.reducer,
   },
   middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(apiSlice.middleware),

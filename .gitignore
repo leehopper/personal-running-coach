@@ -45,3 +45,4 @@ docs/specs/
 # Misc
 *.log
 /.deep-review/
+/.playwright-mcp/
