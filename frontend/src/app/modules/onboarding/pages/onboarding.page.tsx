@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
 import { OnboardingChat } from '~/modules/onboarding/components/onboarding-chat.component'
+import { expandCompletedTopicCount } from '~/modules/onboarding/components/topic-progress-indicator.helpers'
 import { useOnboardingTurn } from '~/modules/onboarding/hooks/use-onboarding-turn.hooks'
 import { OnboardingTopic, SuggestedInputType } from '~/modules/onboarding/models/onboarding.model'
 import {
@@ -60,7 +61,7 @@ export const OnboardingPage = (): ReactElement => {
       // submits). This intentionally keeps the slice honest about what
       // the server has confirmed; cross-refresh transcript text comes in
       // a follow-up endpoint.
-      const replayedTopics = canonicalTopicsForCount(stateDto.completedTopics)
+      const replayedTopics = expandCompletedTopicCount(stateDto.completedTopics)
       const hasOutstandingClarification =
         stateDto.currentTopic !== null &&
         stateDto.outstandingClarifications.includes(stateDto.currentTopic)
@@ -182,19 +183,6 @@ const pickInputTypeForTopic = (topic: OnboardingTopic | null) => {
     default:
       return SuggestedInputType.Text
   }
-}
-
-const canonicalTopicsForCount = (count: number): OnboardingTopic[] => {
-  const order: OnboardingTopic[] = [
-    OnboardingTopic.PrimaryGoal,
-    OnboardingTopic.TargetEvent,
-    OnboardingTopic.CurrentFitness,
-    OnboardingTopic.WeeklySchedule,
-    OnboardingTopic.InjuryHistory,
-    OnboardingTopic.Preferences,
-  ]
-  const clamped = Math.min(Math.max(count, 0), order.length)
-  return order.slice(0, clamped)
 }
 
 /**

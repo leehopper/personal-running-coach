@@ -51,7 +51,7 @@ const isErrorStatus = (error: unknown, expected: number): boolean => {
  *
  * Spec § Unit 3 R03.3.
  */
-const OnboardingRedirectGuard = ({
+export const OnboardingRedirectGuard = ({
   expectComplete,
   redirectTo,
   children,
@@ -101,12 +101,10 @@ const OnboardingRedirectGuard = ({
   if (expectComplete && isComplete) {
     return <Navigate to={redirectTo} replace />
   }
-  if (!expectComplete && !isComplete && !treatAs404) {
-    // Home guard, server says incomplete -> redirect to onboarding.
-    return <Navigate to={redirectTo} replace />
-  }
-  if (!expectComplete && treatAs404) {
-    // Home guard, no stream yet -> redirect to onboarding.
+  // Home guard: both "server says incomplete" and "404 (no stream yet)" are
+  // treated as incomplete — redirect to onboarding in either case.
+  const shouldRedirectToOnboarding = !expectComplete && (!isComplete || treatAs404)
+  if (shouldRedirectToOnboarding) {
     return <Navigate to={redirectTo} replace />
   }
 

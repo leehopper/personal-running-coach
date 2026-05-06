@@ -34,6 +34,15 @@ const { getStateMock, submitMock, submitUnwrap, navigateMock } = vi.hoisted(() =
 vi.mock('~/api/onboarding.api', () => ({
   useGetOnboardingStateQuery: () => getStateMock(),
   useSubmitOnboardingTurnMutation: () => [submitMock, { isLoading: false }],
+  // `onboardingApi.util.updateQueryData` is called by `useOnboardingTurn` on
+  // `kind: complete` to patch the cached state so `OnboardingRedirectGuard`
+  // sees `isComplete=true` before navigation fires. Return a no-op thunk so
+  // the dispatch call succeeds in the test environment.
+  onboardingApi: {
+    util: {
+      updateQueryData: vi.fn(() => () => undefined),
+    },
+  },
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -153,6 +162,27 @@ describe('OnboardingPage', () => {
     const currentSegment = segments.find((segment) => segment.dataset.state === 'current')
     expect(currentSegment).toBeDefined()
     expect(currentSegment?.dataset.topic).toBe(String(OnboardingTopic.WeeklySchedule))
+  })
+
+  it('coerces suggestedInputType to Text when the current topic has an outstanding clarification', async () => {
+    getStateMock.mockReturnValue({
+      data: {
+        ...inProgressState,
+        currentTopic: OnboardingTopic.WeeklySchedule,
+        outstandingClarifications: [OnboardingTopic.WeeklySchedule],
+      },
+      isLoading: false,
+      isError: false,
+    })
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByTestId('onboarding-chat')).toBeInTheDocument()
+    })
+    // WeeklySchedule normally maps to MultiSelect, but the outstanding
+    // clarification fallback must coerce it to Text so the runner can
+    // answer the assistant's follow-up question.
+    expect(screen.getByTestId('text-turn-input')).toBeInTheDocument()
+    expect(screen.queryByTestId('multi-select-turn-input')).not.toBeInTheDocument()
   })
 
   it('redirects to "/" when the state query reports onboarding is already complete', async () => {

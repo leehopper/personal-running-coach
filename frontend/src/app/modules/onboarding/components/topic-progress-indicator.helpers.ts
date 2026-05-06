@@ -38,6 +38,21 @@ export const SEGMENT_STYLES: Record<TopicSegmentState, string> = {
   pending: 'bg-slate-50 text-slate-500 border-slate-200',
 }
 
+/**
+ * Expand a server-supplied numeric completed-topic count into the canonical
+ * topic prefix. The wire shape is `{ completedTopics: number }` (count only);
+ * both the slice and the progress indicator consume the actual enum values,
+ * so this helper converts once at the boundary.
+ *
+ * Count is clamped to `[0, DEFAULT_TOPIC_ORDER.length]` so out-of-range
+ * server values never produce an invalid slice.
+ */
+export const expandCompletedTopicCount = (count: number): OnboardingTopic[] =>
+  DEFAULT_TOPIC_ORDER.slice(
+    0,
+    Math.min(Math.max(count, 0), DEFAULT_TOPIC_ORDER.length),
+  ) as OnboardingTopic[]
+
 export const stateForTopic = (
   topic: OnboardingTopic,
   completedTopics: readonly OnboardingTopic[],

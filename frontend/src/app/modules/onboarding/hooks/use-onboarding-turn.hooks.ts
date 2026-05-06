@@ -1,15 +1,17 @@
 import { useCallback, useRef } from 'react'
 import { useDispatch } from 'react-redux'
-import { useSubmitOnboardingTurnMutation } from '~/api/onboarding.api'
+import { onboardingApi, useSubmitOnboardingTurnMutation } from '~/api/onboarding.api'
 import type { MessageContentBlock } from '~/modules/coaching/components/message-bubble.component'
 import {
   AnthropicContentBlockType,
+  OnboardingStatus,
   OnboardingTopic,
   OnboardingTurnKind,
   type AnthropicContentBlock,
   type OnboardingTurnResponse,
 } from '~/modules/onboarding/models/onboarding.model'
 import { onboardingTurnResponseSchema } from '~/modules/onboarding/schemas/onboarding-turn-response.schema'
+import { expandCompletedTopicCount } from '~/modules/onboarding/components/topic-progress-indicator.helpers'
 import {
   assistantTurnAppended,
   buildingPlanStarted,
@@ -20,8 +22,6 @@ import {
   userTurnDelivered,
 } from '~/modules/onboarding/store/onboarding.slice'
 import type { AppDispatch } from '~/modules/app/app.store'
-
-const DEFAULT_TOTAL_TOPICS = 6
 
 export interface SubmitTurnArgs {
   text: string
@@ -103,11 +103,23 @@ export const useOnboardingTurn = (): UseOnboardingTurnReturn => {
       // server-acknowledged.
       dispatch(userTurnDelivered({ id: turnId }))
       const assistantBlocks = toRenderableContent(response.assistantBlocks)
-      const completedTopics: OnboardingTopic[] = inferCompletedTopics(
+      const completedTopics: OnboardingTopic[] = expandCompletedTopicCount(
         response.progress.completedTopics,
       )
       const assistantTurnId = crypto.randomUUID()
       if (response.kind === OnboardingTurnKind.Complete) {
+        // Patch the `getOnboardingState` cache so `OnboardingRedirectGuard`
+        // reads `isComplete=true` before `navigate('/')` fires. Without this
+        // the guard sees the stale `false` value and immediately bounces the
+        // user back to `/onboarding`. `submitOnboardingTurn` intentionally
+        // does NOT invalidate the `Onboarding` tag (see `onboarding.api.ts`)
+        // to avoid a race that would wipe the in-flight transcript.
+        dispatch(
+          onboardingApi.util.updateQueryData('getOnboardingState', undefined, (draft) => {
+            draft.isComplete = true
+            draft.status = OnboardingStatus.Completed
+          }),
+        )
         dispatch(
           onboardingCompleted({
             id: assistantTurnId,
@@ -185,24 +197,4 @@ export const useOnboardingTurn = (): UseOnboardingTurnReturn => {
   }, [dispatch, dispatchPostSubmit])
 
   return { submitTurn, retryLastFailedTurn }
-}
-
-/**
- * Map a server-provided `completedTopics` count to the canonical topic
- * list. The wire shape is `{ completedTopics: number, totalTopics: number }`
- * (count only); the slice and progress indicator both consume the actual
- * topic enum values, so this helper expands the count into the canonical
- * DEC-047 prefix. Order matches the topic ordering the assistant follows.
- */
-const inferCompletedTopics = (completedCount: number): OnboardingTopic[] => {
-  const ordered: OnboardingTopic[] = [
-    OnboardingTopic.PrimaryGoal,
-    OnboardingTopic.TargetEvent,
-    OnboardingTopic.CurrentFitness,
-    OnboardingTopic.WeeklySchedule,
-    OnboardingTopic.InjuryHistory,
-    OnboardingTopic.Preferences,
-  ]
-  const clamped = Math.min(Math.max(completedCount, 0), DEFAULT_TOTAL_TOPICS)
-  return ordered.slice(0, clamped)
 }
