@@ -74,6 +74,20 @@ describe('InputForTopic dispatcher', () => {
     expect(screen.getByTestId('date-turn-input')).toBeInTheDocument()
   })
 
+  it('falls back to text input when the server returns an unknown discriminator', () => {
+    render(
+      <InputForTopic
+        // Cast through `unknown` so we can inject a discriminator outside
+        // the current enum range — simulates a future server adding a new
+        // SuggestedInputType variant the client has not learned about yet.
+        suggestedInputType={999 as unknown as SuggestedInputType}
+        topic={OnboardingTopic.InjuryHistory}
+        onSubmit={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('text-turn-input')).toBeInTheDocument()
+  })
+
   it('forwards onSubmit through the dispatcher to the chosen text input', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)

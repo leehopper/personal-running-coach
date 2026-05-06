@@ -47,10 +47,19 @@ const suggestedInputTypeSchema = z.union([
   z.literal(SuggestedInputType.Date),
 ])
 
-const progressSchema = z.object({
-  completedTopics: z.number().int().min(0).max(6),
-  totalTopics: z.number().int().min(5).max(6),
-})
+// `totalTopics` is fixed at 6 by DEC-047's six-topic state machine; pin it
+// to a literal so `{ completedTopics: 6, totalTopics: 5 }`-style nonsense
+// can't slip through the contract gate. The refine guards the inverse
+// inequality (completed should never exceed total).
+const progressSchema = z
+  .object({
+    completedTopics: z.number().int().min(0).max(6),
+    totalTopics: z.literal(6),
+  })
+  .refine((p) => p.completedTopics <= p.totalTopics, {
+    error: 'completedTopics must not exceed totalTopics',
+    path: ['completedTopics'],
+  })
 
 // `assistantBlocks` arrives from the backend as a raw `JsonDocument` array;
 // keep it as a plain array on the wire so non-text block types

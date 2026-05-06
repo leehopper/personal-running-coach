@@ -103,6 +103,11 @@ export const onboardingSlice = createSlice({
     },
     submitFailed: (state, action: PayloadAction<{ id: string }>) => {
       state.isSubmitting = false
+      // A failed final-turn submit may have already dispatched the
+      // grace-period `building-plan` placeholder. Strip it so the user
+      // sees the failed bubble + Retry affordance, not a hanging
+      // "Building your plan…" row.
+      state.turns = state.turns.filter((candidate) => candidate.status !== 'building-plan')
       const turn = state.turns.find((candidate) => candidate.id === action.payload.id)
       if (turn !== undefined) {
         turn.status = 'failed'
@@ -123,6 +128,11 @@ export const onboardingSlice = createSlice({
     },
     assistantTurnAppended: (state, action: PayloadAction<AppendAssistantTurnPayload>) => {
       state.isSubmitting = false
+      // A slow non-final Ask response can land after the 1500ms grace
+      // period dispatched a `building-plan` placeholder. Strip any
+      // outstanding placeholder rows here so the transcript never carries
+      // a stale "Building your plan…" bubble next to a fresh Ask turn.
+      state.turns = state.turns.filter((candidate) => candidate.status !== 'building-plan')
       state.turns.push({
         id: action.payload.id,
         role: 'assistant',

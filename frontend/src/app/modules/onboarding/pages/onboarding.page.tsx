@@ -29,9 +29,21 @@ export const OnboardingPage = (): ReactElement => {
   const dispatch = useDispatch<AppDispatch>()
   const navigate = useNavigate()
   const { submitTurn, retryLastFailedTurn } = useOnboardingTurn()
-  const { data: stateDto, isLoading, isError, error } = useGetOnboardingStateQuery(undefined)
+  const {
+    data: stateDto,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useGetOnboardingStateQuery(undefined)
 
   const chatState = useSelector((state: RootState) => state.onboarding)
+
+  // Treat the bootstrap query's 404 as the "no stream yet — start fresh"
+  // signal; any other failure is a real error we must surface, not a
+  // reason to render the chat with stale local state.
+  const treatAsNoStream = isErrorIndicatesNoStream(isError, error)
+  const hasFatalBootstrapError = isError && !treatAsNoStream
 
   // 1. Replay the persisted server state into the Redux slice on first
   //    successful load. The chat slice is the source of truth for the
@@ -69,10 +81,10 @@ export const OnboardingPage = (): ReactElement => {
         isComplete: stateDto.isComplete,
       }
       dispatch(transcriptReplaced(replay))
-    } else if (isErrorIndicatesNoStream(isError, error)) {
+    } else if (treatAsNoStream) {
       dispatch(transcriptCleared())
     }
-  }, [dispatch, stateDto, isError, error])
+  }, [dispatch, stateDto, treatAsNoStream])
 
   // 3. If the server confirms onboarding is already done, redirect home.
   //    The route also redirects post-completion, so this guard catches
@@ -104,6 +116,29 @@ export const OnboardingPage = (): ReactElement => {
         className="flex min-h-screen items-center justify-center bg-slate-50"
       >
         <span className="text-sm text-slate-500">Loading…</span>
+      </div>
+    )
+  }
+
+  if (hasFatalBootstrapError) {
+    return (
+      <div
+        role="alert"
+        data-testid="onboarding-bootstrap-error"
+        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 px-4 text-center"
+      >
+        <p className="text-sm text-slate-700">
+          We couldn’t reach the onboarding service. Check your connection and try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            void refetch()
+          }}
+          className="rounded bg-slate-900 px-3 py-1 text-xs font-medium text-white"
+        >
+          Retry
+        </button>
       </div>
     )
   }

@@ -8,7 +8,7 @@ import {
   SuggestedInputType,
   type SuggestedInputType as SuggestedInputTypeValue,
 } from '~/modules/onboarding/models/onboarding.model'
-import type { InputSubmissionPayload, InputProps } from './input-for-topic.types'
+import type { InputSubmissionPayload } from './input-for-topic.types'
 import type { OnboardingTurn } from '~/modules/onboarding/store/onboarding.slice'
 
 export interface OnboardingChatProps {
@@ -73,7 +73,11 @@ export const OnboardingChat = ({
           suggestedInputType={effectiveInputType}
           topic={currentTopic}
           onSubmit={(payload) => onSubmit(payload)}
-          isSubmitting={isSubmitting}
+          // While a previous turn is in `failed` state, fresh submissions
+          // would overwrite the hook's `lastSubmissionRef` and discard the
+          // idempotency key needed to retry that turn. Disable the input
+          // until the user clears the failed state via Retry.
+          isSubmitting={isSubmitting || hasFailedTurn}
         />
       </footer>
     </main>
@@ -122,6 +126,4 @@ const RetryAffordance = ({ onRetry, isSubmitting }: RetryAffordanceProps): React
   </div>
 )
 
-// Placeholder export so the file's barrel signal is unambiguous to
-// maintainers grepping for InputProps.
-export type { InputProps }
+export type { InputProps } from './input-for-topic.types'

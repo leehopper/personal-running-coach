@@ -166,6 +166,17 @@ describe('onboardingTurnResponseSchema', () => {
     expect(actual.success).toBe(false)
   })
 
+  it('rejects progress with totalTopics other than 6', () => {
+    const payload = {
+      ...validAskPayload,
+      progress: { completedTopics: 0, totalTopics: 5 },
+    }
+
+    const actual = onboardingTurnResponseSchema.safeParse(payload)
+
+    expect(actual.success).toBe(false)
+  })
+
   it('rejects an assistant block with an unknown block type', () => {
     const payload = {
       ...validAskPayload,

@@ -1,31 +1,43 @@
-import { useState, type FormEvent, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
+import { useForm } from 'react-hook-form'
 import type { InputProps } from './input-for-topic.types'
 
-/**
- * Free-form text input for `suggestedInputType: text` Ask turns. Per the
- * frontend conventions doc, free-text turns use a raw form (no Zod / RHF)
- * because there is no structural validation to apply — the only client-side
- * rule is "don't submit empty", which the disabled-button covers.
- */
-export const TextTurnInput = ({ onSubmit, isSubmitting = false }: InputProps): ReactElement => {
-  const [value, setValue] = useState('')
+interface TextFormValues {
+  text: string
+}
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault()
-    const trimmed = value.trim()
+export type TextTurnInputProps = InputProps
+
+/**
+ * Free-form text input for `suggestedInputType: text` Ask turns. The only
+ * client-side rule is "don't submit empty"; React Hook Form gives us the
+ * disabled-submit / reset-on-success ergonomics for free without dragging
+ * a Zod schema in for a single non-empty check.
+ */
+export const TextTurnInput = ({
+  onSubmit,
+  isSubmitting = false,
+}: TextTurnInputProps): ReactElement => {
+  const form = useForm<TextFormValues>({
+    mode: 'onChange',
+    defaultValues: { text: '' },
+  })
+
+  const submit = async (data: TextFormValues): Promise<void> => {
+    const trimmed = data.text.trim()
     if (trimmed.length === 0) {
       return
     }
     await onSubmit({ text: trimmed })
-    setValue('')
+    form.reset({ text: '' })
   }
 
-  const isSubmitDisabled = value.trim().length === 0 || isSubmitting
+  const isSubmitDisabled = !form.formState.isValid || isSubmitting
 
   return (
     <form
       data-testid="text-turn-input"
-      onSubmit={handleSubmit}
+      onSubmit={form.handleSubmit(submit)}
       className="flex w-full items-end gap-2"
     >
       <label htmlFor="text-turn-input-field" className="sr-only">
@@ -34,12 +46,13 @@ export const TextTurnInput = ({ onSubmit, isSubmitting = false }: InputProps): R
       <textarea
         id="text-turn-input-field"
         data-testid="text-turn-input-field"
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
         rows={2}
         disabled={isSubmitting}
         placeholder="Type your reply…"
         className="flex-1 resize-none rounded border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        {...form.register('text', {
+          validate: (value) => value.trim().length > 0,
+        })}
       />
       <button
         type="submit"

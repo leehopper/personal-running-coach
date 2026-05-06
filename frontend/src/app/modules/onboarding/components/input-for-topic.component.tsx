@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { InputForTopicMap } from './input-for-topic.helpers'
 import type { InputForTopicProps } from './input-for-topic.types'
+import { TextTurnInput } from './text-turn-input.component'
 
 /**
  * Dispatcher that picks the right per-topic input component based on the
@@ -10,11 +11,15 @@ import type { InputForTopicProps } from './input-for-topic.types'
  * map and shared type interfaces live in sibling files
  * (`input-for-topic.helpers.ts` / `input-for-topic.types.ts`) so this file
  * exports React components only — keeps Vite's react-refresh happy.
+ *
+ * Falls back to `TextTurnInput` when the server returns an unknown
+ * discriminator so the page stays interactive instead of crashing the
+ * render tree on a contract drift.
  */
 export const InputForTopic = ({
   suggestedInputType,
   ...rest
 }: InputForTopicProps): ReactElement => {
-  const Component = InputForTopicMap[suggestedInputType]
+  const Component = InputForTopicMap[suggestedInputType] ?? TextTurnInput
   return <Component {...rest} />
 }

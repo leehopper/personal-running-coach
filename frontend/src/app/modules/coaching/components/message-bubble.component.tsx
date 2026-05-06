@@ -22,6 +22,17 @@ export interface MessageBubbleProps {
 const isTextBlock = (block: MessageContentBlock): block is { type: 'text'; text: string } =>
   block.type === 'text'
 
+// djb2 hash → reasonably collision-resistant for short text blocks and
+// stable across renders (used only as a React key suffix, never for
+// security or persistence).
+const hashText = (text: string): number => {
+  let hash = 5381
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 33) ^ text.charCodeAt(index)
+  }
+  return hash >>> 0
+}
+
 // Role-based styling lives in a static map so consumers can tell at a
 // glance which classes attach to which side of the conversation. Tailwind
 // utilities only — no shadcn primitive is needed at this size.
@@ -51,10 +62,13 @@ export const MessageBubble = ({
     >
       {textBlocks.map((block, index) => (
         <p
-          // Stable key: text blocks within one bubble are positional and
-          // immutable once received; `index` is safe here because the
-          // bubble re-renders as a unit when content changes.
-          key={`${role}-text-${index}`}
+          // Content-derived key: positional index is reinforced by a hash
+          // of the block's text so that React reuses the right `<p>` even
+          // if a future producer re-orders or inserts blocks within the
+          // same bubble. The bubble's content array is also stable per
+          // turn (assistant turns never mutate), so collisions across
+          // bubbles can't occur.
+          key={`${role}-text-${index}-${hashText(block.text)}`}
           className="whitespace-pre-wrap break-words"
         >
           {block.text}

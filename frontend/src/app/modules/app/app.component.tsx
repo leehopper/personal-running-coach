@@ -22,6 +22,12 @@ interface OnboardingRedirectGuardProps {
   children: ReactElement
 }
 
+const isErrorStatus = (error: unknown, expected: number): boolean => {
+  if (typeof error !== 'object' || error === null) return false
+  const candidate = error as { status?: unknown }
+  return candidate.status === expected
+}
+
 /**
  * Inline route guard that consults `getOnboardingState` and routes the
  * authenticated user based on whether onboarding has finished. Sits
@@ -38,6 +44,11 @@ interface OnboardingRedirectGuardProps {
  * stream yet" — by definition incomplete, so the home guard redirects to
  * `/onboarding` while the onboarding guard renders its children.
  *
+ * Non-404 errors render an inline retry alert instead of falling through
+ * to the redirect arm — otherwise a 5xx on `/` would bounce the user to
+ * `/onboarding`, where the same query keeps failing and the guard sends
+ * them back, producing an oscillation.
+ *
  * Spec § Unit 3 R03.3.
  */
 const OnboardingRedirectGuard = ({
@@ -45,7 +56,7 @@ const OnboardingRedirectGuard = ({
   redirectTo,
   children,
 }: OnboardingRedirectGuardProps): ReactElement => {
-  const { data, isLoading, isError, error } = useGetOnboardingStateQuery(undefined)
+  const { data, isLoading, isError, error, refetch } = useGetOnboardingStateQuery(undefined)
 
   if (isLoading) {
     return (
@@ -62,6 +73,30 @@ const OnboardingRedirectGuard = ({
   // 404 = no stream yet = onboarding is incomplete by definition.
   const isComplete = data?.isComplete ?? false
   const treatAs404 = isError && isErrorStatus(error, 404)
+  const hasFatalError = isError && !treatAs404
+
+  if (hasFatalError) {
+    return (
+      <div
+        role="alert"
+        data-testid="onboarding-guard-error"
+        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 px-4 text-center"
+      >
+        <p className="text-sm text-slate-700">
+          We couldn’t reach the onboarding service. Check your connection and try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            void refetch()
+          }}
+          className="rounded bg-slate-900 px-3 py-1 text-xs font-medium text-white"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   if (expectComplete && isComplete) {
     return <Navigate to={redirectTo} replace />
@@ -76,12 +111,6 @@ const OnboardingRedirectGuard = ({
   }
 
   return children
-}
-
-const isErrorStatus = (error: unknown, expected: number): boolean => {
-  if (typeof error !== 'object' || error === null) return false
-  const candidate = error as { status?: unknown }
-  return candidate.status === expected
 }
 
 // Inner component runs inside the Redux Provider so auth hooks'

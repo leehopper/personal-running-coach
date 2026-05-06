@@ -142,20 +142,22 @@ export const useOnboardingTurn = (): UseOnboardingTurnReturn => {
       // setTimeout so the placeholder only paints when the request truly
       // is slow; canceled the moment the response lands.
       const buildingPlanId = crypto.randomUUID()
-      const buildingPlanTimeoutId = window.setTimeout(() => {
+      const buildingPlanTimeoutId = globalThis.setTimeout(() => {
         dispatch(buildingPlanStarted({ id: buildingPlanId }))
       }, 1500)
 
       try {
         const response = await submit({ idempotencyKey, text }).unwrap()
-        window.clearTimeout(buildingPlanTimeoutId)
+        globalThis.clearTimeout(buildingPlanTimeoutId)
         handleResponse(turnId, response)
       } catch {
         // RTK Query's `unwrap()` throws on any non-2xx — Zod parse failures
         // also surface here because the schema is invoked inside
         // `handleResponse`. Treat both as `failed` so the Retry affordance
-        // appears.
-        window.clearTimeout(buildingPlanTimeoutId)
+        // appears. The slice's `submitFailed` reducer also strips any
+        // already-dispatched `building-plan` placeholder so the failed
+        // bubble + Retry affordance render cleanly.
+        globalThis.clearTimeout(buildingPlanTimeoutId)
         dispatch(submitFailed({ id: turnId }))
       }
     },
