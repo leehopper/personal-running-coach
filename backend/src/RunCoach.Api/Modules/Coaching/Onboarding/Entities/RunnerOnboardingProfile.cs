@@ -23,8 +23,8 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 /// <c>UserProfileFromOnboardingProjection</c> apply method per DEC-060 / R-069,
 /// which runs as a Marten transaction participant on the same Postgres
 /// connection as the event append — atomic by construction. Wolverine
-/// <c>[AggregateHandler]</c> bodies must not mutate this entity directly
-/// (DEC-060 prohibition on dual-write).
+/// onboarding-handler bodies must not mutate this entity directly (DEC-060
+/// prohibition on dual-write).
 /// </remarks>
 [Table("UserProfile")]
 public class RunnerOnboardingProfile : ITenanted
