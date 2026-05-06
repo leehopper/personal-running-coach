@@ -274,7 +274,7 @@ public sealed class OnboardingTurnOutputShapeTests
         // Arrange — Ask branch: AssistantBlocks round-trips as JsonElement without disposal concerns.
         var blocksJson = """[{"type":"text","text":"What is your primary goal?"}]""";
         var blocksElement = JsonDocument.Parse(blocksJson).RootElement.Clone();
-        var progress = new OnboardingProgressDto(Completed: 0, Total: 6);
+        var progress = new OnboardingProgressDto(CompletedTopics: 0, TotalTopics: 6);
         var expected = new OnboardingTurnResponseDto(
             Kind: OnboardingTurnKind.Ask,
             AssistantBlocks: blocksElement,
@@ -302,7 +302,7 @@ public sealed class OnboardingTurnOutputShapeTests
         var blocksJson = """[{"type":"text","text":"Your plan is ready!"}]""";
         var blocksElement = JsonDocument.Parse(blocksJson).RootElement.Clone();
         var planId = Guid.NewGuid();
-        var progress = new OnboardingProgressDto(Completed: 6, Total: 6);
+        var progress = new OnboardingProgressDto(CompletedTopics: 6, TotalTopics: 6);
         var expected = new OnboardingTurnResponseDto(
             Kind: OnboardingTurnKind.Complete,
             AssistantBlocks: blocksElement,

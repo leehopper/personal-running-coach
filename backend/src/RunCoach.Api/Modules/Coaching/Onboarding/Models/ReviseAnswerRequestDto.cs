@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 
@@ -17,5 +18,5 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// <c>JsonSerializer.SerializeToDocument(NormalizedValue)</c> or equivalent.
 /// </param>
 public sealed record ReviseAnswerRequestDto(
-    OnboardingTopic Topic,
-    JsonElement NormalizedValue);
+    [property: JsonRequired] OnboardingTopic Topic,
+    [property: JsonRequired] JsonElement NormalizedValue);
