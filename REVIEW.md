@@ -76,6 +76,15 @@ frontier
   references are vulnerable to supply chain attacks (ref: trivy-action
   March 2026 compromise).
 
+### Code comments
+
+- Productionize comments before merge: no planning-phase forward
+  references ("Slice 1 only", "later slices will", "Unit 5 will"), no
+  TODO/FIXME, no embedded source-file paths (`backend/src/...`,
+  `frontend/src/...`), no chain-of-thought design narrative. Spec / DEC /
+  R-NNN symbolic references are allowed. Keep load-bearing "why"
+  comments that document non-obvious invariants.
+
 ### AI-generated code
 
 - Verify all referenced packages actually exist on npm/NuGet registries.

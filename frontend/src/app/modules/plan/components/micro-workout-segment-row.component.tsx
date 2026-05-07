@@ -28,7 +28,7 @@ export const MicroWorkoutSegmentRow = ({
         {segment.durationMinutes} min{pace === null ? '' : ` · ${pace}`}
       </span>
       <span className="text-[11px] uppercase tracking-wide text-slate-500">
-        {INTENSITY_LABELS[segment.intensity]}
+        {INTENSITY_LABELS[segment.intensity] ?? segment.intensity}
       </span>
     </li>
   )

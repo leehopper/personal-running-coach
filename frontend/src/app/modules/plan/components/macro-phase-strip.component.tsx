@@ -75,7 +75,7 @@ export const MacroPhaseStrip = ({
                 ? `Week ${range.startWeek}`
                 : `Weeks ${range.startWeek}–${range.endWeek}`}
             </span>
-            {current ? (
+            {current && currentWeek !== null ? (
               <span
                 data-testid="macro-phase-current-marker"
                 className="mt-1 inline-block rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-900"
