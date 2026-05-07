@@ -56,7 +56,7 @@ export const resolveCurrentWeek = (plan: PlanProjectionDto): number => {
     .filter((value) => Number.isFinite(value) && value >= 1)
     .sort((left, right) => left - right)
   if (populatedWeeks.length > 0) {
-    return populatedWeeks[0] as number
+    return populatedWeeks[0]!
   }
   // Fall back to the first meso template's week number when no micro
   // workouts have been pre-generated yet (defensive — Slice 1 always

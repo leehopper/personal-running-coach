@@ -32,7 +32,7 @@ const renderSegment = (segment: WorkoutSegmentDto, index: number): ReactElement 
         {segment.repetitions > 1 ? ` × ${segment.repetitions}` : ''}
       </span>
       <span className="text-slate-600">
-        {segment.durationMinutes} min{pace !== null ? ` · ${pace}` : ''}
+        {segment.durationMinutes} min{pace === null ? '' : ` · ${pace}`}
       </span>
       <span className="text-[11px] uppercase tracking-wide text-slate-500">
         {INTENSITY_LABELS[segment.intensity]}
@@ -112,7 +112,7 @@ export const MicroWorkoutCard = ({
           data-testid="micro-workout-segments"
           className="flex flex-col gap-1"
         >
-          {workout.segments.map(renderSegment)}
+          {workout.segments.map((segment) => renderSegment(segment))}
         </ul>
       ) : null}
 

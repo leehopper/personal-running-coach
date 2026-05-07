@@ -88,13 +88,13 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
       className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 bg-slate-50 px-4 py-8"
       data-testid="home-page"
     >
-      {plan.macro !== null ? (
+      {plan.macro === null ? null : (
         <MacroPhaseStrip macro={plan.macro} currentWeek={currentWeek} />
-      ) : null}
+      )}
 
-      {currentWeekTemplate !== undefined ? (
+      {currentWeekTemplate === undefined ? null : (
         <TodayCard currentWeek={currentWeekTemplate} workouts={currentWeekWorkouts} />
-      ) : null}
+      )}
 
       <UpcomingList
         currentWeekWorkouts={currentWeekWorkouts}

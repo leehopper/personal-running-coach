@@ -200,6 +200,29 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
     }
 
     /// <summary>
+    /// When the bearer token authenticates the caller but carries a
+    /// <c>sub</c> claim that does not parse as a <see cref="Guid"/>, the
+    /// controller's <c>TryGetUserId</c> returns false and the endpoint
+    /// surfaces a 401 Problem Details response (covers the controller's
+    /// missing-user-claim branch — see DEC-057 R02.4 auth contract).
+    /// </summary>
+    [Fact]
+    public async Task GetCurrent_BearerToken_With_Non_Guid_Sub_Returns_401_Problem()
+    {
+        // Arrange
+        using var client = CreateBearerClient(Factory, MintBearerTokenWithRawSub("not-a-guid"));
+
+        // Act
+        var response = await client.GetAsync(
+            "/api/v1/plan/current",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+    }
+
+    /// <summary>
     /// Reset Marten event storage in addition to the public schema so streams
     /// seeded by one test do not survive into the next.
     /// </summary>
@@ -355,6 +378,26 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
             issuer: RunCoachAppFactory.TestJwtIssuer,
             audience: RunCoachAppFactory.TestJwtAudience,
             claims: [new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())],
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddMinutes(5),
+            signingCredentials: credentials);
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private static string MintBearerTokenWithRawSub(string sub)
+    {
+        // Lets a test send an authenticated request with a sub claim that
+        // does not parse as a Guid so the controller's TryGetUserId falls
+        // through to MissingUserClaim().
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(RunCoachAppFactory.TestJwtSigningKey))
+        {
+            KeyId = RunCoachAppFactory.TestJwtKeyId,
+        };
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(
+            issuer: RunCoachAppFactory.TestJwtIssuer,
+            audience: RunCoachAppFactory.TestJwtAudience,
+            claims: [new Claim(JwtRegisteredClaimNames.Sub, sub)],
             notBefore: DateTime.UtcNow,
             expires: DateTime.UtcNow.AddMinutes(5),
             signingCredentials: credentials);

@@ -74,7 +74,7 @@ export const TodayCard = ({
   }
 
   const nextWorkout = findNextWorkoutAfter(workouts, todayIndex)
-  const nextDayLabel = nextWorkout !== undefined ? DAY_OF_WEEK_LABELS[nextWorkout.dayOfWeek] : null
+  const nextDayLabel = nextWorkout === undefined ? null : DAY_OF_WEEK_LABELS[nextWorkout.dayOfWeek]
 
   return (
     <section

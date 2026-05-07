@@ -130,4 +130,4 @@ export const findNextWorkoutAfter = (
  * Resolves a friendly phase label, falling back to the raw value when the
  * structured-output enum widens before the frontend's label map does.
  */
-export const labelForPhase = (phase: PhaseType | string): string => PHASE_LABELS[phase] ?? phase
+export const labelForPhase = (phase: PhaseType): string => PHASE_LABELS[phase] ?? phase
