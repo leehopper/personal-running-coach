@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -101,5 +101,61 @@ describe('RegeneratePlanDialog', () => {
     renderDialog(onClose)
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes the dialog when the Escape key is pressed while idle', () => {
+    const onClose = vi.fn()
+    renderDialog(onClose)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not close on Escape while the regenerate mutation is in flight', () => {
+    mutationStateRef.isLoading = true
+    const onClose = vi.fn()
+    renderDialog(onClose)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('closes the dialog when the backdrop is clicked while idle', async () => {
+    const onClose = vi.fn()
+    renderDialog(onClose)
+    await userEvent.click(screen.getByTestId('regenerate-plan-backdrop'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not close on backdrop click while the mutation is in flight', async () => {
+    mutationStateRef.isLoading = true
+    const onClose = vi.fn()
+    renderDialog(onClose)
+    await userEvent.click(screen.getByTestId('regenerate-plan-backdrop'))
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('closes the dialog when Enter is pressed on the backdrop', () => {
+    const onClose = vi.fn()
+    renderDialog(onClose)
+    const backdrop = screen.getByTestId('regenerate-plan-backdrop')
+    const prevented = !fireEvent.keyDown(backdrop, { key: 'Enter' })
+    expect(prevented).toBe(true)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes the dialog when Space is pressed on the backdrop', () => {
+    const onClose = vi.fn()
+    renderDialog(onClose)
+    const backdrop = screen.getByTestId('regenerate-plan-backdrop')
+    const prevented = !fireEvent.keyDown(backdrop, { key: ' ' })
+    expect(prevented).toBe(true)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores backdrop key events that are not Enter or Space', () => {
+    const onClose = vi.fn()
+    renderDialog(onClose)
+    const backdrop = screen.getByTestId('regenerate-plan-backdrop')
+    fireEvent.keyDown(backdrop, { key: 'a' })
+    expect(onClose).not.toHaveBeenCalled()
   })
 })
