@@ -35,6 +35,7 @@ describe('HomePage', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.clearAllMocks()
   })
 
@@ -72,7 +73,6 @@ describe('HomePage', () => {
     //     populated home surface (per spec § Unit 4 Proof Artifacts).
     expect(screen.queryByText(/vdot/i)).toBeNull()
 
-    vi.useRealTimers()
   })
 
   it('renders the rest-day variant of TodayCard when today maps to a rest slot', () => {
@@ -91,7 +91,6 @@ describe('HomePage', () => {
     const todayCard = screen.getByTestId('today-card')
     expect(todayCard.getAttribute('data-variant')).toBe('rest')
 
-    vi.useRealTimers()
   })
 
   it('renders the populated plan when targetEvent is null (general-fitness path)', () => {

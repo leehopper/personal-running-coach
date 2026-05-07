@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import type { MacroPhase, PlanPhaseDto } from '~/modules/plan/models/plan.model'
 import { labelForPhase } from './plan-display.helpers'
+import './macro-phase-strip.component.css'
 
 export interface MacroPhaseStripProps {
   /** Macro periodisation root from `PlanProjectionDto.macro`. */
@@ -78,12 +79,16 @@ export const MacroPhaseStrip = ({
             data-phase={range.phase.phaseType}
             data-current={current ? 'true' : 'false'}
             aria-current={current ? 'step' : undefined}
-            className={`flex min-w-[80px] flex-col items-center justify-center rounded-md px-3 py-2 text-xs font-medium transition-colors duration-200 ease-out ${
+            className={`macro-phase-segment flex min-w-[80px] flex-col items-center justify-center rounded-md px-3 py-2 text-xs font-medium transition-colors duration-200 ease-out ${
               current
                 ? 'bg-slate-900 text-slate-50 ring-2 ring-slate-900'
                 : 'bg-white text-slate-700'
             }`}
-            style={{ flexBasis: `${widthPercent}%` }}
+            ref={(el) => {
+              if (el !== null) {
+                el.style.setProperty('--phase-width', `${widthPercent}%`)
+              }
+            }}
           >
             <span className="text-sm font-semibold">{labelForPhase(range.phase.phaseType)}</span>
             <span className="text-[10px] uppercase tracking-wide opacity-80">

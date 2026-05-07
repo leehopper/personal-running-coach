@@ -112,7 +112,7 @@ export const MicroWorkoutCard = ({
           data-testid="micro-workout-segments"
           className="flex flex-col gap-1"
         >
-          {workout.segments.map((segment) => renderSegment(segment))}
+          {workout.segments.map((segment, index) => renderSegment(segment, index))}
         </ul>
       ) : null}
 
