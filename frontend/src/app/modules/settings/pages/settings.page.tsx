@@ -4,10 +4,10 @@ import { useGetCurrentPlanQuery } from '~/api/plan.api'
 import { RegeneratePlanDialog } from '~/modules/settings/components/regenerate-plan-dialog.component'
 
 /**
- * `/settings` route surface — Slice 1's only Settings content is the "Plan"
- * section: current plan's `generatedAt` timestamp, an optional placeholder
- * link to the previous plan when `previousPlanId` is non-null (no-op target
- * in Slice 1; lands when adaptation history matters in Slice 3+), and a
+ * `/settings` route surface. Renders the "Plan" section: current plan's
+ * `generatedAt` timestamp, an optional previous-plan button when
+ * `previousPlanId` is non-null (currently a placeholder with no destination
+ * route; spec 13 § Unit 5 R05.6 tracks the destination route), and a
  * "Regenerate plan" button that opens `RegeneratePlanDialog`.
  *
  * The page is gated by `<RequireAuth>` at the route table level (spec 13
