@@ -8,7 +8,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// projection without a second round-trip to discover the id.
 /// </summary>
 /// <remarks>
-/// The shape is recorded by <see cref="Coaching.Idempotency.IIdempotencyStore.Record{TResponse}"/>
+/// The shape is recorded by <see cref="Infrastructure.Idempotency.IIdempotencyStore.Record{TResponse}"/>
 /// on the handler's session so a duplicate submission with the same
 /// idempotency key returns the byte-identical payload — including the same
 /// <see cref="PlanId"/> — without producing a second Plan stream.

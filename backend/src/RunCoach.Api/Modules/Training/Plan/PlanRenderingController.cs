@@ -56,6 +56,7 @@ public sealed partial class PlanRenderingController(
 {
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
     private const string OnboardingNotCompleteType = "https://runcoach.app/problems/onboarding-not-complete";
+    private const string InvalidIdempotencyKeyType = "https://runcoach.app/problems/invalid-idempotency-key";
 
     /// <summary>GET /api/v1/plan/current — read the user's active plan projection.</summary>
     /// <remarks>
@@ -170,6 +171,15 @@ public sealed partial class PlanRenderingController(
             return MissingUserClaim();
         }
 
+        if (request.IdempotencyKey == Guid.Empty)
+        {
+            return Problem(
+                type: InvalidIdempotencyKeyType,
+                title: "Invalid idempotency key",
+                detail: "The supplied idempotencyKey must be a non-empty UUID.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         // Verify the runner finished onboarding before allowing regeneration.
         // Reading the EF UserProfile row from the controller (outside any
         // Wolverine handler body) is permitted by DEC-060 — only handler
@@ -202,7 +212,7 @@ public sealed partial class PlanRenderingController(
         RegenerationIntent? sanitizedIntent = null;
         if (request.Intent is not null)
         {
-            var rawText = request.Intent.FreeText ?? string.Empty;
+            var rawText = request.Intent.FreeText;
             if (rawText.Length > RegenerationIntent.RawMaxFreeTextLength)
             {
                 return Problem(

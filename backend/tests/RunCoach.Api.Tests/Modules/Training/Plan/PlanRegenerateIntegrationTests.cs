@@ -336,16 +336,52 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
     }
 
     /// <summary>
+    /// HTTP-layer 400 path — the controller rejects a request whose
+    /// <c>idempotencyKey</c> is <c>Guid.Empty</c> (all-zeros UUID) with
+    /// 400 ProblemDetails of
+    /// <c>type = "https://runcoach.app/problems/invalid-idempotency-key"</c>.
+    /// This gate is controller-side, before the Wolverine dispatch, so no
+    /// handler body executes.
+    /// </summary>
+    [Fact]
+    public async Task Regenerate_HTTP_With_EmptyIdempotencyKey_Returns_400()
+    {
+        // Arrange — onboarding seeded so the empty-key check runs AFTER the
+        //   onboarding-complete gate (otherwise the 409 gate would short-circuit
+        //   first and we would not be testing the idempotency-key branch).
+        var (client, _, antiforgeryToken, userId) = await RegisterAndPrepareCookieClientAsync(Factory);
+        var initialPlanId = Guid.NewGuid();
+        await SeedInitialPlanStreamAsync(userId, initialPlanId);
+        await SeedOnboardingCompletionAsync(userId, initialPlanId);
+
+        // Act — POST with idempotencyKey = 00000000-0000-0000-0000-000000000000.
+        using var request = BuildRegenerateRequest(antiforgeryToken, idempotencyKey: Guid.Empty, intent: null);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        problem.Should().NotBeNull();
+        problem!.Type.Should().Be("https://runcoach.app/problems/invalid-idempotency-key");
+    }
+
+    /// <summary>
     /// HTTP-layer 401 path — anonymous request (no cookie / no bearer token)
     /// must be rejected by the <see cref="AuthPolicies.CookieOrBearer"/> policy
-    /// before the controller body executes.
+    /// before the controller body executes. Antiforgery validation is
+    /// configured; authenticated requests missing <c>X-XSRF-TOKEN</c> return
+    /// 400 (see <see cref="Regenerate_HTTP_Authenticated_Without_Antiforgery_Returns_400"/>).
+    /// Anonymous requests return 401 because the auth challenge runs before
+    /// the antiforgery middleware.
     /// </summary>
     [Fact]
     public async Task Regenerate_HTTP_Without_Auth_Returns_401()
     {
-        // Arrange — anonymous client. Antiforgery is bypassed by the auth gate
-        //   running first; both unauthenticated and antiforgery-missing requests
-        //   land on 401 because the auth challenge wins the precedence race.
+        // Arrange — anonymous client. The middleware order is Authentication →
+        //   Authorization → Antiforgery, so an unauthenticated request never
+        //   reaches the antiforgery gate; the 401 challenge fires first.
         var client = Factory.CreateDefaultClient();
         client.BaseAddress = BaseUri;
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -360,6 +396,188 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    /// <summary>
+    /// intent-1 (conf 75) — Authenticated user missing the <c>X-XSRF-TOKEN</c>
+    /// antiforgery header receives 400, not 401. The middleware order is
+    /// Authentication → Authorization → Antiforgery (via
+    /// <c>UseAntiforgeryProblemDetailsBridge</c>), so an authenticated request
+    /// passes auth checks before the antiforgery gate fires a 400.
+    /// Completes the spec / test alignment flagged in review finding intent-1.
+    /// </summary>
+    [Fact]
+    public async Task Regenerate_HTTP_Authenticated_Without_Antiforgery_Returns_400()
+    {
+        // Arrange — register and log in a user so the session cookie is in
+        //   the container, but deliberately omit X-XSRF-TOKEN from the
+        //   regenerate POST. The antiforgery bridge middleware must intercept
+        //   the failure and return 400 ProblemDetails before the controller
+        //   body executes.
+        var (client, _, _, userId) = await RegisterAndPrepareCookieClientAsync(Factory);
+        var initialPlanId = Guid.NewGuid();
+        await SeedInitialPlanStreamAsync(userId, initialPlanId);
+        await SeedOnboardingCompletionAsync(userId, initialPlanId);
+
+        // Build request WITHOUT the antiforgery header.
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/plan/regenerate")
+        {
+            Content = JsonContent.Create(new RegeneratePlanRequestDto(Guid.NewGuid(), Intent: null)),
+        };
+
+        // Act
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert — antiforgery bridge fires 400, not 401. The session cookie
+        //   authenticates the user; the missing header is the only failure.
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        problem.Should().NotBeNull();
+        problem!.Type.Should().Be("https://runcoach.app/problems/antiforgery-validation-failed");
+    }
+
+    /// <summary>
+    /// security-1 / bug-2 (conf 88) — a 500-character payload of all
+    /// <c>&lt;</c> chars (the worst-case bracket-escape expansion input) must
+    /// succeed with 200 OK now that
+    /// <see cref="RegenerationIntent.MaxFreeTextLength"/> is sized to
+    /// <c>RawMaxFreeTextLength × MaxEscapeExpansionFactor + DelimiterOverhead</c>
+    /// (2700). A 500-char input of <c>&lt;</c> expands to ~2058 chars after
+    /// entity-escaping (<c>&amp;lt;</c>) — well under 2700 — and must NOT
+    /// produce an unhandled 500 from the <see cref="RegenerationIntent"/>
+    /// constructor's length guard.
+    /// </summary>
+    [Fact]
+    public async Task Regenerate_HTTP_With_BracketHeavy_FreeText_Returns_200()
+    {
+        // security-1 / bug-2: bracket-heavy input at cap must not produce 500.
+        // Arrange
+        using var customFactory = Factory.WithWebHostBuilder(b =>
+            b.ConfigureTestServices(svc =>
+                svc.AddSingleton(BuildRegenerateBusStub(Factory))));
+
+        var (client, _, antiforgeryToken, userId) = await RegisterAndPrepareCookieClientAsync(customFactory);
+        var initialPlanId = Guid.NewGuid();
+        await SeedInitialPlanStreamAsync(userId, initialPlanId);
+        await SeedOnboardingCompletionAsync(userId, initialPlanId);
+
+        // 500 '<' chars — worst-case bracket-escape expansion. Each '<'
+        // becomes "&lt;" (4 chars), so sanitized body is ~2000 chars before
+        // the delimiter wrapper adds its overhead (~58 chars). Total is well
+        // under MaxFreeTextLength (2700).
+        var bracketHeavyText = new string('<', RegenerationIntent.RawMaxFreeTextLength);
+
+        // Act
+        using var request = BuildRegenerateRequest(antiforgeryToken, Guid.NewGuid(), intent: bracketHeavyText);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert — must succeed; 500 would indicate RegenerationIntent
+        //   constructor threw because MaxFreeTextLength was sized too small.
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var actualResponse = await response.Content.ReadFromJsonAsync<RegeneratePlanResponse>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        actualResponse.Should().NotBeNull();
+        actualResponse!.PlanId.Should().NotBe(Guid.Empty);
+        actualResponse.Status.Should().Be("generated");
+    }
+
+    /// <summary>
+    /// test-5 (conf 92) — a <see cref="RegenerationIntent.RawMaxFreeTextLength"/>-char
+    /// payload (exactly 500 plain ASCII chars) must succeed with 200 OK.
+    /// Combined with <see cref="Regenerate_HTTP_With_Oversize_FreeText_Returns_400"/>
+    /// (501 chars → 400), this pair pins the boundary on both sides against a
+    /// <c>&gt;</c> vs <c>&gt;=</c> regression in the controller's length check.
+    /// </summary>
+    [Fact]
+    public async Task Regenerate_HTTP_With_FreeText_AtRawMaxFreeTextLength_Returns_200()
+    {
+        // test-5: at-cap plain ASCII input (500 chars) must succeed.
+        // Arrange
+        using var customFactory = Factory.WithWebHostBuilder(b =>
+            b.ConfigureTestServices(svc =>
+                svc.AddSingleton(BuildRegenerateBusStub(Factory))));
+
+        var (client, _, antiforgeryToken, userId) = await RegisterAndPrepareCookieClientAsync(customFactory);
+        var initialPlanId = Guid.NewGuid();
+        await SeedInitialPlanStreamAsync(userId, initialPlanId);
+        await SeedOnboardingCompletionAsync(userId, initialPlanId);
+
+        var atCapText = new string('a', RegenerationIntent.RawMaxFreeTextLength);
+
+        // Act
+        using var request = BuildRegenerateRequest(antiforgeryToken, Guid.NewGuid(), intent: atCapText);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var actualResponse = await response.Content.ReadFromJsonAsync<RegeneratePlanResponse>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        actualResponse.Should().NotBeNull();
+        actualResponse!.PlanId.Should().NotBe(Guid.Empty);
+        actualResponse.Status.Should().Be("generated");
+    }
+
+    /// <summary>
+    /// test-4 (conf 90) — pins that the controller's sanitizer wiring is
+    /// active on the regenerate path. Posts a known free-text and captures
+    /// the <see cref="RegeneratePlanCommand"/> the bus stub receives, then
+    /// asserts the captured intent's <c>FreeText</c> is the Spotlighting-
+    /// wrapped form produced by <see cref="IPromptSanitizer.SanitizeAsync"/>
+    /// rather than the raw string. A regression that removed the
+    /// <c>sanitizer.SanitizeAsync</c> call would pass through the raw text
+    /// without the <c>&lt;REGENERATION_INTENT id="..."&gt;…&lt;/REGENERATION_INTENT&gt;</c>
+    /// wrapper and fail this assertion.
+    /// </summary>
+    [Fact]
+    public async Task Regenerate_HTTP_Sanitizer_Wraps_FreeText_In_Spotlighting_Delimiter()
+    {
+        // test-4: capture the command that the bus stub receives and verify
+        //   the intent freeText is the sanitized, delimiter-wrapped form.
+        RegeneratePlanCommand? capturedCmd = null;
+
+        var bus = Substitute.For<IMessageBus>();
+        bus
+            .InvokeForTenantAsync<RegeneratePlanResponse>(
+                Arg.Any<string>(),
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<TimeSpan?>())
+            .Returns(async call =>
+            {
+                var tenantId = call.ArgAt<string>(0);
+                var cmd = (RegeneratePlanCommand)call.ArgAt<object>(1);
+                var ct = call.ArgAt<CancellationToken>(2);
+                capturedCmd = cmd;
+                return await RunHandlerOnFreshSessionAsync(Factory, tenantId, cmd, ct);
+            });
+
+        using var customFactory = Factory.WithWebHostBuilder(b =>
+            b.ConfigureTestServices(svc => svc.AddSingleton(bus)));
+
+        var (client, _, antiforgeryToken, userId) = await RegisterAndPrepareCookieClientAsync(customFactory);
+        var initialPlanId = Guid.NewGuid();
+        await SeedInitialPlanStreamAsync(userId, initialPlanId);
+        await SeedOnboardingCompletionAsync(userId, initialPlanId);
+
+        const string RawFreeText = "need-injury-handling";
+
+        // Act
+        using var request = BuildRegenerateRequest(antiforgeryToken, Guid.NewGuid(), intent: RawFreeText);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert — controller must have called sanitizer; the captured command
+        //   intent must carry the Spotlighting-wrapped output, not the raw string.
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedCmd.Should().NotBeNull(because: "bus stub must have been called");
+        capturedCmd!.Intent.Should().NotBeNull(because: "non-null freeText must produce a non-null sanitized intent");
+        capturedCmd.Intent!.FreeText.Should().StartWith(
+            "<REGENERATION_INTENT id=\"",
+            because: "the controller must call IPromptSanitizer which wraps the text in a Spotlighting delimiter");
+        capturedCmd.Intent.FreeText.Should().Contain(
+            RawFreeText,
+            because: "the raw text must be present (encoded) inside the delimiter wrapper");
     }
 
     /// <summary>
@@ -582,33 +800,51 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
                 var tenantId = call.ArgAt<string>(0);
                 var cmd = (RegeneratePlanCommand)call.ArgAt<object>(1);
                 var ct = call.ArgAt<CancellationToken>(2);
-
-                // Open a session tenanted to the dispatching userId, the same
-                //   way `IMessageBus.InvokeForTenantAsync` would inside Wolverine's
-                //   transactional middleware. The handler stages events +
-                //   idempotency marker on this session; the framework would
-                //   commit them via auto-applied transactions — here we call
-                //   `SaveChangesAsync` explicitly to mirror that contract.
-                var store = factory.Services.GetRequiredService<IDocumentStore>();
-                await using var session = store.LightweightSession(tenantId);
-                var idempotency = new MartenIdempotencyStore(
-                    session,
-                    TimeProvider.System,
-                    NullLogger<MartenIdempotencyStore>.Instance);
-                var planGen = new StubPlanGenerationService();
-
-                var response = await RegeneratePlanHandler.Handle(
-                    cmd,
-                    session,
-                    planGen,
-                    idempotency,
-                    NullLogger<RegeneratePlanHandler>.Instance,
-                    ct);
-
-                await session.SaveChangesAsync(ct);
-                return response;
+                return await RunHandlerOnFreshSessionAsync(factory, tenantId, cmd, ct);
             });
         return bus;
+    }
+
+    /// <summary>
+    /// Opens a fresh tenanted <see cref="IDocumentSession"/>, wires
+    /// <see cref="MartenIdempotencyStore"/> and <see cref="StubPlanGenerationService"/>,
+    /// invokes <see cref="RegeneratePlanHandler.Handle"/>, then calls
+    /// <c>SaveChangesAsync</c> to mirror Wolverine's transactional middleware
+    /// commit. Extracted to eliminate duplication between
+    /// <see cref="BuildRegenerateBusStub"/> and the capture-based bus stub
+    /// in <c>Regenerate_HTTP_Sanitizer_Wraps_FreeText_In_Spotlighting_Delimiter</c>
+    /// (simplify-2).
+    /// </summary>
+    private static async Task<RegeneratePlanResponse> RunHandlerOnFreshSessionAsync(
+        RunCoachAppFactory factory,
+        string tenantId,
+        RegeneratePlanCommand cmd,
+        CancellationToken ct)
+    {
+        // Open a session tenanted to the dispatching userId, the same
+        //   way `IMessageBus.InvokeForTenantAsync` would inside Wolverine's
+        //   transactional middleware. The handler stages events +
+        //   idempotency marker on this session; the framework would
+        //   commit them via auto-applied transactions — here we call
+        //   `SaveChangesAsync` explicitly to mirror that contract.
+        var store = factory.Services.GetRequiredService<IDocumentStore>();
+        await using var session = store.LightweightSession(tenantId);
+        var idempotency = new MartenIdempotencyStore(
+            session,
+            TimeProvider.System,
+            NullLogger<MartenIdempotencyStore>.Instance);
+        var planGen = new StubPlanGenerationService();
+
+        var response = await RegeneratePlanHandler.Handle(
+            cmd,
+            session,
+            planGen,
+            idempotency,
+            NullLogger<RegeneratePlanHandler>.Instance,
+            ct);
+
+        await session.SaveChangesAsync(ct);
+        return response;
     }
 
     private static async Task<(HttpClient Client, CookieContainer Container, string AntiforgeryToken, Guid UserId)>
@@ -670,42 +906,18 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         return user.Id;
     }
 
-    private async Task<RegeneratePlanResponse> InvokeHandlerAsync(RegeneratePlanCommand cmd)
+    private Task<RegeneratePlanResponse> InvokeHandlerAsync(RegeneratePlanCommand cmd)
     {
-        // Open a single per-call DI scope so `IDocumentSession`,
-        //   `IIdempotencyStore`, and `IPlanGenerationService` (via the stub
-        //   factory below) all share one session — the same lifetime contract
-        //   Wolverine's transactional middleware enforces in production.
         // Marten is configured with TenancyStyle.Conjoined; the production
         // path uses InvokeForTenantAsync(userId, …) to bracket the handler in
         // a tenanted session. Mirror that here by opening a session tenanted
         // to the command's UserId so IIdempotencyStore.Record can stamp the
         // marker's tenant column without rejecting the *DEFAULT* placeholder.
-        var store = Factory.Services.GetRequiredService<IDocumentStore>();
-        await using var session = store.LightweightSession(cmd.UserId.ToString());
-        var idempotency = new MartenIdempotencyStore(
-            session,
-            TimeProvider.System,
-            NullLogger<MartenIdempotencyStore>.Instance);
-        var planGen = new StubPlanGenerationService();
-
-        var response = await RegeneratePlanHandler.Handle(
+        return RunHandlerOnFreshSessionAsync(
+            Factory,
+            cmd.UserId.ToString(),
             cmd,
-            session,
-            planGen,
-            idempotency,
-            NullLogger<RegeneratePlanHandler>.Instance,
             TestContext.Current.CancellationToken);
-
-        // The Wolverine handler itself never calls SaveChangesAsync — the
-        //   transactional middleware does. Stand in for the framework here so
-        //   the staged events + idempotency marker actually commit. The
-        //   MartenEntityFrameworkCore transaction-participant wiring then
-        //   runs the inline projection's EF write inside the same DB
-        //   transaction (per DEC-060 / R-069).
-        await session.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-        return response;
     }
 
     private async Task SeedInitialPlanStreamAsync(Guid userId, Guid planId)

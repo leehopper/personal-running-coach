@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace RunCoach.Api.Modules.Training.Plan;
 
 /// <summary>
@@ -13,6 +15,8 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// strain"). Capped at
 /// <see cref="Coaching.Models.RegenerationIntent.RawMaxFreeTextLength"/>
 /// characters by the controller before sanitization runs.
+/// Marked <see cref="JsonRequiredAttribute"/> so System.Text.Json rejects
+/// missing or null payloads with a 400 deserialization error.
 /// </param>
 public sealed record RegenerationIntentRequestDto(
-    string FreeText);
+    [property: JsonRequired] string FreeText);

@@ -44,12 +44,24 @@ public sealed record RegenerationIntent
     public const int DelimiterOverhead = 200;
 
     /// <summary>
-    /// Maximum allowed length of <see cref="FreeText"/> in UTF-16 code units.
-    /// Equal to <see cref="RawMaxFreeTextLength"/> + <see cref="DelimiterOverhead"/>
-    /// so a sanitizer-wrapped at-cap raw input round-trips through this record
-    /// without spurious construction failures.
+    /// Worst-case multiplier the layered sanitizer's <c>EscapeDelimiterBody</c>
+    /// applies to the raw body. The most aggressive expansion is <c>&amp;</c> → <c>&amp;amp;</c> (1→5).
+    /// Sized as 5 to admit any combination of bracket-escape and homoglyph-rewrite
+    /// without throwing on construction.
     /// </summary>
-    public const int MaxFreeTextLength = RawMaxFreeTextLength + DelimiterOverhead;
+    public const int MaxEscapeExpansionFactor = 5;
+
+    /// <summary>
+    /// Maximum allowed length of <see cref="FreeText"/> in UTF-16 code units.
+    /// Accounts for worst-case adversarial-bracket expansion by
+    /// <c>EscapeDelimiterBody</c> (e.g. a 500-char input of all <c>&amp;</c> characters
+    /// expands to 2500 chars after entity-escaping) plus the Spotlighting
+    /// delimiter overhead. Equal to
+    /// <see cref="RawMaxFreeTextLength"/> × <see cref="MaxEscapeExpansionFactor"/> +
+    /// <see cref="DelimiterOverhead"/> so any at-cap raw input round-trips through
+    /// this record without spurious construction failures.
+    /// </summary>
+    public const int MaxFreeTextLength = (RawMaxFreeTextLength * MaxEscapeExpansionFactor) + DelimiterOverhead;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RegenerationIntent"/> record.

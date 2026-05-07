@@ -28,7 +28,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <param name="IdempotencyKey">
 /// Client-generated idempotency key — typically <c>crypto.randomUUID()</c> the
 /// frontend re-sends on retry. The handler's first action is to short-circuit
-/// duplicate submissions via <see cref="Coaching.Idempotency.IIdempotencyStore.SeenAsync{TResponse}"/>.
+/// duplicate submissions via <see cref="Infrastructure.Idempotency.IIdempotencyStore.SeenAsync{TResponse}"/>.
 /// </param>
 public sealed record RegeneratePlanCommand(
     Guid UserId,
