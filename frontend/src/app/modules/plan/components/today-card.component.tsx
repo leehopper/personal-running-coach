@@ -1,14 +1,11 @@
 import type { ReactElement } from 'react'
-import type {
-  MesoDaySlotDto,
-  MesoWeekTemplateDto,
-  MicroWorkoutCardDto,
-} from '~/modules/plan/models/plan.model'
+import type { MesoWeekTemplateDto, MicroWorkoutCardDto } from '~/modules/plan/models/plan.model'
 import {
   DAY_OF_WEEK_LABELS,
-  DAY_SLOT_KEYS,
+  dayOfWeekIndex,
   findNextWorkoutAfter,
   findWorkoutForDay,
+  getSlotForToday,
 } from './plan-display.helpers'
 import { MicroWorkoutCard } from './micro-workout-card.component'
 
@@ -26,11 +23,6 @@ export interface TodayCardProps {
   today?: Date
   className?: string
 }
-
-const dayOfWeekIndex = (date: Date): number => date.getDay()
-
-const getSlotForToday = (week: MesoWeekTemplateDto, dayIndex: number): MesoDaySlotDto =>
-  week[DAY_SLOT_KEYS[dayIndex]]
 
 /**
  * Prominent "today" card. Reads the current day-of-week from `today` (or

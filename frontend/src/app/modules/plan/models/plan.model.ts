@@ -1,9 +1,8 @@
-// Plan wire-format types — paired 1:1 with the backend records under
-// `backend/src/RunCoach.Api/Modules/Training/Plan/Models/PlanProjectionDto.cs`
-// and `backend/src/RunCoach.Api/Modules/Coaching/Models/Structured/`. The
-// projection is materialized inline by `PlanProjection` and rendered directly
-// by the frontend via `GET /api/v1/plan/current` — no further server-side
-// shaping (spec 13 § Unit 4 R04.1, R04.6).
+// Plan wire-format types — paired 1:1 with the backend records in
+// `PlanProjectionDto` and the `Structured` models namespace.
+// The projection is materialized inline by `PlanProjection` and rendered
+// directly by the frontend via `GET /api/v1/plan/current` — no further
+// server-side shaping (spec 13 § Unit 4 R04.1, R04.6).
 //
 // ASP.NET MVC serializes properties as camelCase. The structured-output enums
 // (`PhaseType`, `WorkoutType`, `DaySlotType`, `IntensityProfile`,
@@ -101,8 +100,7 @@ export type MesoDaySlotDto =
   | { slotType: 'Rest' | 'CrossTrain'; workoutType: null; notes: string }
 
 /**
- * One pre-generated weekly template (Slice 1 always emits exactly four — one
- * per week-index 1-4). Mirrors
+ * One pre-generated weekly template. Mirrors
  * `RunCoach.Api.Modules.Coaching.Models.Structured.MesoWeekOutput`.
  */
 export interface MesoWeekTemplateDto {
@@ -168,15 +166,14 @@ export interface MicroWorkoutListDto {
  * GET /api/v1/plan/current response payload. Mirrors
  * `RunCoach.Api.Modules.Training.Plan.Models.PlanProjectionDto`.
  *
- * `microWorkoutsByWeek` is keyed by 1-based week index. Slice 1 only
- * populates the entry for week 1; later slices may attach further weeks
- * additively without breaking the Slice 1 frontend's `microWorkoutsByWeek[1]`
- * access path.
+ * `microWorkoutsByWeek` is keyed by 1-based week index. Entries are attached
+ * additively so callers that access a specific week key are unaffected when
+ * additional week entries are added.
  *
- * `macro` is nullable on the wire because the projection's defaults predate
- * the `PlanGenerated` apply method — in practice the controller only returns
- * 200 once the stream has been projected, so consumers may treat `macro` as
- * present when the response status is 200.
+ * `macro` is nullable on the wire because the projection's record defaults
+ * predate the `PlanGenerated` apply method. In practice the controller only
+ * returns 200 once the stream has been projected, so consumers may treat
+ * `macro` as present when the response status is 200.
  */
 export interface PlanProjectionDto {
   planId: string

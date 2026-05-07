@@ -13,9 +13,9 @@ import type { PlanProjectionDto } from '~/modules/plan/models/plan.model'
 
 /**
  * Top-level container for the protected home route (`/`). Composes the
- * three Slice 1 plan-render sections: the macro periodisation strip,
- * today's prominent workout (or rest-day variant), and the upcoming
- * stack (rest-of-week + meso summaries).
+ * plan-render sections: the macro periodisation strip, today's prominent
+ * workout (or rest-day variant), and the upcoming stack (rest-of-week +
+ * meso summaries).
  *
  * Behaviour:
  *   - On mount calls `getCurrentPlan` via the `usePlan` hook.
@@ -24,8 +24,7 @@ import type { PlanProjectionDto } from '~/modules/plan/models/plan.model'
  *     to `/onboarding` — should not appear in normal flow because the
  *     top-level route guard catches the unborn-plan case first
  *     (spec § Unit 4 R04.3).
- *   - On other errors renders a generic failure surface so the
- *     `npm run build` strict check has somewhere to land.
+ *   - On other errors renders a generic failure surface.
  *
  * Spec § Unit 4 R04.1, R04.3, R04.4, R04.5, R04.6, R04.7.
  */
@@ -73,10 +72,9 @@ interface PlanLayoutProps {
  * Renders the populated plan view. Extracted from `HomePage` so the
  * loading / error / not-found branches stay flat and readable.
  *
- * Slice 1 always populates `microWorkoutsByWeek[1]` and exactly four
- * `mesoWeeks`. The `targetEvent`-null / general-fitness path simply
- * renders a plan whose macro `goalDescription` reflects the absence of
- * a named race — no special-casing required at the page level.
+ * The `targetEvent`-null / general-fitness path renders a plan whose macro
+ * `goalDescription` reflects the absence of a named race — no special-casing
+ * required at the page level.
  */
 const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
   const currentWeek = resolveCurrentWeek(plan)

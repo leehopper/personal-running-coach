@@ -5,10 +5,7 @@
 // `TargetPaceFastSecPerKm`, `WorkoutSegmentOutput.TargetPaceSecPerKm`). The
 // home surface renders them as `MM:SS/km` strings.
 //
-// Slice 1 hard-defaults to kilometers because the existing `UserProfile`
-// model is km-native (spec 13 § Unit 4 R04.6). When Slice 2 wires
-// `Preferences.PreferredUnits`, this module's signatures will gain an
-// optional `unit` argument — Slice 1 callers do not need to thread it.
+// Distances are expressed in kilometers (spec 13 § Unit 4 R04.6).
 //
 // Per the trademark rule in the root `CLAUDE.md`, the user-facing strings
 // produced here use the literal `/km` suffix; no zone-name coupling lives
@@ -82,10 +79,10 @@ export const formatPaceRangePerKm = (
   const [first, second] =
     fastRounded <= slowRounded ? [formattedFast, formattedSlow] : [formattedSlow, formattedFast]
 
-  // Strip the trailing `/km` from the first half so the suffix is shown once.
-  const firstWithoutSuffix = first.replace(/\/km$/u, '')
   if (first === second) {
     return first
   }
+  // Strip the trailing `/km` from the first half so the suffix is shown once.
+  const firstWithoutSuffix = first.replace(/\/km$/u, '')
   return `${firstWithoutSuffix}-${second}`
 }

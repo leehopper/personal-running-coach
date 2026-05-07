@@ -44,11 +44,10 @@ export const usePlan = (): UsePlanReturn => {
 }
 
 /**
- * 1-based current week derived from the projection. Slice 1 emits exactly
- * one populated week (week 1) — that is "now" by construction. Returning
- * the lowest-numbered populated week keeps the helper forward-compatible
- * with later slices that pre-generate additional weeks without changing
- * the home page's call site.
+ * Returns the 1-based current week derived from the projection. Returns the
+ * lowest-numbered populated week in `microWorkoutsByWeek`, falling back to
+ * the first meso template's week number when no micro workouts are present,
+ * and finally to week 1 if neither is available.
  */
 export const resolveCurrentWeek = (plan: PlanProjectionDto): number => {
   const populatedWeeks = Object.keys(plan.microWorkoutsByWeek)
@@ -60,8 +59,7 @@ export const resolveCurrentWeek = (plan: PlanProjectionDto): number => {
     return firstPopulated
   }
   // Fall back to the first meso template's week number when no micro
-  // workouts have been pre-generated yet (defensive — Slice 1 always
-  // populates week 1).
+  // workouts are present (defensive path for a partially-projected stream).
   const firstMeso = plan.mesoWeeks.find((week) => week.weekNumber >= 1)
   return firstMeso?.weekNumber ?? 1
 }

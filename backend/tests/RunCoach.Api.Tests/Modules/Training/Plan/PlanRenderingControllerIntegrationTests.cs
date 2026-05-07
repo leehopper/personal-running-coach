@@ -144,6 +144,61 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
 
         actual.MicroWorkoutsByWeek.Should().ContainKey(1);
         actual.MicroWorkoutsByWeek[1].Workouts.Should().NotBeEmpty();
+
+        var expectedDto = new PlanProjectionDto
+        {
+            PlanId = planId,
+            UserId = userId,
+            GeneratedAt = PlanGeneratedAt,
+            PromptVersion = "coaching-v1",
+            ModelId = "claude-sonnet-4-5",
+            PreviousPlanId = null,
+            Macro = BuildMacro(),
+            MesoWeeks = new[]
+            {
+                BuildMeso(1, PhaseType.Base, isDeload: false),
+                BuildMeso(2, PhaseType.Base, isDeload: false),
+                BuildMeso(3, PhaseType.Build, isDeload: false),
+                BuildMeso(4, PhaseType.Build, isDeload: true),
+            },
+            MicroWorkoutsByWeek = new Dictionary<int, MicroWorkoutListOutput>
+            {
+                [1] = BuildMicro(),
+            },
+        };
+        actual.Should().BeEquivalentTo(expectedDto, because: "every field seeded into the Plan stream must round-trip through the inline projection and the HTTP response unchanged");
+    }
+
+    /// <summary>
+    /// A runner (userB) with no plan of their own cannot access another runner's
+    /// plan stream (userA) — even if they know the plan id. The controller reads
+    /// <c>RunnerOnboardingProfile.CurrentPlanId</c> filtered by the authenticated
+    /// caller's UserId, and the Marten tenant session is opened under the caller's
+    /// tenant id. userB has no profile row with a <c>CurrentPlanId</c>, so the
+    /// endpoint returns 404 whether the isolation is enforced by the EF WHERE clause
+    /// or by the Marten conjoined-tenancy partition.
+    /// </summary>
+    [Fact]
+    public async Task GetCurrent_OtherUsersPlanStream_ReturnsNotFound()
+    {
+        // Arrange
+        var userAId = await SeedUserAsync();
+        var planAId = Guid.NewGuid();
+        await SeedPlanStreamAsync(userAId, planAId);
+        await SeedUserProfileAsync(userAId, currentPlanId: planAId);
+
+        var userBId = await SeedUserAsync();
+        await SeedUserProfileAsync(userBId, currentPlanId: null);
+
+        using var client = CreateBearerClient(Factory, MintBearerToken(userBId));
+
+        // Act
+        var response = await client.GetAsync(
+            "/api/v1/plan/current",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     /// <summary>
@@ -447,10 +502,15 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
         // Append the canonical Slice 1 event sequence
         // [PlanGenerated, MesoCycleCreated x4, FirstMicroCycleCreated] so the
         // inline PlanProjection materializes a complete PlanProjectionDto
-        // document keyed on planId.
+        // document keyed on planId. Marten is configured with
+        // TenancyStyle.Conjoined + AllDocumentsAreMultiTenanted, so the seed
+        // session must set tenant=userId — production writes land on that
+        // partition via Wolverine InvokeForTenantAsync, and the controller
+        // reads from the same partition by opening
+        // store.LightweightSession(userId.ToString()).
         using var scope = Factory.Services.CreateScope();
         var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
-        await using var session = store.LightweightSession();
+        await using var session = store.LightweightSession(userId.ToString());
         var generated = new PlanGenerated(
             planId,
             userId,

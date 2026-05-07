@@ -1,6 +1,6 @@
-// Shared display constants for the plan rendering components (Slice 1
-// § Unit 4 R04.4–R04.7). Centralised here because every component in this
-// directory leans on the same canonical phasing, workout, and pace-zone
+// Shared display constants for the plan rendering components
+// (spec § Unit 4 R04.4–R04.7). Centralised here because every component in
+// this directory leans on the same canonical phasing, workout, and pace-zone
 // labels — and the trademark rule (§ root `CLAUDE.md`) requires those labels
 // to use Daniels-Gilbert / pace-zone-index phrasing, never "VDOT".
 //
@@ -11,6 +11,8 @@
 import type {
   DaySlotType,
   IntensityProfile,
+  MesoDaySlotDto,
+  MesoWeekTemplateDto,
   MicroWorkoutCardDto,
   PhaseType,
   PlanPhaseDto,
@@ -20,11 +22,10 @@ import type {
 /**
  * Display labels for the macro periodisation phases.
  *
- * The structured-output schema currently emits `Base | Build | Peak | Taper |
- * Recovery` (`PhaseType` in `plan.model.ts`). The Slice 1 spec also lists
- * `Race` and `Maintenance` as future segments — we surface labels for those
- * here too so the components render gracefully when later slices widen the
- * enum without a paired frontend change.
+ * The structured-output schema emits `Base | Build | Peak | Taper | Recovery`
+ * (`PhaseType` in `plan.model.ts`). Labels are also provided for `Race` and
+ * `Maintenance` so components render gracefully if the backend enum widens
+ * without a paired frontend change.
  */
 export const PHASE_LABELS: Record<string, string> = {
   Base: 'Base',
@@ -168,3 +169,19 @@ export const isCurrentRange = (range: PhaseRange, currentWeek: number | null): b
   }
   return currentWeek >= range.startWeek && currentWeek <= range.endWeek
 }
+
+/**
+ * Returns the day-of-week index (0 = Sunday … 6 = Saturday) for a given
+ * `Date`, mirroring `Date.prototype.getDay()`. Extracted here so callers
+ * in `TodayCard` and future components stay testable without reaching into
+ * global `Date` state.
+ */
+export const dayOfWeekIndex = (date: Date): number => date.getDay()
+
+/**
+ * Looks up the `MesoDaySlotDto` for the given `dayIndex` (0 = Sunday …
+ * 6 = Saturday) from a `MesoWeekTemplateDto`. Uses the ordered
+ * `DAY_SLOT_KEYS` map so callers avoid a switch statement.
+ */
+export const getSlotForToday = (week: MesoWeekTemplateDto, dayIndex: number): MesoDaySlotDto =>
+  week[DAY_SLOT_KEYS[dayIndex]]

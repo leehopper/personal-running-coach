@@ -10,11 +10,11 @@ using RunCoach.Api.Modules.Training.Plan.Models;
 namespace RunCoach.Api.Modules.Training.Plan;
 
 /// <summary>
-/// Slice 1 read-only plan rendering surface (spec 13 § Unit 2, R02.4 / DEC-057).
+/// Read-only plan rendering surface (spec 13 § Unit 2, R02.4 / DEC-057).
 /// Exposes <c>GET /api/v1/plan/current</c> which materializes the projection of
 /// the user's currently-active <c>Plan</c> stream so the home surface can render
-/// the macro phase strip + four meso weeks + this week's micro detail with zero
-/// LLM cost. The active plan is resolved by reading
+/// the macro phase strip, meso weeks, and micro detail with zero LLM cost.
+/// The active plan is resolved by reading
 /// <see cref="Modules.Coaching.Onboarding.Entities.RunnerOnboardingProfile.CurrentPlanId"/> from the
 /// EF projection (set atomically via the
 /// <c>UserProfileFromOnboardingProjection</c> apply method when
@@ -23,10 +23,6 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <see cref="IDocumentSession"/>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The <c>POST /regenerate</c> endpoint (Unit 5) lands on this same controller in a
-/// later task; Slice 1 ships only the read endpoint.
-/// </para>
 /// <para>
 /// Authorization mirrors <see cref="Modules.Coaching.Onboarding.OnboardingController"/>'s
 /// <see cref="AuthPolicies.CookieOrBearer"/> policy. Reads do not require an
@@ -38,7 +34,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 [Route("api/v1/plan")]
 [Authorize(Policy = AuthPolicies.CookieOrBearer)]
 public sealed partial class PlanRenderingController(
-    IDocumentSession session,
+    IDocumentStore store,
     RunCoachDbContext db,
     ILogger<PlanRenderingController> logger) : ControllerBase
 {
@@ -89,6 +85,13 @@ public sealed partial class PlanRenderingController(
             return NotFound();
         }
 
+        // Marten is configured with TenancyStyle.Conjoined +
+        // AllDocumentsAreMultiTenanted, so the plan stream and its inline
+        // projection are stored under tenant=userId (Wolverine writes via
+        // InvokeForTenantAsync on the SubmitTurn dispatch path). The DI
+        // session has no tenant set, so a per-request tenanted session is
+        // required — same pattern as OnboardingController.GetState.
+        await using var session = store.LightweightSession(userId.ToString());
         var plan = await session
             .LoadAsync<PlanProjectionDto>(currentPlanId.Value, ct)
             .ConfigureAwait(false);

@@ -150,4 +150,22 @@ describe('HomePage', () => {
     renderHome()
     expect(screen.getByTestId('home-page-error')).toBeInTheDocument()
   })
+
+  it('omits the macro phase strip but still renders today-card and upcoming-list when plan.macro is null', () => {
+    const planWithNullMacro: PlanProjectionDto = {
+      ...buildPlanFixture(),
+      macro: null,
+    }
+    getCurrentPlanMock.mockReturnValue({
+      data: planWithNullMacro,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+    renderHome()
+
+    expect(screen.queryByTestId('macro-phase-strip')).toBeNull()
+    expect(screen.getByTestId('today-card')).toBeInTheDocument()
+    expect(screen.getByTestId('upcoming-list')).toBeInTheDocument()
+  })
 })

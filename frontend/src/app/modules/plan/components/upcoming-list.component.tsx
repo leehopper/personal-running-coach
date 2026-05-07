@@ -7,7 +7,7 @@ import { MicroWorkoutCard } from './micro-workout-card.component'
 export interface UpcomingListProps {
   /** Detailed workouts for the *current* week. */
   currentWeekWorkouts: readonly MicroWorkoutCardDto[]
-  /** All meso-week templates (Slice 1 emits exactly four). */
+  /** All meso-week templates from `PlanProjectionDto.mesoWeeks`. */
   weeks: readonly MesoWeekTemplateDto[]
   /**
    * 1-based current training week. Workouts strictly *after* `today` within
@@ -24,8 +24,7 @@ export interface UpcomingListProps {
  * "Upcoming" stack composed beneath `TodayCard`. Surfaces:
  *   1. The remainder of the current week's micro workouts (strictly after
  *      today's day-of-week).
- *   2. A `MesoWeekBlock` summarising every pre-generated week in the meso
- *      block (Slice 1 always emits four).
+ *   2. A `MesoWeekBlock` summarising every pre-generated week in the meso block.
  *
  * Keeping the composition in this single component lets `HomePage` render
  * the upcoming surface as one slot without orchestrating the stacking

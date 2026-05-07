@@ -6,23 +6,22 @@ namespace RunCoach.Api.Modules.Training.Plan.Models;
 /// Inline-projected read model for a Plan stream (spec 13 § Unit 2, R02.3).
 /// Materialized by <see cref="PlanProjection"/> from the Plan stream's event
 /// types and rendered directly by the frontend via
-/// <c>GET /api/v1/plan/current</c> - no further server-side shaping. Slice 1
-/// adds <see cref="PlanGenerated"/> + four <see cref="MesoCycleCreated"/> +
-/// <see cref="FirstMicroCycleCreated"/> apply methods; later slices (Slice 3
-/// adaptation, Slice 4 conversation-driven changes) extend the projection with
-/// additive applies, never breaking changes.
+/// <c>GET /api/v1/plan/current</c> — no further server-side shaping.
+/// Apply methods (<see cref="PlanGenerated"/>, <see cref="MesoCycleCreated"/>,
+/// <see cref="FirstMicroCycleCreated"/>) are additive — each new event type
+/// extends the projection without modifying existing applied properties.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The document is keyed on <see cref="PlanId"/> rather than <see cref="UserId"/>
-/// so a runner can have multiple plans in their history (Unit 5 regenerate keeps
-/// the prior stream as audit trail). The active plan is resolved via
+/// so a runner can have multiple plans in their history (the prior stream is
+/// retained as audit trail on regeneration). The active plan is resolved via
 /// <c>RunnerOnboardingProfile.CurrentPlanId</c>.
 /// </para>
 /// <para>
 /// The <see cref="MicroWorkoutsByWeek"/> dictionary is keyed by 1-based week
-/// index so future slices can attach week-2/3/4 micro detail without breaking
-/// the Slice 1 frontend - Slice 1 only ever populates the entry for week 1.
+/// index so additional week entries can be attached additively without changing
+/// the access path for previously populated weeks.
 /// </para>
 /// </remarks>
 public sealed record PlanProjectionDto
@@ -63,17 +62,15 @@ public sealed record PlanProjectionDto
     public MacroPlanOutput? Macro { get; set; }
 
     /// <summary>
-    /// Gets or sets the four detailed weekly templates emitted by the meso tier (Slice 1
-    /// always populates exactly four entries, in week-index order 1-4). The frontend's
-    /// `MesoWeekBlock` renders this directly.
+    /// Gets or sets the detailed weekly templates emitted by the meso tier, in week-index
+    /// order. The frontend's <c>MesoWeekBlock</c> renders this directly.
     /// </summary>
     public IReadOnlyList<MesoWeekOutput> MesoWeeks { get; set; } = Array.Empty<MesoWeekOutput>();
 
     /// <summary>
-    /// Gets or sets the per-week detailed workout lists keyed by 1-based week index. Slice 1
-    /// only ever populates the entry for week 1; later slices attach further weeks as the
-    /// runner progresses without breaking the Slice 1 frontend's `microWorkoutsByWeek[1]`
-    /// access path.
+    /// Gets or sets the per-week detailed workout lists keyed by 1-based week index.
+    /// Entries are attached additively so callers that access a specific week key
+    /// remain unaffected when new week entries are added.
     /// </summary>
     public IReadOnlyDictionary<int, MicroWorkoutListOutput> MicroWorkoutsByWeek { get; set; }
         = new Dictionary<int, MicroWorkoutListOutput>();
