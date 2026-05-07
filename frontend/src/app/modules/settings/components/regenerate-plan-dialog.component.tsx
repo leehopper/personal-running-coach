@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement, type SubmitEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement, type SubmitEvent } from 'react'
 import { useRegeneratePlanMutation } from '~/api/plan.api'
 
 /**
@@ -33,10 +33,8 @@ export interface RegeneratePlanDialogProps {
  * dialog closes and `invalidatesTags: ["Plan"]` causes the home surface to
  * refetch the new projection (spec 13 § Unit 5 R05.6, R05.7, R05.8).
  *
- * The component uses the native `<dialog>` element rather than a Radix
- * primitive because the project does not yet pull in `@radix-ui/react-dialog`
- * — the spec's reference to "shadcn/ui" is aspirational. When that dep
- * lands the markup can be swapped without altering the behaviour contract.
+ * Uses a positioned div rather than the native `<dialog>` element so
+ * jsdom-based tests can mount it deterministically.
  */
 export const RegeneratePlanDialog = ({
   isOpen,
@@ -59,8 +57,8 @@ interface RegeneratePlanDialogBodyProps {
  * `setState` reset path required.
  */
 const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): ReactElement => {
-  const dialogRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const idempotencyKey = useMemo(() => crypto.randomUUID(), [])
   const [intent, setIntent] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [regenerate, { isLoading }] = useRegeneratePlanMutation()
@@ -92,7 +90,7 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
     const trimmed = intent.trim()
     try {
       await regenerate({
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
         ...(trimmed.length > 0 ? { intent: { freeText: trimmed } } : {}),
       }).unwrap()
       onClose()
@@ -122,7 +120,6 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
       data-testid="regenerate-plan-backdrop"
     >
       <div
-        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="regenerate-plan-title"

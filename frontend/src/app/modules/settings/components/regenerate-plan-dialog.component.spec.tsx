@@ -158,4 +158,54 @@ describe('RegeneratePlanDialog', () => {
     fireEvent.keyDown(backdrop, { key: 'a' })
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  it('shows 500 characters remaining when textarea is empty, 250 at half capacity, and 0 at limit', () => {
+    renderDialog(vi.fn())
+    const textarea = screen.getByTestId('regenerate-plan-intent')
+
+    expect(screen.getByText('500 characters remaining')).toBeInTheDocument()
+
+    fireEvent.change(textarea, { target: { value: 'a'.repeat(250) } })
+    expect(screen.getByText('250 characters remaining')).toBeInTheDocument()
+
+    fireEvent.change(textarea, { target: { value: 'a'.repeat(500) } })
+    expect(screen.getByText('0 characters remaining')).toBeInTheDocument()
+  })
+
+  it('uses the same idempotency key on retry after a transient failure', async () => {
+    // Override the constant stub with an incrementing mock so that a broken
+    // implementation calling randomUUID() per-submit would produce different
+    // values and the assertion would catch it.
+    let callCount = 0
+    vi.spyOn(crypto, 'randomUUID').mockImplementation(
+      () =>
+        `00000000-0000-0000-0000-${String(++callCount).padStart(12, '0')}` as ReturnType<
+          typeof crypto.randomUUID
+        >,
+    )
+
+    const onClose = vi.fn()
+    regenerateMock
+      .mockReturnValueOnce({ unwrap: () => Promise.reject(new Error('transient')) })
+      .mockReturnValue({
+        unwrap: () => Promise.resolve({ planId: 'plan-retry', status: 'generated' }),
+      })
+
+    renderDialog(onClose)
+
+    // First submit — fails
+    await userEvent.click(screen.getByTestId('regenerate-plan-submit'))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+
+    // Second submit — succeeds
+    await userEvent.click(screen.getByTestId('regenerate-plan-submit'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    expect(regenerateMock).toHaveBeenCalledTimes(2)
+    const [firstCall, secondCall] = regenerateMock.mock.calls as [
+      [{ idempotencyKey: string }],
+      [{ idempotencyKey: string }],
+    ]
+    expect(firstCall[0].idempotencyKey).toBe(secondCall[0].idempotencyKey)
+  })
 })
