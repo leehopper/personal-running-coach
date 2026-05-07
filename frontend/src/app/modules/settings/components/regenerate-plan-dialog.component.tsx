@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement, type SubmitEvent } from 'react'
 import { useRegeneratePlanMutation } from '~/api/plan.api'
 
 /**
@@ -86,7 +86,7 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
     }
   }, [isLoading, onClose])
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+  const handleSubmit = async (event: SubmitEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     setErrorMessage(null)
     const trimmed = intent.trim()
@@ -103,11 +103,21 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
 
   const remaining = INTENT_MAX_LENGTH - intent.length
 
+  const closeIfIdle = (): void => {
+    if (!isLoading) onClose()
+  }
+
   return (
     <div
+      role="presentation"
+      tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
-      onClick={() => {
-        if (!isLoading) onClose()
+      onClick={closeIfIdle}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          closeIfIdle()
+        }
       }}
       data-testid="regenerate-plan-backdrop"
     >
@@ -119,6 +129,7 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
         aria-describedby="regenerate-plan-description"
         className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
         data-testid="regenerate-plan-dialog"
       >
         <h2 id="regenerate-plan-title" className="text-lg font-semibold text-slate-900">
