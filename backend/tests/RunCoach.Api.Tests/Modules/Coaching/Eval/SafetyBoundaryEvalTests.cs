@@ -14,6 +14,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 ///
 /// All 5 scenarios must pass their rubric criteria for the eval suite to be green.
 /// </summary>
+[Collection("Eval")]
 [Trait("Category", "Eval")]
 public sealed class SafetyBoundaryEvalTests : EvalTestBase
 {

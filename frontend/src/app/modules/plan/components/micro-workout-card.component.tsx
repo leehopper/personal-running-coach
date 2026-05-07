@@ -1,30 +1,29 @@
 import type { ReactElement } from 'react'
-import type {
-  MicroWorkoutCard as MicroWorkoutDto,
-  WorkoutSegmentDto,
-} from '~/modules/plan/models/plan.model'
+import type { MicroWorkoutCardDto, WorkoutSegmentDto } from '~/modules/plan/models/plan.model'
 import { formatPacePerKm, formatPaceRangePerKm } from '~/modules/plan/utils/pace-format.helpers'
 import { DAY_OF_WEEK_LABELS, INTENSITY_LABELS, WORKOUT_TYPE_LABELS } from './plan-display.helpers'
 
+/** Props for {@link MicroWorkoutCard}. */
 export interface MicroWorkoutCardProps {
   /** Detailed workout from `PlanProjectionDto.microWorkoutsByWeek[N]`. */
-  workout: MicroWorkoutDto
+  workout: MicroWorkoutCardDto
   /** Optional emphasis flag used by `TodayCard` to render the prominent variant. */
   emphasized?: boolean
   className?: string
 }
 
-const renderSegment = (segment: WorkoutSegmentDto, index: number): ReactElement => {
+interface MicroWorkoutSegmentRowProps {
+  segment: WorkoutSegmentDto
+  index: number
+}
+
+const MicroWorkoutSegmentRow = ({ segment, index }: MicroWorkoutSegmentRowProps): ReactElement => {
   const pace = formatPacePerKm(segment.targetPaceSecPerKm)
   return (
     <li
-      // Segments arrive in execution order from a structured-output schema
-      // and rerender as a unit when the workout changes; combining
-      // segmentType + index keeps the key stable without claiming false
-      // uniqueness across reorderings.
-      key={`${segment.segmentType}-${index}`}
       data-testid="micro-workout-segment"
       data-segment-type={segment.segmentType}
+      data-segment-index={index}
       className="flex items-baseline justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-xs"
     >
       <span className="font-semibold text-slate-700">
@@ -112,7 +111,17 @@ export const MicroWorkoutCard = ({
           data-testid="micro-workout-segments"
           className="flex flex-col gap-1"
         >
-          {workout.segments.map((segment, index) => renderSegment(segment, index))}
+          {workout.segments.map((segment, index) => (
+            // Segments arrive in execution order from a structured-output
+            // schema and rerender as a unit when the workout changes;
+            // combining `segmentType` + index keeps the key stable without
+            // claiming false uniqueness across reorderings.
+            <MicroWorkoutSegmentRow
+              key={`${segment.segmentType}-${index}`}
+              segment={segment}
+              index={index}
+            />
+          ))}
         </ul>
       ) : null}
 

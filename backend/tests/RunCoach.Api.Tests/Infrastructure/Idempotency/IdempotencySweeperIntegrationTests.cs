@@ -21,6 +21,7 @@ namespace RunCoach.Api.Tests.Infrastructure.Idempotency;
 /// host registration, the DI lifetime, and that <c>SweepAsync</c> deletes
 /// markers older than the 48h retention window across every tenant.
 /// </summary>
+[Collection("Integration")]
 [Trait("Category", "Integration")]
 public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {

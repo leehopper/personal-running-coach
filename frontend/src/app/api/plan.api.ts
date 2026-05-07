@@ -18,4 +18,5 @@ export const planApi = apiSlice.injectEndpoints({
   }),
 })
 
+/** Auto-generated RTK Query hooks for the plan endpoints. */
 export const { useGetCurrentPlanQuery, useLazyGetCurrentPlanQuery } = planApi

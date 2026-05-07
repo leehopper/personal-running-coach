@@ -1,11 +1,12 @@
 import type { ReactElement } from 'react'
-import type { MacroPhase, PlanPhaseDto } from '~/modules/plan/models/plan.model'
+import type { MacroPhaseDto, PlanPhaseDto } from '~/modules/plan/models/plan.model'
 import { labelForPhase } from './plan-display.helpers'
 import './macro-phase-strip.component.css'
 
+/** Props for {@link MacroPhaseStrip}. */
 export interface MacroPhaseStripProps {
   /** Macro periodisation root from `PlanProjectionDto.macro`. */
-  macro: MacroPhase
+  macro: MacroPhaseDto
   /**
    * 1-based week the runner is currently on. The matching segment renders
    * a "current week" marker and the `data-current="true"` attribute. Pass

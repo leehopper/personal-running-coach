@@ -1,16 +1,14 @@
 import type { ReactElement } from 'react'
-import type {
-  MesoWeekTemplate,
-  MicroWorkoutCard as MicroWorkoutDto,
-} from '~/modules/plan/models/plan.model'
+import type { MesoWeekTemplateDto, MicroWorkoutCardDto } from '~/modules/plan/models/plan.model'
 import { MesoWeekBlock } from './meso-week-block.component'
 import { MicroWorkoutCard } from './micro-workout-card.component'
 
+/** Props for {@link UpcomingList}. */
 export interface UpcomingListProps {
   /** Detailed workouts for the *current* week. */
-  currentWeekWorkouts: readonly MicroWorkoutDto[]
+  currentWeekWorkouts: readonly MicroWorkoutCardDto[]
   /** All meso-week templates (Slice 1 emits exactly four). */
-  weeks: readonly MesoWeekTemplate[]
+  weeks: readonly MesoWeekTemplateDto[]
   /**
    * 1-based current training week. Workouts strictly *after* `today` within
    * this week are surfaced; the matching meso card highlights in the

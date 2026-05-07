@@ -76,7 +76,7 @@ export interface PlanPhaseDto {
  * Macro phase strip data. Mirrors
  * `RunCoach.Api.Modules.Coaching.Models.Structured.MacroPlanOutput`.
  */
-export interface MacroPhase {
+export interface MacroPhaseDto {
   totalWeeks: number
   goalDescription: string
   phases: PlanPhaseDto[]
@@ -101,7 +101,7 @@ export interface MesoDaySlotDto {
  * per week-index 1-4). Mirrors
  * `RunCoach.Api.Modules.Coaching.Models.Structured.MesoWeekOutput`.
  */
-export interface MesoWeekTemplate {
+export interface MesoWeekTemplateDto {
   weekNumber: number
   phaseType: PhaseType
   weeklyTargetKm: number
@@ -130,13 +130,14 @@ export interface WorkoutSegmentDto {
 }
 
 /**
- * A single detailed workout prescription rendered by `MicroWorkoutCard`.
- * Mirrors `RunCoach.Api.Modules.Coaching.Models.Structured.WorkoutOutput`.
+ * A single detailed workout prescription rendered by the `MicroWorkoutCard`
+ * component. Mirrors
+ * `RunCoach.Api.Modules.Coaching.Models.Structured.WorkoutOutput`.
  *
  * `dayOfWeek` is the **raw integer** 0 (Sunday) … 6 (Saturday) — the backend
  * model uses an `int` here rather than a `DayOfWeek` enum.
  */
-export interface MicroWorkoutCard {
+export interface MicroWorkoutCardDto {
   dayOfWeek: number
   workoutType: WorkoutType
   title: string
@@ -155,8 +156,8 @@ export interface MicroWorkoutCard {
  * The per-week detailed workout list. Mirrors
  * `RunCoach.Api.Modules.Coaching.Models.Structured.MicroWorkoutListOutput`.
  */
-export interface MicroWorkoutList {
-  workouts: MicroWorkoutCard[]
+export interface MicroWorkoutListDto {
+  workouts: MicroWorkoutCardDto[]
 }
 
 /**
@@ -180,7 +181,7 @@ export interface PlanProjectionDto {
   previousPlanId: string | null
   promptVersion: string
   modelId: string
-  macro: MacroPhase | null
-  mesoWeeks: MesoWeekTemplate[]
-  microWorkoutsByWeek: Record<number, MicroWorkoutList>
+  macro: MacroPhaseDto | null
+  mesoWeeks: MesoWeekTemplateDto[]
+  microWorkoutsByWeek: Record<number, MicroWorkoutListDto>
 }

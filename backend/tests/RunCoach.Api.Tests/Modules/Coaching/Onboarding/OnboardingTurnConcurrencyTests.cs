@@ -42,6 +42,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// the precondition for Wolverine's <c>MoveToErrorQueue</c> policy to be meaningful.
 /// </para>
 /// </summary>
+[Collection("Integration")]
 [Trait("Category", "Integration")]
 public sealed class OnboardingTurnConcurrencyTests(RunCoachAppFactory factory)
     : DbBackedIntegrationTestBase(factory)

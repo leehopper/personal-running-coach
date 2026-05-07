@@ -4,12 +4,12 @@
 // trademark-cleanliness assertions auditable in one place.
 
 import type {
-  MesoWeekTemplate,
-  MicroWorkoutCard as MicroWorkoutDto,
+  MesoWeekTemplateDto,
+  MicroWorkoutCardDto,
   PlanProjectionDto,
 } from '~/modules/plan/models/plan.model'
 
-const easyMonday: MicroWorkoutDto = {
+const easyMonday: MicroWorkoutCardDto = {
   dayOfWeek: 1,
   workoutType: 'Easy',
   title: 'Easy aerobic shakeout',
@@ -24,7 +24,7 @@ const easyMonday: MicroWorkoutDto = {
   perceivedEffort: 3,
 }
 
-const intervalsWednesday: MicroWorkoutDto = {
+const intervalsWednesday: MicroWorkoutCardDto = {
   dayOfWeek: 3,
   workoutType: 'Interval',
   title: 'Threshold intervals',
@@ -64,7 +64,7 @@ const intervalsWednesday: MicroWorkoutDto = {
   perceivedEffort: 7,
 }
 
-const longRunSaturday: MicroWorkoutDto = {
+const longRunSaturday: MicroWorkoutCardDto = {
   dayOfWeek: 6,
   workoutType: 'LongRun',
   title: 'Long aerobic run',
@@ -79,7 +79,7 @@ const longRunSaturday: MicroWorkoutDto = {
   perceivedEffort: 5,
 }
 
-const baseWeek = (weekNumber: number, isDeload: boolean): MesoWeekTemplate => ({
+const baseWeek = (weekNumber: number, isDeload: boolean): MesoWeekTemplateDto => ({
   weekNumber,
   phaseType: 'Base',
   weeklyTargetKm: isDeload ? 22 : 30,
@@ -172,6 +172,6 @@ export const buildPlanFixture = (): PlanProjectionDto => ({
   },
 })
 
-/** Convenience accessor used by component specs. */
-export const fixtureWeekOneWorkouts = (): readonly MicroWorkoutDto[] =>
+/** Fixture micro workouts for week 1, used by component specs. */
+export const fixtureWeekOneWorkouts = (): readonly MicroWorkoutCardDto[] =>
   buildPlanFixture().microWorkoutsByWeek[1]?.workouts ?? []

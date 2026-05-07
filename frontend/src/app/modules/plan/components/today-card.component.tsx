@@ -1,8 +1,8 @@
 import type { ReactElement } from 'react'
 import type {
   MesoDaySlotDto,
-  MesoWeekTemplate,
-  MicroWorkoutCard as MicroWorkoutDto,
+  MesoWeekTemplateDto,
+  MicroWorkoutCardDto,
 } from '~/modules/plan/models/plan.model'
 import {
   DAY_OF_WEEK_LABELS,
@@ -12,11 +12,12 @@ import {
 } from './plan-display.helpers'
 import { MicroWorkoutCard } from './micro-workout-card.component'
 
+/** Props for {@link TodayCard}. */
 export interface TodayCardProps {
   /** Current week's meso template (used to read the day-slot kind for today). */
-  currentWeek: MesoWeekTemplate
+  currentWeek: MesoWeekTemplateDto
   /** Detailed workouts for the current week from `microWorkoutsByWeek`. */
-  workouts: readonly MicroWorkoutDto[]
+  workouts: readonly MicroWorkoutCardDto[]
   /**
    * Local date used to derive today's day-of-week index. Defaulting here
    * keeps callers test-friendly: pass a fixed `Date` from a fixture for a
@@ -28,13 +29,13 @@ export interface TodayCardProps {
 
 const dayOfWeekIndex = (date: Date): number => date.getDay()
 
-const getSlotForToday = (week: MesoWeekTemplate, dayIndex: number): MesoDaySlotDto =>
+const getSlotForToday = (week: MesoWeekTemplateDto, dayIndex: number): MesoDaySlotDto =>
   week[DAY_SLOT_KEYS[dayIndex]]
 
 /**
  * Prominent "today" card. Reads the current day-of-week from `today` (or
  * `new Date()` when omitted), looks up the matching slot on the current
- * `MesoWeekTemplate`, and either:
+ * `MesoWeekTemplateDto`, and either:
  *
  * - renders the detailed `MicroWorkoutCard` for the day, when the slot
  *   resolves to a `Run` with a matching workout in `microWorkoutsByWeek`;

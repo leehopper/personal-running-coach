@@ -50,7 +50,7 @@ export const formatPacePerKm = (secondsPerKm: number): string | null => {
 
 /**
  * Formats a pace **range** (typically from `targetPaceEasySecPerKm` and
- * `targetPaceFastSecPerKm` on `MicroWorkoutCard`) as a single
+ * `targetPaceFastSecPerKm` on `MicroWorkoutCardDto`) as a single
  * `FAST-SLOW/km` string. Faster (smaller seconds-per-km) is rendered first
  * to match the conventional display order.
  *

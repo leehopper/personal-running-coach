@@ -11,7 +11,7 @@
 import type {
   DaySlotType,
   IntensityProfile,
-  MicroWorkoutCard as MicroWorkoutDto,
+  MicroWorkoutCardDto,
   PhaseType,
   WorkoutType,
 } from '~/modules/plan/models/plan.model'
@@ -71,7 +71,7 @@ export const DAY_SLOT_LABELS: Record<DaySlotType, string> = {
 }
 
 /**
- * The seven keys on `MesoWeekTemplate` that hold day slots, in calendar
+ * The seven keys on `MesoWeekTemplateDto` that hold day slots, in calendar
  * order (Sunday=0 … Saturday=6) so consumers can look a slot up by
  * `Date.getDay()` index without a switch statement.
  */
@@ -85,7 +85,7 @@ export const DAY_SLOT_KEYS = [
   'saturday',
 ] as const
 
-/** Long-form day-of-week labels keyed by the Sunday=0 index. */
+/** Long-form day-of-week labels indexed by 0 = Sunday … 6 = Saturday. */
 export const DAY_OF_WEEK_LABELS: readonly string[] = [
   'Sunday',
   'Monday',
@@ -96,6 +96,7 @@ export const DAY_OF_WEEK_LABELS: readonly string[] = [
   'Saturday',
 ]
 
+/** Union of meso-week day-slot keys (sunday … saturday). */
 export type DaySlotKey = (typeof DAY_SLOT_KEYS)[number]
 
 /**
@@ -105,9 +106,10 @@ export type DaySlotKey = (typeof DAY_SLOT_KEYS)[number]
  * runner's rest day.
  */
 export const findWorkoutForDay = (
-  workouts: readonly MicroWorkoutDto[],
+  workouts: readonly MicroWorkoutCardDto[],
   dayOfWeekIndex: number,
-): MicroWorkoutDto | undefined => workouts.find((workout) => workout.dayOfWeek === dayOfWeekIndex)
+): MicroWorkoutCardDto | undefined =>
+  workouts.find((workout) => workout.dayOfWeek === dayOfWeekIndex)
 
 /**
  * Returns the next scheduled workout strictly *after* `fromDayOfWeek`,
@@ -115,9 +117,9 @@ export const findWorkoutForDay = (
  * rest-day variant to call out the upcoming session.
  */
 export const findNextWorkoutAfter = (
-  workouts: readonly MicroWorkoutDto[],
+  workouts: readonly MicroWorkoutCardDto[],
   fromDayOfWeek: number,
-): MicroWorkoutDto | undefined => {
+): MicroWorkoutCardDto | undefined => {
   if (workouts.length === 0) {
     return undefined
   }

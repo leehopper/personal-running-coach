@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import type { MacroPhase } from '~/modules/plan/models/plan.model'
+import type { MacroPhaseDto } from '~/modules/plan/models/plan.model'
 import { MacroPhaseStrip } from './macro-phase-strip.component'
 import { buildPlanFixture } from './plan-display.fixture'
 
-const macroFromFixture = (): MacroPhase => {
+const macroFromFixture = (): MacroPhaseDto => {
   const plan = buildPlanFixture()
   if (plan.macro === null) {
     throw new Error('Fixture macro must not be null')

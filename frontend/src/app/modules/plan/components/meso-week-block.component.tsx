@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react'
-import type { MesoWeekTemplate } from '~/modules/plan/models/plan.model'
+import type { MesoWeekTemplateDto } from '~/modules/plan/models/plan.model'
 import { labelForPhase } from './plan-display.helpers'
 
+/** Props for {@link MesoWeekBlock}. */
 export interface MesoWeekBlockProps {
   /** Pre-generated weekly templates from `PlanProjectionDto.mesoWeeks`. */
-  weeks: readonly MesoWeekTemplate[]
+  weeks: readonly MesoWeekTemplateDto[]
   /**
    * 1-based current training week. The matching card highlights;
    * later weeks dim. Pass `null` to render every week in the neutral state

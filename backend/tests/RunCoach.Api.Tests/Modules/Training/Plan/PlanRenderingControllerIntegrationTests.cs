@@ -28,6 +28,7 @@ namespace RunCoach.Api.Tests.Modules.Training.Plan;
 /// every case so the tests do not also depend on the antiforgery / cookie
 /// pipeline already covered by <see cref="Modules.Identity.AuthControllerIntegrationTests"/>.
 /// </summary>
+[Collection("Integration")]
 [Trait("Category", "Integration")]
 public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {

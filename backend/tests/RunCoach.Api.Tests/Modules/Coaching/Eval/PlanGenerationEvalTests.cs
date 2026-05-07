@@ -16,6 +16,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 /// All 5 profiles must produce plans that pass their profile-specific constraints.
 /// Both MesoWeek and MicroWorkout calls are cached via M.E.AI.Evaluation.
 /// </summary>
+[Collection("Eval")]
 [Trait("Category", "Eval")]
 public sealed class PlanGenerationEvalTests : EvalTestBase
 {

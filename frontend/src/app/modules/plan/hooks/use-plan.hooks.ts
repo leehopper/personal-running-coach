@@ -1,7 +1,7 @@
 import { useGetCurrentPlanQuery } from '~/api/plan.api'
 import type {
-  MesoWeekTemplate,
-  MicroWorkoutCard as MicroWorkoutDto,
+  MesoWeekTemplateDto,
+  MicroWorkoutCardDto,
   PlanProjectionDto,
 } from '~/modules/plan/models/plan.model'
 
@@ -55,8 +55,9 @@ export const resolveCurrentWeek = (plan: PlanProjectionDto): number => {
     .map((key) => Number.parseInt(key, 10))
     .filter((value) => Number.isFinite(value) && value >= 1)
     .sort((left, right) => left - right)
-  if (populatedWeeks.length > 0) {
-    return populatedWeeks[0]!
+  const firstPopulated = populatedWeeks[0]
+  if (firstPopulated !== undefined) {
+    return firstPopulated
   }
   // Fall back to the first meso template's week number when no micro
   // workouts have been pre-generated yet (defensive — Slice 1 always
@@ -73,7 +74,7 @@ export const resolveCurrentWeek = (plan: PlanProjectionDto): number => {
 export const findCurrentMesoWeek = (
   plan: PlanProjectionDto,
   currentWeek: number,
-): MesoWeekTemplate | undefined => plan.mesoWeeks.find((week) => week.weekNumber === currentWeek)
+): MesoWeekTemplateDto | undefined => plan.mesoWeeks.find((week) => week.weekNumber === currentWeek)
 
 /**
  * Pull the detailed workouts for the current 1-based week from the
@@ -83,7 +84,7 @@ export const findCurrentMesoWeek = (
 export const findCurrentWeekWorkouts = (
   plan: PlanProjectionDto,
   currentWeek: number,
-): readonly MicroWorkoutDto[] => plan.microWorkoutsByWeek[currentWeek]?.workouts ?? []
+): readonly MicroWorkoutCardDto[] => plan.microWorkoutsByWeek[currentWeek]?.workouts ?? []
 
 /**
  * RTK Query surfaces an opaque `FetchBaseQueryError | SerializedError`

@@ -17,6 +17,8 @@ namespace RunCoach.Api.Tests.Modules.Coaching;
 /// did not catch the regression because they stub <see cref="IContextAssembler"/>
 /// via NSubstitute and never resolve the production binding.
 /// </summary>
+[Collection("Integration")]
+[Trait("Category", "Integration")]
 public sealed class ContextAssemblerDiResolutionTests : IClassFixture<RunCoachAppFactory>
 {
     private readonly RunCoachAppFactory _factory;

@@ -13,6 +13,7 @@ namespace RunCoach.Api.Tests.Infrastructure.Idempotency;
 /// Asserts the document survives a real serialize/deserialize cycle and that
 /// conjoined tenancy isolates markers across tenants.
 /// </summary>
+[Collection("Integration")]
 [Trait("Category", "Integration")]
 public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {
