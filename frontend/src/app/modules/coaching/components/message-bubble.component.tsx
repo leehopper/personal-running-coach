@@ -45,11 +45,18 @@ export const MessageBubble = ({
   role,
   content,
   pending = false,
-}: MessageBubbleProps): ReactElement => {
+}: MessageBubbleProps): ReactElement | null => {
   // Ignore non-text blocks per spec § Unit 3 R03.6 — `thinking` / `tool_use`
   // / `tool_result` / `signature` must never be rendered as text. This
   // filter is the single guard for that contract.
   const textBlocks = content.filter(isTextBlock)
+
+  // Nothing renderable → omit the bubble shell entirely so a
+  // thinking-/tool-only assistant turn doesn't leave a blank box in the
+  // transcript.
+  if (textBlocks.length === 0) {
+    return null
+  }
 
   return (
     <div

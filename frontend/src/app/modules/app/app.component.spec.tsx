@@ -229,4 +229,20 @@ describe('OnboardingRedirectGuard', () => {
     expect(screen.getByTestId('guarded-content')).toBeInTheDocument()
     expect(screen.queryByTestId('location')).not.toBeInTheDocument()
   })
+
+  // (f) data.isComplete=false + expectComplete=true (on /onboarding) → renders
+  // children. This is the most common in-progress hot path — every onboarding
+  // page load with a server-side stream hits it. Regressions here would be
+  // user-visible (e.g., a guard accidentally redirecting away mid-flow).
+  it('renders children when isComplete=false and expectComplete=true (in-progress hot path)', () => {
+    getOnboardingStateMock.mockReturnValue({
+      data: { isComplete: false },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+    renderGuard({ expectComplete: true, redirectTo: '/', startAt: '/onboarding' })
+    expect(screen.getByTestId('guarded-content')).toBeInTheDocument()
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument()
+  })
 })

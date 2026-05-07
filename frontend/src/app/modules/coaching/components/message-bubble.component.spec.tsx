@@ -61,15 +61,13 @@ describe('MessageBubble', () => {
     expect(screen.getByText('reply')).toBeInTheDocument()
   })
 
-  it('renders nothing visible when only non-text blocks are present', () => {
+  it('returns null when only non-text blocks are present (no empty shell in transcript)', () => {
     const content: MessageContentBlock[] = [
       { type: 'thinking', thinking: 'x' },
       { type: 'tool_use', id: 't', name: 'n', input: {} },
     ]
     render(<MessageBubble role="assistant" content={content} />)
-    const bubble = screen.getByTestId('message-bubble')
-    expect(bubble).toBeInTheDocument()
-    expect(bubble.textContent).toBe('')
+    expect(screen.queryByTestId('message-bubble')).not.toBeInTheDocument()
   })
 
   it('applies user role styling and data attribute', () => {

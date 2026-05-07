@@ -49,17 +49,14 @@ const suggestedInputTypeSchema = z.union([
 
 // `totalTopics` is fixed at 6 by DEC-047's six-topic state machine; pin it
 // to a literal so `{ completedTopics: 6, totalTopics: 5 }`-style nonsense
-// can't slip through the contract gate. The refine guards the inverse
-// inequality (completed should never exceed total).
-const progressSchema = z
-  .object({
-    completedTopics: z.number().int().min(0).max(6),
-    totalTopics: z.literal(6),
-  })
-  .refine((p) => p.completedTopics <= p.totalTopics, {
-    error: 'completedTopics must not exceed totalTopics',
-    path: ['completedTopics'],
-  })
+// can't slip through the contract gate. With `completedTopics` already
+// constrained to `[0, 6]` and `totalTopics` pinned to literal `6`, an
+// explicit `completedTopics <= totalTopics` refine would be vacuously true
+// — the field constraints already enforce the invariant.
+const progressSchema = z.object({
+  completedTopics: z.number().int().min(0).max(6),
+  totalTopics: z.literal(6),
+})
 
 // `assistantBlocks` arrives from the backend as a raw `JsonDocument` array;
 // keep it as a plain array on the wire so non-text block types

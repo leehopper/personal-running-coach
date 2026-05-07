@@ -7,13 +7,12 @@ import { InputForTopicMap } from './input-for-topic.helpers'
 
 describe('InputForTopic dispatcher', () => {
   it('exposes a component for every SuggestedInputType', () => {
-    const allInputTypes: SuggestedInputType[] = [
-      SuggestedInputType.Text,
-      SuggestedInputType.SingleSelect,
-      SuggestedInputType.MultiSelect,
-      SuggestedInputType.Numeric,
-      SuggestedInputType.Date,
-    ]
+    // Derive the enum members at runtime so a future SuggestedInputType
+    // addition automatically tightens this assertion (instead of silently
+    // passing because the manual list was not updated).
+    const allInputTypes = Object.values(SuggestedInputType).filter(
+      (value): value is SuggestedInputType => typeof value === 'number',
+    )
     for (const inputType of allInputTypes) {
       expect(InputForTopicMap[inputType]).toBeTypeOf('function')
     }
@@ -162,6 +161,9 @@ describe('InputForTopic dispatcher', () => {
     // Default value is 0, which is invalid (must be > 0).
     expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
 
+    // Clear the default `0` first so `user.type('40')` produces "40", not
+    // "040" (browser/jsdom append-vs-replace behavior).
+    await user.clear(screen.getByTestId('numeric-turn-input-field'))
     await user.type(screen.getByTestId('numeric-turn-input-field'), '40')
     await user.click(screen.getByRole('button', { name: /send/i }))
     expect(onSubmit).toHaveBeenCalledWith({ text: '40' })

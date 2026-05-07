@@ -48,10 +48,7 @@ export const SEGMENT_STYLES: Record<TopicSegmentState, string> = {
  * server values never produce an invalid slice.
  */
 export const expandCompletedTopicCount = (count: number): OnboardingTopic[] =>
-  DEFAULT_TOPIC_ORDER.slice(
-    0,
-    Math.min(Math.max(count, 0), DEFAULT_TOPIC_ORDER.length),
-  ) as OnboardingTopic[]
+  DEFAULT_TOPIC_ORDER.slice(0, Math.min(Math.max(count, 0), DEFAULT_TOPIC_ORDER.length))
 
 export const stateForTopic = (
   topic: OnboardingTopic,

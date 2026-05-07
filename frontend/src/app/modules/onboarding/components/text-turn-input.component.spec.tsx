@@ -30,6 +30,12 @@ describe('TextTurnInput', () => {
     const onSubmit = vi.fn()
     render(<TextTurnInput onSubmit={onSubmit} topic={OnboardingTopic.InjuryHistory} />)
 
+    // Populate the field with whitespace-only content before firing the
+    // submit event so the test actually exercises the trim-guard branch
+    // rather than the empty-required-field path.
+    fireEvent.change(screen.getByTestId('text-turn-input-field'), {
+      target: { value: '   \t  ' },
+    })
     fireEvent.submit(screen.getByTestId('text-turn-input'))
 
     expect(onSubmit).not.toHaveBeenCalled()

@@ -277,7 +277,14 @@ describe('onboardingSlice', () => {
       const completeTurn = state.turns.find((t) => t.id === 'asst-complete')
       expect(completeTurn?.status).toBe('delivered')
       expect(completeTurn?.role).toBe('assistant')
-      expect(state.completedTopics).toHaveLength(6)
+      expect(state.completedTopics).toEqual([
+        OnboardingTopic.PrimaryGoal,
+        OnboardingTopic.TargetEvent,
+        OnboardingTopic.CurrentFitness,
+        OnboardingTopic.WeeklySchedule,
+        OnboardingTopic.InjuryHistory,
+        OnboardingTopic.Preferences,
+      ])
     })
   })
 })
