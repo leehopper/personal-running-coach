@@ -88,13 +88,17 @@ export interface MacroPhaseDto {
  * One day slot within a weekly template. Mirrors
  * `RunCoach.Api.Modules.Coaching.Models.Structured.MesoDaySlotOutput`.
  *
- * `workoutType` is null when `slotType` is `Rest` or `CrossTrain`.
+ * Discriminated on `slotType`:
+ * - `'Run'` slots carry a non-null `workoutType`.
+ * - `'Rest'` and `'CrossTrain'` slots always have `workoutType: null`.
+ *
+ * Narrow on `slotType` before reading `workoutType` to satisfy the type
+ * checker and reflect the backend invariant enforced by
+ * `MesoDaySlotOutput.WorkoutType`.
  */
-export interface MesoDaySlotDto {
-  slotType: DaySlotType
-  workoutType: WorkoutType | null
-  notes: string
-}
+export type MesoDaySlotDto =
+  | { slotType: 'Run'; workoutType: WorkoutType; notes: string }
+  | { slotType: 'Rest' | 'CrossTrain'; workoutType: null; notes: string }
 
 /**
  * One pre-generated weekly template (Slice 1 always emits exactly four — one
@@ -186,11 +190,15 @@ export interface PlanProjectionDto {
   /**
    * Per-week detailed workout lists, keyed by the **stringified** week index
    * (e.g. `"1"`, `"2"`). The backend serializes a `Dictionary<int, ...>` whose
-   * keys land as JSON strings; the runtime shape after `JSON.parse` therefore
-   * uses string keys, even though `Object.keys` / `Object.entries` over the
-   * resulting record will treat them as strings. Consumers must coerce
-   * (`String(weekNumber)` or `parseInt(key, 10)`) when bridging back to
-   * numeric week indices.
+   * JSON keys arrive as strings after `JSON.parse`.
+   *
+   * Indexing with a numeric value (`record[1]`) works correctly — JavaScript
+   * coerces the number to a string before the property lookup, so
+   * `microWorkoutsByWeek[1]` and `microWorkoutsByWeek["1"]` are equivalent.
+   *
+   * Explicit coercion is only needed when iterating `Object.keys()` or
+   * `Object.entries()` and bridging the string key back to a numeric week
+   * index: use `Number.parseInt(key, 10)` in that case.
    */
   microWorkoutsByWeek: Record<string, MicroWorkoutListDto>
 }
