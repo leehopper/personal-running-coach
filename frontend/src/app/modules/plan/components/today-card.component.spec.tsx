@@ -71,6 +71,27 @@ describe('TodayCard', () => {
     expect(screen.getByRole('heading', { name: 'Threshold intervals' })).toBeInTheDocument()
   })
 
+  it('renders rest-day variant when slot is Run but no micro workout exists for that day', () => {
+    // Friday (day-of-week 5) has slotType: 'Run' in baseWeek but fixtureWeekOneWorkouts
+    // contains no dayOfWeek=5 entry, exercising the graceful-degradation branch.
+    const friday = new Date(2026, 3, 24) // 2026-04-24 is a Friday
+    const plan = buildPlanFixture()
+    render(
+      <TodayCard
+        currentWeek={plan.mesoWeeks[0]}
+        workouts={fixtureWeekOneWorkouts()}
+        today={friday}
+      />,
+    )
+    const card = screen.getByTestId('today-card')
+    expect(card.dataset.variant).toBe('rest')
+    expect(screen.getByText('Rest day — recover well.')).toBeInTheDocument()
+    // Next workout is Saturday's long run (dayOfWeek=6)
+    const next = screen.getByTestId('today-card-next-workout')
+    expect(next.textContent).toMatch(/saturday/iu)
+    expect(next.textContent).toMatch(/long aerobic run/iu)
+  })
+
   it('contains zero VDOT references in the rendered DOM (trademark rule)', () => {
     const plan = buildPlanFixture()
     const { container } = render(
