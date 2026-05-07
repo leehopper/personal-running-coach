@@ -1,6 +1,10 @@
 import type { ReactElement } from 'react'
-import type { MacroPhaseDto, PlanPhaseDto } from '~/modules/plan/models/plan.model'
-import { labelForPhase } from './plan-display.helpers'
+import type { MacroPhaseDto } from '~/modules/plan/models/plan.model'
+import {
+  computePhaseRanges,
+  isCurrentRange,
+  labelForPhase,
+} from '~/modules/plan/components/plan-display.helpers'
 import './macro-phase-strip.component.css'
 
 /** Props for {@link MacroPhaseStrip}. */
@@ -15,32 +19,6 @@ export interface MacroPhaseStripProps {
    */
   currentWeek: number | null
   className?: string
-}
-
-interface PhaseRange {
-  phase: PlanPhaseDto
-  startWeek: number
-  endWeek: number
-}
-
-// Walks the phases in declaration order and assigns each one a
-// 1-based start/end week. The structured-output schema exposes only
-// `weeks` per phase; the strip needs absolute boundaries to label segments.
-const computePhaseRanges = (phases: readonly PlanPhaseDto[]): PhaseRange[] => {
-  let cursor = 1
-  return phases.map((phase) => {
-    const startWeek = cursor
-    const endWeek = cursor + Math.max(phase.weeks - 1, 0)
-    cursor = endWeek + 1
-    return { phase, startWeek, endWeek }
-  })
-}
-
-const isCurrentRange = (range: PhaseRange, currentWeek: number | null): boolean => {
-  if (currentWeek === null) {
-    return false
-  }
-  return currentWeek >= range.startWeek && currentWeek <= range.endWeek
 }
 
 /**

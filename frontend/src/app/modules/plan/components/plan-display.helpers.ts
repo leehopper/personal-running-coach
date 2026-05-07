@@ -13,6 +13,7 @@ import type {
   IntensityProfile,
   MicroWorkoutCardDto,
   PhaseType,
+  PlanPhaseDto,
   WorkoutType,
 } from '~/modules/plan/models/plan.model'
 
@@ -133,3 +134,37 @@ export const findNextWorkoutAfter = (
  * structured-output enum widens before the frontend's label map does.
  */
 export const labelForPhase = (phase: PhaseType): string => PHASE_LABELS[phase] ?? phase
+
+/** Absolute week boundaries for a single macro periodisation phase. */
+export interface PhaseRange {
+  phase: PlanPhaseDto
+  startWeek: number
+  endWeek: number
+}
+
+/**
+ * Walks the phases in declaration order and assigns each one a 1-based
+ * start/end week. The structured-output schema exposes only `weeks` per
+ * phase; the strip needs absolute boundaries to label segments.
+ */
+export const computePhaseRanges = (phases: readonly PlanPhaseDto[]): PhaseRange[] => {
+  let cursor = 1
+  return phases.map((phase) => {
+    const startWeek = cursor
+    const endWeek = cursor + Math.max(phase.weeks - 1, 0)
+    cursor = endWeek + 1
+    return { phase, startWeek, endWeek }
+  })
+}
+
+/**
+ * Returns `true` when `currentWeek` falls within the inclusive
+ * `[startWeek, endWeek]` span of `range`. Returns `false` when
+ * `currentWeek` is `null` (no active week — e.g. plan preview).
+ */
+export const isCurrentRange = (range: PhaseRange, currentWeek: number | null): boolean => {
+  if (currentWeek === null) {
+    return false
+  }
+  return currentWeek >= range.startWeek && currentWeek <= range.endWeek
+}
