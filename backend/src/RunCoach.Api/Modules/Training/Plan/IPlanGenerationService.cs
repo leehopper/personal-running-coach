@@ -32,7 +32,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// caller's transactional middleware then rolls back the entire Marten transaction
 /// so no partial Plan stream is persisted, no <c>OnboardingCompleted</c> /
 /// <c>PlanLinkedToUser</c> events are appended, and the EF projection's
-/// <c>UserProfile.CurrentPlanId</c> stays at its prior value.
+/// <c>RunnerOnboardingProfile.CurrentPlanId</c> stays at its prior value.
 /// </para>
 /// </remarks>
 public interface IPlanGenerationService

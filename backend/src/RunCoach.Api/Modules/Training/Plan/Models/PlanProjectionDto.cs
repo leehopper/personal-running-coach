@@ -17,7 +17,7 @@ namespace RunCoach.Api.Modules.Training.Plan.Models;
 /// The document is keyed on <see cref="PlanId"/> rather than <see cref="UserId"/>
 /// so a runner can have multiple plans in their history (Unit 5 regenerate keeps
 /// the prior stream as audit trail). The active plan is resolved via
-/// <c>UserProfile.CurrentPlanId</c>.
+/// <c>RunnerOnboardingProfile.CurrentPlanId</c>.
 /// </para>
 /// <para>
 /// The <see cref="MicroWorkoutsByWeek"/> dictionary is keyed by 1-based week

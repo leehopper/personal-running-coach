@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
+using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Identity.Entities;
 using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Plan.Models;
@@ -22,7 +23,7 @@ namespace RunCoach.Api.Tests.Modules.Training.Plan;
 /// Integration coverage for <see cref="PlanRenderingController.GetCurrent"/>.
 /// Drives the real <see cref="RunCoachAppFactory"/> SUT against the shared
 /// Testcontainers Postgres so the Marten projection lookup, EF
-/// <c>UserProfile.CurrentPlanId</c> read, and <c>CookieOrBearer</c>
+/// <c>RunnerOnboardingProfile.CurrentPlanId</c> read, and <c>CookieOrBearer</c>
 /// authorization gate are all exercised end-to-end. Bearer auth is used for
 /// every case so the tests do not also depend on the antiforgery / cookie
 /// pipeline already covered by <see cref="Modules.Identity.AuthControllerIntegrationTests"/>.
@@ -55,7 +56,7 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
     }
 
     /// <summary>
-    /// When the runner has a registered account but no <c>UserProfile</c> row
+    /// When the runner has a registered account but no <c>RunnerOnboardingProfile</c> row
     /// (e.g. has not started onboarding), the endpoint returns 404 — the
     /// projection-driven <c>CurrentPlanId</c> is unset because the EF
     /// projection has not run yet.
@@ -77,7 +78,7 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
     }
 
     /// <summary>
-    /// When the runner has a <c>UserProfile</c> but <c>CurrentPlanId</c> is
+    /// When the runner has a <c>RunnerOnboardingProfile</c> but <c>CurrentPlanId</c> is
     /// null (mid-onboarding, before <c>PlanLinkedToUser</c> applied), the
     /// endpoint returns 404 — there is no plan to render yet.
     /// </summary>
@@ -99,7 +100,7 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
     }
 
     /// <summary>
-    /// Happy path: runner has a <c>UserProfile</c> with <c>CurrentPlanId</c>
+    /// Happy path: runner has a <c>RunnerOnboardingProfile</c> with <c>CurrentPlanId</c>
     /// pointing at an existing Plan stream that has been projected to a
     /// <see cref="PlanProjectionDto"/>. The controller returns 200 with the
     /// canonical Slice 1 shape (macro present, four meso weeks, week-1 micro
@@ -384,7 +385,7 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RunCoachDbContext>();
         var now = DateTimeOffset.UtcNow;
-        db.UserProfiles.Add(new UserProfile
+        db.RunnerOnboardingProfiles.Add(new RunnerOnboardingProfile
         {
             UserId = userId,
             CurrentPlanId = currentPlanId,
