@@ -57,6 +57,7 @@ public sealed partial class PlanRenderingController(
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
     private const string OnboardingNotCompleteType = "https://runcoach.app/problems/onboarding-not-complete";
     private const string InvalidIdempotencyKeyType = "https://runcoach.app/problems/invalid-idempotency-key";
+    private const string IntentTooLongType = "https://runcoach.app/problems/regeneration-intent-too-long";
 
     /// <summary>GET /api/v1/plan/current — read the user's active plan projection.</summary>
     /// <remarks>
@@ -216,6 +217,7 @@ public sealed partial class PlanRenderingController(
             if (rawText.Length > RegenerationIntent.RawMaxFreeTextLength)
             {
                 return Problem(
+                    type: IntentTooLongType,
                     title: "Regeneration intent is too long.",
                     detail: $"intent.freeText must be at most {RegenerationIntent.RawMaxFreeTextLength} characters; got {rawText.Length}.",
                     statusCode: StatusCodes.Status400BadRequest);
