@@ -25,6 +25,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// (<c>/turns</c>, <c>/state</c>, <c>/answers/revise</c>) against the
 /// shared Testcontainers Postgres.
 /// </summary>
+[Collection("Integration")]
 [Trait("Category", "Integration")]
 public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
     : DbBackedIntegrationTestBase(factory)

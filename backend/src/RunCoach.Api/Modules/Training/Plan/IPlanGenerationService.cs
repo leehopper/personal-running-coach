@@ -6,7 +6,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <summary>
 /// Plain DI service that orchestrates the tiered macro/meso/micro structured-output
 /// chain to generate a training plan from a captured onboarding profile snapshot.
-/// Per Slice 1 § Unit 2 R02.4-R02.6 / DEC-057 / R-066 this is intentionally NOT a
+/// Per spec § Unit 2 R02.4-R02.6 / DEC-057 / R-066 this is intentionally NOT a
 /// Wolverine handler and NOT a Wolverine command — it is invoked inline by the
 /// caller's static handler body so the returned events commit on the caller's
 /// <c>IDocumentSession</c> inside one Marten transaction (no
@@ -19,8 +19,8 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <c>ICoachingLlm.GenerateStructuredAsync</c> exactly six times (1 macro + 4 meso +
 /// 1 micro), and returns the resulting events as a <see cref="PlanEventSequence"/>.
 /// It does NOT touch <c>IDocumentSession</c>, does NOT call <c>SaveChangesAsync</c>,
-/// and does NOT stage events on any stream — the caller (Slice 1 § Unit 1's
-/// <c>OnboardingTurnHandler</c> on the terminal turn, or Slice 1 § Unit 5's
+/// and does NOT stage events on any stream — the caller
+/// (<c>OnboardingTurnHandler</c> on the terminal turn, or
 /// <c>RegeneratePlanHandler</c>) is responsible for invoking
 /// <c>session.Events.StartStream&lt;PlanProjectionDto&gt;(planId, planEvents.ToEvents())</c>
 /// on its own session.
@@ -32,7 +32,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// caller's transactional middleware then rolls back the entire Marten transaction
 /// so no partial Plan stream is persisted, no <c>OnboardingCompleted</c> /
 /// <c>PlanLinkedToUser</c> events are appended, and the EF projection's
-/// <c>UserProfile.CurrentPlanId</c> stays at its prior value.
+/// <c>RunnerOnboardingProfile.CurrentPlanId</c> stays at its prior value.
 /// </para>
 /// </remarks>
 public interface IPlanGenerationService
@@ -58,7 +58,7 @@ public interface IPlanGenerationService
     /// </param>
     /// <param name="intent">
     /// Optional regeneration intent free-text supplied by the runner via
-    /// Settings → Plan (Slice 1 § Unit 5). When non-null it is appended at the
+    /// Settings → Plan. When non-null it is appended at the
     /// END of the plan-generation user message under the stable label
     /// <c>[Regeneration intent provided by user]</c> so the prefix above it
     /// stays byte-identical to the initial-generation prompt. The free-text

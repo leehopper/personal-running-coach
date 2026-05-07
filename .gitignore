@@ -46,3 +46,6 @@ docs/specs/
 *.log
 /.deep-review/
 /.playwright-mcp/
+
+# Claude Code runtime artifacts (per-session lock files; not source)
+.claude/scheduled_tasks.lock

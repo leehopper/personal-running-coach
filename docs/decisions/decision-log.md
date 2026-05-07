@@ -2017,4 +2017,21 @@ Operational complexity (orphan-detection query + on-call playbook + race conditi
 
 ---
 
+## DEC-061: Test parallelism is opt-out per collection, never per assembly
+
+**Date:** 2026-05-07 (PR #69)
+**Status:** Final
+**Category:** Backend / Testing infrastructure
+**Informed by:** R-064 (`docs/research/artifacts/batch-15c-ef-migrations-testcontainers-xunit-v3.md`)
+
+**Decision:** Keep `[assembly: AssemblyFixture(typeof(RunCoachAppFactory))]` (R-064 Option B) so unit tests run in parallel. When a subset of classes races on shared state inside that fixture, opt those classes — and only those — into a named `[CollectionDefinition("X", DisableParallelization = true)]` + `[Collection("X")]`. Never reach for `[assembly: CollectionBehavior(DisableTestParallelization = true)]`: it serializes the entire suite (PR #73 did this for a real Marten advisory-lock race and regressed 1042 tests from a few seconds to ~1m43s).
+
+**Rationale:** R-064 endorses the `[CollectionDefinition]` primitive but doesn't name the *composition* with `AssemblyFixture` for a race-prone subset, so the next agent who sees the same race re-discovers the sledgehammer. This DEC closes that gap. Process-wide observers (`ActivityListener`, `DiagnosticListener`) get per-test correlation (parent activity, etc.) instead — collection serialization is the wrong tool there.
+
+**What shipped:** `Infrastructure/IntegrationCollection.cs` ("Integration") for the `RunCoachAppFactory` consumers; `Modules/Coaching/Eval/EvalCollection.cs` ("Eval") for `DiskBasedReportingConfiguration` cache consumers; assembly-level kill switch removed; `xunit.runner.json` back to `parallelizeTestCollections: true`. Result: 1042 tests in ~8.3s.
+
+**Alternatives considered:** assembly-wide `CollectionBehavior` (rejected — sledgehammer, see above); per-class `IClassFixture<RunCoachAppFactory>` (rejected — already rejected by R-064, pays container cold-start N times); IntegreSQL template-database clones (deferred per R-064 escape hatch — not justified under ~500 integration tests).
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

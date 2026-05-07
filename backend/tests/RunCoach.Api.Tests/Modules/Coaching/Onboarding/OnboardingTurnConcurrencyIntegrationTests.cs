@@ -42,8 +42,9 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// the precondition for Wolverine's <c>MoveToErrorQueue</c> policy to be meaningful.
 /// </para>
 /// </summary>
+[Collection("Integration")]
 [Trait("Category", "Integration")]
-public sealed class OnboardingTurnConcurrencyTests(RunCoachAppFactory factory)
+public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory factory)
     : DbBackedIntegrationTestBase(factory)
 {
     private const int ConcurrentSubmitCount = 5;
@@ -127,10 +128,10 @@ public sealed class OnboardingTurnConcurrencyTests(RunCoachAppFactory factory)
     public override async ValueTask DisposeAsync()
     {
         // Marten event data lives in runcoach_events (not public schema).
-        // Reset both so no stream data leaks between tests.
+        // Reset both so no stream data leaks between tests. Base type already
+        // calls GC.SuppressFinalize.
         await Factory.Services.ResetAllMartenDataAsync();
         await base.DisposeAsync();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>

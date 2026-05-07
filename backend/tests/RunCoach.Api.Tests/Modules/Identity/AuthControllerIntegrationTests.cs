@@ -26,6 +26,7 @@ namespace RunCoach.Api.Tests.Modules.Identity;
 /// <see cref="CookieContainerHandler"/> so the antiforgery + session cookie
 /// lifecycle is observable end-to-end.
 /// </summary>
+[Collection("Integration")]
 [Trait("Category", "Integration")]
 public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {

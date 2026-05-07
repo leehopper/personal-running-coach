@@ -13,6 +13,7 @@ namespace RunCoach.Api.Tests.Infrastructure.Idempotency;
 /// Asserts the document survives a real serialize/deserialize cycle and that
 /// conjoined tenancy isolates markers across tenants.
 /// </summary>
+[Collection("Integration")]
 [Trait("Category", "Integration")]
 public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {
@@ -198,6 +199,9 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         // (e.g. IdempotencySweeperIntegrationTests.SweepAsync_With_No_Expired_Markers_Is_NoOp).
         await Factory.Services.ResetAllMartenDataAsync();
         await base.DisposeAsync();
+
+        // Required by CA1816 because this class is not sealed; keeps a
+        // future derived type with a finalizer from re-implementing dispose.
         GC.SuppressFinalize(this);
     }
 

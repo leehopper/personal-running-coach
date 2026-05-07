@@ -1,0 +1,3 @@
+.macro-phase-segment {
+  flex-basis: var(--phase-width);
+}

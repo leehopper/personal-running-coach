@@ -6,6 +6,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 /// Tests for <see cref="EvalTestBase"/> caching infrastructure initialization.
 /// Uses a concrete test fixture to verify the base class behavior.
 /// </summary>
+[Collection("Eval")]
 [Trait("Category", "Eval")]
 public sealed class EvalTestBaseCachingTests : EvalTestBase
 {

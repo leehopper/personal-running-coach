@@ -20,6 +20,7 @@ namespace RunCoach.Api.Tests.Infrastructure;
 /// depends on, and the <see cref="DevelopmentMigrationService"/> registration
 /// that gates dev-time EF migrations.
 /// </summary>
+[Collection("Integration")]
 [Trait("Category", "Integration")]
 public class StartupSmokeIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {
