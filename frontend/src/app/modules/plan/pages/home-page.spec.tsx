@@ -72,7 +72,6 @@ describe('HomePage', () => {
     // (d) trademark-clean — `queryByText(/vdot/i)` returns null on the
     //     populated home surface (per spec § Unit 4 Proof Artifacts).
     expect(screen.queryByText(/vdot/i)).toBeNull()
-
   })
 
   it('renders the rest-day variant of TodayCard when today maps to a rest slot', () => {
@@ -90,17 +89,17 @@ describe('HomePage', () => {
 
     const todayCard = screen.getByTestId('today-card')
     expect(todayCard.getAttribute('data-variant')).toBe('rest')
-
   })
 
   it('renders the populated plan when targetEvent is null (general-fitness path)', () => {
     // Slice 1 surfaces the goal/event distinction via `macro.goalDescription`
     // — the projection itself does not carry a top-level `targetEvent`.
     // Simulate a general-fitness plan by replacing the goal copy.
+    const base = buildPlanFixture()
     const generalFitnessPlan: PlanProjectionDto = {
-      ...buildPlanFixture(),
+      ...base,
       macro: {
-        ...(buildPlanFixture().macro ?? {
+        ...(base.macro ?? {
           totalWeeks: 12,
           phases: [],
           goalDescription: '',

@@ -23,7 +23,7 @@ namespace RunCoach.Api.Tests.Infrastructure.Idempotency;
 /// </summary>
 [Collection("Integration")]
 [Trait("Category", "Integration")]
-public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
+public sealed class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : DbBackedIntegrationTestBase(factory)
 {
     [Fact]
     public void Sweeper_Is_Registered_As_HostedService_By_Production_Wiring()
@@ -390,9 +390,9 @@ public class IdempotencySweeperIntegrationTests(RunCoachAppFactory factory) : Db
     public override async ValueTask DisposeAsync()
     {
         // Marten state lives in `runcoach_events`, which Respawn skips. Reset
-        // it explicitly so seeded markers don't leak between tests.
+        // it explicitly so seeded markers don't leak between tests. Base type
+        // already calls GC.SuppressFinalize.
         await Factory.Services.ResetAllMartenDataAsync();
         await base.DisposeAsync();
-        GC.SuppressFinalize(this);
     }
 }

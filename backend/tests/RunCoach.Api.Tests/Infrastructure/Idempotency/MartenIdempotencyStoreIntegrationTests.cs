@@ -199,6 +199,9 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         // (e.g. IdempotencySweeperIntegrationTests.SweepAsync_With_No_Expired_Markers_Is_NoOp).
         await Factory.Services.ResetAllMartenDataAsync();
         await base.DisposeAsync();
+
+        // Required by CA1816 because this class is not sealed; keeps a
+        // future derived type with a finalizer from re-implementing dispose.
         GC.SuppressFinalize(this);
     }
 

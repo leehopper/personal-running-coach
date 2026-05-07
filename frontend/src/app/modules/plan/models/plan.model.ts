@@ -183,5 +183,14 @@ export interface PlanProjectionDto {
   modelId: string
   macro: MacroPhaseDto | null
   mesoWeeks: MesoWeekTemplateDto[]
-  microWorkoutsByWeek: Record<number, MicroWorkoutListDto>
+  /**
+   * Per-week detailed workout lists, keyed by the **stringified** week index
+   * (e.g. `"1"`, `"2"`). The backend serializes a `Dictionary<int, ...>` whose
+   * keys land as JSON strings; the runtime shape after `JSON.parse` therefore
+   * uses string keys, even though `Object.keys` / `Object.entries` over the
+   * resulting record will treat them as strings. Consumers must coerce
+   * (`String(weekNumber)` or `parseInt(key, 10)`) when bridging back to
+   * numeric week indices.
+   */
+  microWorkoutsByWeek: Record<string, MicroWorkoutListDto>
 }
