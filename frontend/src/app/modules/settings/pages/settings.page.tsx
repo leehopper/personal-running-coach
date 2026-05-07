@@ -99,16 +99,13 @@ const PlanSummary = ({
         Current plan generated <time dateTime={generatedAt}>{formatGeneratedAt(generatedAt)}</time>
       </p>
       {previousPlanId !== null ? (
-        // The link target is intentionally a no-op (`#`) in Slice 1; viewing
-        // historical plans lands when adaptation history matters in Slice 3+.
-        <a
-          href="#"
-          className="text-sm text-slate-500 underline-offset-2 hover:underline"
+        <button
+          type="button"
+          className="text-left text-sm text-slate-500 underline-offset-2 hover:underline"
           data-testid="settings-previous-plan-link"
-          onClick={(event) => event.preventDefault()}
         >
           View previous plan
-        </a>
+        </button>
       ) : null}
     </div>
   )
