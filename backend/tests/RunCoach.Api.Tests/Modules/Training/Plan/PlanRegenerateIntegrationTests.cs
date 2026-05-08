@@ -120,7 +120,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         var newPlanId = actualResponse.PlanId;
 
         // (1) two distinct Plan streams exist in Marten.
-        var allPlans = await LoadAllPlanProjectionsAsync();
+        var allPlans = await LoadAllPlanProjectionsAsync(userId);
         allPlans.Should().HaveCount(2, because: "the prior plan stays in Marten as audit trail; the new plan is a second stream");
         allPlans.Select(p => p.PlanId).Should().BeEquivalentTo(new[] { initialPlanId, newPlanId });
 
@@ -132,7 +132,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         //     referencing the new plan id. The initial seed appended one such
         //     event for the prior plan, so we expect two PlanLinkedToUser
         //     events on the stream — order-preserved with the new event last.
-        var planLinks = await LoadPlanLinkedEventsAsync(userId);
+        var planLinks = await LoadPlanLinkedEventsAsync(userId, userId);
         planLinks.Should().HaveCount(2);
         planLinks.Select(e => e.PlanId).Should().Equal(initialPlanId, newPlanId);
 
@@ -167,7 +167,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         actualResponse.PlanId.Should().NotBe(initialPlanId);
         actualResponse.Status.Should().Be("generated");
 
-        var allPlans = await LoadAllPlanProjectionsAsync();
+        var allPlans = await LoadAllPlanProjectionsAsync(userId);
         allPlans.Should().HaveCount(2);
         allPlans.Single(p => p.PlanId == actualResponse.PlanId)
             .PreviousPlanId.Should().Be(initialPlanId);
@@ -187,7 +187,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         //   runner has an ApplicationUser row but no UserProfile row at all
         //   (and even if one existed, OnboardingCompletedAt would be null).
         //   Either case lands the controller's gate-fail path.
-        var (client, _, antiforgeryToken) = await RegisterAndPrepareCookieClientAsync();
+        var (client, _, antiforgeryToken) = await RegisterLoginAndPrepareCookieClientAsync();
 
         // Act
         using var request = BuildRegenerateRequest(antiforgeryToken, idempotencyKey: Guid.NewGuid(), intent: null);
@@ -237,13 +237,13 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         secondResponse.Status.Should().Be(firstResponse.Status);
 
         // No third Plan stream — exactly two exist (prior + first regenerate).
-        var allPlans = await LoadAllPlanProjectionsAsync();
+        var allPlans = await LoadAllPlanProjectionsAsync(userId);
         allPlans.Should().HaveCount(2, because: "the second submission is a memoized replay; nothing is appended");
         allPlans.Select(p => p.PlanId).Should().BeEquivalentTo(new[] { initialPlanId, firstPlanId });
 
         // No extra PlanLinkedToUser was appended — onboarding stream still
         //   carries exactly two such events (initial seed + first regenerate).
-        var planLinks = await LoadPlanLinkedEventsAsync(userId);
+        var planLinks = await LoadPlanLinkedEventsAsync(userId, userId);
         planLinks.Should().HaveCount(2);
         planLinks.Select(e => e.PlanId).Should().Equal(initialPlanId, firstPlanId);
     }
@@ -437,8 +437,14 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
     {
         // Append the canonical Slice 1 event sequence so the inline
         // PlanProjection materializes a complete PlanProjectionDto document.
+        // Tenanted session — Marten conjoined tenancy stamps every document
+        // (PlanProjectionDto, OnboardingView, RunnerOnboardingProfile) with
+        // the session's tenant id, and the regenerate handler reads through
+        // a `bus.InvokeForTenantAsync(userId, ...)` session whose tenant
+        // matches the runner's user id. A `*DEFAULT*` seed silently lands
+        // on a different tenant row and the handler fails the lookup.
         var store = Factory.Services.GetRequiredService<IDocumentStore>();
-        await using var session = store.LightweightSession();
+        await using var session = store.LightweightSession(userId.ToString());
         var generated = new PlanGenerated(
             planId,
             userId,
@@ -470,9 +476,11 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         //   - OnboardingCompleted-> sets OnboardingCompletedAt on the EF row
         // OnboardingProjection is registered ProjectionLifecycle.Inline, so
         // this commit also materializes the OnboardingView the regenerate
-        // handler reads via session.LoadAsync<OnboardingView>(userId).
+        // handler reads via session.LoadAsync<OnboardingView>(userId). The
+        // session is tenant-scoped to userId so the projected rows land on
+        // the same conjoined-tenant the regenerate handler reads from.
         var store = Factory.Services.GetRequiredService<IDocumentStore>();
-        await using var session = store.LightweightSession();
+        await using var session = store.LightweightSession(userId.ToString());
         var startedAt = new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero);
         var completedAt = new DateTimeOffset(2026, 4, 1, 12, 5, 0, TimeSpan.Zero);
         session.Events.StartStream<OnboardingView>(
@@ -483,18 +491,21 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         await session.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
-    private async Task<IReadOnlyList<PlanProjectionDto>> LoadAllPlanProjectionsAsync()
+    private async Task<IReadOnlyList<PlanProjectionDto>> LoadAllPlanProjectionsAsync(Guid tenantId)
     {
+        // Conjoined-tenancy QuerySession scoped to the same tenant the
+        // regenerate handler runs under, so the assertion sees the documents
+        // the handler appended on that tenant's row.
         var store = Factory.Services.GetRequiredService<IDocumentStore>();
-        await using var session = store.QuerySession();
+        await using var session = store.QuerySession(tenantId.ToString());
         var query = session.Query<PlanProjectionDto>();
         return await Marten.QueryableExtensions.ToListAsync(query, TestContext.Current.CancellationToken);
     }
 
-    private async Task<IReadOnlyList<PlanLinkedToUser>> LoadPlanLinkedEventsAsync(Guid streamId)
+    private async Task<IReadOnlyList<PlanLinkedToUser>> LoadPlanLinkedEventsAsync(Guid streamId, Guid tenantId)
     {
         var store = Factory.Services.GetRequiredService<IDocumentStore>();
-        await using var session = store.QuerySession();
+        await using var session = store.QuerySession(tenantId.ToString());
         var events = await session.Events.FetchStreamAsync(streamId, token: TestContext.Current.CancellationToken);
         return events
             .Select(e => e.Data)
@@ -515,7 +526,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
     }
 
     private async Task<(HttpClient Client, CookieContainer Container, string AntiforgeryToken)>
-        RegisterAndPrepareCookieClientAsync()
+        RegisterLoginAndPrepareCookieClientAsync()
     {
         var container = new CookieContainer();
         var client = Factory.CreateDefaultClient(new CookieContainerHandler(container));

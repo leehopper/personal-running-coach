@@ -118,6 +118,13 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     internal const int MesoWeekCount = 4;
 
     /// <summary>
+    /// Total LLM call count per chain: 1 macro + N meso + 1 micro. Single
+    /// source of truth so the chain-wide rollup tag and the per-event
+    /// histogram tag bag agree.
+    /// </summary>
+    internal const int TotalCallCount = 1 + MesoWeekCount + 1;
+
+    /// <summary>
     /// Shared <see cref="ActivitySource"/> for the plan-generation chain.
     /// Singleton because <see cref="ActivitySource"/> instances are
     /// thread-safe and registration with the OTel pipeline is by name.
@@ -210,9 +217,9 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         using var chainActivity = ActivitySource.StartActivity(
             PlanGenerationActivityName,
             ActivityKind.Internal);
-        chainActivity?.SetTag("runcoach.plan.id", planId);
-        chainActivity?.SetTag("runcoach.user.id", userId);
-        chainActivity?.SetTag("runcoach.plan.previous_id", previousPlanId);
+        chainActivity?.SetTag(TagNames.PlanId, planId.ToString());
+        chainActivity?.SetTag(TagNames.UserId, userId.ToString());
+        chainActivity?.SetTag(TagNames.PreviousPlanId, previousPlanId?.ToString());
 
         var stopwatch = Stopwatch.StartNew();
 
@@ -238,8 +245,8 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             TierActivityName,
             ActivityKind.Internal))
         {
-            macroActivity?.SetTag("runcoach.plan.tier", TierMacro);
-            macroActivity?.SetTag("runcoach.plan.id", planId);
+            macroActivity?.SetTag(TagNames.Tier, TierMacro);
+            macroActivity?.SetTag(TagNames.PlanId, planId.ToString());
             (macro, var macroUsage) = await _llm
                 .GenerateStructuredAsync<MacroPlanOutput>(
                     systemPrompt,
@@ -250,7 +257,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                 .ConfigureAwait(false);
             totalUsage = totalUsage.Add(macroUsage);
             macroOutputChars = MeasureOutputChars(macro);
-            macroActivity?.SetTag("runcoach.plan.output_chars", macroOutputChars);
+            macroActivity?.SetTag(TagNames.OutputChars, macroOutputChars);
         }
 
         // Tier 2 — four meso weeks (1..4). Each call carries a per-week context
@@ -264,10 +271,10 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             using var mesoActivity = ActivitySource.StartActivity(
                 TierActivityName,
                 ActivityKind.Internal);
-            mesoActivity?.SetTag("runcoach.plan.tier", TierMeso);
-            mesoActivity?.SetTag("runcoach.plan.id", planId);
-            mesoActivity?.SetTag("runcoach.plan.week_index", week);
-            mesoActivity?.SetTag("runcoach.plan.is_deload_candidate", weekContext.IsDeloadCandidate);
+            mesoActivity?.SetTag(TagNames.Tier, TierMeso);
+            mesoActivity?.SetTag(TagNames.PlanId, planId.ToString());
+            mesoActivity?.SetTag(TagNames.WeekIndex, week);
+            mesoActivity?.SetTag(TagNames.IsDeloadCandidate, weekContext.IsDeloadCandidate);
 
             var (meso, mesoUsage) = await _llm
                 .GenerateStructuredAsync<MesoWeekOutput>(
@@ -281,7 +288,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
 
             var mesoChars = MeasureOutputChars(meso);
             mesoOutputCharsPerWeek[week - 1] = mesoChars;
-            mesoActivity?.SetTag("runcoach.plan.output_chars", mesoChars);
+            mesoActivity?.SetTag(TagNames.OutputChars, mesoChars);
 
             mesoEvents.Add(new MesoCycleCreated(week, meso));
         }
@@ -296,8 +303,8 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             TierActivityName,
             ActivityKind.Internal))
         {
-            microActivity?.SetTag("runcoach.plan.tier", TierMicro);
-            microActivity?.SetTag("runcoach.plan.id", planId);
+            microActivity?.SetTag(TagNames.Tier, TierMicro);
+            microActivity?.SetTag(TagNames.PlanId, planId.ToString());
             (micro, var microUsage) = await _llm
                 .GenerateStructuredAsync<MicroWorkoutListOutput>(
                     systemPrompt,
@@ -308,7 +315,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                 .ConfigureAwait(false);
             totalUsage = totalUsage.Add(microUsage);
             microOutputChars = MeasureOutputChars(micro);
-            microActivity?.SetTag("runcoach.plan.output_chars", microOutputChars);
+            microActivity?.SetTag(TagNames.OutputChars, microOutputChars);
         }
 
         var promptVersion = _promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId);
@@ -327,7 +334,6 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             Macro: planGenerated,
             Mesos: mesoEvents,
             Micro: new FirstMicroCycleCreated(micro));
-        var totalEventCount = 1 + mesoEvents.Count + 1;
 
         stopwatch.Stop();
         var durationMs = stopwatch.Elapsed.TotalMilliseconds;
@@ -354,16 +360,16 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
 
         // Stamp rollup metrics on the chain span so a single trace view shows
         // the totals without scraping the metric exporter.
-        chainActivity?.SetTag("runcoach.plan.total_calls", 1 + MesoWeekCount + 1);
-        chainActivity?.SetTag("runcoach.plan.duration_ms", durationMs);
-        chainActivity?.SetTag("runcoach.plan.macro_output_chars", macroOutputChars);
-        chainActivity?.SetTag("runcoach.plan.meso_output_chars_total", mesoOutputCharsTotal);
-        chainActivity?.SetTag("runcoach.plan.micro_output_chars", microOutputChars);
-        chainActivity?.SetTag("runcoach.plan.input_tokens_fresh", totalUsage.InputTokens);
-        chainActivity?.SetTag("runcoach.plan.cache_creation_input_tokens", totalUsage.CacheCreationInputTokens);
-        chainActivity?.SetTag("runcoach.plan.cache_read_input_tokens", totalUsage.CacheReadInputTokens);
-        chainActivity?.SetTag("runcoach.plan.output_tokens", totalUsage.OutputTokens);
-        chainActivity?.SetTag("runcoach.plan.cache_hit_rate", cacheHitRate);
+        chainActivity?.SetTag(TagNames.TotalCalls, TotalCallCount);
+        chainActivity?.SetTag(TagNames.DurationMs, durationMs);
+        chainActivity?.SetTag(TagNames.MacroOutputChars, macroOutputChars);
+        chainActivity?.SetTag(TagNames.MesoOutputCharsTotal, mesoOutputCharsTotal);
+        chainActivity?.SetTag(TagNames.MicroOutputChars, microOutputChars);
+        chainActivity?.SetTag(TagNames.InputTokensFresh, totalUsage.InputTokens);
+        chainActivity?.SetTag(TagNames.CacheCreationInputTokens, totalUsage.CacheCreationInputTokens);
+        chainActivity?.SetTag(TagNames.CacheReadInputTokens, totalUsage.CacheReadInputTokens);
+        chainActivity?.SetTag(TagNames.OutputTokens, totalUsage.OutputTokens);
+        chainActivity?.SetTag(TagNames.CacheHitRate, cacheHitRate);
 
         // Emit the structured `runcoach.plan.generation.completed` event on
         // the existing `RunCoach.Llm` Meter per Slice 1 § Unit 2 R02.8. The
@@ -375,21 +381,21 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         // suitable for Phoenix's evaluation dashboard grouping.
         var tags = new TagList
         {
-            { "runcoach.plan.id", planId.ToString() },
-            { "runcoach.user.id", userId.ToString() },
-            { "runcoach.plan.total_calls", 1 + MesoWeekCount + 1 },
-            { "runcoach.plan.macro_output_chars", macroOutputChars },
-            { "runcoach.plan.meso_output_chars_total", mesoOutputCharsTotal },
-            { "runcoach.plan.micro_output_chars", microOutputChars },
-            { "runcoach.plan.input_tokens_fresh", totalUsage.InputTokens },
-            { "runcoach.plan.cache_creation_input_tokens", totalUsage.CacheCreationInputTokens },
-            { "runcoach.plan.cache_read_input_tokens", totalUsage.CacheReadInputTokens },
-            { "runcoach.plan.output_tokens", totalUsage.OutputTokens },
-            { "runcoach.plan.cache_hit_rate", cacheHitRate },
+            { TagNames.PlanId, planId.ToString() },
+            { TagNames.UserId, userId.ToString() },
+            { TagNames.TotalCalls, TotalCallCount },
+            { TagNames.MacroOutputChars, macroOutputChars },
+            { TagNames.MesoOutputCharsTotal, mesoOutputCharsTotal },
+            { TagNames.MicroOutputChars, microOutputChars },
+            { TagNames.InputTokensFresh, totalUsage.InputTokens },
+            { TagNames.CacheCreationInputTokens, totalUsage.CacheCreationInputTokens },
+            { TagNames.CacheReadInputTokens, totalUsage.CacheReadInputTokens },
+            { TagNames.OutputTokens, totalUsage.OutputTokens },
+            { TagNames.CacheHitRate, cacheHitRate },
         };
         PlanGenerationCompleted.Record(durationMs, tags);
 
-        LogChainComplete(_logger, planId, totalEventCount);
+        LogChainComplete(_logger, planId, TotalCallCount);
 
         return sequence;
     }
@@ -562,5 +568,32 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             var lastPhase = macro.Phases[^1];
             return new WeekContext(weekIndex, lastPhase.PhaseType, IsDeloadCandidate: false);
         }
+    }
+
+    /// <summary>
+    /// OTel tag-name constants for the plan-generation chain. Centralized so
+    /// a typo at one call site can't create an orphan tag that downstream
+    /// dashboards silently miss, and so the SonarAnalyzer S1192 (literal
+    /// repeated &gt;= 3 times) noise stays out of the chain code.
+    /// </summary>
+    internal static class TagNames
+    {
+        public const string PlanId = "runcoach.plan.id";
+        public const string UserId = "runcoach.user.id";
+        public const string PreviousPlanId = "runcoach.plan.previous_id";
+        public const string Tier = "runcoach.plan.tier";
+        public const string WeekIndex = "runcoach.plan.week_index";
+        public const string IsDeloadCandidate = "runcoach.plan.is_deload_candidate";
+        public const string OutputChars = "runcoach.plan.output_chars";
+        public const string TotalCalls = "runcoach.plan.total_calls";
+        public const string DurationMs = "runcoach.plan.duration_ms";
+        public const string MacroOutputChars = "runcoach.plan.macro_output_chars";
+        public const string MesoOutputCharsTotal = "runcoach.plan.meso_output_chars_total";
+        public const string MicroOutputChars = "runcoach.plan.micro_output_chars";
+        public const string InputTokensFresh = "runcoach.plan.input_tokens_fresh";
+        public const string CacheCreationInputTokens = "runcoach.plan.cache_creation_input_tokens";
+        public const string CacheReadInputTokens = "runcoach.plan.cache_read_input_tokens";
+        public const string OutputTokens = "runcoach.plan.output_tokens";
+        public const string CacheHitRate = "runcoach.plan.cache_hit_rate";
     }
 }

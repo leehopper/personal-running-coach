@@ -34,7 +34,7 @@ opts.Projections.Add(new UserProfileFromOnboardingProjection(), ProjectionLifecy
 
 Every integration test in `backend/tests/RunCoach.Api.Tests/` that boots `WebApplicationFactory<Program>` is failing at SUT host startup with:
 
-```
+```text
 Marten.Exceptions.InvalidDocumentException:
   Could not determine an 'id/Id' field or property for requested document type
   RunCoach.Api.Modules.Identity.Entities.UserProfile

@@ -134,16 +134,16 @@ public class PlanProjectionIntegrationTests(RunCoachAppFactory factory) : DbBack
             planId,
             TestContext.Current.CancellationToken);
 
-        // Assert — same MesoWeeks count + same week-1 micro shape across
-        // independent sessions confirms the document is persisted, not
-        // re-derived per call.
+        // Assert — full deep equivalence across independent sessions
+        // confirms the document is persisted, not re-derived per call. A
+        // segment-count regression in the Macro/Meso/Micro graphs or a
+        // reordering of MesoWeeks would slip past spot-checks but trips
+        // structural equivalence here. PlanProjectionDto carries no audit
+        // fields (the projection writes Marten's mt_doc_runcoach.api.* row
+        // verbatim), so no exclusions are needed.
         first.Should().NotBeNull();
         second.Should().NotBeNull();
-        second!.PlanId.Should().Be(first!.PlanId);
-        second.UserId.Should().Be(first.UserId);
-        second.GeneratedAt.Should().Be(first.GeneratedAt);
-        second.MesoWeeks.Should().HaveCount(first.MesoWeeks.Count);
-        second.MicroWorkoutsByWeek.Keys.Should().BeEquivalentTo(first.MicroWorkoutsByWeek.Keys);
+        second.Should().BeEquivalentTo(first);
     }
 
     /// <summary>
