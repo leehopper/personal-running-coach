@@ -45,16 +45,40 @@ public sealed class StubPlanGenerationService : IPlanGenerationService
         _ = profileSnapshot;
         _ = intent;
 
+        return Task.FromResult(BuildCanonicalSequence(
+            planId,
+            userId,
+            goal: previousPlanId is null ? "Stub plan" : "Regenerated plan",
+            generatedAt: new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero),
+            previousPlanId));
+    }
+
+    /// <summary>
+    /// Returns the canonical Slice 1 plan-event sequence
+    /// <c>[PlanGenerated, MesoCycleCreated x4, FirstMicroCycleCreated]</c>
+    /// for the given plan + user + goal + previous-plan-id tuple. Single
+    /// source of truth for the seven-event payload across the production
+    /// stub here, the regenerate integration tests, and the projection
+    /// integration tests — keeps SonarCloud's duplicated-lines detector
+    /// from flagging three near-identical copies of the same fixture array.
+    /// </summary>
+    internal static PlanEventSequence BuildCanonicalSequence(
+        Guid planId,
+        Guid userId,
+        string goal,
+        DateTimeOffset generatedAt,
+        Guid? previousPlanId)
+    {
         var generated = new PlanGenerated(
             planId,
             userId,
-            BuildMacro(goal: previousPlanId is null ? "Stub plan" : "Regenerated plan"),
-            new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero),
+            BuildMacro(goal),
+            generatedAt,
             PromptVersion: "coaching-v1",
             ModelId: "claude-sonnet-4-5",
             PreviousPlanId: previousPlanId);
 
-        var sequence = new PlanEventSequence(
+        return new PlanEventSequence(
             Macro: generated,
             Mesos: new[]
             {
@@ -64,8 +88,6 @@ public sealed class StubPlanGenerationService : IPlanGenerationService
                 new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, isDeload: true)),
             },
             Micro: new FirstMicroCycleCreated(BuildMicro()));
-
-        return Task.FromResult(sequence);
     }
 
     internal static MacroPlanOutput BuildMacro(string goal)

@@ -281,17 +281,6 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         return request;
     }
 
-    // BuildMacro / BuildMeso / BuildMicro delegate to StubPlanGenerationService's
-    // canonical fixtures so SonarCloud's duplicated-lines detector doesn't trip
-    // on three near-identical copies of the same plan-event payload across
-    // StubPlanGenerationService, PlanProjectionIntegrationTests, and this file.
-    private static MacroPlanOutput BuildMacro(string goal) => StubPlanGenerationService.BuildMacro(goal);
-
-    private static MesoWeekOutput BuildMeso(int weekNumber, PhaseType phase, bool isDeload) =>
-        StubPlanGenerationService.BuildMeso(weekNumber, phase, isDeload);
-
-    private static MicroWorkoutListOutput BuildMicro() => StubPlanGenerationService.BuildMicro();
-
     private async Task<Guid> SeedUserAsync()
     {
         // Provision an Identity row directly through UserManager so the
@@ -343,24 +332,13 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         // on a different tenant row and the handler fails the lookup.
         var store = Factory.Services.GetRequiredService<IDocumentStore>();
         await using var session = store.LightweightSession(userId.ToString());
-        var generated = new PlanGenerated(
+        var sequence = StubPlanGenerationService.BuildCanonicalSequence(
             planId,
             userId,
-            BuildMacro(goal: "Initial plan"),
-            new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero),
-            PromptVersion: "coaching-v1",
-            ModelId: "claude-sonnet-4-5",
-            PreviousPlanId: null);
-        var events = new object[]
-        {
-            generated,
-            new MesoCycleCreated(1, BuildMeso(1, PhaseType.Base, isDeload: false)),
-            new MesoCycleCreated(2, BuildMeso(2, PhaseType.Base, isDeload: false)),
-            new MesoCycleCreated(3, BuildMeso(3, PhaseType.Build, isDeload: false)),
-            new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, isDeload: true)),
-            new FirstMicroCycleCreated(BuildMicro()),
-        };
-        session.Events.StartStream<PlanProjectionDto>(planId, events);
+            goal: "Initial plan",
+            generatedAt: new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero),
+            previousPlanId: null);
+        session.Events.StartStream<PlanProjectionDto>(planId, [.. sequence.ToEvents()]);
         await session.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 

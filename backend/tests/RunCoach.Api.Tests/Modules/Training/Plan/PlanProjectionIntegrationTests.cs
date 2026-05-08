@@ -157,40 +157,18 @@ public class PlanProjectionIntegrationTests(RunCoachAppFactory factory) : DbBack
         GC.SuppressFinalize(this);
     }
 
-    // BuildMacro / BuildMeso / BuildMicro delegate to StubPlanGenerationService's
-    // canonical fixtures so SonarCloud's duplicated-lines detector doesn't trip
-    // on three near-identical copies of the same plan-event payload across
-    // StubPlanGenerationService, PlanRegenerateIntegrationTests, and this file.
-    private static MacroPlanOutput BuildMacro() => StubPlanGenerationService.BuildMacro("Half Marathon");
-
-    private static MesoWeekOutput BuildMeso(int weekNumber, PhaseType phase, bool isDeload) =>
-        StubPlanGenerationService.BuildMeso(weekNumber, phase, isDeload);
-
-    private static MicroWorkoutListOutput BuildMicro() => StubPlanGenerationService.BuildMicro();
-
     private async Task AppendCanonicalPlanStreamAsync(Guid planId, Guid? previousPlanId = null)
     {
         using var scope = Factory.Services.CreateScope();
         var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
         await using var session = store.LightweightSession();
-        var generated = new PlanGenerated(
+        var sequence = StubPlanGenerationService.BuildCanonicalSequence(
             planId,
             UserId,
-            BuildMacro(),
+            goal: "Half Marathon",
             PlanGeneratedAt,
-            PromptVersion: "coaching-v1",
-            ModelId: "claude-sonnet-4-5",
-            PreviousPlanId: previousPlanId);
-        var events = new object[]
-        {
-            generated,
-            new MesoCycleCreated(1, BuildMeso(1, PhaseType.Base, isDeload: false)),
-            new MesoCycleCreated(2, BuildMeso(2, PhaseType.Base, isDeload: false)),
-            new MesoCycleCreated(3, BuildMeso(3, PhaseType.Build, isDeload: false)),
-            new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, isDeload: true)),
-            new FirstMicroCycleCreated(BuildMicro()),
-        };
-        session.Events.StartStream<PlanProjectionDto>(planId, events);
+            previousPlanId);
+        session.Events.StartStream<PlanProjectionDto>(planId, [.. sequence.ToEvents()]);
         await session.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 }
