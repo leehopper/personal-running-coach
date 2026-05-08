@@ -2169,7 +2169,7 @@ Same rule applies to every future `EfCore*Projection` registration:
 
 ---
 
-## DEC-062: Tailwind-only animation baseline for Slice 1; defer `motion/react` adoption until a streaming or gesture surface forces it
+## DEC-063: Tailwind-only animation baseline for Slice 1; defer `motion/react` adoption until a streaming or gesture surface forces it
 
 **Date:** 2026-04-25
 **Category:** Frontend / Styling & dependency hygiene
@@ -2239,11 +2239,12 @@ When either trigger fires, the adopting slice: (a) `npm install motion@^12`, (b)
 
 ---
 
-## DEC-063: Disable parallel test-collection execution in `RunCoach.Api.Tests`; sequential is the canonical mode
+## DEC-064: Disable parallel test-collection execution in `RunCoach.Api.Tests`; sequential is the canonical mode
 
 **Date:** 2026-04-25
 **Category:** Backend / Testing infrastructure
 **Status:** Accepted
+**Supersedes:** DEC-061 (per-collection opt-out parallelism — did not eliminate the Marten advisory-lock + `IDocumentStore` shutdown races on the shared assembly fixture)
 **Drives:** Slice 1 close-out follow-up #117 — codifies the fix for the parallel-test-isolation flake observed across worker dispatch rounds (#99, #110, #111).
 
 ### Decision
@@ -2276,7 +2277,7 @@ Sequential execution under `dotnet test -- -parallel none` was already proven 84
 
 ### Trade-off
 
-Total wall-clock test time grows because collections no longer overlap. Today's suite (841 tests, ~minutes locally) absorbs this without operational pain. If the suite grows large enough that wall-clock matters, revisit the per-collection isolation alternative above — DEC-063 is explicitly written to be reversed by a future "`*IntegrationTests` collections each own their database" decision, not amended in place.
+Total wall-clock test time grows because collections no longer overlap. Today's suite (841 tests, ~minutes locally) absorbs this without operational pain. If the suite grows large enough that wall-clock matters, revisit the per-collection isolation alternative above — DEC-064 is explicitly written to be reversed by a future "`*IntegrationTests` collections each own their database" decision, not amended in place.
 
 ### References
 

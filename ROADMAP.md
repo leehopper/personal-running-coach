@@ -5,7 +5,7 @@
 **Next step:** Open PR for Slice 1 close-out. Recommended docker-compose smoke for the four Playwright e2e specs (`auth`, `onboarding`, `plan-render`, `regenerate-plan`) before tagging the close-out commit; CI runs them on PR open.
 **Blockers:** None.
 
-**Architectural decisions locked during Slice 1:** DEC-057 (single-handler/single-Marten-session/single-transaction), DEC-058 (Pattern B byte-stable schema), DEC-059 (layered containment-first sanitizer), DEC-060 (handler bodies emit events; projections own EF state), DEC-061 (`opts.Add(...)` registration shape for EF projections), DEC-062 (Tailwind-only animation baseline), DEC-063 (xunit collection-parallelism disabled).
+**Architectural decisions locked during Slice 1:** DEC-057 (single-handler/single-Marten-session/single-transaction), DEC-058 (Pattern B byte-stable schema), DEC-059 (layered containment-first sanitizer), DEC-060 (handler bodies emit events; projections own EF state), DEC-062 (`opts.Add(...)` registration shape for EF projections), DEC-063 (Tailwind-only animation baseline), DEC-064 (xunit collection-parallelism disabled — supersedes DEC-061).
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 
