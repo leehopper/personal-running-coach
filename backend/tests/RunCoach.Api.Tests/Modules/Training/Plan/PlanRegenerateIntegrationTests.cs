@@ -281,118 +281,16 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         return request;
     }
 
-    private static MacroPlanOutput BuildMacro(string goal)
-    {
-        return new MacroPlanOutput
-        {
-            TotalWeeks = 16,
-            GoalDescription = goal,
-            Phases = new[]
-            {
-                new PlanPhaseOutput
-                {
-                    PhaseType = PhaseType.Base,
-                    Weeks = 8,
-                    WeeklyDistanceStartKm = 30,
-                    WeeklyDistanceEndKm = 50,
-                    IntensityDistribution = "80/20 easy/hard",
-                    AllowedWorkoutTypes = new[] { WorkoutType.Easy, WorkoutType.LongRun, WorkoutType.Recovery },
-                    TargetPaceEasySecPerKm = 360,
-                    TargetPaceFastSecPerKm = 300,
-                    Notes = "Aerobic base build.",
-                    IncludesDeload = true,
-                },
-            },
-            Rationale = "Progressive base then build to race specificity.",
-            Warnings = "Stop and reassess if any sharp pain emerges.",
-        };
-    }
+    // BuildMacro / BuildMeso / BuildMicro delegate to StubPlanGenerationService's
+    // canonical fixtures so SonarCloud's duplicated-lines detector doesn't trip
+    // on three near-identical copies of the same plan-event payload across
+    // StubPlanGenerationService, PlanProjectionIntegrationTests, and this file.
+    private static MacroPlanOutput BuildMacro(string goal) => StubPlanGenerationService.BuildMacro(goal);
 
-    private static MesoWeekOutput BuildMeso(int weekNumber, PhaseType phase, bool isDeload)
-    {
-        var restSlot = new MesoDaySlotOutput
-        {
-            SlotType = DaySlotType.Rest,
-            WorkoutType = null,
-            Notes = "Recovery.",
-        };
-        var easySlot = new MesoDaySlotOutput
-        {
-            SlotType = DaySlotType.Run,
-            WorkoutType = WorkoutType.Easy,
-            Notes = "Easy aerobic.",
-        };
+    private static MesoWeekOutput BuildMeso(int weekNumber, PhaseType phase, bool isDeload) =>
+        StubPlanGenerationService.BuildMeso(weekNumber, phase, isDeload);
 
-        return new MesoWeekOutput
-        {
-            WeekNumber = weekNumber,
-            PhaseType = phase,
-            WeeklyTargetKm = isDeload ? 30 : 45,
-            IsDeloadWeek = isDeload,
-            Sunday = easySlot,
-            Monday = restSlot,
-            Tuesday = easySlot,
-            Wednesday = restSlot,
-            Thursday = easySlot,
-            Friday = restSlot,
-            Saturday = easySlot,
-            WeekSummary = $"Week {weekNumber} - {phase}.",
-        };
-    }
-
-    private static MicroWorkoutListOutput BuildMicro()
-    {
-        return new MicroWorkoutListOutput
-        {
-            Workouts = new[]
-            {
-                new WorkoutOutput
-                {
-                    DayOfWeek = 0,
-                    WorkoutType = WorkoutType.Easy,
-                    Title = "Easy Aerobic Run",
-                    TargetDistanceKm = 8,
-                    TargetDurationMinutes = 50,
-                    TargetPaceEasySecPerKm = 360,
-                    TargetPaceFastSecPerKm = 360,
-                    Segments = new[]
-                    {
-                        new WorkoutSegmentOutput
-                        {
-                            SegmentType = SegmentType.Warmup,
-                            DurationMinutes = 10,
-                            TargetPaceSecPerKm = 400,
-                            Intensity = IntensityProfile.Easy,
-                            Repetitions = 1,
-                            Notes = "Warm up gradually.",
-                        },
-                        new WorkoutSegmentOutput
-                        {
-                            SegmentType = SegmentType.Work,
-                            DurationMinutes = 30,
-                            TargetPaceSecPerKm = 360,
-                            Intensity = IntensityProfile.Easy,
-                            Repetitions = 1,
-                            Notes = "Steady aerobic effort.",
-                        },
-                        new WorkoutSegmentOutput
-                        {
-                            SegmentType = SegmentType.Cooldown,
-                            DurationMinutes = 10,
-                            TargetPaceSecPerKm = 420,
-                            Intensity = IntensityProfile.Easy,
-                            Repetitions = 1,
-                            Notes = "Cool down easy.",
-                        },
-                    },
-                    WarmupNotes = "10 min walk-jog.",
-                    CooldownNotes = "10 min walk-jog.",
-                    CoachingNotes = "Conversational pace.",
-                    PerceivedEffort = 3,
-                },
-            },
-        };
-    }
+    private static MicroWorkoutListOutput BuildMicro() => StubPlanGenerationService.BuildMicro();
 
     private async Task<Guid> SeedUserAsync()
     {
