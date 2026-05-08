@@ -10,6 +10,7 @@ using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Coaching.Onboarding;
+using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Identity.Contracts;
 using RunCoach.Api.Modules.Identity.Entities;
 using RunCoach.Api.Modules.Training.Plan;
@@ -498,11 +499,11 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
             .ToList();
     }
 
-    private async Task<UserProfile?> LoadUserProfileAsync(Guid userId)
+    private async Task<RunnerOnboardingProfile?> LoadUserProfileAsync(Guid userId)
     {
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RunCoachDbContext>();
-        var query = db.UserProfiles
+        var query = db.RunnerOnboardingProfiles
             .AsNoTracking()
             .Where(p => p.UserId == userId);
         return await EntityFrameworkQueryableExtensions

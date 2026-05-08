@@ -34,7 +34,7 @@ namespace RunCoach.Api.Tests.Infrastructure;
 /// </remarks>
 public sealed class StubPlanGenerationService : IPlanGenerationService
 {
-    public Task<IReadOnlyList<object>> GeneratePlanAsync(
+    public Task<PlanEventSequence> GeneratePlanAsync(
         OnboardingView profileSnapshot,
         Guid userId,
         Guid planId,
@@ -54,17 +54,18 @@ public sealed class StubPlanGenerationService : IPlanGenerationService
             ModelId: "claude-sonnet-4-5",
             PreviousPlanId: previousPlanId);
 
-        var events = new object[]
-        {
-            generated,
-            new MesoCycleCreated(1, BuildMeso(1, PhaseType.Base, isDeload: false)),
-            new MesoCycleCreated(2, BuildMeso(2, PhaseType.Base, isDeload: false)),
-            new MesoCycleCreated(3, BuildMeso(3, PhaseType.Build, isDeload: false)),
-            new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, isDeload: true)),
-            new FirstMicroCycleCreated(BuildMicro()),
-        };
+        var sequence = new PlanEventSequence(
+            Macro: generated,
+            Mesos: new[]
+            {
+                new MesoCycleCreated(1, BuildMeso(1, PhaseType.Base, isDeload: false)),
+                new MesoCycleCreated(2, BuildMeso(2, PhaseType.Base, isDeload: false)),
+                new MesoCycleCreated(3, BuildMeso(3, PhaseType.Build, isDeload: false)),
+                new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, isDeload: true)),
+            },
+            Micro: new FirstMicroCycleCreated(BuildMicro()));
 
-        return Task.FromResult<IReadOnlyList<object>>(events);
+        return Task.FromResult(sequence);
     }
 
     internal static MacroPlanOutput BuildMacro(string goal)

@@ -5,8 +5,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
-using RunCoach.Api.Modules.Coaching.Idempotency;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
@@ -85,7 +85,7 @@ public class InvokeAsyncTransactionScopeTests
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(BuildReadyForPlanOutput());
+            .Returns(_ => (BuildReadyForPlanOutput(), AnthropicUsage.Zero));
         planGen
             .GeneratePlanAsync(
                 Arg.Any<OnboardingView>(),
@@ -117,7 +117,7 @@ public class InvokeAsyncTransactionScopeTests
             .WithMessage("simulated plan-generation failure*");
 
         idempotency.DidNotReceiveWithAnyArgs()
-            .Record<OnboardingTurnResponseDto>(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<OnboardingTurnResponseDto>());
+            .Record<OnboardingTurnResponseDto>(Arg.Any<Guid>(), Arg.Any<OnboardingTurnResponseDto>());
 
         // The handler never calls SaveChangesAsync directly — the framework's
         // transactional middleware owns that call. The negative-assertion proof
