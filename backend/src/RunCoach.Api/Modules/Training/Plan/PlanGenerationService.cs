@@ -391,11 +391,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     /// </summary>
     private static string BuildMacroUserMessage(string basePrompt)
     {
-        var sb = new StringBuilder(basePrompt.Length + 128);
-        sb.Append(basePrompt);
-        sb.AppendLine();
-        sb.AppendLine();
-        sb.AppendLine(MacroTierLabel);
+        var sb = BeginTierMessage(basePrompt, MacroTierLabel, extraCapacity: 128);
         sb.AppendLine("Generate the periodized macro plan covering the full training horizon.");
         return sb.ToString();
     }
@@ -408,11 +404,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     /// </summary>
     private static string BuildMesoUserMessage(string basePrompt, MacroPlanOutput macro, WeekContext weekContext)
     {
-        var sb = new StringBuilder(basePrompt.Length + 256);
-        sb.Append(basePrompt);
-        sb.AppendLine();
-        sb.AppendLine();
-        sb.AppendLine(MesoTierLabel);
+        var sb = BeginTierMessage(basePrompt, MesoTierLabel, extraCapacity: 256);
         AppendMacroRecap(sb, macro);
         sb.AppendLine(CultureInfo.InvariantCulture, $"WeekIndex: {weekContext.WeekIndex}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"PhaseType: {weekContext.PhaseType}");
@@ -433,17 +425,30 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         MacroPlanOutput macro,
         MesoWeekOutput weekOneMeso)
     {
-        var sb = new StringBuilder(basePrompt.Length + 512);
-        sb.Append(basePrompt);
-        sb.AppendLine();
-        sb.AppendLine();
-        sb.AppendLine(MicroTierLabel);
+        var sb = BeginTierMessage(basePrompt, MicroTierLabel, extraCapacity: 512);
         AppendMacroRecap(sb, macro);
         sb.AppendLine(CultureInfo.InvariantCulture, $"Week 1 phase: {weekOneMeso.PhaseType}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Week 1 weekly target km: {weekOneMeso.WeeklyTargetKm}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Week 1 is deload: {(weekOneMeso.IsDeloadWeek ? "true" : "false")}");
         sb.AppendLine("Generate the detailed workouts for week 1, one per scheduled run day.");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Composes the StringBuilder boilerplate shared by the three tier-suffix
+    /// builders: pre-sized buffer, base prompt, blank-line separator, tier
+    /// label. Each tier-specific builder appends its own per-call content
+    /// after this prefix and returns the final string. Single source of truth
+    /// for the prefix shape so the tier builders stay tiny and consistent.
+    /// </summary>
+    private static StringBuilder BeginTierMessage(string basePrompt, string tierLabel, int extraCapacity)
+    {
+        var sb = new StringBuilder(basePrompt.Length + extraCapacity);
+        sb.Append(basePrompt);
+        sb.AppendLine();
+        sb.AppendLine();
+        sb.AppendLine(tierLabel);
+        return sb;
     }
 
     private static void AppendMacroRecap(StringBuilder sb, MacroPlanOutput macro)
