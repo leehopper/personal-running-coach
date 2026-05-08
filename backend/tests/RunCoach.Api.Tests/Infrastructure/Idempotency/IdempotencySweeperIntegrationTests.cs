@@ -359,11 +359,16 @@ public sealed class IdempotencySweeperIntegrationTests(RunCoachAppFactory factor
 
             // Advance past SweepInterval to trigger a second iteration, which
             // also throws. The loop must still be alive — wait for a second
-            // warning rather than sleeping a fixed interval.
+            // warning rather than sleeping a fixed interval. Timeout is 15s
+            // (vs. 5s for the first wait above) because under coverlet's
+            // instrumentation overhead in the SonarQube job the
+            // `Task.Delay`-fed scheduler that picks up `FakeTimeProvider.Advance`
+            // can stall longer than the un-instrumented run; the 5s default
+            // intermittently drops the second iteration and trips this assert.
             time.Advance(IdempotencySweeper.SweepInterval + TimeSpan.FromSeconds(1));
             await AsyncWait.UntilAsync(
                 () => logger.Entries.Count(e => e.Level == LogLevel.Warning) >= 2,
-                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(15),
                 "advancing past SweepInterval must trigger a second iteration; the catch-all must record a second warning, proving the loop is still alive",
                 ct);
 
