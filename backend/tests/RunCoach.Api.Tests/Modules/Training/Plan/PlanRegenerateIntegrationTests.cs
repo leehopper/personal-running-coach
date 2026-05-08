@@ -426,7 +426,10 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         using var scope = Factory.Services.CreateScope();
         var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
         return await bus
-            .InvokeAsync<RegeneratePlanResponse>(cmd, TestContext.Current.CancellationToken)
+            .InvokeForTenantAsync<RegeneratePlanResponse>(
+                cmd.UserId.ToString(),
+                cmd,
+                TestContext.Current.CancellationToken)
             .ConfigureAwait(false);
     }
 
