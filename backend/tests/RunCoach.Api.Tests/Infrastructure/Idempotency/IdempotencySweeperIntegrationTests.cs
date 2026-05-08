@@ -357,14 +357,25 @@ public sealed class IdempotencySweeperIntegrationTests(RunCoachAppFactory factor
                 "the first SweepAsync iteration must throw and the catch-all must record a warning before the test advances fake time",
                 ct);
 
+            // Race window: the first warning fires inside the catch block,
+            // and AsyncWait sees it the instant LogSweepFailed runs — but
+            // the loop body still has to return through the catch and reach
+            // the next `await Task.Delay(SweepInterval, _timeProvider, ...)`
+            // before the timer is actually registered with FakeTimeProvider.
+            // Calling `time.Advance(...)` BEFORE that registration is a no-op
+            // (FakeTimeProvider only fires callbacks for already-registered
+            // timers), and the loop then parks on the unmodified clock —
+            // permanent stall, regardless of the polling timeout.
+            //
+            // Yield real wall-clock so the BackgroundService thread reaches
+            // the `await Task.Delay` and registers its timer with the
+            // FakeTimeProvider. 200 ms is generous for the catch-handler tail
+            // even under coverlet's instrumented overhead in the SonarQube job.
+            await Task.Delay(TimeSpan.FromMilliseconds(200), ct);
+
             // Advance past SweepInterval to trigger a second iteration, which
             // also throws. The loop must still be alive — wait for a second
-            // warning rather than sleeping a fixed interval. Timeout is 15s
-            // (vs. 5s for the first wait above) because under coverlet's
-            // instrumentation overhead in the SonarQube job the
-            // `Task.Delay`-fed scheduler that picks up `FakeTimeProvider.Advance`
-            // can stall longer than the un-instrumented run; the 5s default
-            // intermittently drops the second iteration and trips this assert.
+            // warning rather than sleeping a fixed interval.
             time.Advance(IdempotencySweeper.SweepInterval + TimeSpan.FromSeconds(1));
             await AsyncWait.UntilAsync(
                 () => logger.Entries.Count(e => e.Level == LogLevel.Warning) >= 2,
