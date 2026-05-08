@@ -239,26 +239,14 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         var totalUsage = AnthropicUsage.Zero;
 
         // Tier 1 — macro plan.
-        MacroPlanOutput macro;
-        int macroOutputChars;
-        using (var macroActivity = ActivitySource.StartActivity(
-            TierActivityName,
-            ActivityKind.Internal))
-        {
-            macroActivity?.SetTag(TagNames.Tier, TierMacro);
-            macroActivity?.SetTag(TagNames.PlanId, planId.ToString());
-            (macro, var macroUsage) = await _llm
-                .GenerateStructuredAsync<MacroPlanOutput>(
-                    systemPrompt,
-                    BuildMacroUserMessage(basePrompt),
-                    schema: null,
-                    cacheControl: CacheControl.Ephemeral1h,
-                    ct)
-                .ConfigureAwait(false);
-            totalUsage = totalUsage.Add(macroUsage);
-            macroOutputChars = MeasureOutputChars(macro);
-            macroActivity?.SetTag(TagNames.OutputChars, macroOutputChars);
-        }
+        var (macro, macroUsage, macroOutputChars) = await InvokeTierAsync<MacroPlanOutput>(
+            tier: TierMacro,
+            planId: planId,
+            systemPrompt: systemPrompt,
+            userMessage: BuildMacroUserMessage(basePrompt),
+            extraTags: null,
+            ct).ConfigureAwait(false);
+        totalUsage = totalUsage.Add(macroUsage);
 
         // Tier 2 — four meso weeks (1..4). Each call carries a per-week context
         // suffix derived from the macro plan's phase list so the LLM knows
@@ -268,28 +256,20 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         for (var week = 1; week <= MesoWeekCount; week++)
         {
             var weekContext = WeekContext.FromMacro(macro, week);
-            using var mesoActivity = ActivitySource.StartActivity(
-                TierActivityName,
-                ActivityKind.Internal);
-            mesoActivity?.SetTag(TagNames.Tier, TierMeso);
-            mesoActivity?.SetTag(TagNames.PlanId, planId.ToString());
-            mesoActivity?.SetTag(TagNames.WeekIndex, week);
-            mesoActivity?.SetTag(TagNames.IsDeloadCandidate, weekContext.IsDeloadCandidate);
-
-            var (meso, mesoUsage) = await _llm
-                .GenerateStructuredAsync<MesoWeekOutput>(
-                    systemPrompt,
-                    BuildMesoUserMessage(basePrompt, macro, weekContext),
-                    schema: null,
-                    cacheControl: CacheControl.Ephemeral1h,
-                    ct)
-                .ConfigureAwait(false);
+            var capturedWeek = week;
+            var (meso, mesoUsage, mesoChars) = await InvokeTierAsync<MesoWeekOutput>(
+                tier: TierMeso,
+                planId: planId,
+                systemPrompt: systemPrompt,
+                userMessage: BuildMesoUserMessage(basePrompt, macro, weekContext),
+                extraTags: a =>
+                {
+                    a?.SetTag(TagNames.WeekIndex, capturedWeek);
+                    a?.SetTag(TagNames.IsDeloadCandidate, weekContext.IsDeloadCandidate);
+                },
+                ct).ConfigureAwait(false);
             totalUsage = totalUsage.Add(mesoUsage);
-
-            var mesoChars = MeasureOutputChars(meso);
             mesoOutputCharsPerWeek[week - 1] = mesoChars;
-            mesoActivity?.SetTag(TagNames.OutputChars, mesoChars);
-
             mesoEvents.Add(new MesoCycleCreated(week, meso));
         }
 
@@ -297,26 +277,14 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         // and the week-1 meso so the model has both contexts. The system block
         // remains the cacheable prefix shared with calls 1-5.
         var weekOneMeso = mesoEvents[0].Meso;
-        MicroWorkoutListOutput micro;
-        int microOutputChars;
-        using (var microActivity = ActivitySource.StartActivity(
-            TierActivityName,
-            ActivityKind.Internal))
-        {
-            microActivity?.SetTag(TagNames.Tier, TierMicro);
-            microActivity?.SetTag(TagNames.PlanId, planId.ToString());
-            (micro, var microUsage) = await _llm
-                .GenerateStructuredAsync<MicroWorkoutListOutput>(
-                    systemPrompt,
-                    BuildMicroUserMessage(basePrompt, macro, weekOneMeso),
-                    schema: null,
-                    cacheControl: CacheControl.Ephemeral1h,
-                    ct)
-                .ConfigureAwait(false);
-            totalUsage = totalUsage.Add(microUsage);
-            microOutputChars = MeasureOutputChars(micro);
-            microActivity?.SetTag(TagNames.OutputChars, microOutputChars);
-        }
+        var (micro, microUsage, microOutputChars) = await InvokeTierAsync<MicroWorkoutListOutput>(
+            tier: TierMicro,
+            planId: planId,
+            systemPrompt: systemPrompt,
+            userMessage: BuildMicroUserMessage(basePrompt, macro, weekOneMeso),
+            extraTags: null,
+            ct).ConfigureAwait(false);
+        totalUsage = totalUsage.Add(microUsage);
 
         var promptVersion = _promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId);
 
@@ -507,6 +475,42 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         ILogger logger,
         Guid planId,
         int eventCount);
+
+    /// <summary>
+    /// Wraps one tier-level structured-output call: opens a per-tier child
+    /// span, stamps the canonical tier tags, runs the LLM's structured-output
+    /// call against the cacheable prefix + tier-specific suffix, measures
+    /// the per-tier output-size proxy, and returns the deserialized result
+    /// alongside the call's usage counters and char count. Lifts the macro,
+    /// meso, and micro tier blocks onto a single shape so OTel emission and
+    /// LLM-call wiring don't drift across the three sites.
+    /// </summary>
+    private async Task<(T Result, AnthropicUsage Usage, int OutputChars)> InvokeTierAsync<T>(
+        string tier,
+        Guid planId,
+        string systemPrompt,
+        string userMessage,
+        Action<Activity?>? extraTags,
+        CancellationToken ct)
+    {
+        using var activity = ActivitySource.StartActivity(TierActivityName, ActivityKind.Internal);
+        activity?.SetTag(TagNames.Tier, tier);
+        activity?.SetTag(TagNames.PlanId, planId.ToString());
+        extraTags?.Invoke(activity);
+
+        var (result, usage) = await _llm
+            .GenerateStructuredAsync<T>(
+                systemPrompt,
+                userMessage,
+                schema: null,
+                cacheControl: CacheControl.Ephemeral1h,
+                ct)
+            .ConfigureAwait(false);
+
+        var outputChars = MeasureOutputChars(result);
+        activity?.SetTag(TagNames.OutputChars, outputChars);
+        return (result, usage, outputChars);
+    }
 
     /// <summary>
     /// Per-week context derived from the macro plan's phase list. Tells the
