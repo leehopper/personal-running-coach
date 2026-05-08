@@ -46,7 +46,8 @@ public sealed class SanitizationOTelTests : IDisposable
     [Fact]
     public async Task SanitizeAsync_EmitsGuardrailSpanWithDocumentedAttributes()
     {
-        // Arrange
+        // Arrange — see Clear+LastOrDefault rationale in the sibling test.
+        _captured.Clear();
         var sut = new LayeredPromptSanitizer(NullLogger<LayeredPromptSanitizer>.Instance);
         const string secretishLookingPii = "I am John Doe, born 1985-04-12, ssn 123-45-6789";
 
@@ -94,7 +95,13 @@ public sealed class SanitizationOTelTests : IDisposable
     [Fact]
     public async Task SanitizeAsync_FindingsAttribute_IsValidPiiFreeJson()
     {
-        // Arrange
+        // Arrange — clear _captured so we only inspect activities fired by
+        // this test's SanitizeAsync call. Without this, ambient sanitizer
+        // calls from other tests in the suite (the listener filters by
+        // ActivitySource name, not by test-scoped Activity.Id) can land in
+        // _captured before this method runs and cause `.LastOrDefault(...)`
+        // to return a stale span with unrelated findings.
+        _captured.Clear();
         var sut = new LayeredPromptSanitizer(NullLogger<LayeredPromptSanitizer>.Instance);
 
         // Act — exercise a clear hit so `findings` is a non-empty array,
