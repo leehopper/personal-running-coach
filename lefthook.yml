@@ -49,14 +49,12 @@ pre-push:
       root: "backend/"
       glob: "*.cs"
       # Build-only pre-push gate: catches compilation errors and analyzer
-      # violations (TreatWarningsAsErrors). The full xunit v3 suite is run
-      # by CI (.github/workflows/ci.yml + sonarqube.yml) — invoking
-      # `dotnet test` here on macOS is brittle: legacy VSTest routing hangs
-      # in MSBuild eval against MTP-only xunit v3 projects, and MTP routing
-      # via `global.json` requires --solution syntax incompatible with
-      # CI's coverlet.msbuild + VSTest coverage path. The eval-cache-replay
-      # hook below still runs the 15 Eval tests via the test binary
-      # directly — that's the surface that has silent failure modes CI
+      # violations (`TreatWarningsAsErrors`). The full xunit v3 suite runs
+      # in CI (`.github/workflows/ci.yml` + `sonarqube.yml`); local devs
+      # invoke `dotnet test --solution RunCoach.slnx --no-build` directly
+      # via the MTP-native runner (`backend/global.json` selects MTP). The
+      # `eval-cache-replay` hook below still runs the 15 Eval tests via the
+      # test binary directly — that surface has silent failure modes CI
       # cannot catch (stale committed eval-cache fixtures).
       run: dotnet build RunCoach.slnx --no-restore
     eval-cache-replay:

@@ -147,6 +147,21 @@ frontier
   collection-level parallelism without first superseding DEC-064 in the
   decision log. The two enforcement mechanisms are deliberately
   redundant; both must stay.
+- Reject any change that removes `backend/global.json`'s
+  `test.runner: Microsoft.Testing.Platform`, re-introduces
+  `<TestingPlatformDotnetTestSupport>` (silently ignored on .NET 10+
+  SDK), or downgrades any of the MTP-family pins
+  (`Microsoft.Testing.Platform.MSBuild`,
+  `Microsoft.Testing.Extensions.Telemetry`,
+  `Microsoft.Testing.Extensions.TrxReport`,
+  `Microsoft.Testing.Extensions.TrxReport.Abstractions`,
+  `Microsoft.Testing.Platform`) below the 2.x line shared with
+  `coverlet.MTP` and `xunit.v3.core.mtp-v2`. Mismatched majors throw
+  `TypeLoadException` for `IDataConsumer` /
+  `IOutputDevice.DisplayAsync` at test-host startup. Reject swapping
+  `coverlet.MTP` back to `coverlet.msbuild` or `coverlet.collector`
+  (both are VSTest-bridge-only and silently produce no coverage under
+  MTP-native).
 - Reject any patch that removes the
   `services.PostConfigure<HostOptions>(opts => opts.ShutdownTimeout = ...)`
   block in `RunCoachAppFactory.ConfigureWebHost`. The 30s framework

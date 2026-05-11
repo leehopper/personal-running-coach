@@ -2288,4 +2288,46 @@ Total wall-clock test time grows because collections no longer overlap. Today's 
 
 ---
 
+## DEC-065: Route `dotnet test` through Microsoft.Testing.Platform natively via `backend/global.json`
+
+**Date:** 2026-05-10
+**Category:** Backend / Testing infrastructure
+**Status:** Accepted
+**Drives:** PR #71 close-out — restores deterministic local `dotnet test` after the macOS-arm64 hang regression.
+
+### Decision
+
+`backend/global.json` declares `test.runner: Microsoft.Testing.Platform`. The backend test stack pins the entire Microsoft.Testing.Platform 2.x family (`Microsoft.Testing.Platform`, `Microsoft.Testing.Platform.MSBuild`, `Microsoft.Testing.Extensions.Telemetry`, `Microsoft.Testing.Extensions.TrxReport`, `Microsoft.Testing.Extensions.TrxReport.Abstractions` — all 2.2.2) plus `coverlet.MTP` 10.0.0 (replacing `coverlet.msbuild`) and `xunit.v3.core.mtp-v2` 3.2.2 (replacing the `xunit.v3` meta-package, which still defaults to the `mtp-v1` adapter). `<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>` enforces the pins through xunit's transitive graph. The legacy `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>` MSBuild property is removed from the test csproj.
+
+Local invocation: `dotnet test --solution RunCoach.slnx --no-build` (positional `RunCoach.slnx` is rejected by MTP-native; use `--solution` or `--project`). CI passes `--coverlet --coverlet-output-format opencover --coverlet-output-format cobertura --results-directory backend/TestResults`; SonarQube ingests via `backend/TestResults/*.opencover.xml` glob, Codecov via the cobertura sibling.
+
+### Rationale
+
+On .NET SDK 10+, `<TestingPlatformDotnetTestSupport>` is silently ignored — only `global.json` `test.runner` controls whether `dotnet test` routes through VSTest or MTP. Without `global.json`, `dotnet test` defaults to VSTest, which against an MTP-only xunit v3 project bridges via `Microsoft.Testing.Platform.MSBuild` and spawns the test exe with `--internal-msbuild-node /tmp/<guid>`. On macOS arm64 the MSBuild ↔ test-exe pipe protocol deadlocks: the test exe's main thread blocks indefinitely in `Monitor_Wait` → `SyncBlock::Wait` → `_pthread_cond_wait` (verified by `sample` against the hung test pid). CI passes only because Linux + the GHA-installed dotnet/MSBuild combo happens to drive the bridge; locally the suite that previously "took minutes" now exceeds 10 minutes with no progress and zero Postgres containers spawned. Unit tests (no `AssemblyFixture` boot) bypass the bridge protocol enough to complete, which made the regression masquerade as "pre-push is fast, full run is slow."
+
+The MTP-family pin chain exists because `xunit.v3` 3.2.2's meta-package brings `xunit.v3.core.mtp-v1` (built against MTP 1.x). Pulling `coverlet.MTP` 10.0.0 forces MTP 2.2.x at the platform layer, leaving `Microsoft.Testing.Extensions.Telemetry 1.9.1` and `Microsoft.Testing.Platform.MSBuild 1.9.1` (and the v1 adapter) trying to load `IDataConsumer` / `IOutputDevice.DisplayAsync` — APIs that were renamed/removed in 2.x. Test-host startup throws `TypeLoadException` and reports "Zero tests ran" with exit 134. Pinning every transitive to 2.2.2 + switching xunit's MTP adapter to `mtp-v2` aligns the entire MTP API surface.
+
+`coverlet.msbuild` is replaced by `coverlet.MTP` because the former hooks VSTest's `ProcessExit` event to flush coverage reports — that hook never fires under MTP-native, so coverage output silently disappears. `coverlet.MTP` is the upstream-supported MTP-native equivalent (`--coverlet --coverlet-output-format ...` flags) producing identical OpenCover/Cobertura XML.
+
+### Alternatives considered
+
+- **Document the MSBuild-bridge hang as a known macOS limitation; require `dotnet build` + direct test-exe invocation locally.** The compiled test exe (`RunCoach.Api.Tests.dll`) accepts xunit's native `-class` / `-trait` / `-method` filters and does not hang. Rejected: adds a per-developer mental tax, divergent local vs CI invocation, and the existing memory + onboarding both already document `dotnet test` as the canonical command.
+- **Stay on VSTest routing in CI and tell developers to skip integration tests locally.** Rejected: hides the regression behind a workaround; integration tests are part of the slice acceptance criteria and need to be runnable locally.
+- **Drop `coverlet` entirely and use `Microsoft.Testing.Extensions.CodeCoverage` (`--coverage` + `dotnet-coverage merge`).** Produces `.coverage` binary files that need a separate conversion step before SonarQube/Codecov can ingest them. More CI moving parts, no gain — `coverlet.MTP` directly emits OpenCover + Cobertura.
+
+### Trade-off
+
+The MTP 2.x pin chain is load-bearing — every new MTP-family extension we adopt must land on the same major. The `<CentralPackageTransitivePinningEnabled>true</...>` knob also exposes any other transitive version drift in the package graph (caught the `Microsoft.Extensions.Hosting 10.0.5 → 10.0.7` downgrade during this change). Both are tracked as REVIEW.md guard rules.
+
+### References
+
+- `backend/global.json` — the runner selector.
+- `backend/Directory.Packages.props` — `CentralPackageTransitivePinningEnabled` + the MTP 2.x pin block.
+- `backend/tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj` — coverlet swap, explicit `xunit.v3.core.mtp-v2` + `xunit.v3.assert` pair, explicit `Microsoft.Testing.Platform.MSBuild` reference.
+- `.github/workflows/ci.yml` + `.github/workflows/sonarqube.yml` — MTP-native invocation with `--solution` / `--results-directory` / `--coverlet`.
+- `backend/CLAUDE.md` § Testing — operational restatement.
+- `REVIEW.md` § Test infrastructure — guard rules.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

@@ -1,6 +1,14 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Pin transitive package versions too. Required so the MTP-family
+         transitives that xunit.v3 pulls (`Microsoft.Testing.Extensions.Telemetry`,
+         `Microsoft.Testing.Platform.MSBuild`) honor the 2.x versions declared
+         below instead of resolving to xunit.v3 3.2.2's transitive 1.x line,
+         which throws `TypeLoadException: Could not load type
+         Microsoft.Testing.Platform.Extensions.TestHost.IDataConsumer` on
+         test-host startup. Lift this once xunit.v3 ships an MTP-2.x release. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
     <!-- API -->
@@ -8,7 +16,7 @@
     <PackageVersion Include="OpenTelemetry.Api" Version="1.15.3" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.7" />
     <!-- Console / Hosting -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
     <!-- Auth — ASP.NET Core authentication -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
     <!-- Persistence — EF Core + Identity + DataProtection + Npgsql.
@@ -45,14 +53,32 @@
     <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.5.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.5.0" />
     <!-- Testing -->
-    <PackageVersion Include="coverlet.msbuild" Version="10.0.0" />
+    <PackageVersion Include="coverlet.MTP" Version="10.0.0" />
     <PackageVersion Include="FluentAssertions" Version="8.9.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="1.9.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.2.2" />
+    <!-- Pin every Microsoft.Testing.Platform-family extension that xunit.v3
+         3.2.2 transitively pulls in to the same 2.x line. Combined with
+         `<CentralPackageTransitivePinningEnabled>true</...>` above, this
+         keeps `Microsoft.Testing.Platform.dll` and the four extensions in
+         the same major version so `IDataConsumer` resolves correctly at
+         test-host startup. Lift the pins when xunit.v3 ships an MTP-2.x
+         release. -->
+    <PackageVersion Include="Microsoft.Testing.Platform" Version="2.2.2" />
+    <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="2.2.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry" Version="2.2.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" Version="2.2.2" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="Respawn" Version="7.0.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.11.0" />
-    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <!-- xunit.v3 meta-package brings xunit.v3.core.mtp-v1 (built against
+         MTP 1.x). Use the mtp-v2 core package directly so the MicrosoftTestingPlatform
+         adapter resolves the same MTP 2.x APIs (`IOutputDevice.DisplayAsync`,
+         `IDataConsumer`) as the rest of the extension stack pinned above.
+         Lift this back to the `xunit.v3` meta-package when xUnit ships a
+         release whose default MTP adapter targets 2.x. -->
+    <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
+    <PackageVersion Include="xunit.v3.core.mtp-v2" Version="3.2.2" />
     <!-- Analyzers -->
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.24.0.138807" />
