@@ -249,6 +249,130 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
     }
 
     /// <summary>
+    /// HTTP-pipeline 401 path — an anonymous client (no session cookie, no
+    /// bearer) must be rejected by the <c>CookieOrBearer</c> auth policy
+    /// before the controller body runs. The middleware order is
+    /// Authentication -> Authorization -> Antiforgery, so the auth challenge
+    /// fires first; the missing antiforgery header is never reached.
+    /// </summary>
+    [Fact]
+    public async Task Regenerate_HTTP_Without_Auth_Returns_401()
+    {
+        // Arrange — bare client, no cookies, no antiforgery header.
+        var client = Factory.CreateDefaultClient();
+        client.BaseAddress = BaseUri;
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/plan/regenerate")
+        {
+            Content = JsonContent.Create(new RegeneratePlanRequestDto(Guid.NewGuid(), Intent: null)),
+        };
+
+        // Act
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    /// <summary>
+    /// HTTP-pipeline 400 path — an authenticated client that omits the
+    /// `X-XSRF-TOKEN` header receives 400 (not 401) from the antiforgery
+    /// bridge. The session cookie satisfies authentication; the antiforgery
+    /// gate is the only failure surface.
+    /// </summary>
+    [Fact]
+    public async Task Regenerate_HTTP_Authenticated_Without_Antiforgery_Returns_400()
+    {
+        // Arrange — register and log in so the session cookie lands in the
+        //   container, then seed onboarding completion so the 409 gate does
+        //   not short-circuit the antiforgery check.
+        var (client, _, _, userId) = await RegisterLoginAndPrepareCookieClientWithUserIdAsync();
+        var initialPlanId = Guid.NewGuid();
+        await SeedInitialPlanStreamAsync(userId, initialPlanId);
+        await SeedOnboardingCompletionAsync(userId, initialPlanId);
+
+        // Build the request deliberately omitting `X-XSRF-TOKEN`.
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/plan/regenerate")
+        {
+            Content = JsonContent.Create(new RegeneratePlanRequestDto(Guid.NewGuid(), Intent: null)),
+        };
+
+        // Act
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert — antiforgery bridge fires 400, not 401.
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        problem.Should().NotBeNull();
+        problem!.Type.Should().Be("https://runcoach.app/problems/antiforgery-validation-failed");
+    }
+
+    /// <summary>
+    /// HTTP-pipeline 400 path — the controller rejects a request whose
+    /// `idempotencyKey` is `Guid.Empty` (all-zeros UUID) with 400
+    /// ProblemDetails of type
+    /// <c>https://runcoach.app/problems/invalid-idempotency-key</c>. The gate
+    /// sits on the controller before the Wolverine dispatch, so no handler
+    /// body executes.
+    /// </summary>
+    [Fact]
+    public async Task Regenerate_HTTP_With_EmptyIdempotencyKey_Returns_400()
+    {
+        // Arrange — onboarding seeded so the empty-key check runs AFTER the
+        //   onboarding-complete gate (otherwise the 409 gate would
+        //   short-circuit and the idempotency-key branch would never run).
+        var (client, _, antiforgeryToken, userId) = await RegisterLoginAndPrepareCookieClientWithUserIdAsync();
+        var initialPlanId = Guid.NewGuid();
+        await SeedInitialPlanStreamAsync(userId, initialPlanId);
+        await SeedOnboardingCompletionAsync(userId, initialPlanId);
+
+        // Act — POST with idempotencyKey = 00000000-0000-0000-0000-000000000000.
+        using var request = BuildRegenerateRequest(antiforgeryToken, idempotencyKey: Guid.Empty, intent: null);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        problem.Should().NotBeNull();
+        problem!.Type.Should().Be("https://runcoach.app/problems/invalid-idempotency-key");
+    }
+
+    /// <summary>
+    /// HTTP-pipeline 400 path — a free-text payload one byte over
+    /// <see cref="RegenerationIntent.RawMaxFreeTextLength"/> (501 chars) is
+    /// rejected with 400 ProblemDetails by the controller's length gate,
+    /// before sanitization runs.
+    /// </summary>
+    [Fact]
+    public async Task Regenerate_HTTP_With_Oversize_FreeText_Returns_400()
+    {
+        // Arrange — onboarding seeded so the 400 path exercises the length
+        //   gate, not the 409 onboarding-complete gate.
+        var (client, _, antiforgeryToken, userId) = await RegisterLoginAndPrepareCookieClientWithUserIdAsync();
+        var initialPlanId = Guid.NewGuid();
+        await SeedInitialPlanStreamAsync(userId, initialPlanId);
+        await SeedOnboardingCompletionAsync(userId, initialPlanId);
+
+        var oversizeFreeText = new string('x', RegenerationIntent.RawMaxFreeTextLength + 1);
+
+        // Act
+        using var request = BuildRegenerateRequest(antiforgeryToken, idempotencyKey: Guid.NewGuid(), intent: oversizeFreeText);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        problem.Should().NotBeNull();
+    }
+
+    /// <summary>
     /// Marten state lives in <c>runcoach_events</c>, which Respawn skips.
     /// Reset it explicitly so seeded streams + idempotency markers do not
     /// leak between tests.
@@ -399,6 +523,43 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         return await EntityFrameworkQueryableExtensions
             .SingleOrDefaultAsync(query, TestContext.Current.CancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async Task<(HttpClient Client, CookieContainer Container, string AntiforgeryToken, Guid UserId)>
+        RegisterLoginAndPrepareCookieClientWithUserIdAsync()
+    {
+        // Mirrors `RegisterLoginAndPrepareCookieClientAsync` but additionally
+        //   resolves the registered `ApplicationUser.Id` off `UserManager` so
+        //   HTTP-pipeline tests can seed onboarding events on the same userId
+        //   the cookie-authenticated client identifies as.
+        var container = new CookieContainer();
+        var client = Factory.CreateDefaultClient(new CookieContainerHandler(container));
+        client.BaseAddress = BaseUri;
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        var antiforgeryToken = await PrimeAntiforgeryAsync(client, container);
+
+        var email = $"regen-{Guid.NewGuid():N}@example.test";
+        using var registerRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/register");
+        registerRequest.Headers.Add(AntiforgeryHeaderName, antiforgeryToken);
+        registerRequest.Content = JsonContent.Create(new RegisterRequestDto(email, StrongPassword));
+        using var registerResponse = await client.SendAsync(registerRequest, TestContext.Current.CancellationToken);
+        registerResponse.StatusCode.Should().Be(HttpStatusCode.Created, because: "register helper must succeed");
+
+        antiforgeryToken = await PrimeAntiforgeryAsync(client, container);
+        using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login");
+        loginRequest.Headers.Add(AntiforgeryHeaderName, antiforgeryToken);
+        loginRequest.Content = JsonContent.Create(new LoginRequestDto(email, StrongPassword));
+        using var loginResponse = await client.SendAsync(loginRequest, TestContext.Current.CancellationToken);
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK, because: "login helper must succeed");
+
+        antiforgeryToken = await PrimeAntiforgeryAsync(client, container);
+
+        using var scope = Factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var registered = await users.FindByEmailAsync(email);
+        registered.Should().NotBeNull(because: "the registered user must exist after the /register call");
+        return (client, container, antiforgeryToken, registered!.Id);
     }
 
     private async Task<(HttpClient Client, CookieContainer Container, string AntiforgeryToken)>

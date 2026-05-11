@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Respawn;
 using RunCoach.Api.Infrastructure;
+using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Training.Plan;
 using Testcontainers.PostgreSql;
 
@@ -238,6 +239,18 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         {
             services.RemoveAll<IPlanGenerationService>();
             services.AddScoped<IPlanGenerationService, StubPlanGenerationService>();
+
+            // Remove the production-registered `IdempotencySweeper` IHostedService so the
+            // real-clock sweeper doesn't race the fake-time markers seeded by
+            // `IdempotencySweeperIntegrationTests`. REVIEW.md DEC-064 codifies this as
+            // the canonical handling for any time-sensitive hosted service.
+            var sweeperDescriptor = services.SingleOrDefault(d =>
+                d.ServiceType == typeof(IHostedService)
+                && d.ImplementationType == typeof(IdempotencySweeper));
+            if (sweeperDescriptor is not null)
+            {
+                services.Remove(sweeperDescriptor);
+            }
 
             // Extend `IHost.ShutdownTimeout` from its 30s default to 2 minutes
             // for the test host. Marten's async daemon (`DaemonMode.Solo`),

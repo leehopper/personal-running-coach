@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -232,6 +234,110 @@ public sealed class PlanGenerationServiceTests
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_FailureOnFourthMesoCall_EmitsFailureOtel()
+    {
+        // Arrange — same mock-LLM throw-on-meso-4 setup as the sibling
+        // `FailureOnFourthMesoCall_ThrowsAndReturnsNoEvents` test, with an
+        // in-process `ActivityListener` and `MeterListener` wired to the
+        // `PlanGenerationService.ObservabilitySourceName` source so the
+        // catch block's OTel emissions can be asserted.
+        var capturedActivities = new List<Activity>();
+        using var activityListener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == PlanGenerationService.ObservabilitySourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                lock (capturedActivities)
+                {
+                    capturedActivities.Add(activity);
+                }
+            },
+        };
+        ActivitySource.AddActivityListener(activityListener);
+
+        var measurements = new List<(double Value, KeyValuePair<string, object?>[] Tags)>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == PlanGenerationService.ObservabilitySourceName
+                    && instrument.Name == PlanGenerationService.PlanGenerationCompletedMetricName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        meterListener.SetMeasurementEventCallback<double>((instrument, value, tags, state) =>
+        {
+            lock (measurements)
+            {
+                measurements.Add((value, tags.ToArray()));
+            }
+        });
+        meterListener.Start();
+
+        var (sut, llm, _) = CreateSut();
+        ConfigureMacroSuccess(llm);
+
+        var mesoCalls = 0;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                mesoCalls++;
+                if (mesoCalls == 4)
+                {
+                    throw new InvalidOperationException("simulated meso 4 failure");
+                }
+
+                return WithZeroUsage(BuildMeso(mesoCalls, PhaseType.Base, isDeload: false));
+            });
+
+        // Act
+        await FluentActions
+            .Awaiting(() => sut.GeneratePlanAsync(
+                CreateCompletedView(),
+                UserId,
+                PlanId,
+                intent: null,
+                previousPlanId: null,
+                TestContext.Current.CancellationToken))
+            .Should()
+            .ThrowAsync<InvalidOperationException>();
+
+        // Assert — parent span carries error status + `exception` event.
+        var parentSpan = capturedActivities
+            .FirstOrDefault(a => a.OperationName == PlanGenerationService.PlanGenerationActivityName);
+        parentSpan.Should().NotBeNull(
+            because: $"`{PlanGenerationService.PlanGenerationActivityName}` must wrap the whole chain");
+        parentSpan!.Status.Should().Be(ActivityStatusCode.Error);
+        parentSpan.Events.Should().Contain(
+            e => e.Name == "exception",
+            because: "`Activity.AddException` records an `ActivityEvent` named `exception` per BCL");
+
+        // Failure measurement: at least one record with `outcome = failure`
+        // and the exception type stamped per the catch block's tag bag.
+        var failureMeasurements = measurements
+            .Where(m => m.Tags.Any(t =>
+                t.Key == PlanGenerationTagNames.Outcome
+                && string.Equals(t.Value as string, "failure", StringComparison.Ordinal)))
+            .ToArray();
+        failureMeasurements.Should().HaveCount(1, because: "the catch block records exactly one failure histogram event");
+
+        var failureTags = failureMeasurements[0].Tags;
+        failureTags
+            .Should().Contain(t =>
+                t.Key == PlanGenerationTagNames.ExceptionType
+                && (t.Value as string) == typeof(InvalidOperationException).FullName);
     }
 
     [Fact]
