@@ -24,9 +24,11 @@ namespace RunCoach.Api.Tests.Infrastructure;
 /// <c>NpgsqlDataSource</c> against the production DI wiring. HTTP endpoints
 /// are reachable through <see cref="WebApplicationFactory{TEntryPoint}.CreateClient()"/>.
 ///
-/// <c>WithReuse(true)</c> outside CI keeps the container warm between
-/// <c>dotnet test</c> invocations; in CI we always run a fresh container so a
-/// corrupt snapshot can never leak between runs.
+/// Container reuse is unconditionally disabled. The 5s warm-container saving
+/// doesn't pay back the macOS-Colima failure mode where an abnormal test-process
+/// exit leaves the labeled container in <c>Exited</c> state and the next
+/// <c>dotnet test</c> hangs in <c>InitializeAsync</c> coordinating with a dead
+/// port — see DEC-064 and the constructor for the full rationale.
 /// </summary>
 public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
