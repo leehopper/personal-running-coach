@@ -181,6 +181,18 @@ frontier
   `services.Remove(...)` inside `RunCoachAppFactory.ConfigureWebHost`
   so the test host doesn't race fake-time tests. Precedent:
   `IdempotencySweeper`.
+- Reject re-introduction of `WithReuse(true)` (or `WithReuse(!IsCi)`)
+  on the `PostgreSqlBuilder` in `RunCoachAppFactory`. The reuse path is
+  unstable on macOS Colima: when a test process exits abnormally
+  (Ctrl+C, kill, IDE crash) the container is left in `Exited` state
+  with the reuse-id label still attached, and the next `dotnet test`
+  hangs in `RunCoachAppFactory.InitializeAsync` trying to coordinate
+  with the dead port (visible as `Monitor_Wait` on the main thread).
+  Ryuk-managed cleanup (the default once `WithReuse` is off) reaps the
+  container reliably on every test-process exit. Trade-off: ~5s of
+  cold-start per run; the daily-driver workaround for tight iteration
+  stays `dotnet test --filter-not-trait "Category=Integration"` (977
+  tests in ~3s).
 
 ## Ignore
 

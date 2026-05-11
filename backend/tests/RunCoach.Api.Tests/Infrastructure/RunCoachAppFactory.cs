@@ -42,16 +42,12 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
     public const string TestJwtSigningKey = "test-hs256-signing-key-0123456789-abcdef0123456789";
     public const string TestJwtKeyId = "test-kid";
 
-    private const string ReuseLabel = "runcoach-tests";
     private const string ConnectionStringEnvVar = "ConnectionStrings__runcoach";
     private const string OtlpEndpointEnvVar = "OTEL_EXPORTER_OTLP_ENDPOINT";
     private const string JwtIssuerEnvVar = "Auth__Jwt__Issuer";
     private const string JwtAudienceEnvVar = "Auth__Jwt__Audience";
     private const string JwtSigningKeyEnvVar = "Auth__Jwt__SigningKey";
     private const string JwtKeyIdEnvVar = "Auth__Jwt__KeyId";
-
-    private static readonly bool IsCi =
-        string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
 
     private readonly PostgreSqlContainer _container;
     private Respawner? _respawner;
@@ -65,12 +61,24 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
 
     public RunCoachAppFactory()
     {
+        // Always disable `WithReuse(true)`. The 5s saved by a warm container
+        // doesn't pay back the failure mode it introduces on macOS Colima:
+        // when a test process exits abnormally (Ctrl+C, kill -9, IDE crash),
+        // the postgres container is left in Exited state with the reuse-id
+        // label still attached. The next `dotnet test` finds the labeled
+        // container, decides to reuse it, and hangs in
+        // `RunCoachAppFactory.InitializeAsync` trying to coordinate with a
+        // stopped port (visible as `Monitor_Wait` on the main thread, every
+        // integration test then failing `Connection refused` to the dead
+        // port). Ryuk-managed cleanup (the default once `WithReuse` is off)
+        // reaps the container reliably on every test-process exit, including
+        // SIGKILL via Ryuk's grace-period heartbeat. Trade-off: ~5s of
+        // container cold-start per `dotnet test` run; daily-driver iteration
+        // stays at ~3s via `--filter-not-trait "Category=Integration"`.
         _container = new PostgreSqlBuilder("postgres:17-alpine")
             .WithDatabase("runcoach")
             .WithUsername("runcoach")
             .WithPassword("testcontainer-dev")
-            .WithReuse(!IsCi)
-            .WithLabel("reuse-id", ReuseLabel)
             .Build();
     }
 
