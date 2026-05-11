@@ -2288,7 +2288,7 @@ Total wall-clock test time grows because collections no longer overlap. Today's 
 
 ---
 
-## DEC-065: Route `dotnet test` through Microsoft.Testing.Platform natively via `backend/global.json`
+## DEC-065: Route `dotnet test` through Microsoft.Testing.Platform natively via `global.json`
 
 **Date:** 2026-05-10
 **Category:** Backend / Testing infrastructure
@@ -2297,7 +2297,7 @@ Total wall-clock test time grows because collections no longer overlap. Today's 
 
 ### Decision
 
-`backend/global.json` declares `test.runner: Microsoft.Testing.Platform`. The backend test stack pins the entire Microsoft.Testing.Platform 2.x family (`Microsoft.Testing.Platform`, `Microsoft.Testing.Platform.MSBuild`, `Microsoft.Testing.Extensions.Telemetry`, `Microsoft.Testing.Extensions.TrxReport`, `Microsoft.Testing.Extensions.TrxReport.Abstractions` — all 2.2.2) plus `coverlet.MTP` 10.0.0 (replacing `coverlet.msbuild`) and `xunit.v3.core.mtp-v2` 3.2.2 (replacing the `xunit.v3` meta-package, which still defaults to the `mtp-v1` adapter). `<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>` enforces the pins through xunit's transitive graph. The legacy `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>` MSBuild property is removed from the test csproj.
+`global.json` declares `test.runner: Microsoft.Testing.Platform`. The backend test stack pins the entire Microsoft.Testing.Platform 2.x family (`Microsoft.Testing.Platform`, `Microsoft.Testing.Platform.MSBuild`, `Microsoft.Testing.Extensions.Telemetry`, `Microsoft.Testing.Extensions.TrxReport`, `Microsoft.Testing.Extensions.TrxReport.Abstractions` — all 2.2.2) plus `coverlet.MTP` 10.0.0 (replacing `coverlet.msbuild`) and `xunit.v3.core.mtp-v2` 3.2.2 (replacing the `xunit.v3` meta-package, which still defaults to the `mtp-v1` adapter). `<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>` enforces the pins through xunit's transitive graph. The legacy `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>` MSBuild property is removed from the test csproj.
 
 Local invocation: `dotnet test --solution RunCoach.slnx --no-build` (positional `RunCoach.slnx` is rejected by MTP-native; use `--solution` or `--project`). CI passes `--coverlet --coverlet-output-format opencover --coverlet-output-format cobertura --results-directory backend/TestResults`; SonarQube ingests via `backend/TestResults/*.opencover.xml` glob, Codecov via the cobertura sibling.
 
@@ -2321,7 +2321,7 @@ The MTP 2.x pin chain is load-bearing — every new MTP-family extension we adop
 
 ### References
 
-- `backend/global.json` — the runner selector.
+- `global.json` — the runner selector.
 - `backend/Directory.Packages.props` — `CentralPackageTransitivePinningEnabled` + the MTP 2.x pin block.
 - `backend/tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj` — coverlet swap, explicit `xunit.v3.core.mtp-v2` + `xunit.v3.assert` pair, explicit `Microsoft.Testing.Platform.MSBuild` reference.
 - `.github/workflows/ci.yml` + `.github/workflows/sonarqube.yml` — MTP-native invocation with `--solution` / `--results-directory` / `--coverlet`.

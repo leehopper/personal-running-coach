@@ -52,7 +52,7 @@ pre-push:
       # violations (`TreatWarningsAsErrors`). The full xunit v3 suite runs
       # in CI (`.github/workflows/ci.yml` + `sonarqube.yml`); local devs
       # invoke `dotnet test --solution RunCoach.slnx --no-build` directly
-      # via the MTP-native runner (`backend/global.json` selects MTP). The
+      # via the MTP-native runner (`global.json` selects MTP). The
       # `eval-cache-replay` hook below still runs the 15 Eval tests via the
       # test binary directly — that surface has silent failure modes CI
       # cannot catch (stale committed eval-cache fixtures).

@@ -147,7 +147,7 @@ frontier
   collection-level parallelism without first superseding DEC-064 in the
   decision log. The two enforcement mechanisms are deliberately
   redundant; both must stay.
-- Reject any change that removes `backend/global.json`'s
+- Reject any change that removes `global.json`'s
   `test.runner: Microsoft.Testing.Platform`, re-introduces
   `<TestingPlatformDotnetTestSupport>` (silently ignored on .NET 10+
   SDK), or downgrades any of the MTP-family pins
