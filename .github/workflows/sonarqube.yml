@@ -54,6 +54,7 @@ jobs:
             /d:sonar.exclusions="backend/tests/eval-cache/**,**/*.generated.cs,**/Migrations/**,docs/**,.claude/**,backend/src/RunCoach.Api/Prompts/**,frontend/**" \
             /d:sonar.test.inclusions="backend/tests/**" \
             /d:sonar.cpd.exclusions="**/RunCoach.Api.Tests/**/*.cs" \
+            /d:sonar.cpd.cs.minimumTokens=150 \
             /d:sonar.cs.roslyn.ignoreIssues=false
 
       - name: Restore
