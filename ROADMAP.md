@@ -112,6 +112,10 @@ Tiered model routing (Haiku / Sonnet / Opus) for ~60% cost reduction; Batch API 
 - Performance regression testing in CI — deferred per DEC-034 (GitHub runner variance).
 - Trivy container image scanning — add when deploying Docker images.
 
+### Test parallelism — per-collection database isolation (DEC-064 deferred reversal)
+
+Restore xunit collection-level parallelism by partitioning `RunCoachAppFactory` into `[Collection]`-scoped fixtures, each owning its own `PostgreSqlContainer` (or schema), Marten `IDocumentStore`, and Wolverine host. Current sequential mode (DEC-064) runs the full 1054-test suite in ~1m47s locally on macOS Colima and ~1m48s on CI Linux — fine for occasional full runs, slow for tight iteration. Reconsider triggers: (a) suite wall-clock exceeds 3 minutes locally, (b) integration test count crosses ~150, (c) a contributor joins and burns time waiting on full runs. Implementation path is documented in DEC-064 § Alternatives; the daily-driver workaround is `dotnet test --filter-not-trait "Category=Integration"` (977 unit + eval tests, ~3s).
+
 ### Pre-public-release gate (from `docs/features/backlog.md`)
 
 Everything under "Pre-Public Release" in the feature backlog — extended health screening (PAR-Q+), expanded medical-scope keyword triggers, population-adjusted safety guardrails, beta participation agreement, LLC formation, privacy policy, full ToS. Required before anyone beyond the builder and trusted friends uses the product. Tracked in the feature backlog, not here.
