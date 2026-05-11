@@ -1,9 +1,11 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 1 (Onboarding → Plan) — implementation-ready. Spec at `docs/specs/13-spec-slice-1-onboarding/` (six demoable units) + 31 tasks on the board (#84–#115 with dependency edges wired). All pre-implementation research integrated (DEC-057 through DEC-060). Slice 0 closed 2026-04-23 with PR #63.
-**Next step:** Begin Slice 1 implementation. Four unblocked atomic tasks ready for parallel dispatch: #89 UserProfile entity, #90 Marten-document idempotency, #91 onboarding events (8 records incl. `PlanLinkedToUser`) + Pattern B records + prompt YAML, #115 sanitizer + 25-case corpus. Architectural rules locked: single-handler / single-Marten-session pattern (DEC-057), Pattern B structured-output schema (DEC-058), layered containment-first sanitizer (DEC-059), handler bodies emit events / projections own EF state (DEC-060).
+**Active slice:** Slice 1 (Onboarding → Plan) — **implementation complete, moving to PR review** as of 2026-04-26. All 33 atomic tasks shipped plus 7 cleanup follow-ups (test parallelism, e2e contract alignment, dual-write atomicity probe per R-069 §11, Wolverine handler discovery under `WebApplicationFactory<Program>`, `AnthropicUsage` exposure for cache-hit-rate telemetry). Backend `dotnet test` 848/848 PASS; frontend `vitest run` 176/176 PASS; cw-validate report PASS on all six gates.
+**Next step:** Open PR for Slice 1 close-out. Recommended docker-compose smoke for the four Playwright e2e specs (`auth`, `onboarding`, `plan-render`, `regenerate-plan`) before tagging the close-out commit; CI runs them on PR open.
 **Blockers:** None.
+
+**Architectural decisions locked during Slice 1:** DEC-057 (single-handler/single-Marten-session/single-transaction), DEC-058 (Pattern B byte-stable schema), DEC-059 (layered containment-first sanitizer), DEC-060 (handler bodies emit events; projections own EF state), DEC-062 (`opts.Add(...)` registration shape for EF projections), DEC-063 (Tailwind-only animation baseline), DEC-064 (xunit collection-parallelism disabled — supersedes DEC-061).
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 
@@ -109,6 +111,10 @@ Tiered model routing (Haiku / Sonnet / Opus) for ~60% cost reduction; Batch API 
 
 - Performance regression testing in CI — deferred per DEC-034 (GitHub runner variance).
 - Trivy container image scanning — add when deploying Docker images.
+
+### Test parallelism — per-collection database isolation (DEC-064 deferred reversal)
+
+Restore xunit collection-level parallelism by partitioning `RunCoachAppFactory` into `[Collection]`-scoped fixtures, each owning its own `PostgreSqlContainer` (or schema), Marten `IDocumentStore`, and Wolverine host. Current sequential mode (DEC-064) runs the full 1054-test suite in ~1m47s locally on macOS Colima and ~1m48s on CI Linux — fine for occasional full runs, slow for tight iteration. Reconsider triggers: (a) suite wall-clock exceeds 3 minutes locally, (b) integration test count crosses ~150, (c) a contributor joins and burns time waiting on full runs. Implementation path is documented in DEC-064 § Alternatives; the daily-driver workaround is `dotnet test --filter-not-trait "Category=Integration"` (977 unit + eval tests, ~3s).
 
 ### Pre-public-release gate (from `docs/features/backlog.md`)
 

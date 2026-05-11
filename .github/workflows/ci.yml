@@ -26,6 +26,7 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - 'global.json'
             frontend:
               - 'frontend/**'
 
@@ -58,7 +59,15 @@ jobs:
       - name: Build
         run: dotnet build backend/RunCoach.slnx --no-restore
       - name: Test
-        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true -- --report-trx
+        run: >-
+          dotnet test
+          --solution backend/RunCoach.slnx
+          --no-build
+          --results-directory backend/TestResults
+          --report-trx
+          --coverlet
+          --coverlet-output-format opencover
+          --coverlet-output-format cobertura
         env:
           EVAL_CACHE_MODE: Replay
       - name: Upload test results on failure
@@ -67,8 +76,8 @@ jobs:
         with:
           name: backend-test-results
           path: |
-            backend/tests/**/TestResults/**/*.trx
-            backend/tests/**/TestResults/**/*.log
+            backend/TestResults/**/*.trx
+            backend/TestResults/**/*.log
           retention-days: 7
           if-no-files-found: warn
       - name: Upload coverage

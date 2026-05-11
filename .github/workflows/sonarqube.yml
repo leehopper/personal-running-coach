@@ -48,11 +48,13 @@ jobs:
             /o:"leehopper" \
             /d:sonar.host.url="https://sonarcloud.io" \
             /d:sonar.token="$SONAR_TOKEN" \
-            /d:sonar.cs.opencover.reportsPaths="backend/TestResults/coverage.opencover.xml" \
+            /d:sonar.cs.opencover.reportsPaths="backend/TestResults/coverage.opencover.*.xml" \
             /d:sonar.sources="backend/src" \
             /d:sonar.tests="backend/tests" \
             /d:sonar.exclusions="backend/tests/eval-cache/**,**/*.generated.cs,**/Migrations/**,docs/**,.claude/**,backend/src/RunCoach.Api/Prompts/**,frontend/**" \
             /d:sonar.test.inclusions="backend/tests/**" \
+            /d:sonar.cpd.exclusions="**/RunCoach.Api.Tests/**/*.cs" \
+            /d:sonar.cpd.cs.minimumTokens=150 \
             /d:sonar.cs.roslyn.ignoreIssues=false
 
       - name: Restore
@@ -62,7 +64,15 @@ jobs:
         run: dotnet build backend/RunCoach.slnx --no-restore --no-incremental
 
       - name: Test with coverage
-        run: dotnet test backend/RunCoach.slnx --no-build /p:CollectCoverage=true -- --report-trx
+        run: >-
+          dotnet test
+          --solution backend/RunCoach.slnx
+          --no-build
+          --results-directory backend/TestResults
+          --report-trx
+          --coverlet
+          --coverlet-output-format opencover
+          --coverlet-output-format cobertura
         env:
           EVAL_CACHE_MODE: Replay
 
@@ -72,10 +82,14 @@ jobs:
         with:
           name: backend-analysis-test-results
           path: |
-            backend/tests/**/TestResults/**/*.trx
-            backend/tests/**/TestResults/**/*.log
+            backend/TestResults/**/*.trx
+            backend/TestResults/**/*.log
           retention-days: 7
           if-no-files-found: warn
+
+      - name: List coverage outputs (diagnostic)
+        if: always()
+        run: ls -la backend/TestResults/ 2>&1 || echo "no TestResults dir"
 
       - name: SonarScanner end
         if: env.SONAR_PRESENT == 'true'
