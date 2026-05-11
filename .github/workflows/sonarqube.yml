@@ -82,8 +82,8 @@ jobs:
         with:
           name: backend-analysis-test-results
           path: |
-            backend/tests/**/TestResults/**/*.trx
-            backend/tests/**/TestResults/**/*.log
+            backend/TestResults/**/*.trx
+            backend/TestResults/**/*.log
           retention-days: 7
           if-no-files-found: warn
 

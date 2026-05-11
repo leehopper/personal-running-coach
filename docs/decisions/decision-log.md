@@ -2241,10 +2241,11 @@ When either trigger fires, the adopting slice: (a) `npm install motion@^12`, (b)
 
 ## DEC-064: Disable parallel test-collection execution in `RunCoach.Api.Tests`; sequential is the canonical mode
 
-**Date:** 2026-04-25
+**Date:** 2026-05-11 (PR #71)
 **Category:** Backend / Testing infrastructure
 **Status:** Accepted
 **Supersedes:** DEC-061 (per-collection opt-out parallelism — did not eliminate the Marten advisory-lock + `IDocumentStore` shutdown races on the shared assembly fixture)
+**Note:** The decision was made on 2026-04-25 during slice-1e development; this entry's date reflects when the supersession became canonical in `main` (slice-1e PR #71 close-out), so the supersession chain reads chronologically against DEC-061's PR #69 landing date (2026-05-07).
 **Drives:** Slice 1 close-out follow-up #117 — codifies the fix for the parallel-test-isolation flake observed across worker dispatch rounds (#99, #110, #111).
 
 ### Decision
@@ -2290,7 +2291,7 @@ Total wall-clock test time grows because collections no longer overlap. Today's 
 
 ## DEC-065: Route `dotnet test` through Microsoft.Testing.Platform natively via `global.json`
 
-**Date:** 2026-05-10
+**Date:** 2026-05-11 (PR #71)
 **Category:** Backend / Testing infrastructure
 **Status:** Accepted
 **Drives:** PR #71 close-out — restores deterministic local `dotnet test` after the macOS-arm64 hang regression.

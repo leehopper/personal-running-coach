@@ -217,155 +217,180 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         using var chainActivity = ActivitySource.StartActivity(
             PlanGenerationActivityName,
             ActivityKind.Internal);
-        chainActivity?.SetTag(TagNames.PlanId, planId.ToString());
-        chainActivity?.SetTag(TagNames.UserId, userId.ToString());
-        chainActivity?.SetTag(TagNames.PreviousPlanId, previousPlanId?.ToString());
+        chainActivity?.SetTag(PlanGenerationTagNames.PlanId, planId.ToString());
+        chainActivity?.SetTag(PlanGenerationTagNames.UserId, userId.ToString());
+        chainActivity?.SetTag(PlanGenerationTagNames.PreviousPlanId, previousPlanId?.ToString());
 
         var stopwatch = Stopwatch.StartNew();
-
-        // Compose the cacheable prefix — same bytes for all six calls.
-        var composition = await _assembler
-            .ComposeForPlanGenerationAsync(profileSnapshot, intent, ct)
-            .ConfigureAwait(false);
-
-        var systemPrompt = composition.SystemPrompt;
-        var basePrompt = composition.UserMessage;
-
-        LogChainStart(_logger, planId, userId, previousPlanId);
-
-        // Per-call usage counters accumulate across the six structured-output
-        // calls so the rollup metric event can publish a chain-wide
-        // <c>cache_hit_rate</c> tag (Slice 1 § Unit 2 R02.8).
-        var totalUsage = AnthropicUsage.Zero;
-
-        // Tier 1 — macro plan.
-        var (macro, macroUsage, macroOutputChars) = await InvokeTierAsync<MacroPlanOutput>(
-            tier: TierMacro,
-            planId: planId,
-            systemPrompt: systemPrompt,
-            userMessage: BuildMacroUserMessage(basePrompt),
-            extraTags: null,
-            ct).ConfigureAwait(false);
-        totalUsage = totalUsage.Add(macroUsage);
-
-        // Tier 2 — four meso weeks (1..4). Each call carries a per-week context
-        // suffix derived from the macro plan's phase list so the LLM knows
-        // which phase boundary the week sits inside without re-reading macro.
-        var mesoEvents = new List<MesoCycleCreated>(MesoWeekCount);
-        var mesoOutputCharsPerWeek = new int[MesoWeekCount];
-        for (var week = 1; week <= MesoWeekCount; week++)
+        try
         {
-            var weekContext = WeekContext.FromMacro(macro, week);
-            var capturedWeek = week;
-            var (meso, mesoUsage, mesoChars) = await InvokeTierAsync<MesoWeekOutput>(
-                tier: TierMeso,
+            // Compose the cacheable prefix — same bytes for all six calls.
+            var composition = await _assembler
+                .ComposeForPlanGenerationAsync(profileSnapshot, intent, ct)
+                .ConfigureAwait(false);
+
+            var systemPrompt = composition.SystemPrompt;
+            var basePrompt = composition.UserMessage;
+
+            LogChainStart(_logger, planId, userId, previousPlanId);
+
+            // Per-call usage counters accumulate across the six structured-output
+            // calls so the rollup metric event can publish a chain-wide
+            // <c>cache_hit_rate</c> tag (Slice 1 § Unit 2 R02.8).
+            var totalUsage = AnthropicUsage.Zero;
+
+            // Tier 1 — macro plan.
+            var (macro, macroUsage, macroOutputChars) = await InvokeTierAsync<MacroPlanOutput>(
+                tier: TierMacro,
                 planId: planId,
                 systemPrompt: systemPrompt,
-                userMessage: BuildMesoUserMessage(basePrompt, macro, weekContext),
-                extraTags: a =>
-                {
-                    a?.SetTag(TagNames.WeekIndex, capturedWeek);
-                    a?.SetTag(TagNames.IsDeloadCandidate, weekContext.IsDeloadCandidate);
-                },
+                userMessage: BuildMacroUserMessage(basePrompt),
+                extraTags: null,
                 ct).ConfigureAwait(false);
-            totalUsage = totalUsage.Add(mesoUsage);
-            mesoOutputCharsPerWeek[week - 1] = mesoChars;
-            mesoEvents.Add(new MesoCycleCreated(week, meso));
+            totalUsage = totalUsage.Add(macroUsage);
+
+            // Tier 2 — four meso weeks (1..4). Each call carries a per-week context
+            // suffix derived from the macro plan's phase list so the LLM knows
+            // which phase boundary the week sits inside without re-reading macro.
+            var mesoEvents = new List<MesoCycleCreated>(MesoWeekCount);
+            var mesoOutputCharsPerWeek = new int[MesoWeekCount];
+            for (var week = 1; week <= MesoWeekCount; week++)
+            {
+                var weekContext = WeekContext.FromMacro(macro, week);
+                var capturedWeek = week;
+                var (meso, mesoUsage, mesoChars) = await InvokeTierAsync<MesoWeekOutput>(
+                    tier: TierMeso,
+                    planId: planId,
+                    systemPrompt: systemPrompt,
+                    userMessage: BuildMesoUserMessage(basePrompt, macro, weekContext),
+                    extraTags: a =>
+                    {
+                        a?.SetTag(PlanGenerationTagNames.WeekIndex, capturedWeek);
+                        a?.SetTag(PlanGenerationTagNames.IsDeloadCandidate, weekContext.IsDeloadCandidate);
+                    },
+                    ct).ConfigureAwait(false);
+                totalUsage = totalUsage.Add(mesoUsage);
+                mesoOutputCharsPerWeek[week - 1] = mesoChars;
+                mesoEvents.Add(new MesoCycleCreated(week, meso));
+            }
+
+            // Tier 3 — micro week-1 detail. The user message recaps the macro plan
+            // and the week-1 meso so the model has both contexts. The system block
+            // remains the cacheable prefix shared with calls 1-5.
+            var weekOneMeso = mesoEvents[0].Meso;
+            var (micro, microUsage, microOutputChars) = await InvokeTierAsync<MicroWorkoutListOutput>(
+                tier: TierMicro,
+                planId: planId,
+                systemPrompt: systemPrompt,
+                userMessage: BuildMicroUserMessage(basePrompt, macro, weekOneMeso),
+                extraTags: null,
+                ct).ConfigureAwait(false);
+            totalUsage = totalUsage.Add(microUsage);
+
+            var promptVersion = _promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId);
+
+            // Assemble the canonical Slice 1 plan event sequence.
+            var planGenerated = new PlanGenerated(
+                PlanId: planId,
+                UserId: userId,
+                Macro: macro,
+                GeneratedAt: _timeProvider.GetUtcNow(),
+                PromptVersion: promptVersion,
+                ModelId: _settings.ModelId,
+                PreviousPlanId: previousPlanId);
+
+            var sequence = new PlanEventSequence(
+                Macro: planGenerated,
+                Mesos: mesoEvents,
+                Micro: new FirstMicroCycleCreated(micro));
+
+            stopwatch.Stop();
+            var durationMs = stopwatch.Elapsed.TotalMilliseconds;
+            var mesoOutputCharsTotal = 0;
+            for (var i = 0; i < mesoOutputCharsPerWeek.Length; i++)
+            {
+                mesoOutputCharsTotal += mesoOutputCharsPerWeek[i];
+            }
+
+            // Compute chain-wide cache-hit rate from the accumulated Anthropic
+            // usage counters. The denominator is the total number of input tokens
+            // the chain "saw" — fresh + cache-creation + cache-read — so the rate
+            // expresses the proportion of input the prompt-prefix cache served
+            // without re-billing. When all three counters are zero (e.g. a stub
+            // LLM in unit tests that emits no usage), the rate is reported as 0.0
+            // so the tag is always present per spec § Unit 2 R02.8.
+            var totalInputTokens =
+                totalUsage.InputTokens
+                + totalUsage.CacheCreationInputTokens
+                + totalUsage.CacheReadInputTokens;
+            var cacheHitRate = totalInputTokens > 0
+                ? totalUsage.CacheReadInputTokens / (double)totalInputTokens
+                : 0d;
+
+            // Stamp rollup metrics on the chain span so a single trace view shows
+            // the totals without scraping the metric exporter.
+            chainActivity?.SetTag(PlanGenerationTagNames.TotalCalls, TotalCallCount);
+            chainActivity?.SetTag(PlanGenerationTagNames.DurationMs, durationMs);
+            chainActivity?.SetTag(PlanGenerationTagNames.MacroOutputChars, macroOutputChars);
+            chainActivity?.SetTag(PlanGenerationTagNames.MesoOutputCharsTotal, mesoOutputCharsTotal);
+            chainActivity?.SetTag(PlanGenerationTagNames.MicroOutputChars, microOutputChars);
+            chainActivity?.SetTag(PlanGenerationTagNames.InputTokensFresh, totalUsage.InputTokens);
+            chainActivity?.SetTag(PlanGenerationTagNames.CacheCreationInputTokens, totalUsage.CacheCreationInputTokens);
+            chainActivity?.SetTag(PlanGenerationTagNames.CacheReadInputTokens, totalUsage.CacheReadInputTokens);
+            chainActivity?.SetTag(PlanGenerationTagNames.OutputTokens, totalUsage.OutputTokens);
+            chainActivity?.SetTag(PlanGenerationTagNames.CacheHitRate, cacheHitRate);
+
+            // Emit the structured `runcoach.plan.generation.completed` event on
+            // the existing `RunCoach.Llm` Meter per Slice 1 § Unit 2 R02.8. The
+            // recorded value is the wall-clock duration in milliseconds; the tag
+            // bag carries the dashboardable rollup. Output-char counts are a
+            // deterministic local proxy for output tokens — Phoenix shows the
+            // authoritative Anthropic token counts on the underlying SDK span,
+            // and the metric event here gives a service-orchestration rollup
+            // suitable for Phoenix's evaluation dashboard grouping.
+            var tags = new TagList
+            {
+                { PlanGenerationTagNames.PlanId, planId.ToString() },
+                { PlanGenerationTagNames.UserId, userId.ToString() },
+                { PlanGenerationTagNames.TotalCalls, TotalCallCount },
+                { PlanGenerationTagNames.MacroOutputChars, macroOutputChars },
+                { PlanGenerationTagNames.MesoOutputCharsTotal, mesoOutputCharsTotal },
+                { PlanGenerationTagNames.MicroOutputChars, microOutputChars },
+                { PlanGenerationTagNames.InputTokensFresh, totalUsage.InputTokens },
+                { PlanGenerationTagNames.CacheCreationInputTokens, totalUsage.CacheCreationInputTokens },
+                { PlanGenerationTagNames.CacheReadInputTokens, totalUsage.CacheReadInputTokens },
+                { PlanGenerationTagNames.OutputTokens, totalUsage.OutputTokens },
+                { PlanGenerationTagNames.CacheHitRate, cacheHitRate },
+                { PlanGenerationTagNames.Outcome, "success" },
+            };
+            PlanGenerationCompleted.Record(durationMs, tags);
+
+            LogChainComplete(_logger, planId, TotalCallCount);
+
+            return sequence;
         }
-
-        // Tier 3 — micro week-1 detail. The user message recaps the macro plan
-        // and the week-1 meso so the model has both contexts. The system block
-        // remains the cacheable prefix shared with calls 1-5.
-        var weekOneMeso = mesoEvents[0].Meso;
-        var (micro, microUsage, microOutputChars) = await InvokeTierAsync<MicroWorkoutListOutput>(
-            tier: TierMicro,
-            planId: planId,
-            systemPrompt: systemPrompt,
-            userMessage: BuildMicroUserMessage(basePrompt, macro, weekOneMeso),
-            extraTags: null,
-            ct).ConfigureAwait(false);
-        totalUsage = totalUsage.Add(microUsage);
-
-        var promptVersion = _promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId);
-
-        // Assemble the canonical Slice 1 plan event sequence.
-        var planGenerated = new PlanGenerated(
-            PlanId: planId,
-            UserId: userId,
-            Macro: macro,
-            GeneratedAt: _timeProvider.GetUtcNow(),
-            PromptVersion: promptVersion,
-            ModelId: _settings.ModelId,
-            PreviousPlanId: previousPlanId);
-
-        var sequence = new PlanEventSequence(
-            Macro: planGenerated,
-            Mesos: mesoEvents,
-            Micro: new FirstMicroCycleCreated(micro));
-
-        stopwatch.Stop();
-        var durationMs = stopwatch.Elapsed.TotalMilliseconds;
-        var mesoOutputCharsTotal = 0;
-        for (var i = 0; i < mesoOutputCharsPerWeek.Length; i++)
+        catch (Exception ex)
         {
-            mesoOutputCharsTotal += mesoOutputCharsPerWeek[i];
+            // Tag the parent span as failed and record the exception so
+            // downstream OTel exporters classify the trace correctly (without
+            // this, default `ActivityStatusCode.Unset` reads as success).
+            // Emit the completion histogram with `outcome = "failure"` and
+            // the exception type so dashboards can group failed runs without
+            // scraping the trace store.
+            chainActivity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            chainActivity?.AddException(ex);
+            stopwatch.Stop();
+
+            var failureTags = new TagList
+            {
+                { PlanGenerationTagNames.PlanId, planId.ToString() },
+                { PlanGenerationTagNames.UserId, userId.ToString() },
+                { PlanGenerationTagNames.Outcome, "failure" },
+                { PlanGenerationTagNames.ExceptionType, ex.GetType().FullName },
+            };
+            PlanGenerationCompleted.Record(stopwatch.Elapsed.TotalMilliseconds, failureTags);
+            throw;
         }
-
-        // Compute chain-wide cache-hit rate from the accumulated Anthropic
-        // usage counters. The denominator is the total number of input tokens
-        // the chain "saw" — fresh + cache-creation + cache-read — so the rate
-        // expresses the proportion of input the prompt-prefix cache served
-        // without re-billing. When all three counters are zero (e.g. a stub
-        // LLM in unit tests that emits no usage), the rate is reported as 0.0
-        // so the tag is always present per spec § Unit 2 R02.8.
-        var totalInputTokens =
-            totalUsage.InputTokens
-            + totalUsage.CacheCreationInputTokens
-            + totalUsage.CacheReadInputTokens;
-        var cacheHitRate = totalInputTokens > 0
-            ? totalUsage.CacheReadInputTokens / (double)totalInputTokens
-            : 0d;
-
-        // Stamp rollup metrics on the chain span so a single trace view shows
-        // the totals without scraping the metric exporter.
-        chainActivity?.SetTag(TagNames.TotalCalls, TotalCallCount);
-        chainActivity?.SetTag(TagNames.DurationMs, durationMs);
-        chainActivity?.SetTag(TagNames.MacroOutputChars, macroOutputChars);
-        chainActivity?.SetTag(TagNames.MesoOutputCharsTotal, mesoOutputCharsTotal);
-        chainActivity?.SetTag(TagNames.MicroOutputChars, microOutputChars);
-        chainActivity?.SetTag(TagNames.InputTokensFresh, totalUsage.InputTokens);
-        chainActivity?.SetTag(TagNames.CacheCreationInputTokens, totalUsage.CacheCreationInputTokens);
-        chainActivity?.SetTag(TagNames.CacheReadInputTokens, totalUsage.CacheReadInputTokens);
-        chainActivity?.SetTag(TagNames.OutputTokens, totalUsage.OutputTokens);
-        chainActivity?.SetTag(TagNames.CacheHitRate, cacheHitRate);
-
-        // Emit the structured `runcoach.plan.generation.completed` event on
-        // the existing `RunCoach.Llm` Meter per Slice 1 § Unit 2 R02.8. The
-        // recorded value is the wall-clock duration in milliseconds; the tag
-        // bag carries the dashboardable rollup. Output-char counts are a
-        // deterministic local proxy for output tokens — Phoenix shows the
-        // authoritative Anthropic token counts on the underlying SDK span,
-        // and the metric event here gives a service-orchestration rollup
-        // suitable for Phoenix's evaluation dashboard grouping.
-        var tags = new TagList
-        {
-            { TagNames.PlanId, planId.ToString() },
-            { TagNames.UserId, userId.ToString() },
-            { TagNames.TotalCalls, TotalCallCount },
-            { TagNames.MacroOutputChars, macroOutputChars },
-            { TagNames.MesoOutputCharsTotal, mesoOutputCharsTotal },
-            { TagNames.MicroOutputChars, microOutputChars },
-            { TagNames.InputTokensFresh, totalUsage.InputTokens },
-            { TagNames.CacheCreationInputTokens, totalUsage.CacheCreationInputTokens },
-            { TagNames.CacheReadInputTokens, totalUsage.CacheReadInputTokens },
-            { TagNames.OutputTokens, totalUsage.OutputTokens },
-            { TagNames.CacheHitRate, cacheHitRate },
-        };
-        PlanGenerationCompleted.Record(durationMs, tags);
-
-        LogChainComplete(_logger, planId, TotalCallCount);
-
-        return sequence;
     }
 
     /// <summary>
@@ -499,48 +524,34 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         CancellationToken ct)
     {
         using var activity = ActivitySource.StartActivity(TierActivityName, ActivityKind.Internal);
-        activity?.SetTag(TagNames.Tier, tier);
-        activity?.SetTag(TagNames.PlanId, planId.ToString());
+        activity?.SetTag(PlanGenerationTagNames.Tier, tier);
+        activity?.SetTag(PlanGenerationTagNames.PlanId, planId.ToString());
         extraTags?.Invoke(activity);
 
-        var (result, usage) = await _llm
-            .GenerateStructuredAsync<T>(
-                systemPrompt,
-                userMessage,
-                schema: null,
-                cacheControl: CacheControl.Ephemeral1h,
-                ct)
-            .ConfigureAwait(false);
+        try
+        {
+            var (result, usage) = await _llm
+                .GenerateStructuredAsync<T>(
+                    systemPrompt,
+                    userMessage,
+                    schema: null,
+                    cacheControl: CacheControl.Ephemeral1h,
+                    ct)
+                .ConfigureAwait(false);
 
-        var outputChars = MeasureOutputChars(result);
-        activity?.SetTag(TagNames.OutputChars, outputChars);
-        return (result, usage, outputChars);
-    }
-
-    /// <summary>
-    /// OTel tag-name constants for the plan-generation chain. Centralized so
-    /// a typo at one call site can't create an orphan tag that downstream
-    /// dashboards silently miss, and so the SonarAnalyzer S1192 (literal
-    /// repeated &gt;= 3 times) noise stays out of the chain code.
-    /// </summary>
-    internal static class TagNames
-    {
-        public const string PlanId = "runcoach.plan.id";
-        public const string UserId = "runcoach.user.id";
-        public const string PreviousPlanId = "runcoach.plan.previous_id";
-        public const string Tier = "runcoach.plan.tier";
-        public const string WeekIndex = "runcoach.plan.week_index";
-        public const string IsDeloadCandidate = "runcoach.plan.is_deload_candidate";
-        public const string OutputChars = "runcoach.plan.output_chars";
-        public const string TotalCalls = "runcoach.plan.total_calls";
-        public const string DurationMs = "runcoach.plan.duration_ms";
-        public const string MacroOutputChars = "runcoach.plan.macro_output_chars";
-        public const string MesoOutputCharsTotal = "runcoach.plan.meso_output_chars_total";
-        public const string MicroOutputChars = "runcoach.plan.micro_output_chars";
-        public const string InputTokensFresh = "runcoach.plan.input_tokens_fresh";
-        public const string CacheCreationInputTokens = "runcoach.plan.cache_creation_input_tokens";
-        public const string CacheReadInputTokens = "runcoach.plan.cache_read_input_tokens";
-        public const string OutputTokens = "runcoach.plan.output_tokens";
-        public const string CacheHitRate = "runcoach.plan.cache_hit_rate";
+            var outputChars = MeasureOutputChars(result);
+            activity?.SetTag(PlanGenerationTagNames.OutputChars, outputChars);
+            return (result, usage, outputChars);
+        }
+        catch (Exception ex)
+        {
+            // Tag the per-tier span as failed and record the exception so the
+            // parent chain span (which sets its own error status in the outer
+            // catch) keeps the failing-tier identity (`tier` tag already set
+            // above) visible in the trace.
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddException(ex);
+            throw;
+        }
     }
 }
