@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Respawn;
 using RunCoach.Api.Infrastructure;
@@ -229,6 +230,24 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         {
             services.RemoveAll<IPlanGenerationService>();
             services.AddScoped<IPlanGenerationService, StubPlanGenerationService>();
+
+            // Extend `IHost.ShutdownTimeout` from its 30s default to 2 minutes
+            // for the test host. Marten's async daemon (`DaemonMode.Solo`),
+            // Wolverine's outbox-envelope `ReleaseAllOwnershipAsync`, and the
+            // hosted `IdempotencySweeper` all participate in
+            // `IHost.StopAsync`. On macOS Colima — where postgres I/O over the
+            // VM is materially slower than Linux CI — the assembly-fixture
+            // dispose can blow past 30s. The cancellation surfaces as
+            // `ObjectDisposedException` from
+            // `Marten.Events.Daemon.Coordination.ProjectionCoordinator.PauseAsync`
+            // (CTS already disposed by the half-stopped host), the test
+            // process stops draining background threads, and the test binary
+            // hangs indefinitely after the runner has reported "Finished".
+            // Two minutes is comfortably above the longest observed dispose
+            // (~45 s on Colima) and well below any human-friendly cancel
+            // threshold.
+            services.PostConfigure<HostOptions>(opts =>
+                opts.ShutdownTimeout = TimeSpan.FromMinutes(2));
         });
     }
 }
