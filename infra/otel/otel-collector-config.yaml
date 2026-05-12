@@ -1,7 +1,8 @@
 # OpenTelemetry Collector config for the local dev observability overlay.
 #
 # Receivers: OTLP over gRPC (4317) and HTTP (4318) — accepts spans and metrics
-# from the RunCoach API container.
+# from the RunCoach API container and (per DEC-069) directly from the browser
+# SPA via the OTLP/HTTP exporter.
 #
 # Exporters: OTLP to Jaeger's native OTLP ingest on port 4317 for traces;
 # logging exporter as a fallback for metrics while a long-term metric backend
@@ -18,8 +19,64 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+        # CORS allow-list for direct browser → collector OTLP/HTTP posts
+        # (DEC-069, R-074 §2). The OTel collector exposes `cors` on http-based
+        # receivers; without it the browser preflight rejects the POST and no
+        # spans ever leave the SPA. An explicit allow-list (not `["*"]`) is
+        # required because the collector's CORS response includes
+        # `Access-Control-Allow-Credentials: true`, which browsers refuse to
+        # combine with a wildcard origin (see
+        # opentelemetry-collector/config/confighttp/README.md).
+        #
+        # MVP-1 public-rollout TODO: replace the localhost origins below with
+        # the deployed origin(s), e.g. `https://runcoach.example.com`, add a
+        # TLS terminator in front of :4318, and pin a static
+        # `Authorization: Bearer <token>` header on the browser exporter so
+        # this endpoint is not anonymously writable from the open internet.
+        cors:
+          allowed_origins:
+            - http://localhost:5173        # Vite dev server
+            - http://localhost:4173        # Vite preview server
+          # R02.1's intent is that `traceparent`, `tracestate`, `baggage`, and
+          # `Content-Type` must all be accepted on the preflight. In
+          # opentelemetry-collector-contrib:0.150.1 (confighttp / `rs/cors v1`),
+          # an explicit `allowed_headers` list ignores the documented
+          # "Content-Type implicitly allowed" safelist behaviour: a preflight
+          # whose `Access-Control-Request-Headers` includes `Content-Type`
+          # returns 204 with no `Access-Control-Allow-Origin`, breaking the
+          # `OTLPTraceExporter` POST (which sends `Content-Type:
+          # application/json`). `["*"]` is the only configuration that admits
+          # `Content-Type` *plus* the W3C trace headers in this collector
+          # version, and the upstream docs explicitly endorse it
+          # (`config/confighttp/README.md`: *"Setting it to ["*"] allows any
+          # request header"*). Origin matching is unaffected — the
+          # `allowed_origins` allow-list above still rejects unknown origins.
+          allowed_headers:
+            - "*"
+          max_age: 7200
 
 processors:
+  # Belt-and-braces PII scrub for browser-sourced spans (DEC-069, R-074 §7).
+  # The SPA's FetchInstrumentation also strips query strings client-side, but
+  # enforcing the redaction at the collector means a developer cannot
+  # accidentally bypass it by tweaking the browser exporter. Must run *before*
+  # `batch` so scrubbed values are what gets buffered and exported.
+  #
+  # `http.url`: `delete` removes the attribute outright — the strongest
+  #   guarantee that any query-string secrets (tokens, onboarding answers
+  #   echoed back in URLs) never reach the exporter. The browser SDK already
+  #   emits `url.full` / `url.path` separately with query stripped client-side
+  #   for navigation context, so deleting the full URL here loses no useful
+  #   signal.
+  # `http.user_agent`: `hash` preserves cardinality for cohort analysis while
+  #   destroying identifiability of the raw UA string.
+  attributes/scrub:
+    actions:
+      - key: http.url
+        action: delete
+      - key: http.user_agent
+        action: hash
+
   batch:
     timeout: 5s
     send_batch_size: 1024
@@ -36,7 +93,10 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
+      # attributes/scrub MUST be first so redaction happens before batching;
+      # batching after scrubbing keeps the per-span work cheap and the export
+      # batch contains only sanitised attributes.
+      processors: [attributes/scrub, batch]
       exporters: [otlp/jaeger, debug]
     metrics:
       receivers: [otlp]
