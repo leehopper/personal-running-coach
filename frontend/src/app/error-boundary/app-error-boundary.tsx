@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary'
+import { useLastTraceId } from '~/api/last-trace-id'
 import { reportClientError } from './report-client-error'
+
+// Format a 32-hex W3C trace-id as `xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx`
+// (DEC-069 / R-074 §5). The 8-char grouping is the visual contract the
+// Fallback advertises — it makes the support code easier to read aloud
+// over a phone call and easier to copy character-by-character if the
+// clipboard write fails.
+const TRACE_ID_LEN = 32
+const TRACE_GROUP_REGEX = /.{1,8}/g
+const formatTraceId = (traceId: string): string => {
+  if (traceId.length !== TRACE_ID_LEN) return traceId
+  return (traceId.match(TRACE_GROUP_REGEX) ?? [traceId]).join('-')
+}
 
 // `role="alert"` without `aria-live` — some screen readers double-announce
 // when both are present (DEC-068 §3.4). The heading carries `tabIndex={-1}`
@@ -28,6 +41,12 @@ interface FallbackInternalProps extends FallbackProps {
 
 const Fallback = ({ error: raw, resetErrorBoundary, correlationId }: FallbackInternalProps) => {
   const headingRef = useRef<HTMLHeadingElement>(null)
+  // `useLastTraceId` is fed by `FetchInstrumentation.applyCustomAttributesOnSpan`
+  // (see `~/api/otel.ts`). The hook returns `null` when no fetch has fired
+  // since boot — which is the correct UX for a synchronous render error
+  // that has no preceding HTTP context. We render the support-code row
+  // only when `traceId !== null`.
+  const traceId = useLastTraceId()
 
   useEffect(() => {
     headingRef.current?.focus()
@@ -60,11 +79,36 @@ const Fallback = ({ error: raw, resetErrorBoundary, correlationId }: FallbackInt
             {shortId}
           </code>
         </p>
-        {/* T03.4 slot: <TraceIdRow /> rendered here once `useLastTraceId()`
-            lands, showing the OTel trace-id formatted xxxxxxxx-xxxxxxxx-
-            xxxxxxxx-xxxxxxxx with a copy button. Gate on
-            `traceId !== null` to hide the row when no fetch has happened
-            yet (DEC-069 / R-074 §5). */}
+        {traceId !== null && (
+          <p className="text-sm text-slate-700">
+            Support code:{' '}
+            <code className="select-all rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-900">
+              {formatTraceId(traceId)}
+            </code>{' '}
+            <button
+              type="button"
+              onClick={() => {
+                // `navigator.clipboard.writeText` is the only realistic
+                // failure path here (HTTPS context required, user-gesture
+                // required in some browsers). It's a nice-to-have; the
+                // `select-all` styling on the `<code>` block above lets
+                // the user fall back to manual copy if the button fails.
+                navigator.clipboard?.writeText(traceId).then(
+                  () => {
+                    // No-op on success — clipboard wrote silently.
+                  },
+                  () => {
+                    // Silent. The user can still highlight the code block.
+                  },
+                )
+              }}
+              aria-label="Copy support code"
+              className="rounded border border-slate-300 px-1.5 py-0.5 text-xs font-medium text-slate-700 transition-colors duration-200 ease-out hover:bg-slate-100 motion-reduce:transition-none"
+            >
+              Copy
+            </button>
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"

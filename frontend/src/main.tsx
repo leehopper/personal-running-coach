@@ -1,3 +1,4 @@
+import './app/api/otel' // MUST stay the first import — FetchInstrumentation patches the global `fetch` and registers the W3C propagators before any React or RTK Query code runs.
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/modules/app/app.component'

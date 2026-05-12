@@ -47,6 +47,31 @@ export default defineConfig({
       '~dev-only': path.resolve(__dirname, './src/dev-only'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Isolate OTel into its own long-cached chunk (DEC-069 / R-074 §6).
+        // OTel changes far less frequently than app code, so splitting it
+        // out lets the browser cache it across normal deploys. Bundle
+        // delta target is 30–45 KB gz for this chunk; the build summary
+        // surfaces the exact size on every `npm run build`. Function form
+        // (rather than the object form) sidesteps a Rollup typings quirk
+        // where the bare object literal is narrowed to `ManualChunksFunction`
+        // and rejected; function form is canonical and gives a stable
+        // single-chunk grouping for any module ID under `@opentelemetry/`.
+        manualChunks: (id: string): string | undefined => {
+          if (id.includes('node_modules/@opentelemetry/')) return 'otel'
+          return undefined
+        },
+      },
+    },
+    // Default 500 KB is too loose for our footprint — drop to 100 KB so a
+    // future regression in the otel chunk (or any other chunk) lights up
+    // the build summary immediately. The main JS chunk is currently
+    // ~140 KB gz, ~450 KB raw, so it will warn until we code-split the
+    // route tree (separate slice).
+    chunkSizeWarningLimit: 100,
+  },
   server: {
     host: 'localhost',
     port: 5173,
