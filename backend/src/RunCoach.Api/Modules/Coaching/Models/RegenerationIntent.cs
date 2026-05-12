@@ -17,15 +17,51 @@ namespace RunCoach.Api.Modules.Coaching.Models;
 /// does NOT re-sanitize.
 /// </para>
 /// <para>
-/// Capped at <see cref="MaxFreeTextLength"/> characters at construction; the
-/// 500-char cap is a placeholder per the spec's "Open Considerations" — see
-/// Slice 1 spec § Open Considerations for review criteria.
+/// Capped at <see cref="MaxFreeTextLength"/> characters at construction. The
+/// cap is sized to admit the post-sanitization payload: the wire-level raw
+/// input is capped at <see cref="RawMaxFreeTextLength"/> by the controller,
+/// and the layered sanitizer wraps the content with a Spotlighting delimiter
+/// (e.g. <c>&lt;REGENERATION_INTENT id="..."&gt;…&lt;/REGENERATION_INTENT&gt;</c>)
+/// that adds up to <see cref="DelimiterOverhead"/> additional characters.
 /// </para>
 /// </param>
 public sealed record RegenerationIntent
 {
-    /// <summary>Maximum allowed length of <see cref="FreeText"/> in UTF-16 code units.</summary>
-    public const int MaxFreeTextLength = 500;
+    /// <summary>
+    /// Maximum allowed length of the raw, pre-sanitization free-text supplied on
+    /// the wire. Per Slice 1 spec § Unit 5 R05.1 this is the wire contract: the
+    /// controller validates the raw request body against this cap and rejects
+    /// over-length input with HTTP 400 BEFORE invoking the sanitizer.
+    /// </summary>
+    public const int RawMaxFreeTextLength = 500;
+
+    /// <summary>
+    /// Upper bound on the per-call delimiter overhead the layered sanitizer
+    /// appends when wrapping the runner's free-text in a Spotlighting block.
+    /// Sized to admit the longest delimiter label + a 16-hex-character per-turn
+    /// nonce + the closing tag with comfortable headroom for future labels.
+    /// </summary>
+    public const int DelimiterOverhead = 200;
+
+    /// <summary>
+    /// Worst-case multiplier the layered sanitizer's <c>EscapeDelimiterBody</c>
+    /// applies to the raw body. The most aggressive expansion is <c>&amp;</c> → <c>&amp;amp;</c> (1→5).
+    /// Sized as 5 to admit any combination of bracket-escape and homoglyph-rewrite
+    /// without throwing on construction.
+    /// </summary>
+    public const int MaxEscapeExpansionFactor = 5;
+
+    /// <summary>
+    /// Maximum allowed length of <see cref="FreeText"/> in UTF-16 code units.
+    /// Accounts for worst-case adversarial-bracket expansion by
+    /// <c>EscapeDelimiterBody</c> (e.g. a 500-char input of all <c>&amp;</c> characters
+    /// expands to 2500 chars after entity-escaping) plus the Spotlighting
+    /// delimiter overhead. Equal to
+    /// <see cref="RawMaxFreeTextLength"/> × <see cref="MaxEscapeExpansionFactor"/> +
+    /// <see cref="DelimiterOverhead"/> so any at-cap raw input round-trips through
+    /// this record without spurious construction failures.
+    /// </summary>
+    public const int MaxFreeTextLength = (RawMaxFreeTextLength * MaxEscapeExpansionFactor) + DelimiterOverhead;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RegenerationIntent"/> record.

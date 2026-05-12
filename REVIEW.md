@@ -84,6 +84,15 @@ frontier
   `frontend/src/...`), no chain-of-thought design narrative. Spec / DEC /
   R-NNN symbolic references are allowed. Keep load-bearing "why"
   comments that document non-obvious invariants.
+- Comments must be self-contained. Do not reference external doc paths
+  ("see `docs/planning/...`", "per `docs/research/artifacts/...`") or URLs
+  that aren't load-bearing test fixtures. The reader should not need to
+  open another file to understand the comment.
+- Wrap identifiers and code-shaped tokens in backticks
+  (`SameSite=Lax`, `SecurePolicy.Always`, `Func<T, U>`,
+  `services.AddScoped<IFoo, Foo>()`). Bare identifiers in prose comments
+  trip SonarAnalyzer S125 commented-out-code detection and fail
+  `TreatWarningsAsErrors`.
 
 ### AI-generated code
 
@@ -126,6 +135,64 @@ frontier
 - Reject any proposal to add Snyk or Codacy unless at least one of the
   explicit reconsider-triggers in ROADMAP § Deferred Items has fired.
   See DEC-043 in docs/decisions/decision-log.md.
+
+### Test infrastructure (DEC-064)
+
+- `backend/tests/RunCoach.Api.Tests` runs all xunit collections
+  **sequentially**. Reject any change that flips
+  `parallelizeTestCollections` to `true` in
+  `backend/tests/RunCoach.Api.Tests/xunit.runner.json`, removes
+  `[assembly: CollectionBehavior(DisableTestParallelization = true)]`
+  from `Infrastructure/AssemblyInfo.cs`, or otherwise re-enables
+  collection-level parallelism without first superseding DEC-064 in the
+  decision log. The two enforcement mechanisms are deliberately
+  redundant; both must stay.
+- Reject any change that removes `global.json`'s
+  `test.runner: Microsoft.Testing.Platform`, re-introduces
+  `<TestingPlatformDotnetTestSupport>` (silently ignored on .NET 10+
+  SDK), or downgrades any of the MTP-family pins
+  (`Microsoft.Testing.Platform.MSBuild`,
+  `Microsoft.Testing.Extensions.Telemetry`,
+  `Microsoft.Testing.Extensions.TrxReport`,
+  `Microsoft.Testing.Extensions.TrxReport.Abstractions`,
+  `Microsoft.Testing.Platform`) below the 2.x line shared with
+  `coverlet.MTP` and `xunit.v3.core.mtp-v2`. Mismatched majors throw
+  `TypeLoadException` for `IDataConsumer` /
+  `IOutputDevice.DisplayAsync` at test-host startup. Reject swapping
+  `coverlet.MTP` back to `coverlet.msbuild` or `coverlet.collector`
+  (both are VSTest-bridge-only and silently produce no coverage under
+  MTP-native).
+- Reject any patch that removes the
+  `services.PostConfigure<HostOptions>(opts => opts.ShutdownTimeout = ...)`
+  block in `RunCoachAppFactory.ConfigureWebHost`. The 30s framework
+  default cancels Wolverine's
+  `MessageStoreCollection.ReleaseAllOwnershipAsync` mid-flight on
+  full-suite runs and surfaces as `[Test Assembly Cleanup Failure]` for
+  every test in the assembly.
+- Reject `dotnet test --filter "Category!=…"` /
+  `dotnet test --filter "Trait=…"` patterns in scripts, lefthook hooks,
+  or CI workflows. Under Microsoft.Testing.Platform these emit
+  `MTP0001: VSTest-specific properties are set but will be ignored`
+  and silently no-op. Use xUnit v3's `--filter-not-trait "name=value"`
+  or partition via `[Collection]` and run `-class` / `-trait` filters
+  against the test executable directly.
+- Any new production-registered `IHostedService` that touches
+  time-sensitive state (clocks, timers, sweepers) must be removed via
+  `services.Remove(...)` inside `RunCoachAppFactory.ConfigureWebHost`
+  so the test host doesn't race fake-time tests. Precedent:
+  `IdempotencySweeper`.
+- Reject re-introduction of `WithReuse(true)` (or `WithReuse(!IsCi)`)
+  on the `PostgreSqlBuilder` in `RunCoachAppFactory`. The reuse path is
+  unstable on macOS Colima: when a test process exits abnormally
+  (Ctrl+C, kill, IDE crash) the container is left in `Exited` state
+  with the reuse-id label still attached, and the next `dotnet test`
+  hangs in `RunCoachAppFactory.InitializeAsync` trying to coordinate
+  with the dead port (visible as `Monitor_Wait` on the main thread).
+  Ryuk-managed cleanup (the default once `WithReuse` is off) reaps the
+  container reliably on every test-process exit. Trade-off: ~5s of
+  cold-start per run; the daily-driver workaround for tight iteration
+  stays `dotnet test --filter-not-trait "Category=Integration"` (977
+  tests in ~3s).
 
 ## Ignore
 

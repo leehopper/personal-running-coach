@@ -1,9 +1,11 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 1 (Onboarding → Plan) — implementation-ready. Spec at `docs/specs/13-spec-slice-1-onboarding/` (six demoable units) + 31 tasks on the board (#84–#115 with dependency edges wired). All pre-implementation research integrated (DEC-057 through DEC-060). Slice 0 closed 2026-04-23 with PR #63.
-**Next step:** Begin Slice 1 implementation. Four unblocked atomic tasks ready for parallel dispatch: #89 UserProfile entity, #90 Marten-document idempotency, #91 onboarding events (8 records incl. `PlanLinkedToUser`) + Pattern B records + prompt YAML, #115 sanitizer + 25-case corpus. Architectural rules locked: single-handler / single-Marten-session pattern (DEC-057), Pattern B structured-output schema (DEC-058), layered containment-first sanitizer (DEC-059), handler bodies emit events / projections own EF state (DEC-060).
-**Blockers:** None.
+**Active slice:** Slice 1B (Pre-Slice-2 Hardening) — **planned, awaiting research** as of 2026-04-27. Slice 1 (Onboarding → Plan) closed 2026-04-26 across PRs #67–#71 (stacked: slice-1a-onboarding-api, slice-1b-onboarding-chat, slice-1c-plan-view, slice-1d-plan-regenerate, slice-1e-sanitizer-closeout) and PR-1F (slice-1f-docs-closeout). Slice 1's end-to-end debugging surfaced four contract-drift bugs (PascalCase wire leak, RTK tag-invalidation race, multi-select clarification dead-end, `Completed`/`Total` field rename) that were patched at the call site; Slice 1B closes the structural gaps so the same class can't recur in Slice 2.
+**Next step:** Hand the Slice 1B research prompts (R-071 OpenAPI + Zod codegen, R-072 Marten event upcasting) to the research agent. Slice 1B spec written once both artifacts land. Slice 2 implementation does NOT start until Slice 1B merges.
+**Blockers:** Slice 1B blocked on R-071 / R-072 artifacts. None for Slice 1 close-out.
+
+**Architectural decisions locked during Slice 1:** DEC-057 (single-handler/single-Marten-session/single-transaction), DEC-058 (Pattern B byte-stable schema), DEC-059 (layered containment-first sanitizer), DEC-060 (handler bodies emit events; projections own EF state), DEC-062 (`opts.Add(...)` registration shape for EF projections), DEC-063 (Tailwind-only animation baseline), DEC-064 (xunit collection-parallelism disabled — supersedes DEC-061).
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 
@@ -109,6 +111,11 @@ Tiered model routing (Haiku / Sonnet / Opus) for ~60% cost reduction; Batch API 
 
 - Performance regression testing in CI — deferred per DEC-034 (GitHub runner variance).
 - Trivy container image scanning — add when deploying Docker images.
+- **Trademark build-time analyzer** — Roslyn rule that flags "VDOT" (case-insensitive, with explicit carve-outs in `docs/`, `NOTICE`, `CLAUDE.md`, `README.md`, and the existing live-guard assertions) as a compile error in `Prompts/*` and API response paths. DEC-042's runtime check in `ContextAssemblerTests` is the current safety net; promote to compile-time before the first non-builder contributor joins the repo. Surfaced in the Slice 1B production-grade gap audit (2026-04-27).
+
+### Test parallelism — per-collection database isolation (DEC-064 deferred reversal)
+
+Restore xunit collection-level parallelism by partitioning `RunCoachAppFactory` into `[Collection]`-scoped fixtures, each owning its own `PostgreSqlContainer` (or schema), Marten `IDocumentStore`, and Wolverine host. Current sequential mode (DEC-064) runs the full 1054-test suite in ~1m47s locally on macOS Colima and ~1m48s on CI Linux — fine for occasional full runs, slow for tight iteration. Reconsider triggers: (a) suite wall-clock exceeds 3 minutes locally, (b) integration test count crosses ~150, (c) a contributor joins and burns time waiting on full runs. Implementation path is documented in DEC-064 § Alternatives; the daily-driver workaround is `dotnet test --filter-not-trait "Category=Integration"` (977 unit + eval tests, ~3s).
 
 ### Pre-public-release gate (from `docs/features/backlog.md`)
 
