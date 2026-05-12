@@ -7,8 +7,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <CoverletOutputFormat>cobertura,opencover</CoverletOutputFormat>
-    <CoverletOutput>../../TestResults/</CoverletOutput>
   </PropertyGroup>
 
   <ItemGroup>

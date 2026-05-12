@@ -1,14 +1,15 @@
 using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Respawn;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Infrastructure.Idempotency;
+using RunCoach.Api.Modules.Training.Plan;
 using Testcontainers.PostgreSql;
 
 namespace RunCoach.Api.Tests.Infrastructure;
@@ -23,9 +24,11 @@ namespace RunCoach.Api.Tests.Infrastructure;
 /// <c>NpgsqlDataSource</c> against the production DI wiring. HTTP endpoints
 /// are reachable through <see cref="WebApplicationFactory{TEntryPoint}.CreateClient()"/>.
 ///
-/// <c>WithReuse(true)</c> outside CI keeps the container warm between
-/// <c>dotnet test</c> invocations; in CI we always run a fresh container so a
-/// corrupt snapshot can never leak between runs.
+/// Container reuse is unconditionally disabled. The 5s warm-container saving
+/// doesn't pay back the macOS-Colima failure mode where an abnormal test-process
+/// exit leaves the labeled container in <c>Exited</c> state and the next
+/// <c>dotnet test</c> hangs in <c>InitializeAsync</c> coordinating with a dead
+/// port — see DEC-064 and the constructor for the full rationale.
 /// </summary>
 public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -42,16 +45,12 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
     public const string TestJwtSigningKey = "test-hs256-signing-key-0123456789-abcdef0123456789";
     public const string TestJwtKeyId = "test-kid";
 
-    private const string ReuseLabel = "runcoach-tests";
     private const string ConnectionStringEnvVar = "ConnectionStrings__runcoach";
     private const string OtlpEndpointEnvVar = "OTEL_EXPORTER_OTLP_ENDPOINT";
     private const string JwtIssuerEnvVar = "Auth__Jwt__Issuer";
     private const string JwtAudienceEnvVar = "Auth__Jwt__Audience";
     private const string JwtSigningKeyEnvVar = "Auth__Jwt__SigningKey";
     private const string JwtKeyIdEnvVar = "Auth__Jwt__KeyId";
-
-    private static readonly bool IsCi =
-        string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
 
     private readonly PostgreSqlContainer _container;
     private Respawner? _respawner;
@@ -65,12 +64,24 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
 
     public RunCoachAppFactory()
     {
+        // Always disable `WithReuse(true)`. The 5s saved by a warm container
+        // doesn't pay back the failure mode it introduces on macOS Colima:
+        // when a test process exits abnormally (Ctrl+C, kill -9, IDE crash),
+        // the postgres container is left in Exited state with the reuse-id
+        // label still attached. The next `dotnet test` finds the labeled
+        // container, decides to reuse it, and hangs in
+        // `RunCoachAppFactory.InitializeAsync` trying to coordinate with a
+        // stopped port (visible as `Monitor_Wait` on the main thread, every
+        // integration test then failing `Connection refused` to the dead
+        // port). Ryuk-managed cleanup (the default once `WithReuse` is off)
+        // reaps the container reliably on every test-process exit, including
+        // SIGKILL via Ryuk's grace-period heartbeat. Trade-off: ~5s of
+        // container cold-start per `dotnet test` run; daily-driver iteration
+        // stays at ~3s via `--filter-not-trait "Category=Integration"`.
         _container = new PostgreSqlBuilder("postgres:17-alpine")
             .WithDatabase("runcoach")
             .WithUsername("runcoach")
             .WithPassword("testcontainer-dev")
-            .WithReuse(!IsCi)
-            .WithLabel("reuse-id", ReuseLabel)
             .Build();
     }
 
@@ -216,44 +227,48 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         // without any redirect.
         builder.UseSetting("https_port", "443");
 
-        // Strip the production-registered `IdempotencySweeper` hosted service
-        // from the SUT's DI graph for tests. Production wires the sweeper as
-        // an `IHostedService` bound to `TimeProvider.System`, so the moment
-        // the host boots (which we force eagerly in `InitializeAsync` to
-        // serialize Marten's startup advisory-lock acquisition), the sweeper
-        // begins running on real wall-clock time. Idempotency tests, however,
-        // construct their own `IdempotencySweeper` against a `FakeTimeProvider`
-        // and seed marker rows at fake-time offsets that may sit hours or days
-        // behind today's real clock. Leaving the hosted instance running races
-        // against test-owned markers: it can delete a "fresh" fake-time marker
-        // mid-assertion because the real-clock cutoff has long since passed
-        // it. Removing the descriptor here makes the sweeper test-driven only.
-        // Tests that exercise the sweep loop instantiate it directly via
-        // `new IdempotencySweeper(store, fakeTime, NullLogger<...>.Instance)`.
-        builder.ConfigureTestServices(services =>
+        // Replace the production `IPlanGenerationService` registration with a
+        // deterministic stub so integration tests that drive the regenerate /
+        // onboarding terminal-branch handlers through the live HTTP +
+        // Wolverine bus pipeline don't pay six structured-output LLM calls per
+        // run. Wolverine's `TypeLoadMode.Auto` codegen reads this concrete-impl
+        // registration during host startup and bakes
+        // `new StubPlanGenerationService()` directly into the generated
+        // handler. The structured-output chain itself is covered by
+        // `PlanGenerationServiceTests` (eval-cached unit tier) and the
+        // committed manual smoke proof at T05.1 (commit `13464e0`).
+        builder.ConfigureServices(services =>
         {
-            var hostedDescriptor = services.SingleOrDefault(d =>
+            services.RemoveAll<IPlanGenerationService>();
+            services.AddScoped<IPlanGenerationService, StubPlanGenerationService>();
+
+            // Remove the production-registered `IdempotencySweeper` IHostedService so the
+            // real-clock sweeper doesn't race the fake-time markers seeded by
+            // `IdempotencySweeperIntegrationTests`. REVIEW.md DEC-064 codifies this as
+            // the canonical handling for any time-sensitive hosted service.
+            var sweeperDescriptor = services.SingleOrDefault(d =>
                 d.ServiceType == typeof(IHostedService)
                 && d.ImplementationType == typeof(IdempotencySweeper));
-            if (hostedDescriptor is not null)
+            if (sweeperDescriptor is not null)
             {
-                services.Remove(hostedDescriptor);
+                services.Remove(sweeperDescriptor);
             }
 
-            // The default IHost shutdown timeout is 30s. Wolverine's
-            // MessageStoreCollection.ReleaseAllOwnershipAsync runs an SQL
-            // UPDATE on wolverine_*_envelopes during StopAsync, and on CI
-            // runners that update can be cancelled mid-flight when the
-            // 30s budget — already eaten into by ~25s of test execution
-            // before the assembly fixture's DisposeAsync calls
-            // base.DisposeAsync() — runs out. The cancellation surfaces as
-            // an OperationCanceledException from
-            // Microsoft.Extensions.Hosting.Internal.Host.ForeachService,
-            // which xunit reports as a "Test Assembly Cleanup Failure" for
-            // every test in the assembly. Extending the shutdown budget to
-            // a generous value isolates cleanup time from per-test time and
-            // keeps the cleanup deterministic regardless of how many tests
-            // the suite grows to.
+            // Extend `IHost.ShutdownTimeout` from its 30s default to 2 minutes
+            // for the test host. Marten's async daemon (`DaemonMode.Solo`),
+            // Wolverine's outbox-envelope `ReleaseAllOwnershipAsync`, and the
+            // hosted `IdempotencySweeper` all participate in
+            // `IHost.StopAsync`. On macOS Colima — where postgres I/O over the
+            // VM is materially slower than Linux CI — the assembly-fixture
+            // dispose can blow past 30s. The cancellation surfaces as
+            // `ObjectDisposedException` from
+            // `Marten.Events.Daemon.Coordination.ProjectionCoordinator.PauseAsync`
+            // (CTS already disposed by the half-stopped host), the test
+            // process stops draining background threads, and the test binary
+            // hangs indefinitely after the runner has reported "Finished".
+            // Two minutes is comfortably above the longest observed dispose
+            // (~45 s on Colima) and well below any human-friendly cancel
+            // threshold.
             services.PostConfigure<HostOptions>(opts =>
                 opts.ShutdownTimeout = TimeSpan.FromMinutes(2));
         });
