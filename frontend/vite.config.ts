@@ -41,6 +41,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '~': path.resolve(__dirname, './src/app'),
+      // `~dev-only` reaches the build-time-stripped harness directory.
+      // Everything under `src/dev-only/` is gated by `import.meta.env.DEV`
+      // and tree-shaken to zero bytes in production (DEC-068 §10.5).
+      '~dev-only': path.resolve(__dirname, './src/dev-only'),
     },
   },
   server: {

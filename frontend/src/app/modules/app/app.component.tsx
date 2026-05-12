@@ -3,6 +3,8 @@ import { Provider } from 'react-redux'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { store } from './app.store'
 import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
+import { AppErrorBoundary } from '~/error-boundary/app-error-boundary'
+import { useGlobalErrorReporter } from '~/error-boundary/use-global-error-reporter'
 import { RequireAuth } from '~/modules/auth/components/require-auth.component'
 import { useAuthBootstrap, useAuthBroadcastListener } from '~/modules/auth/hooks/auth.hooks'
 import { OnboardingPage } from '~/modules/onboarding/pages/onboarding.page'
@@ -10,6 +12,7 @@ import { HomePage } from '~/modules/plan/pages/home.page'
 import { SettingsPage } from '~/modules/settings/pages/settings.page'
 import { LoginPage } from '~/pages/login/login.page'
 import { RegisterPage } from '~/pages/register/register.page'
+import { ThrowOnQuery } from '~dev-only/throw-on-query'
 
 interface OnboardingRedirectGuardProps {
   /**
@@ -113,53 +116,71 @@ export const OnboardingRedirectGuard = ({
 }
 
 // Inner component runs inside the Redux Provider so auth hooks'
-// `useDispatch` / `useSelector` resolve to the right store.
+// `useDispatch` / `useSelector` resolve to the right store. Also the
+// canonical home of `useGlobalErrorReporter()` (DEC-068 §10.3) — runs
+// inside `<AppErrorBoundary>` so a throw from its own setup is still
+// caught by the boundary instead of crashing the root render.
 const AppShell = () => {
   useAuthBootstrap()
   useAuthBroadcastListener()
+  useGlobalErrorReporter()
 
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route
-        path="/onboarding"
-        element={
-          <RequireAuth>
-            <OnboardingRedirectGuard expectComplete={true} redirectTo="/">
-              <OnboardingPage />
-            </OnboardingRedirectGuard>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/"
-        element={
-          <RequireAuth>
-            <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
-              <HomePage />
-            </OnboardingRedirectGuard>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <RequireAuth>
-            <SettingsPage />
-          </RequireAuth>
-        }
-      />
-    </Routes>
+    <>
+      {/* Build-time-stripped Playwright harness. `import.meta.env.DEV` is
+          replaced with the literal `false` by Vite during `build`, so
+          this entire JSX branch and the `ThrowOnQuery` import are
+          tree-shaken to zero bytes in production. */}
+      {import.meta.env.DEV && <ThrowOnQuery />}
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/onboarding"
+          element={
+            <RequireAuth>
+              <OnboardingRedirectGuard expectComplete={true} redirectTo="/">
+                <OnboardingPage />
+              </OnboardingRedirectGuard>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+                <HomePage />
+              </OnboardingRedirectGuard>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <RequireAuth>
+              <SettingsPage />
+            </RequireAuth>
+          }
+        />
+      </Routes>
+    </>
   )
 }
 
+// `<AppErrorBoundary>` sits *inside* `<Provider>` so the Fallback can
+// still consume Redux state if a future iteration of the card surfaces
+// user-scoped diagnostics (e.g. tenant id, current route). It wraps
+// `<BrowserRouter>` so render-time throws from any route component
+// bubble to the single app-root card (DEC-068 §10.4).
 export const App = () => {
   return (
     <Provider store={store}>
-      <BrowserRouter>
-        <AppShell />
-      </BrowserRouter>
+      <AppErrorBoundary>
+        <BrowserRouter>
+          <AppShell />
+        </BrowserRouter>
+      </AppErrorBoundary>
     </Provider>
   )
 }
