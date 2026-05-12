@@ -6,23 +6,25 @@ using RunCoach.Api.Tests.Infrastructure;
 // injection, so no per-class IClassFixture boilerplate is needed.
 [assembly: AssemblyFixture(typeof(RunCoachAppFactory))]
 
-// Parallelization policy:
+// Disable parallel test-collection execution for the entire assembly.
 //
-// - Pure-unit tests (the bulk of the suite) run in parallel — xUnit v3's
-//   default. This is what kept the suite under a few seconds before the
-//   integration scaffolding landed.
-// - Tests touching the shared `RunCoachAppFactory` (Testcontainers Postgres
-//   + Marten `IDocumentStore` + Wolverine host) opt into the `Integration`
-//   collection — `[CollectionDefinition("Integration",
-//   DisableParallelization = true)]` in `IntegrationCollection.cs`. That
-//   serializes them among themselves so they no longer race on Marten's
-//   schema-migration advisory lock or trigger `ObjectDisposedException` on
-//   `IDocumentStore` shutdown.
-// - Eval tests opt into the `Eval` collection so concurrent reads/writes
-//   against the disk-backed `DiskBasedReportingConfiguration` cache don't
-//   race.
+// Rationale: integration tests share the assembly-scoped `RunCoachAppFactory`,
+// which boots one Testcontainers Postgres + Marten `IDocumentStore` +
+// Wolverine host for the whole suite. Under xUnit v3's default
+// parallel-by-collection scheduling, multiple integration test classes
+// race on the shared `IDocumentStore`'s schema-migration advisory lock and
+// the Marten async daemon, producing intermittent failures (different set
+// of 9-11 failed tests per run) with two recurring signatures:
+//   - "Unable to attain a global lock in time order to apply database changes"
+//   - `ObjectDisposedException` on `IDocumentStore` shutdown
 //
-// The previous assembly-level `[CollectionBehavior(DisableTestParallelization
-// = true)]` serialised the entire suite, regressing 1041 tests from a few
-// seconds to over 90 seconds. The collection-scoped opt-in restores
-// per-collection parallelism without re-introducing the integration races.
+// Sequential collection execution eliminates the race deterministically.
+// Tests within a collection still run sequentially by default in xUnit; this
+// attribute additionally serializes execution *across* collections so the
+// shared SUT is only touched by one collection at a time.
+//
+// Trade-off: total wall-clock test time grows, but the suite is reliable.
+// If suite runtime becomes a concern, the future fix is to partition the
+// shared SUT into per-collection isolated databases or schemas (deferred —
+// see RunCoach task #117 description for context).
+[assembly: CollectionBehavior(DisableTestParallelization = true)]

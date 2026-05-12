@@ -9,7 +9,7 @@ using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 
 /// <summary>
-/// Pure type-system regression guards for the DEC-061 fix-up that unblocked
+/// Pure type-system regression guards for the DEC-062 fix-up that unblocked
 /// the integration-test path. Cheapest verification layer for the exact
 /// failure modes documented in R-070:
 /// <list type="bullet">
@@ -46,7 +46,7 @@ public sealed class MartenStoreOptionsCompositionTests
         // `SingleStreamProjection<UserProfile>` would silently re-route writes through
         // Marten's document storage and break atomicity with the EF row.
         actualBase.Should().Be<EfCoreSingleStreamProjection<RunnerOnboardingProfile, Guid, RunCoachDbContext>>(
-            because: "DEC-061 / R-070 — the EF base class is what makes opts.Add(...) wire the projection as a transaction participant on the same Npgsql connection as the Marten event append");
+            because: "DEC-062 / R-070 — the EF base class is what makes opts.Add(...) wire the projection as a transaction participant on the same Npgsql connection as the Marten event append");
     }
 
     [Fact]

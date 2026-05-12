@@ -219,7 +219,7 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
                 Arg.Any<IReadOnlyDictionary<string, JsonElement>>(),
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(BuildValidLlmOutput());
+            .Returns(_ => (BuildValidLlmOutput(), AnthropicUsage.Zero));
 
         var assembler = Substitute.For<IContextAssembler>();
         assembler.ComposeForOnboardingAsync(
