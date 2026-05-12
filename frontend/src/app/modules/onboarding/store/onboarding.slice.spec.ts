@@ -12,7 +12,8 @@ import {
   userTurnDelivered,
 } from './onboarding.slice'
 import type { OnboardingChatState, OnboardingTurn } from './onboarding.slice'
-import { OnboardingTopic, SuggestedInputType } from '~/modules/onboarding/models/onboarding.model'
+import { SuggestedInputType } from '~/api/generated'
+import { OnboardingTopic } from '~/modules/onboarding/models/onboarding.model'
 
 const emptyState: OnboardingChatState = {
   turns: [],

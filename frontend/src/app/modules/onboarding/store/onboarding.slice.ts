@@ -1,9 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import type { SuggestedInputType } from '~/api/generated'
 import type { MessageContentBlock } from '~/modules/coaching/components/message-bubble.component'
-import type {
-  OnboardingTopic,
-  SuggestedInputType,
-} from '~/modules/onboarding/models/onboarding.model'
+import type { OnboardingTopic } from '~/modules/onboarding/models/onboarding.model'
 
 // Lifecycle of a transcript turn. `pending` = optimistic user message
 // awaiting server response; `failed` = pending message whose POST returned

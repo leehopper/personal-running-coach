@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { SuggestedInputType } from '~/api/generated'
 import {
   AnthropicContentBlockType,
   OnboardingTopic,
   OnboardingTurnKind,
-  SuggestedInputType,
 } from '~/modules/onboarding/models/onboarding.model'
 import { onboardingTurnResponseSchema } from './onboarding-turn-response.schema'
 

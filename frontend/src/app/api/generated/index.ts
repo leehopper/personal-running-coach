@@ -11,12 +11,53 @@
  * generated output (committed and gated by `codegen:check`) and the rest of
  * the app. Each migrated schema or hook gets one line here per direction
  * (schema + inferred type).
+ *
+ * Orval's `tags-split` mode inlines `$ref`-named component schemas directly
+ * into the endpoint envelopes rather than exporting them as standalone
+ * schemas. The named-component extractions below pull the sub-schemas via
+ * Zod's `.shape` accessor so a backend rename of (say)
+ * `OnboardingProgressDto.completedTopics` → `OnboardingProgressDto.completed`
+ * surfaces here as a TypeScript error during `npm run codegen:check`. That
+ * regression class is exactly what Slice 1 bug #4 shipped undetected and
+ * what DEC-066 exists to prevent.
  */
-import type { z } from 'zod'
+import { z } from 'zod'
 
 import { PostApiV1AuthRegisterBody } from './zod/auth/auth'
+import { PostApiV1OnboardingTurnsResponse } from './zod/onboarding/onboarding'
 
 // Auth schemas — migrated piecewise. RegisterRequest is the first; T03.2
 // extends to OnboardingProgressDto + SuggestedInputType.
 export const registerRequestSchema = PostApiV1AuthRegisterBody
 export type RegisterRequest = z.infer<typeof registerRequestSchema>
+
+// Onboarding schemas — the named components OnboardingProgressDto and
+// SuggestedInputType live as `$ref` entries in swagger.json but Orval's
+// `tags-split` mode inlines them into the parent endpoint envelopes. The
+// extractions below source the canonical Zod node from
+// `PostApiV1OnboardingTurnsResponse.shape.*`; the names are part of the
+// barrel's contract and a `.shape` miss surfaces as a TS error.
+
+export const onboardingProgressSchema = PostApiV1OnboardingTurnsResponse.shape.progress
+export type OnboardingProgressDto = z.infer<typeof onboardingProgressSchema>
+
+export const suggestedInputTypeSchema = PostApiV1OnboardingTurnsResponse.shape.suggestedInputType
+export type SuggestedInputType = z.infer<typeof suggestedInputTypeSchema>
+
+/**
+ * `as const` enum-shaped object paired with {@link SuggestedInputType}
+ * so consumers can write `SuggestedInputType.Text` instead of the magic
+ * integer literal `0`. The numeric values mirror the C# enum on the wire
+ * (no `JsonStringEnumConverter` is registered for this controller); the
+ * Zod schema above enforces the same integer set at the validation seam.
+ * Adding a member here without the schema also accepting it would surface
+ * as a Zod parse failure during integration tests, so the two stay in
+ * lockstep with the backend.
+ */
+export const SuggestedInputType = {
+  Text: 0,
+  SingleSelect: 1,
+  MultiSelect: 2,
+  Numeric: 3,
+  Date: 4,
+} as const satisfies Record<string, SuggestedInputType>

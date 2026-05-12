@@ -3,11 +3,11 @@ import { renderHook, act } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { Provider } from 'react-redux'
 import { describe, expect, it, vi } from 'vitest'
+import { SuggestedInputType } from '~/api/generated'
 import {
   AnthropicContentBlockType,
   OnboardingTopic,
   OnboardingTurnKind,
-  SuggestedInputType,
 } from '~/modules/onboarding/models/onboarding.model'
 import { onboardingSlice } from '~/modules/onboarding/store/onboarding.slice'
 
