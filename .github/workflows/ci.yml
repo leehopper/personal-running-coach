@@ -56,7 +56,23 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Restore
         run: dotnet restore backend/RunCoach.slnx
-      - name: Build
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+      - name: Build (Release; emits backend/openapi/swagger.json via EmitOpenApi target)
+        # Release build runs the `EmitOpenApi` MSBuild target declared on
+        # RunCoach.Api.csproj (DEC-066 / R-071), which invokes `dotnet swagger
+        # tofile` to regenerate `backend/openapi/swagger.json`. The frontend
+        # codegen pipeline (T03.1+) reads that file via npm scripts; running
+        # the Release build here ensures every CI run regenerates the spec
+        # before any downstream drift gate runs.
+        run: dotnet build backend/RunCoach.slnx -c Release --no-restore
+      - name: OpenAPI drift gate
+        # Fails the build if the committed swagger.json differs from the
+        # freshly-generated one, mirroring the frontend codegen drift gate
+        # introduced by T03.1. Catches backend DTO changes that forget to
+        # re-emit the spec before pushing.
+        run: git diff --exit-code -- backend/openapi/swagger.json
+      - name: Build (Debug; used by the test step below)
         run: dotnet build backend/RunCoach.slnx --no-restore
       - name: Test
         run: >-

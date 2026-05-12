@@ -13,6 +13,7 @@ using OpenTelemetry.Trace;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Identity.Entities;
+using RunCoach.Api.Swashbuckle;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.ErrorHandling;
@@ -304,7 +305,20 @@ builder.Services.AddOpenTelemetry()
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Swashbuckle 10.x options for the build-time `dotnet swagger tofile` emit
+// (DEC-066 / R-071 §3). `SupportNonNullableReferenceTypes` makes Swashbuckle
+// walk C# nullable annotations when inferring `nullable: true`, and
+// `RequireNonNullablePropertiesSchemaFilter` promotes every non-nullable
+// property into the OpenAPI `required` array. Without both, the frontend
+// Zod codegen turns into `.nullish()` everywhere and the drift gate goes
+// silent on the exact class of rename / drop bug that motivated this slice.
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SupportNonNullableReferenceTypes();
+    options.SchemaFilter<RequireNonNullablePropertiesSchemaFilter>();
+});
+
 builder.Services.AddHealthChecks();
 builder.Services.AddApplicationModules(builder.Configuration);
 
