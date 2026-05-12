@@ -254,6 +254,97 @@
         }
       }
     },
+    "/api/v1/client-errors": {
+      "post": {
+        "tags": [
+          "ClientErrors"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientErrorRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientErrorRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientErrorRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/onboarding/turns": {
       "post": {
         "tags": [
@@ -651,6 +742,64 @@
             "format": "uuid"
           },
           "email": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClientErrorKind": {
+        "enum": [
+          "render",
+          "window-error",
+          "unhandled-rejection"
+        ],
+        "type": "string"
+      },
+      "ClientErrorRequestDto": {
+        "required": [
+          "appVersion",
+          "correlationId",
+          "errorName",
+          "kind",
+          "message",
+          "occurredAt",
+          "stack",
+          "url",
+          "userAgent"
+        ],
+        "type": "object",
+        "properties": {
+          "correlationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ClientErrorKind"
+          },
+          "errorName": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "stack": {
+            "type": "string"
+          },
+          "componentStack": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string"
+          },
+          "userAgent": {
+            "type": "string"
+          },
+          "appVersion": {
             "type": "string"
           }
         },
@@ -1629,6 +1778,9 @@
   "tags": [
     {
       "name": "Auth"
+    },
+    {
+      "name": "ClientErrors"
     },
     {
       "name": "Onboarding"
