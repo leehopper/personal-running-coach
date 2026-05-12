@@ -273,8 +273,16 @@ builder.Services.AddOpenTelemetry()
         serviceInstanceId: Environment.MachineName))
     .WithTracing(tracing =>
     {
+        // UpcasterTelemetry.SourceName is "RunCoach.Marten.Upcaster"; the
+        // literal here matches the DEC-067 / R-072 spec's CLI proof grep
+        // and pins the on-disk string Jaeger filters on.
         tracing
-            .AddSource("Marten", "Wolverine", "RunCoach.Llm", "Npgsql")
+            .AddSource(
+                "Marten",
+                "RunCoach.Marten.Upcaster",
+                "Wolverine",
+                "RunCoach.Llm",
+                "Npgsql")
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation();
         if (otlpExporterEnabled)

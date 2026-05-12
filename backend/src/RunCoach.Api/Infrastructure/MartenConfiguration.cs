@@ -9,11 +9,13 @@ using Marten.Services;
 using Marten.Storage;
 using Microsoft.EntityFrameworkCore;
 using RunCoach.Api.Infrastructure.Idempotency;
+using RunCoach.Api.Infrastructure.Marten;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Plan.Models;
 using Wolverine.Marten;
+using LegacyOnboardingV1 = RunCoach.Api.Modules.Coaching.Onboarding.Legacy.Events.V1;
 
 namespace RunCoach.Api.Infrastructure;
 
@@ -29,125 +31,113 @@ public static class MartenConfiguration
     public const string EventsSchema = "runcoach_events";
 
     /// <summary>
+    /// Gets every Marten event type currently emitted by the system, in registration order.
+    /// Every entry here is wired through <see cref="MapEventTypeWithSchemaVersionFor"/>
+    /// at <see cref="Apply"/> time so its <c>mt_events.type</c> column carries the
+    /// <c>{snake_name}_v1</c> suffix the <c>MartenStoreOptionsCompositionTests</c>
+    /// asserts against (DEC-067 / R-072). Adding a new event type without listing
+    /// it here fails that composition test by design — the failure is the
+    /// load-bearing signal that schema-version hygiene was missed.
+    /// </summary>
+    /// <remarks>
+    /// Legacy V1 records under <c>RunCoach.Api.Modules.{Module}.Legacy.Events.V{N}</c>
+    /// are NOT listed here — they are not appended by production code, only read
+    /// by Marten's deserializer when a registered upcaster routes
+    /// <c>mt_dotnet_type</c>-tagged legacy rows back into the current shape.
+    /// </remarks>
+    public static IReadOnlyList<Type> RegisteredEventTypes { get; } =
+    [
+        typeof(OnboardingStarted),
+        typeof(TopicAsked),
+        typeof(AnswerCaptured),
+        typeof(ClarificationRequested),
+        typeof(UserTurnRecorded),
+        typeof(AssistantTurnRecorded),
+        typeof(PlanLinkedToUser),
+        typeof(OnboardingCompleted),
+        typeof(PlanGenerated),
+        typeof(MesoCycleCreated),
+        typeof(FirstMicroCycleCreated),
+    ];
+
+    /// <summary>
+    /// Applies the production-shape Marten configuration to the supplied
+    /// <see cref="StoreOptions"/>. Extracted from the <see cref="AddMarten"/>
+    /// lambda so the <c>MartenStoreOptionsCompositionTests</c> can exercise
+    /// the same configuration against a bare <c>DocumentStore.For(...)</c>
+    /// without paying the full DI host boot.
+    /// </summary>
+    /// <param name="opts">The Marten store options to mutate.</param>
+    /// <param name="connectionString">
+    /// Optional connection string for the bare-options test path. When
+    /// <see langword="null"/>, the caller is expected to wire connection
+    /// state itself (the production DI path uses <c>UseNpgsqlDataSource</c>
+    /// against the shared <see cref="Npgsql.NpgsqlDataSource"/>).
+    /// </param>
+    public static void Apply(StoreOptions opts, string? connectionString = null)
+    {
+        if (connectionString is not null)
+        {
+            opts.Connection(connectionString);
+        }
+
+        opts.DatabaseSchemaName = EventsSchema;
+        opts.Events.DatabaseSchemaName = EventsSchema;
+        opts.Events.StreamIdentity = StreamIdentity.AsGuid;
+        opts.Events.TenancyStyle = TenancyStyle.Conjoined;
+
+        opts.Events.AppendMode = EventAppendMode.Rich;
+        opts.Events.UseIdentityMapForAggregates = true;
+
+        opts.Policies.AllDocumentsAreMultiTenanted();
+        opts.Schema.For<IdempotencyMarker>();
+
+        // Per-event schema-version registration. Every event type appended by
+        // production code is tagged `{snake_name}_v1` in `mt_events.type` from
+        // day one, so a future V2 schema bump can land an unambiguous direct
+        // V1 -> current upcaster without a column-content scan (DEC-067 /
+        // R-072 §9). Composition-test source-of-truth is
+        // <see cref="RegisteredEventTypes"/>.
+        foreach (var eventType in RegisteredEventTypes)
+        {
+            MapEventTypeWithSchemaVersionFor(opts.Events, eventType, version: 1U);
+        }
+
+        // Pre-register legacy V1 CLR records the upcaster routes from. The
+        // V1 record for OnboardingStarted is byte-identical to the current
+        // shape today (no production V2 exists yet); the upcaster below
+        // exists solely to exercise the registration shape and to make the
+        // synthetic-row regression test runnable. When a real V2 lands, the
+        // upcaster body changes from identity to the actual transform and a
+        // new MapEventTypeWithSchemaVersion<Current>(2) call lands here.
+        opts.Events.AddEventType<LegacyOnboardingV1.OnboardingStarted>();
+        opts.Events.Upcast<LegacyOnboardingV1.OnboardingStarted, OnboardingStarted>(
+            legacy => UpcasterTelemetry.TraceUpcast(
+                legacy,
+                static v1 => new OnboardingStarted(v1.UserId, v1.StartedAt)));
+
+        opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
+
+        opts.Schema.For<RunnerOnboardingProfile>().Identity(x => x.UserId);
+        RegisterEfProjectionWithoutWeaselTables(opts, new UserProfileFromOnboardingProjection());
+
+        opts.Schema.For<PlanProjectionDto>().Identity(x => x.PlanId);
+        opts.Projections.Add(new PlanProjection(), ProjectionLifecycle.Inline);
+
+        opts.Projections.Errors.SkipUnknownEvents = true;
+
+        opts.OpenTelemetry.TrackConnections = TrackLevel.Normal;
+        opts.OpenTelemetry.TrackEventCounters();
+    }
+
+    /// <summary>
     /// Registers Marten against the shared <see cref="Npgsql.NpgsqlDataSource"/>
     /// and applies <see cref="CritterStackDefaults"/> so development auto-builds
     /// schema while production runs statically compiled code and never touches DDL.
     /// </summary>
     public static IServiceCollection AddRunCoachMarten(this IServiceCollection services)
     {
-        services.AddMarten(opts =>
-            {
-                opts.DatabaseSchemaName = EventsSchema;
-                opts.Events.DatabaseSchemaName = EventsSchema;
-                opts.Events.StreamIdentity = StreamIdentity.AsGuid;
-                opts.Events.TenancyStyle = TenancyStyle.Conjoined;
-
-                // Rich mode (DEC-057): performs the two-step SQL append that
-                // tracks per-stream version numbers and enforces stream-version
-                // consistency at SaveChangesAsync time. Concurrent submits to
-                // the same stream that race past the idempotency check will
-                // collide — the second committer gets `ExistingStreamIdCollisionException`
-                // (first-turn StartStream race) or `ConcurrentUpdateException`
-                // (subsequent-turn Append race). Wolverine's concurrency policy
-                // in Program.cs routes both to the dead-letter queue. Quick
-                // mode skips version checks entirely, making the DEC-057
-                // concurrency guarantee design-only.
-                opts.Events.AppendMode = EventAppendMode.Rich;
-                opts.Events.UseIdentityMapForAggregates = true;
-
-                // `EnableAdvancedAsyncTracking` intentionally left at its
-                // default (`false`) — it adds per-session cost with no current
-                // load-bearing value. Flip on only when a concrete test-side
-                // `WaitForNonStaleData` assertion needs it.
-                opts.Policies.AllDocumentsAreMultiTenanted();
-
-                // Explicit document registration so JasperFx static codegen
-                // (`TypeLoadMode.Static` in Production) picks up the
-                // idempotency-marker document at build time. Auto-discovery
-                // only covers documents Marten observes via session calls,
-                // which is fine in Development but breaks Production
-                // pre-generated handler chains.
-                opts.Schema.For<IdempotencyMarker>();
-
-                // Onboarding projections (DEC-047 + DEC-060 / R-069). Both run inline so
-                // the in-memory `OnboardingView` and the EF `UserProfile` row materialize
-                // on the same `IDocumentSession.SaveChangesAsync` call as the event
-                // append - no async daemon lag, no dual-write window. The EF projection
-                // is a transaction participant on the Marten Npgsql connection, so the
-                // EF write commits inside Marten's transaction (Marten.EntityFrameworkCore
-                // 8.32 docs: "registers a transaction participant so the DbContext's
-                // SaveChangesAsync is called within Marten's transaction, ensuring
-                // atomicity").
-                opts.Projections.Add(new OnboardingProjection(), ProjectionLifecycle.Inline);
-
-                // EF-Core-backed projection registration. The
-                // `Marten.EntityFrameworkCore` extension (`opts.Add(...)`
-                // rather than `opts.Projections.Add(...)`) wires the projection
-                // as a transaction participant via `RegisterEfCoreStorage` and
-                // walks the `RunCoachDbContext` model with
-                // `AddEntityTablesFromDbContext`. Writes route through
-                // `CustomProjectionStorageProviders[typeof(RunnerOnboardingProfile)]`,
-                // so Marten never persists the row itself.
-                //
-                // Two concrete preconditions had to land together to make this
-                // wiring boot under <c>TenancyStyle.Conjoined</c>:
-                //
-                // 1. <c>RunnerOnboardingProfile</c> implements
-                //    <c>Marten.Metadata.ITenanted</c>. Marten's
-                //    <c>EfCoreSingleStreamProjection.ValidateConfiguration</c>
-                //    explicitly fails the host start with
-                //    <c>InvalidProjectionException</c> if the EF target type
-                //    does not implement <c>ITenanted</c> when events use
-                //    Conjoined tenancy.
-                // 2. The explicit <c>Schema.For&lt;RunnerOnboardingProfile&gt;().Identity</c>
-                //    selector below. Marten's
-                //    <c>StoreOptions.ApplyConfiguration()</c> walks every
-                //    projection's published types and runs
-                //    <c>DocumentMapping.CompileAndValidate()</c> on each, which
-                //    requires an <c>Id</c>/<c>id</c> member or a configured
-                //    identity selector. <c>RunnerOnboardingProfile</c> uses <c>UserId</c>
-                //    (a shared PK/FK with <c>ApplicationUser</c>), so the
-                //    selector points there. Marten still creates an unused
-                //    <c>mt_doc_runneronboardingprofile</c> doc table — harmless because
-                //    the storage delegate diverts every read and write to the
-                //    EF row. The doc-table creation is also why
-                //    <c>RunCoachDbContext.OnModelCreating</c> pins
-                //    <c>HasDefaultSchema("public")</c>: without it,
-                //    <c>AddEntityTablesFromDbContext</c> would relocate the
-                //    Identity / DataProtection tables into
-                //    <c>runcoach_events</c> and the cross-schema FKs would
-                //    fail at boot.
-                opts.Schema.For<RunnerOnboardingProfile>().Identity(x => x.UserId);
-                RegisterEfProjectionWithoutWeaselTables(opts, new UserProfileFromOnboardingProjection());
-
-                // Plan projection (spec 13 § Unit 2, R02.3). Inline so the
-                // `PlanProjectionDto` read model materializes on the same
-                // `IDocumentSession.SaveChangesAsync` call as the Plan stream's
-                // event append - the calling handler's transaction commits the
-                // events and the document together. The frontend's
-                // `GET /api/v1/plan/current` reads this document directly via
-                // `session.LoadAsync<PlanProjectionDto>(planId)` with zero
-                // LLM cost.
-                //
-                // The explicit identity selector below is required because
-                // `PlanProjectionDto` keys on `PlanId` (the per-plan stream id)
-                // rather than a conventional `Id` member - Marten's
-                // `DocumentMapping.CompileAndValidate()` runs over every
-                // projection's published types at host start and throws
-                // `InvalidDocumentException` without it.
-                opts.Schema.For<PlanProjectionDto>().Identity(x => x.PlanId);
-                opts.Projections.Add(new PlanProjection(), ProjectionLifecycle.Inline);
-
-                opts.Projections.Errors.SkipUnknownEvents = true;
-
-                // Surface Marten connection-use spans (`marten.connection`) and
-                // the appended-event counter to the OTel pipeline wired in
-                // Program.cs. `TrackLevel.Normal` is the spec default; bump to
-                // `Verbose` temporarily when chasing N+1 or write-amplification
-                // regressions in dev.
-                opts.OpenTelemetry.TrackConnections = TrackLevel.Normal;
-                opts.OpenTelemetry.TrackEventCounters();
-            })
+        services.AddMarten(opts => Apply(opts))
             .UseLightweightSessions()
             .UseNpgsqlDataSource()
             .IntegrateWithWolverine()
@@ -177,6 +167,38 @@ public static class MartenConfiguration
         });
 
         return services;
+    }
+
+    /// <summary>
+    /// Invokes <c>EventGraph.MapEventTypeWithSchemaVersion&lt;T&gt;(int)</c> for a
+    /// runtime-known <see cref="Type"/>. The closed generic dispatch keeps
+    /// <see cref="RegisteredEventTypes"/> as a single source-of-truth list — adding a
+    /// new event there auto-wires the schema-version registration without touching
+    /// <see cref="Apply"/>.
+    /// </summary>
+    /// <param name="events">The Marten <c>IEventStoreOptions</c> exposed by <c>opts.Events</c>.</param>
+    /// <param name="eventType">The event CLR type to register.</param>
+    /// <param name="version">The schema version to append to the snake-cased type name.</param>
+    private static void MapEventTypeWithSchemaVersionFor(
+        global::Marten.Events.IEventStoreOptions events,
+        Type eventType,
+        uint version)
+    {
+        // The single-arg generic extension lives on Marten's
+        // EventStoreOptionsExtensions (declared at the assembly root, no
+        // namespace) and takes (IEventStoreOptions, uint).
+        var extensions = typeof(global::Marten.IDocumentStore)
+            .Assembly
+            .GetType("EventStoreOptionsExtensions")
+            ?? throw new InvalidOperationException(
+                "EventStoreOptionsExtensions not found in Marten assembly; " +
+                "API moved between Marten versions — regenerate the helper.");
+        var method = extensions
+            .GetMethods()
+            .Single(m => m.Name == "MapEventTypeWithSchemaVersion"
+                         && m.GetParameters().Length == 2)
+            .MakeGenericMethod(eventType);
+        method.Invoke(null, [events, version]);
     }
 
     /// <summary>
