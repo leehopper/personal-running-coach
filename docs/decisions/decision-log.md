@@ -2331,4 +2331,165 @@ The MTP 2.x pin chain is load-bearing — every new MTP-family extension we adop
 
 ---
 
+## DEC-066: OpenAPI → TypeScript + Zod codegen pipeline (two-tool: `@rtk-query/codegen-openapi` + Orval v8 Zod)
+
+**Date:** 2026-05-11
+**Category:** Frontend / Contract codegen
+**Status:** Accepted
+**Drives:** Slice 1B Pre-Slice-2 Hardening — closes Slice 1's PascalCase wire leak (bug #1), RTK tag race (bug #2 — out-of-scope for codegen), multi-select dead-end (bug #3), and `Completed`/`Total` rename (bug #4) classes by removing hand-maintained Zod schemas.
+**Cites:** R-071 (`docs/research/artifacts/batch-24a-openapi-typescript-zod-codegen.md`).
+
+### Decision
+
+OpenAPI document is produced at build time by Swashbuckle 10 (`dotnet swagger tofile` via `AfterTargets="Build"` MSBuild target, env `DOTNET_ROLL_FORWARD=LatestMajor`) and **committed** to `backend/openapi/swagger.json`. OpenAPI dialect is 3.0 with `nullable: true` — NOT 3.1.
+
+Frontend codegen is a two-tool pipeline, both reading the committed spec file:
+
+1. **`@rtk-query/codegen-openapi`** (Redux Toolkit monorepo, MIT, ~200k weekly downloads, labeled "early preview" — pin a minor) produces the typed RTK Query slice, hooks, and `injectEndpoints` shape. Output lands under `frontend/src/api/generated/rtk/`.
+2. **Orval v8.6+** (MIT) run in `client: 'zod'` mode with `override.zod.strict = true` produces Zod v4 runtime schemas keyed on operationId. Output lands under `frontend/src/api/generated/zod/`.
+
+RTK Query consumes both via `enhanceEndpoints({ transformResponse: schema.parse })` — the documented bridge pattern (Redux Toolkit discussion #2576). Slice files do NOT edit generated output; they extend it.
+
+Backend Swashbuckle config calls `options.SupportNonNullableReferenceTypes()` plus a `RequireNonNullablePropertiesSchemaFilter` so C# non-nullable reference types map to OpenAPI `required` (without it every property emits `nullable: true` and Zod generates `.nullish()` — the drift gate goes silent).
+
+Drift gate (CI):
+
+```yaml
+- dotnet build -c Release   # emits backend/openapi/swagger.json via MSBuild target
+- (cd frontend && npm ci && npm run codegen)
+- git diff --exit-code -- backend/openapi/swagger.json frontend/src/api/generated/
+- oasdiff breaking origin/${{ base_ref }}:backend/openapi/swagger.json HEAD:backend/openapi/swagger.json  # advisory
+```
+
+Lefthook `pre-push` runs `npm run codegen:check` to fail-fast locally.
+
+Zod runtime: full `zod` chainable API (NOT `zod/mini`) — readable in PR review; revisit at MVP-1 if bundle telemetry justifies.
+
+Migration order (endpoint-by-endpoint, lowest-risk first):
+
+1. Land the wiring with zero imports changed; CI drift gate goes live against the committed generated files.
+2. `RegisterRequest` — closes the deferred Slice 0 follow-up "frontend Zod schemas must mirror `RegisterRequest` DataAnnotations."
+3. `OnboardingProgressDto` — proves the gate catches Slice 1 bug #4 (`Completed`/`Total` rename). Throwaway commit renames a C# field, CI fails, revert. Document the failure mode.
+4. `SuggestedInputType` — generated Zod owns the server-driven half; client-side fallback rule (`pickInputTypeForTopic`) imports the generated enum.
+5. `OnboardingTurnResponseDto` is **gated behind the Slice 4 `JsonDocument` antipattern fix.** Codegen emits `JsonDocument` properties as `Record<string, unknown>`, silently losing the parse gate on exactly the property that caused Slice 1 bug #1. Ship codegen here only after `AssistantBlocks`/`UserBlocks` become typed discriminated records.
+6. Slice 2 (Workout Logging) endpoints — codegen-only from day one. Zero hand-rolled Zod.
+
+### Rationale
+
+- **No single 2026 tool emits both an RTK Query slice and Zod v4 schemas.** Orval has no `rtk-query` client target (by design — only TanStack Query / SWR / Hono / fetch / zod). `@rtk-query/codegen-openapi` deliberately stays runtime-validation-free per its maintainers. Kubb covers Zod but has no RTK plugin. The two-tool seam is the accepted pattern, not a temporary hack.
+- **OpenAPI 3.0 + `nullable: true`, not 3.1.** Both Orval (issues #1817, #2249, #3269) and openapi-typescript (#2144) have known nullable regressions on 3.1. Swashbuckle 10 defaults to 3.0; the `Microsoft.AspNetCore.OpenApi` 3.1-default native generator is a pre-MVP-1 evaluation, not a Slice 1B swap.
+- **Committed `swagger.json`, not a live URL pull in CI.** Drift gate becomes "is the committed backend in sync with the committed frontend?" — that's the question that catches Slice 1 bug #4 before merge, not "is the running backend in sync?" which only catches it post-deploy.
+- **Anthropic Pattern-B (DEC-058) compat verified.** With `override.zod.strict = true`, `additionalProperties: false` on Swashbuckle's record output round-trips as `z.strictObject`, preserving the extra-fields-fail-parse gate. Discriminator + nullable-slot schemas (`OnboardingTurnOutput`'s six `Normalized*` slots + `Topic`) round-trip cleanly when DTOs stay flat (no 2-level inheritance — openapi-typescript #1158 breaks Poodle→Dog→Pet).
+- **`@rtk-query/codegen-openapi` "early preview" labeling.** Heavy real-world usage (~200k weekly downloads), first-class issue handling in the redux-toolkit monorepo, but the API surface is unstable enough to pin a minor and update deliberately. Acceptable risk given no alternative.
+
+### Alternatives considered
+
+- **`openapi-typescript` (types-only) + hand-written Zod schemas.** Rejected: doesn't satisfy "runtime parse gate on RTK Query responses" — the whole point of Slice 1B. Eliminates the gate that catches Slice 1 bug #4 before merge.
+- **Kubb (`@kubb/plugin-zod` 4.x) as the primary.** Rejected as primary because it has no RTK Query plugin (TanStack Query, SWR, Hono, MSW only) and parts of the Kubb repo are AGPL-3.0 (verify per-plugin before commercial use). Kept as the **per-endpoint fallback** when Orval bugs on a specific schema (e.g., enum + minLength regressions #2249/#3024). Plugin model lets Kubb emit only the offending schema, re-export via the barrel.
+- **`@hey-api/openapi-ts` + TanStack Query** (the "one config, two outputs" tool). Rejected for Slice 1B because adopting it requires replacing RTK Query as the state layer — too large a change for a hardening slice. Documented as the **pivot fallback** if codegen-source pain compounds (trigger: more than ~30% of RTK Query endpoints need bespoke `transformResponse` workarounds).
+- **`openapi-zod-client` (Zodios).** Rejected: couples to Zodios runtime; last release ~a year ago per npm.
+- **`NSwag`, `swagger-typescript-api`, `kiota`, `@7nohe/openapi-react-query-codegen`.** Rejected: no Zod output (NSwag, swagger-typescript-api, kiota) or wrong state layer (`@7nohe` is TanStack-only and release cadence slowed).
+- **Live API URL as codegen source (e.g., `http://localhost:5xxx/swagger/v1/swagger.json`).** Rejected for CI: requires backend boot before frontend generates, and shifts drift detection from "committed vs committed" to "committed vs running" — wrong gate for pre-merge correctness. Allowed for local `npm run codegen:dev` convenience.
+- **`Microsoft.AspNetCore.OpenApi` (native .NET 10) as the spec source.** Rejected for Slice 1B: defaults to OpenAPI 3.1, which has uneven codegen support across the 2026 ecosystem. Revisit at MVP-1 alongside the AOT decision.
+
+### Trade-off
+
+- **Two tools, one spec file** — the integration is novel for this exact stack (ASP.NET Core 10 + React 19 + RTK Query + Vite 6 + Orval-Zod + `@rtk-query/codegen-openapi`); no end-to-end reference monorepo exists in 2026. Budget 1–2 sessions for wiring before migration starts.
+- **Generated Zod schema names are operationId-keyed and verbose.** Hand-maintained barrel under `frontend/src/api/generated/index.ts` re-exports with project-conventional names (`onboardingTurnResponseSchema`, etc.); no edits to generated files.
+- **The `JsonDocument`-in-DTO antipattern is hidden, not solved, by codegen.** `AssistantBlocks`/`UserBlocks` flow through as `Record<string, unknown>` until Slice 4's typed-record fix. Acceptance: don't migrate `OnboardingTurnResponseDto` before that fix lands — the runtime gate would be performance-art compliance.
+
+### Verification
+
+- `backend/openapi/swagger.json` is committed and matches `dotnet swagger tofile` output (CI `git diff --exit-code`).
+- `frontend/src/api/generated/rtk/**` matches `@rtk-query/codegen-openapi` output for the committed spec.
+- `frontend/src/api/generated/zod/**` matches Orval `client: 'zod'` output for the committed spec.
+- A deliberate "rename a C# DTO property" commit on a throwaway branch fails CI on the drift-check step BEFORE any frontend code is updated — captured in a screenshot or PR link at Slice 1B close.
+- RTK Query slice for `RegisterRequest` calls `transformResponse: schema.parse` and a unit test for the slice asserts a malformed wire payload throws.
+
+### References
+
+- R-071: `docs/research/artifacts/batch-24a-openapi-typescript-zod-codegen.md` — full tool comparison, version pins, CI wiring, migration plan.
+- DEC-058 — Anthropic Pattern-B byte-stable schema (the schema this pipeline must round-trip cleanly).
+- DEC-043 — quality pipeline (CodeRabbit + CodeQL + SonarQube + Trivy); drift gate slots in alongside.
+- Slice 1B requirements: `docs/plans/mvp-0-cycle/slice-1b-hardening.md`.
+- Redux Toolkit discussion #2576 — `transformResponse: schema.parse` pattern (the documented bridge between the two tools).
+
+---
+
+## DEC-067: Marten event upcasting strategy — versioned CLR types + `Events.Upcast<TOld, TNew>` registration on `StoreOptions.Events`
+
+**Date:** 2026-05-11
+**Category:** Backend / Persistence / Event sourcing
+**Status:** Accepted
+**Drives:** Slice 1B Pre-Slice-2 Hardening — establishes the schema-evolution strategy so Slice 2's `WorkoutLog`, Slice 3's `PlanAdaptedFromLog`, and Slice 4's `ConversationTurnRecorded` can evolve without breaking pre-existing streams.
+**Cites:** R-072 (`docs/research/artifacts/batch-24b-marten-event-upcasting-strategy.md`).
+**Builds on:** DEC-058, DEC-060, DEC-062.
+
+### Decision
+
+Adopt **versioned CLR event types with synchronous CLR-typed upcaster lambdas** registered on `StoreOptions.Events.Upcast<TOld, TNew>(Func<TOld, TNew>)` as the default schema-evolution mechanism. Use `options.Events.MapEventTypeWithSchemaVersion<T>(N)` for every event type, starting at `N = 1` from initial registration, so `mt_events.type` carries an unambiguous version suffix (`answer_captured_v1`, `answer_captured_v2`, …) across versions.
+
+Reserve `JsonDocument`-based upcasters (via `Marten.Services.Json.Transformations.SystemTextJson.JsonTransformations.Upcast(Func<JsonDocument, TNew>)`) as the **per-event fallback** when keeping an old CLR record alive would carry removed dependencies (e.g., the legacy type held a `JsonDocument` payload whose serializer is being removed). Both forms register on the same `options.Events.Upcast(...)` surface; the choice is per-event, not per-store.
+
+Legacy event records live in a dedicated `RunCoach.Domain.{Module}.Legacy.Events.V{N}` namespace — frozen 10-line POCOs, zero behavior, never referenced by handlers, projections, JsonSchema generators, or Anthropic prompt builders. Only the upcaster lambda references them.
+
+Pure-on-payload constraint: upcasters receive only `TOld` (or `JsonDocument`) — no tenant context, no `IServiceProvider`. If a missing field needs cross-document or tenant-aware lookup, defer to the projection's `EnrichEventsAsync` hook (Marten 8.11+) after upcasting, where `IQuerySession` is tenanted and batched per `EventSlice`.
+
+Anthropic Pattern-B (DEC-058) interaction: when an event carries `JsonDocument NormalizedPayload` (pass-through), schema evolution lives **in the projection's apply method**, not in an upcaster — adding a seventh `Normalized*` slot does NOT need an upcaster, because the event payload is schema-agnostic by construction. Upcasters fire only when promoting a payload field to a *typed* event property.
+
+Observability: every upcaster emits an `upcast.<event_type>` span on `ActivitySource "RunCoach.Marten.Upcaster"` with `from_type` / `to_type` tags; the source is registered alongside `Marten` in the OTel collector config. Daily dashboard query on `mt_doc_dead_letter_event` flags upcaster failures.
+
+Regression-test pattern (Technique B from R-072 §7): raw SQL `INSERT INTO mt_events` of legacy JSON via `session.Connection`, then `IDocumentStore.WaitForNonStaleProjectionDataAsync(30.Seconds())`, then assert the projection produced the expected current-shape document. ~75 LOC including legacy record + lambda + test fixture. Companion to `MartenStoreOptionsCompositionTests`.
+
+### Rationale
+
+- **Source-confirmed interception point.** `Marten.Events.EventMapping.FoldInline/FoldAsync` calls `jsonTransformation.FromDbDataReaderAsync(serializer, reader, 0, token)` *before* the resulting `IEvent.Data` is handed to any projection apply method. **A single upcaster registration covers BOTH** `SingleStreamProjection<TDoc, TId>.Evolve` (document projections registered via `opts.Projections.Add(...)`) AND `EfCoreSingleStreamProjection<TDoc, TKey, TDbContext>.ApplyEvent` (EF projections registered via `opts.Add(...)` per DEC-062). **No DEC-062 amendments required** — upcaster registration is orthogonal to projection registration.
+- **Versioned CLR types beat same-name evolution for RunCoach** on two axes that dominate the others:
+  - DEC-058 (Anthropic Pattern-B byte-stable schema) — JsonSchema/`AIJsonUtilities.CreateJsonSchema` emits from the *current* CLR type. Versioned legacy types in `Legacy.Events.V*` stay invisible to the prompt builder, eliminating the "developer references a property that doesn't exist in JSON" debugging tarpit.
+  - SQL forensic clarity — distinct `mt_events.type` values per version (`answer_captured`, `answer_captured_v2`) make event-version triage a `WHERE` clause, not a JSON inspection.
+- **Codebase cost is bounded.** Five migrations after five quarters = five 10-line legacy records + five upcaster lambdas + five `MapEventTypeWithSchemaVersion<T>(N)` calls. ~80 LOC including tests. Pure-data records, no apply logic, no projection references.
+- **Failure-mode forensics.** Dead-letter event records the *old* CLR type name (`mt_dotnet_type` = `RunCoach.Domain.Onboarding.Legacy.V1.AnswerCaptured, RunCoach.Domain`), not a generic JSON parse error. Operators can trace exactly which schema version failed.
+- **Conjoined-tenancy compatible without changes.** Upcaster signature `Func<TOld, TNew>` receives only the event payload; tenant context attaches to the `IEvent<T>` envelope downstream. The projection's `TenantId` column on `ITenanted` targets populates post-upcast as before. No interaction with the `opts.Events.TenancyStyle = Conjoined` + `Marten.Metadata.ITenanted` validation that DEC-062 already enforces.
+- **Forward-compat across Marten 8 → 9.** Jeremy Miller's "Critter Stack 2026" roadmap (April 29 2026) targets cold-start optimization, AOT, and migration of code into `JasperFx.Events` — not API breaks in the upcasting surface. Expected v9 migration cost is `using` namespace updates only (e.g., `IEvent`, `StreamAction` types that already moved in 8.0).
+
+### Alternatives considered
+
+- **Same-name event-type evolution + JSON-document upcasters as default.** Equally supported by Marten, slightly fewer LOC after many migrations (no legacy CLR records). Rejected because it loses the JsonSchema/Anthropic-Pattern-B clarity (the schema generator only ever sees the current shape with no breadcrumbs of prior versions) and obscures SQL forensics (all rows share `mt_events.type = answer_captured`; you must inspect `data` JSON to know the schema). Retained as the **per-event fallback** when keeping the old CLR record would carry deleted dependencies.
+- **`AsyncOnlyEventUpcaster<TOld, TNew>` for tenant-aware enrichment inside the upcaster.** Rejected: per-event-read N+1 risk (Marten docs explicit warning), and the tenant id is not available in the upcaster signature anyway — `EnrichEventsAsync` is the documented mechanism for tenant-aware projection enrichment, and it sits *after* upcasting on a batched per-`EventSlice` path. **Caveat:** `EnrichEventsAsync` is **not called during `FetchForWriting()` / `FetchLatest()` with Live aggregations** per Marten docs, so it is unsafe for write-model enrichment.
+- **No upcasting layer; rely on `Marten.Schema.MigrateAsync` for column-level changes only.** Rejected: events are immutable JSON rows. A column-shape change cannot rename, drop, or evolve a JSON property without rewriting the JSON in place — that's a copy-and-transform stream operation, not a column migration. Upcasting is the documented Marten-native mechanism for the schema-evolution use case.
+- **Snapshot-based projection rebuild instead of upcasting.** Marten supports snapshotting, but snapshots bypass event replay — upcasters would only fire on snapshot rebuild. RunCoach does not enable snapshots in Slice 1B; revisit if/when snapshotting lands as its own DEC.
+- **N→M event splitting/merging upcasters.** Neither built-in form covers this — would require a custom `IProjection` shim or the "copy and transform stream" recipe. Deferred unless explicitly needed; not on Slice 1B's path.
+
+### Trade-off
+
+- **Legacy CLR types pile up.** Each version adds one ~10-line frozen record in `Legacy.Events.V*`. Acceptable at the current cadence; reconsider triggers below escalate to JSON-document upcasters if accumulation crosses ~8 versions.
+- **Per-event-read delegate invocation.** The upcaster lambda runs on every read of an old-shape event. Synchronous CLR-typed upcasters are cheap; the async N+1 variant is the trap (avoided by the synchronous default).
+- **One more decision per event-versioning episode.** Authors must consciously version (rename V1 → V2, add upcaster, add `MapEventTypeWithSchemaVersion<V2>(2)`). Reviewers must catch missed versioning. REVIEW.md guard rule covers this — flag any change to a Marten event record's fields that doesn't also touch the versioning surface.
+
+### Reconsider if
+
+- The codebase accumulates **more than ~8 legacy event versions** — move to JSON-document upcasters to reduce CLR clutter.
+- Marten 9 ships and **changes the `Upcast<TOld, TNew>` extension surface** (not currently signaled in the 2026 roadmap).
+- An Anthropic schema change forces a **splitting migration (1 event → 2 events)** — neither built-in form covers this; would require a custom `IProjection` shim or the copy-and-transform recipe.
+
+### Verification
+
+- `backend/src/RunCoach.Persistence/MartenConfiguration.cs` calls `options.Events.MapEventTypeWithSchemaVersion<T>(N)` for every registered event type starting at `N = 1`.
+- Slice 1B regression test `AnswerCapturedUpcasterTests` (xUnit + Alba host fixture) hand-writes an `mt_events` row with the legacy `type` value missing a new typed slot, calls `WaitForNonStaleProjectionDataAsync(30.Seconds())`, and asserts the projection produced the expected new-shape document.
+- `MartenStoreOptionsCompositionTests` gains a sibling assertion that the registered upcasters reach the expected `TNew` type for each known `TOld` (no orphan upcaster, no missing forward path).
+- OTel collector config registers `ActivitySource "RunCoach.Marten.Upcaster"`; daily dashboard query lists `(from_type, to_type, count)` from the last 24 h.
+- `mt_doc_dead_letter_event` daily query returns zero rows under normal operation; non-zero surfaces upcaster failures with the offending `EventType` discoverable.
+
+### References
+
+- R-072: `docs/research/artifacts/batch-24b-marten-event-upcasting-strategy.md` — Marten 8.32 upcasting surface, interception-point source citation, regression-test pattern, conjoined-tenancy gotchas, Marten 9 forward-compat analysis.
+- DEC-058 — Anthropic Pattern-B byte-stable schema (the upstream constraint that biases versioned CLR types over same-name evolution).
+- DEC-060 — handler bodies emit events; projections own EF state (the rule that makes the upcaster's single interception point the right architectural seam).
+- DEC-062 — `EfCoreSingleStreamProjection` registers via `opts.Add(...)`; document projections register via `opts.Projections.Add(...)` (orthogonal to upcaster registration; both projection styles see upcast events identically).
+- Marten docs: Event Versioning page (V8.x), EF Core projections page (V8.x).
+- `JasperFx/marten` source: `src/Marten/Events/EventGraph.cs`, `src/Marten/Events/EventMapping.cs`, `EventSourcingTests/SchemaChange/Upcasters.cs`.
+- Slice 1B requirements: `docs/plans/mvp-0-cycle/slice-1b-hardening.md`.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
