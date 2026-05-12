@@ -1,11 +1,12 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 1B (Pre-Slice-2 Hardening) — **planned, awaiting research** as of 2026-04-27. Slice 1 (Onboarding → Plan) closed 2026-04-26 across PRs #67–#71 (stacked: slice-1a-onboarding-api, slice-1b-onboarding-chat, slice-1c-plan-view, slice-1d-plan-regenerate, slice-1e-sanitizer-closeout) and PR-1F (slice-1f-docs-closeout). Slice 1's end-to-end debugging surfaced four contract-drift bugs (PascalCase wire leak, RTK tag-invalidation race, multi-select clarification dead-end, `Completed`/`Total` field rename) that were patched at the call site; Slice 1B closes the structural gaps so the same class can't recur in Slice 2.
-**Next step:** Hand the Slice 1B research prompts (R-071 OpenAPI + Zod codegen, R-072 Marten event upcasting) to the research agent. Slice 1B spec written once both artifacts land. Slice 2 implementation does NOT start until Slice 1B merges.
-**Blockers:** Slice 1B blocked on R-071 / R-072 artifacts. None for Slice 1 close-out.
+**Active slice:** Slice 1B (Pre-Slice-2 Hardening) — research complete; ready for spec-writing as of 2026-05-12. Closes the structural gaps surfaced by Slice 1's four contract-drift bugs so the same class can't recur in Slice 2.
+**Next step:** Write the Slice 1B spec under `docs/specs/` from `slice-1b-hardening.md` + DEC-066/067/068/069, then implement. Slice 2 does NOT start until Slice 1B merges.
+**Blockers:** None.
 
-**Architectural decisions locked during Slice 1:** DEC-057 (single-handler/single-Marten-session/single-transaction), DEC-058 (Pattern B byte-stable schema), DEC-059 (layered containment-first sanitizer), DEC-060 (handler bodies emit events; projections own EF state), DEC-062 (`opts.Add(...)` registration shape for EF projections), DEC-063 (Tailwind-only animation baseline), DEC-064 (xunit collection-parallelism disabled — supersedes DEC-061).
+**Slice 1B decisions (pre-spec):** DEC-066 (OpenAPI → TS+Zod codegen, R-071), DEC-067 (Marten upcasting, R-072), DEC-068 (error boundary, R-073), DEC-069 (client OTel, R-074).
+**Slice 1 decisions:** DEC-057 through DEC-064 — see decision log.
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 
@@ -18,7 +19,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - **"What should I work on?"** → active cycle plan (pointer above).
 - **"What's the active slice doing?"** → active slice spec under `docs/specs/` (pointer in cycle plan's Status section, once a slice is underway).
 - **"How does X work?"** → `docs/planning/{topic}.md` + the relevant module under `backend/src/RunCoach.Api/Modules/` or `frontend/src/app/modules/`.
-- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-056).
+- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-069).
 - **"Has this been researched?"** → `docs/research/research-queue.md` + `docs/research/artifacts/`.
 - **"What are the rules for code changes?"** → root `CLAUDE.md`, `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `REVIEW.md` files (root / backend / frontend).
 - **"I found an unknown — can I just pick one and move on?"** → No. See `CLAUDE.md` § Research Protocol and the active cycle plan's "When Agents Encounter Unknowns" section.
@@ -36,7 +37,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - Safety & legal: `docs/planning/safety-and-legal.md`
 - Self-optimization: `docs/planning/self-optimization.md`
 - Unit system design: `docs/planning/unit-system-design.md`
-- Decision log: `docs/decisions/decision-log.md` (47 entries)
+- Decision log: `docs/decisions/decision-log.md` (69 entries)
 - Feature backlog: `docs/features/backlog.md`
 - Research queue & artifacts: `docs/research/research-queue.md`, `docs/research/artifacts/`
 - POC roadmap (historical framing, superseded by cycle plans): `docs/planning/poc-roadmap.md`
