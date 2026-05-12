@@ -12,6 +12,7 @@ using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Infrastructure.Marten;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
+using RunCoach.Api.Modules.Observability;
 using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Plan.Models;
 using Wolverine.Marten;
@@ -58,6 +59,7 @@ public static class MartenConfiguration
         typeof(PlanGenerated),
         typeof(MesoCycleCreated),
         typeof(FirstMicroCycleCreated),
+        typeof(ClientErrorReported),
     ];
 
     /// <summary>
