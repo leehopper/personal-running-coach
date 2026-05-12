@@ -230,8 +230,7 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
             .Returns(new OnboardingPromptComposition(
                 SystemPrompt: "system",
                 UserMessage: "user",
-                Findings: ImmutableArray<SanitizationFinding>.Empty,
-                Neutralized: false));
+                Findings: ImmutableArray<SanitizationFinding>.Empty));
 
         var sanitizer = Substitute.For<IPromptSanitizer>();
         var planGen = Substitute.For<IPlanGenerationService>();

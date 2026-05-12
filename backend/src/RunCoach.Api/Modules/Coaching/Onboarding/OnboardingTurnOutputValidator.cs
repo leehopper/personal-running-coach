@@ -53,10 +53,8 @@ public static class OnboardingTurnOutputValidator
             {
                 if (block is null)
                 {
-                    return new OnboardingTurnOutputValidationResult(
-                        IsValid: false,
-                        Violation: OnboardingTurnOutputValidationViolation.ContentBlockShape,
-                        NonNullSlotCount: 0);
+                    return OnboardingTurnOutputValidationResult.Invalid(
+                        OnboardingTurnOutputValidationViolation.ContentBlockShape);
                 }
 
                 try
@@ -65,10 +63,8 @@ public static class OnboardingTurnOutputValidator
                 }
                 catch (InvalidOperationException)
                 {
-                    return new OnboardingTurnOutputValidationResult(
-                        IsValid: false,
-                        Violation: OnboardingTurnOutputValidationViolation.ContentBlockShape,
-                        NonNullSlotCount: 0);
+                    return OnboardingTurnOutputValidationResult.Invalid(
+                        OnboardingTurnOutputValidationViolation.ContentBlockShape);
                 }
             }
         }
@@ -76,10 +72,8 @@ public static class OnboardingTurnOutputValidator
         // Clarification consistency check is independent of Extracted.
         if (output.NeedsClarification && string.IsNullOrWhiteSpace(output.ClarificationReason))
         {
-            return new OnboardingTurnOutputValidationResult(
-                IsValid: false,
-                Violation: OnboardingTurnOutputValidationViolation.ClarificationWithoutReason,
-                NonNullSlotCount: 0);
+            return OnboardingTurnOutputValidationResult.Invalid(
+                OnboardingTurnOutputValidationViolation.ClarificationWithoutReason);
         }
 
         // No extraction reported: invariant is vacuously satisfied. The LLM
@@ -87,10 +81,7 @@ public static class OnboardingTurnOutputValidator
         // normalized answer this turn.
         if (output.Extracted is null)
         {
-            return new OnboardingTurnOutputValidationResult(
-                IsValid: true,
-                Violation: OnboardingTurnOutputValidationViolation.None,
-                NonNullSlotCount: 0);
+            return OnboardingTurnOutputValidationResult.Valid();
         }
 
         var extracted = output.Extracted;
@@ -98,26 +89,22 @@ public static class OnboardingTurnOutputValidator
 
         if (nonNullCount == 0)
         {
-            return new OnboardingTurnOutputValidationResult(
-                IsValid: false,
-                Violation: OnboardingTurnOutputValidationViolation.NoNormalizedSlot,
-                NonNullSlotCount: 0);
+            return OnboardingTurnOutputValidationResult.Invalid(
+                OnboardingTurnOutputValidationViolation.NoNormalizedSlot);
         }
 
         if (nonNullCount > 1)
         {
-            return new OnboardingTurnOutputValidationResult(
-                IsValid: false,
-                Violation: OnboardingTurnOutputValidationViolation.MultipleNormalizedSlots,
-                NonNullSlotCount: nonNullCount);
+            return OnboardingTurnOutputValidationResult.Invalid(
+                OnboardingTurnOutputValidationViolation.MultipleNormalizedSlots,
+                nonNullSlotCount: nonNullCount);
         }
 
         if (!SlotMatchesTopic(extracted, extracted.Topic))
         {
-            return new OnboardingTurnOutputValidationResult(
-                IsValid: false,
-                Violation: OnboardingTurnOutputValidationViolation.SlotTopicMismatch,
-                NonNullSlotCount: nonNullCount);
+            return OnboardingTurnOutputValidationResult.Invalid(
+                OnboardingTurnOutputValidationViolation.SlotTopicMismatch,
+                nonNullSlotCount: nonNullCount);
         }
 
         // Currently `currentTopic` is informational — it is not enforced as
@@ -127,10 +114,7 @@ public static class OnboardingTurnOutputValidator
         // can promote this to an error per R-067-T1.
         _ = currentTopic;
 
-        return new OnboardingTurnOutputValidationResult(
-            IsValid: true,
-            Violation: OnboardingTurnOutputValidationViolation.None,
-            NonNullSlotCount: nonNullCount);
+        return OnboardingTurnOutputValidationResult.Valid(nonNullSlotCount: nonNullCount);
     }
 
     private static int CountNonNullSlots(ExtractedAnswer extracted)
