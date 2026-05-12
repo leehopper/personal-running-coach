@@ -317,6 +317,16 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SupportNonNullableReferenceTypes();
     options.SchemaFilter<RequireNonNullablePropertiesSchemaFilter>();
+
+    // Lifts DataAnnotations off positional record ctor parameters onto the
+    // generated property schemas. ASP.NET's model-binding pipeline refuses
+    // to start with DataAnnotations on the synthesized property of a
+    // positional record (it requires them on the ctor parameter), and
+    // Swashbuckle's built-in DataAnnotationsSchemaFilter only inspects
+    // properties — without this bridge, every positional-record DTO emits
+    // bare `type: string` in swagger and the frontend Zod codegen loses
+    // every maxLength / minLength / format / pattern constraint.
+    options.SchemaFilter<RecordCtorParamDataAnnotationsSchemaFilter>();
 });
 
 builder.Services.AddHealthChecks();

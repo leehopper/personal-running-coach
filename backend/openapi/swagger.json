@@ -1475,9 +1475,13 @@
         "type": "object",
         "properties": {
           "email": {
-            "type": "string"
+            "maxLength": 254,
+            "type": "string",
+            "format": "email"
           },
           "password": {
+            "maxLength": 128,
+            "minLength": 12,
             "type": "string"
           }
         },
