@@ -1,13 +1,13 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 1B (Pre-Slice-2 Hardening) — **partially researched; awaiting R-073 + R-074** as of 2026-05-11. R-071 (codegen) + R-072 (Marten upcasting) landed and locked DEC-066 + DEC-067. Pre-spec gap audit on the error-boundary acceptance criterion surfaced a real research dependency (no client OTel today, declarative router, zero client logging) → R-073 (error boundary + recovery UX) + R-074 (client OTel + traceparent propagation) queued. Slice 1 (Onboarding → Plan) closed 2026-04-26 across PRs #67–#71 (stacked: slice-1a-onboarding-api, slice-1b-onboarding-chat, slice-1c-plan-view, slice-1d-plan-regenerate, slice-1e-sanitizer-closeout) and PR-1F (slice-1f-docs-closeout). Slice 1's end-to-end debugging surfaced four contract-drift bugs (PascalCase wire leak, RTK tag-invalidation race, multi-select clarification dead-end, `Completed`/`Total` field rename) that were patched at the call site; Slice 1B closes the structural gaps so the same class can't recur in Slice 2.
-**Next step:** Hand R-073 (`docs/research/prompts/batch-25a-react19-error-boundary-recovery-ux.md`) and R-074 (`docs/research/prompts/batch-25b-react19-client-otel-correlation-id.md`) to the external research agent. Once artifacts land, write DEC-068 + DEC-069 then the Slice 1B spec under `docs/specs/`. Slice 2 implementation does NOT start until Slice 1B merges.
-**Blockers:** Slice 1B blocked on R-073 + R-074 artifacts. R-071 / R-072 already complete (DEC-066 / DEC-067).
+**Active slice:** Slice 1B (Pre-Slice-2 Hardening) — **all research complete; ready for spec-writing** as of 2026-05-12. R-071 / R-072 / R-073 / R-074 landed and locked DEC-066 + DEC-067 + DEC-068 + DEC-069. Slice 1 (Onboarding → Plan) closed 2026-04-26 across PRs #67–#71 (stacked: slice-1a-onboarding-api, slice-1b-onboarding-chat, slice-1c-plan-view, slice-1d-plan-regenerate, slice-1e-sanitizer-closeout) and PR-1F (slice-1f-docs-closeout). Slice 1's end-to-end debugging surfaced four contract-drift bugs (PascalCase wire leak, RTK tag-invalidation race, multi-select clarification dead-end, `Completed`/`Total` field rename) that were patched at the call site; Slice 1B closes the structural gaps so the same class can't recur in Slice 2.
+**Next step:** Write the Slice 1B spec under `docs/specs/` from `slice-1b-hardening.md` + DEC-066 (OpenAPI codegen) + DEC-067 (Marten upcasting) + DEC-068 (error boundary) + DEC-069 (client OTel), then drive implementation. Slice 2 implementation does NOT start until Slice 1B merges.
+**Blockers:** None. All four queued artifacts landed; all four decisions recorded.
 
 **Architectural decisions locked during Slice 1:** DEC-057 (single-handler/single-Marten-session/single-transaction), DEC-058 (Pattern B byte-stable schema), DEC-059 (layered containment-first sanitizer), DEC-060 (handler bodies emit events; projections own EF state), DEC-062 (`opts.Add(...)` registration shape for EF projections), DEC-063 (Tailwind-only animation baseline), DEC-064 (xunit collection-parallelism disabled — supersedes DEC-061).
 
-**Architectural decisions locked for Slice 1B (pre-spec):** DEC-066 (OpenAPI codegen: `@rtk-query/codegen-openapi` + Orval v8 Zod, committed `backend/openapi/swagger.json`, `git diff --exit-code` drift gate, per R-071), DEC-067 (Marten upcasting: versioned CLR event types + `Events.Upcast<TOld, TNew>` + `MapEventTypeWithSchemaVersion<T>(N)`, per R-072).
+**Architectural decisions locked for Slice 1B (pre-spec):** DEC-066 (OpenAPI codegen: `@rtk-query/codegen-openapi` + Orval v8 Zod, committed `backend/openapi/swagger.json`, `git diff --exit-code` drift gate, per R-071), DEC-067 (Marten upcasting: versioned CLR event types + `Events.Upcast<TOld, TNew>` + `MapEventTypeWithSchemaVersion<T>(N)`, per R-072), DEC-068 (`react-error-boundary@6.1.1` + declarative `<BrowserRouter>` + POST `/api/v1/client-errors` + dev-only `<ThrowOnQuery />` Playwright pattern, per R-073), DEC-069 (`@opentelemetry/sdk-trace-web` 2.x + `instrumentation-fetch` 0.20x + OTLP/HTTP + collector CORS allow-list + `useSyncExternalStore` trace-id seam, per R-074).
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 
@@ -20,7 +20,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - **"What should I work on?"** → active cycle plan (pointer above).
 - **"What's the active slice doing?"** → active slice spec under `docs/specs/` (pointer in cycle plan's Status section, once a slice is underway).
 - **"How does X work?"** → `docs/planning/{topic}.md` + the relevant module under `backend/src/RunCoach.Api/Modules/` or `frontend/src/app/modules/`.
-- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-067).
+- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-069).
 - **"Has this been researched?"** → `docs/research/research-queue.md` + `docs/research/artifacts/`.
 - **"What are the rules for code changes?"** → root `CLAUDE.md`, `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `REVIEW.md` files (root / backend / frontend).
 - **"I found an unknown — can I just pick one and move on?"** → No. See `CLAUDE.md` § Research Protocol and the active cycle plan's "When Agents Encounter Unknowns" section.
@@ -38,7 +38,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - Safety & legal: `docs/planning/safety-and-legal.md`
 - Self-optimization: `docs/planning/self-optimization.md`
 - Unit system design: `docs/planning/unit-system-design.md`
-- Decision log: `docs/decisions/decision-log.md` (67 entries)
+- Decision log: `docs/decisions/decision-log.md` (69 entries)
 - Feature backlog: `docs/features/backlog.md`
 - Research queue & artifacts: `docs/research/research-queue.md`, `docs/research/artifacts/`
 - POC roadmap (historical framing, superseded by cycle plans): `docs/planning/poc-roadmap.md`

@@ -2492,4 +2492,232 @@ Regression-test pattern (Technique B from R-072 §7): raw SQL `INSERT INTO mt_ev
 
 ---
 
+## DEC-068: Top-level React error-boundary library + router-integration mode + MVP-0 logging shape (`react-error-boundary` + declarative `<BrowserRouter>` + POST `/api/v1/client-errors`)
+
+**Date:** 2026-05-12
+**Category:** Frontend / Error handling
+**Status:** Accepted
+**Drives:** Slice 1B Pre-Slice-2 Hardening — closes the acceptance criterion that the React app must survive a child render-time exception with a top-level error boundary that logs and renders a recovery affordance instead of a blank screen, tested via Playwright forcing a child throw.
+**Cites:** R-073 (`docs/research/artifacts/batch-25a-react19-error-boundary-recovery-ux.md`).
+
+### Decision
+
+Adopt **`react-error-boundary@6.1.1`** as the canonical app-root error boundary (1 kB gz, zero runtime deps, ESM-only, React 19 compatible per unbounded `peerDependencies: { react: ">=16.13.1" }`, latest release 2026-02-13). Single `<AppErrorBoundary>` wraps `<BrowserRouter>` in `frontend/src/main.tsx`. Hand-rolled class component using `static getDerivedStateFromError` + `componentDidCatch` is the contingency fallback — same wire shape, same UX, ~80 LOC, zero deps; file lives in-tree off by default for the case where `react-error-boundary` is yanked or rejected in review.
+
+**Stay on declarative `<BrowserRouter>` + `<Routes>` + `<Route>`. Defer the `createBrowserRouter` data-router migration** to a future feature-driven slice where route-level `errorElement`, loaders, or actions become a feature requirement. ~30–60 LOC mechanical migration when triggered. The single app-root boundary satisfies Slice 1B's acceptance criterion; per-route error UI is not in scope.
+
+**Layered defence — three complementary mechanisms:**
+
+1. **`react-error-boundary`** catches render-time and lifecycle errors and renders the fallback.
+2. **React 19 `createRoot({ onCaughtError, onUncaughtError })`** as belt-and-suspenders root-level reporters — fire on every boundary-caught and uncaught render error regardless of which boundary catches it. Both call `reportClientError`.
+3. **`window.addEventListener('error', …)` + `window.addEventListener('unhandledrejection', …)`** registered in a top-level `useGlobalErrorReporter()` `useEffect` in `<AppShell />`. **Log only, do NOT trigger the fallback UI** — async failures shouldn't punish the user with a full-page card. Code paths that *want* async-error-to-fallback escalation call `useErrorBoundary().showBoundary(error)`.
+
+**Correlation ID:** client-generated **`crypto.randomUUID()`** (36-char v4 UUID, available in all HTTPS / localhost contexts). Attached non-enumerably to the error object so the fallback can display it. Card shows the **first 8 hex chars** for screen-reading; full UUID lives in a `<details>` disclosure with a "Copy ID" button. Deliberately NOT a captured traceparent — R-074 (DEC-069) will enrich the boundary's `onError` to also include the active span's `traceId` alongside the boundary-generated correlation ID. The wire shape is forward-compatible.
+
+**MVP-0 logging shape — `POST /api/v1/client-errors`** with cookie auth, JSON body:
+
+```json
+{
+  "correlationId": "<UUIDv4>",
+  "occurredAt": "<ISO-8601>",
+  "kind": "render | window-error | unhandled-rejection",
+  "errorName": "<error.name>",
+  "message": "<error.message>",
+  "stack": "<error.stack | empty>",
+  "componentStack": "<info.componentStack | empty>",
+  "url": "<window.location.href>",
+  "userAgent": "<navigator.userAgent>",
+  "appVersion": "<VITE_APP_VERSION>"
+}
+```
+
+Transport: `fetch(ENDPOINT, { method: 'POST', credentials: 'include', body, keepalive: true })` so the POST survives an immediate `window.location.reload()`. On `fetch` rejection, fall back to `navigator.sendBeacon(ENDPOINT, blob)`. **Never await** the fetch in `onError` / `componentDidCatch`; fire-and-forget. The reporter must never throw (wrap in `try { … } catch { /* swallow */ }`). Backend endpoint persists to anywhere (or `/dev/null` initially); R-074 / DEC-069 will swap the client to OTel-instrumented export and the endpoint can be deprecated cleanly because it has a single caller.
+
+**Recovery UX:** full-viewport centered card, `role="alert"` (no `aria-live` — some screen readers would double-announce). Auto-focused `<h1>` (`tabIndex={-1}` + `useEffect` focus on mount). Two affordances:
+
+- **"Try again"** — `resetErrorBoundary()` (soft reset; primary). Re-renders the boundary's children from scratch. Cheap escape if the cause was transient.
+- **"Reload page"** — `window.location.reload()` (escalation). Throws away in-memory state.
+
+`<details>` disclosure contains full correlation UUID + copy button + `error.name + ": " + message` + `<pre>` of `error.stack` + `<pre>` of `componentStack`. Buttons are `<button type="button">`. Copy text follows Notion-style ("Something went wrong. RunCoach hit an unexpected error while rendering this page. Your data is safe — this hasn't been sent anywhere.") rather than Linear/GitHub-style.
+
+**Playwright forcing-throw test:** dev-only `<ThrowOnQuery />` component gated by `import.meta.env.DEV`, reads `?throw=render` from URL, throws synchronously during render. Vite statically replaces `import.meta.env.DEV` with `false` in production builds, dead-code-eliminates the whole component (0 bytes shipped). Component is rendered inside the boundary in `<AppShell />` with `{import.meta.env.DEV && <ThrowOnQuery />}`. Spec at `frontend/e2e/error-boundary.spec.ts` asserts on `page.getByRole('alert')` visibility, NOT on `console.error` content or `page.on('pageerror')` events (React 19 logs caught errors to `console.error` only, not `window.reportError`). Test covers both "Try again" soft-reset and "Reload page" hard-reload paths.
+
+### Rationale
+
+- **`react-error-boundary` over hand-rolled** because of three superpowers that meaningfully shape Slice-4 forward-compat: (a) `resetErrorBoundary(...args?)` callback enables true soft reset, not just "remount on key change"; (b) `resetKeys={[…]}` auto-resets when keys change (`resetKeys={[conversationId]}` is exactly what Slice 4's chat panel will need); (c) `useErrorBoundary().showBoundary(error)` is the canonical hook for async/event-handler error escalation. Hand-rolling these is non-trivial and re-implements an actively-maintained 12 M weekly-downloads library.
+- **React 19 `onCaughtError` / `onUncaughtError` are reporters, NOT boundaries.** Per `react.dev/blog/2024/12/05/react-19`: uncaught errors → `window.reportError`; caught errors → `console.error`. They customize the reporter side, not the fallback-UI side. We use them as a third layer alongside the boundary, not as a substitute.
+- **Declarative router stays** because `errorElement` is data-router-only and Slice 1B needs zero route-level error UI — every render error in the current ~6-8 routes is handled identically by the app-root boundary. Migrating to `createBrowserRouter` for a single hardening slice would expand scope without expanding capability.
+- **`crypto.randomUUID()` over `traceparent`-capture** because the boundary catches errors that may have no preceding fetch (e.g., a render error from a Redux selector returning bad data from cache). There's no useful traceparent to capture in that case. The two IDs serve different purposes: `correlationId` is for the user-reported "I got this error code → please look it up" loop; the traceparent (DEC-069) is for the operator-side "join this error to a server span" loop. The R-073 endpoint accepts an optional future `traceparent` field — forward-compatible with DEC-069.
+- **`fetch keepalive` + `sendBeacon` fallback** ensures the report survives the user clicking "Reload page" mid-fetch. `keepalive` is the modern primitive; `sendBeacon` is best-effort but well-supported.
+- **`role="alert"` without `aria-live`** per A11Y Collective: *"Don't add `aria-live=\"assertive\"` when you're already using `role=\"alert\"` — some screen readers might announce your message twice."*
+
+### Alternatives considered
+
+- **Hand-rolled class component as primary.** Rejected as the default because of the three superpowers above; kept as the contingency for the CVE / abandonment case.
+- **Sentry `<Sentry.ErrorBoundary>` / Bugsnag / LogRocket.** Rejected — out of scope per R-073 prompt (R-073 stays vendor-free; hosted-tool decision is post-MVP-0 if RunCoach grows beyond personal use).
+- **Migrate to `createBrowserRouter` (data-router) and use route-level `errorElement`.** Rejected for Slice 1B as scope expansion. Migration is mechanical (~30–60 LOC + the `createRoutesFromElements` helper) but produces no Slice-1B-relevant capability. Logged as a feature-driven future decision, not as tech debt.
+- **Custom `key`-bump pattern instead of `resetErrorBoundary()`.** Rejected — `react-error-boundary`'s soft-reset semantics are richer (can pass args back to the fallback) and the library is already in the tree at this point.
+- **OTel-first correlation ID (R-074 client SDK ships first, boundary reads `traceparent`).** Rejected as the sequencing because R-074's bundle delta is non-trivial (~30-45 KB gz) and may bottom out at the fallback hand-rolled variant if budget bites; the boundary should ship first with a transport that's independent of that decision. R-073's `correlationId` and R-074's `traceparent` are complementary, not substitutes.
+
+### Trade-off
+
+- **New dep (`react-error-boundary` 6.1.1, ~1 kB gz, zero transitives).** Pinned major; ESM-only (acceptable — Vite handles this natively; would bite if RunCoach ever adopted Jest, in which case the hand-rolled fallback is the answer).
+- **No per-route error UI.** A render error anywhere bubbles to the app-root card. Acceptable at the current route count; reversible when data-router migration is triggered by feature need.
+- **New backend endpoint (`POST /api/v1/client-errors`)** that exists solely to be deprecated when DEC-069 lands. The endpoint has a single client caller and the deprecation is a clean swap.
+
+### Reconsider if
+
+- A CVE lands against `react-error-boundary` 6.x, or the library is yanked / abandoned — swap to the hand-rolled fallback (file ready, behaviour identical).
+- Route-level loaders, actions, or per-route `errorElement` become a Slice-N requirement — migrate to `createBrowserRouter`. Mechanical; no DEC-068 amendment required (just an update note pointing at the migration commit).
+- A user-reported support flow demonstrates that a UUID prefix is insufficient (e.g., support cannot find the entry without the full UUID) — promote the full UUID to the card surface, demote the prefix.
+
+### Verification
+
+- `frontend/package.json` adds `"react-error-boundary": "^6.1.1"`.
+- `frontend/src/app/error-boundary/app-error-boundary.tsx`, `report-client-error.ts`, `use-global-error-reporter.ts` exist with the implementations from R-073 §10.
+- `frontend/src/main.tsx` wraps `<AppErrorBoundary>` around `<BrowserRouter>` and passes `onCaughtError` / `onUncaughtError` to `createRoot(...)`.
+- `frontend/src/dev-only/throw-on-query.tsx` exists and is rendered inside the boundary in `<AppShell />` behind `import.meta.env.DEV`. `vite build` followed by `rollup-plugin-visualizer` shows zero bytes from this module in production output.
+- `frontend/e2e/error-boundary.spec.ts` passes locally and in CI; covers "Try again" soft-reset and "Reload page" hard-reload paths.
+- Backend `POST /api/v1/client-errors` endpoint exists with cookie auth, accepts the wire shape above, and returns 204 No Content.
+- DEC-069 (R-074) leaves DEC-068 untouched — only enriches the `onError` callback to attach `traceparent` to the same wire shape.
+
+### References
+
+- R-073: `docs/research/artifacts/batch-25a-react19-error-boundary-recovery-ux.md` — library scoring, router-integration analysis, recovery UX comparison, Playwright pattern, TS-strict ergonomics, code sketches, forward-compat for Slice 4.
+- `react.dev/blog/2024/12/05/react-19` — React 19 root-options semantics.
+- `react.dev/reference/react-dom/client/createRoot` — `onCaughtError` / `onUncaughtError` reference.
+- `github.com/bvaughn/react-error-boundary` — 6.1.1 release.
+- DEC-069 — R-074 client-side OTel; complementary, not a substitute.
+
+---
+
+## DEC-069: Client-side OpenTelemetry SDK + W3C `traceparent` propagation (`@opentelemetry/sdk-trace-web` + `instrumentation-fetch` + OTLP/HTTP, browser → collector direct with CORS)
+
+**Date:** 2026-05-12
+**Category:** Frontend / Observability
+**Status:** Accepted
+**Drives:** Slice 1B Pre-Slice-2 Hardening — provides the trace-context propagation that joins R-073's error boundary to backend Jaeger traces under a single trace-id, and instruments the frontend for future Slice 2–4 debugging.
+**Cites:** R-074 (`docs/research/artifacts/batch-25b-react19-client-otel-correlation-id.md`).
+**Builds on:** DEC-045 (`otel-collector-contrib` + Jaeger overlay), DEC-068 (R-073 error boundary that surfaces the trace-id), DEC-059 (server-side `LayeredPromptSanitizer` — analogous client-side scrub layer here).
+
+### Decision
+
+Adopt the **full OpenTelemetry-JS SDK 2.x browser stack** as the default client-side tracing layer. Add to `frontend/package.json`:
+
+```jsonc
+"@opentelemetry/api": "^1.9.0",
+"@opentelemetry/core": "^2.7.1",
+"@opentelemetry/exporter-trace-otlp-http": "^0.20x",
+"@opentelemetry/instrumentation": "^0.20x",
+"@opentelemetry/instrumentation-fetch": "^0.20x",
+"@opentelemetry/resources": "^2.7.1",
+"@opentelemetry/sdk-trace-base": "^2.7.1",
+"@opentelemetry/sdk-trace-web": "^2.7.1",
+"@opentelemetry/semantic-conventions": "^1.37.0"
+```
+
+(Experimental packages version as `0.20x.0` synchronised with the 2.x stable family per the OTel-JS version-compatibility matrix; pin the highest `0.20x` matching `@opentelemetry/api ^1.9` at install time.)
+
+Use `StackContextManager` (the default in `sdk-trace-web` 2.x — NOT `ZoneContextManager`; avoids the `zone.js` dependency). `BatchSpanProcessor` with `scheduledDelayMillis: 5000`, `maxQueueSize: 2048`, `maxExportBatchSize: 64`, `exportTimeoutMillis: 30000`. `OTLPTraceExporter` POSTs to `import.meta.env.VITE_OTLP_TRACES_URL ?? 'http://localhost:4318/v1/traces'`.
+
+**Default propagators (W3C TraceContext + W3C Baggage) line up between browser and backend with zero config** — `WebTracerProvider.register()` installs them implicitly; ASP.NET Core's hosting layer extracts `traceparent` before OTel-NET observes the activity. A single trace traverses `runcoach-frontend` fetch span → ASP.NET Core auto-span → Marten / Wolverine / Npgsql / RunCoach.Llm spans, viewable as one tree in Jaeger UI at `http://localhost:16686/trace/{trace-id}`.
+
+**Topology: browser → collector direct.** Add a CORS allow-list to the `otlphttp` receiver in `infra/otel/otel-collector-config.yaml`:
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - http://localhost:5173        # Vite dev
+            - http://localhost:4173        # Vite preview
+            # MVP-1 prod: add deployed origin(s) here; never use "*"
+          allowed_headers:
+            - traceparent
+            - tracestate
+            - baggage
+            - Content-Type
+          max_age: 7200
+```
+
+**Never `["*"]`** — incompatible with `Access-Control-Allow-Credentials: true` per the W3C CORS spec; browsers reject the combination.
+
+**Initialization order is load-bearing:** `import './app/api/otel'` MUST be the **first** import in `frontend/src/main.tsx`, before React/RTK. `FetchInstrumentation` patches `globalThis.fetch` on `enable()`; late init silently drops the bootstrap query's trace. **RTK Query needs zero changes** — `fetchBaseQuery` reads `globalThis.fetch` lazily on each call, so the patch transparently applies. Existing `prepareHeaders` (X-XSRF-TOKEN on mutations) and `baseQueryWith401Handler` stay untouched. No `fetchFn` override, no `fetchBaseQuery` wrap, no API-slice replacement.
+
+**Correlation-ID seam:** module-level singleton `frontend/src/app/api/last-trace-id.ts` exposing `recordLastTraceId(id)` / `getLastTraceId()` / a `useLastTraceId()` hook backed by `useSyncExternalStore`. Fed by `FetchInstrumentation`'s `applyCustomAttributesOnSpan` callback calling `recordLastTraceId(span.spanContext().traceId)` after every fetch. R-073's error-boundary fallback reads via `useLastTraceId()` (function component) or `getLastTraceId()` (class component) and displays trace-id only — 32 lowercase hex grouped 8-8-8-8 in monospace, with a copy button. NOT the full traceparent (55 chars, includes ephemeral span-id). Display only when non-null; for purely-synchronous render errors with no preceding fetch the boundary hides the support-code block.
+
+**PII scrubbing — Option A (default, MVP-0):** `applyCustomAttributesOnSpan` strips query strings, sets `http.url` and `http.target` to `origin + pathname` only. **Option B (MVP-1 defence-in-depth):** custom `SpanProcessor.onStart` regex-scrubs email and UUID patterns from `http.url` before BatchSpanProcessor reads attributes. **Collector belt-and-braces:** add `attributesprocessor` with `hash`/`delete` actions on `http.url`, `user.email`, `http.user_agent` as the first processor in the traces pipeline. Onboarding free-text lives in request bodies (never recorded by `instrumentation-fetch`) — user-typed answers never become span attributes.
+
+**Sampling MVP-0 (personal use): `AlwaysOnSampler` (head-based 100%).** Localhost-only, no consent UI, no DNT check (DNT is deprecated by major browsers — not a reliable 2026 signal).
+
+**Sampling MVP-1 (public testers): opt-in via cookie consent, default OFF.** Lazy-import `./app/api/otel-bootstrap` only on `consent === 'granted'`. Users who decline pay 0 KB of OTel JS. Bundle is code-split. Production-readiness adds: explicit deployed-origin allow-list (never `*`), TLS-terminated collector ingress, static `Authorization: Bearer` header on `OTLPTraceExporter` (treat as rate-limit token — bundled in JS, not confidential), CSP `connect-src 'self' https://otel.runcoach.example.com`. Tail-based "always-on-error" via collector `tailsampling` processor when traces/min crosses ~100 or Jaeger storage hits ~80% of allocation.
+
+**Manual flush on page-hide:** `document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') provider.forceFlush().catch(() => {}); })`. The default web SDK does not auto-flush on `pagehide` — known gap. MDN recommends `visibilitychange` over `pagehide`/`unload` for analytics-style flushes.
+
+**Vite chunking:** explicit `manualChunks: { otel: [...] }` keeps OTel in its own long-cached chunk (changes less often than app code). Verify on first `vite build` that no `Module "path" has been externalized for browser compatibility` warning appears; if it does, add `optimizeDeps.exclude: ['@opentelemetry/instrumentation']` + `rollupOptions.external: ['node:path', 'path']`.
+
+### Rationale
+
+- **Default propagators already match between OTel-JS browser and OTel-.NET backend** (W3C TraceContext + W3C Baggage). Confirmed by source: `WebTracerProvider.register()` installs the composite implicitly; the .NET SDK's default `CompositeTextMapPropagator` is the same combination per `opentelemetry-dotnet` source. ASP.NET Core's hosting layer parses `traceparent` independently of OTel and creates a server `Activity` with the extracted parentId; `AddAspNetCoreInstrumentation()` observes it. The chain works without configuration changes on either side.
+- **Browser → collector direct** because (a) one config change in one file (the `cors:` block); (b) the collector remains the network boundary — auth, sampling, tail-based sampling, and PII processors all live in collector pipelines; (c) direct POST has no extra hop; (d) it matches upstream OpenTelemetry's own recommendation. Reverse-proxy and backend re-emit variants buy nothing at this stage and force ~150 LOC of OTLP-JSON parsing in ASP.NET Core that has no security benefit.
+- **`StackContextManager` over `ZoneContextManager`** avoids `zone.js` (a ~30 KB gz dependency that conflicts with React 19's concurrent rendering scheduler). Stack-based async context tracking is sufficient for fetch instrumentation; the only thing it misses is `setTimeout`/`setInterval` parent-context preservation, and RunCoach's fetch flows don't depend on that.
+- **`useSyncExternalStore` over Redux/`useContext`/`localStorage`/`ref`** — Redux would re-render every consumer on every fetch (every 100–1000 ms during active usage); `useContext` has the same re-render problem unless wrapped in `useSyncExternalStore` (at which point it's identical to a module singleton + hook); `localStorage` is synchronous I/O on the main thread; `ref` can't be read from a class-component error-boundary's render path.
+- **Trace-id only, not full traceparent.** The traceparent's span-id changes per-fetch; a user pasting "the support code" after hitting "Try again" would get a different span-id but the same trace-id. Trace-id is what Jaeger UI keys on (`/trace/{trace-id}`); the W3C spec confirms it's "the ID of the whole trace forest."
+- **`crypto.randomUUID()` (DEC-068) and `traceparent` (DEC-069) are complementary, not substitutes.** DEC-068 ships first and works without DEC-069; DEC-069 enriches DEC-068's report with an additional field; the wire shape stays forward-compatible.
+- **PII scrubbing on the client side is required** because `LayeredPromptSanitizer` (DEC-059) runs server-side and never sees browser-side span attributes. Path templates are bounded (no PII in `/api/auth/login`, `/api/onboarding/{step}`, `/api/plan`) but query-string discipline cannot be enforced by developer convention alone.
+
+### Alternatives considered
+
+- **Hand-rolled `prepareHeaders` traceparent injection + minimal OTLP/JSON exporter (~40 LOC, ~1.5 KB gz).** Rejected as the default because it loses Resource Timing API enrichment, auto-correlation between same-trace fetches, and the future ability to layer `instrumentation-document-load` / `instrumentation-user-interaction`. **Kept as the per-budget fallback:** switch to it if total first-payload JS exceeds ~170 KB gz **AND** measured LCP regression > 100 ms on a throttled 4G profile. Keeps correlation IDs and backend chaining working.
+- **`@opentelemetry/auto-instrumentations-web` (meta-package).** Rejected: pulls in every instrumentation by default (~60 KB gz with `instrumentation-document-load` + `instrumentation-user-interaction`) for no Slice-1B-relevant capability. Tree-shake doesn't help when every instrumentation is referenced from the meta-package's entry point.
+- **`@vercel/otel`.** Rejected: Vercel docs explicit — *"No traces or metrics are recorded for any browser-side interactions."* Edge-first wrapper, not a browser SDK.
+- **Sentry browser tracing.** Rejected — vendor-free posture per R-073/R-074; Sentry's `@sentry/browser` produces OTel-compatible traces but couples to Sentry's ingest model.
+- **Reverse-proxy `/v1/traces` from Vite dev + ASP.NET Core in prod** as topology. Rejected as default: extra hop, extra Kestrel allocations per export batch, your backend becomes a critical path for telemetry export, loses the "collector is the network boundary" property. The Vite proxy half is fine for local dev convenience but should not be the prod pattern.
+- **Backend `POST /api/v1/client-traces` re-emit endpoint.** Rejected: either requires ~150 LOC of OTLP-JSON re-deserialization via `OtlpExporter` packages or trusts the JSON and forwards bytes — equivalent to the reverse-proxy variant with extra work. No security benefit.
+- **`["*"]` CORS allowed-origins (the lazy default).** Rejected: incompatible with `Access-Control-Allow-Credentials: true` per the CORS spec; browsers reject the combination outright. Per `confighttp` docs: *"Do not use a plain wildcard `[\"*\"]`."*
+- **Always-on tracing in MVP-1 with aggressive PII scrubbing instead of opt-in consent.** Rejected: trace-id itself is a pseudonymous identifier; GDPR Recital 30 / Art 4(1) treats per-session timing + path sequences as personal data when combinable. Opt-in via cookie consent is the only defensible posture once non-developer users exist.
+
+### Trade-off
+
+- **~30–45 KB gz bundle delta** (estimated from SigNoz + OneUptime 2026 bundle analyses; confirmed shape against OTel-JS 2.x package set, exact number requires a `vite build` after install). Material but bounded; tree-shaking handled by SDK 2.x's `"sideEffects": false` declarations. The `manualChunks: { otel: [...] }` config keeps it in its own long-cached chunk separate from app code.
+- **First-import constraint** in `main.tsx`. Late init silently drops the bootstrap query's trace. Documented in REVIEW.md as a guard rule.
+- **CORS allow-list maintenance.** Every new deployed origin must be added to the collector config. Acceptable — origin churn is low and the alternative (wildcard) is unsafe.
+- **No `ZoneContextManager` means async context across `setTimeout` is not auto-preserved.** Acceptable — RunCoach's data flows don't rely on `setTimeout`-deferred fetches inheriting parent span context.
+- **`ParentBasedSampler` in browser is advisory under the current backend `AlwaysOnSampler`.** Identical outcome for MVP-0; differences appear only once backend sampling is dialed down. Re-decide then.
+
+### Reconsider if
+
+- Bundle audit shows first-payload JS > 170 KB gz AND LCP regression > 100 ms on throttled 4G → switch to the ~40-line hand-rolled fallback. Loses Resource Timing API enrichment; keeps correlation IDs and backend chaining.
+- Jaeger storage > 80% of allocated disk OR > ~100 traces/min hitting the collector → enable `ParentBasedSampler({ root: new TraceIdRatioBasedSampler(0.1) })` in browser + collector `tailsampling` processor with "always-on-error" rule.
+- A `@grafana/faro-web-tracing` style drop-in becomes attractive for bundled Web Vitals / session-replay / error-tracking — its setup is a drop-in replacement for `otel.ts`. Trigger: pre-MVP-1 if frontend observability scope grows.
+- The OpenTelemetry-JS browser instrumentation surface promotes from "experimental" to stable (currently labeled experimental per OTel docs); re-check semantic-convention attribute names (`url.full`, `http.url`, `http.target`) for stability shifts at MVP-1.
+- W3C Trace Context Level 2 (currently Candidate Recommendation) ships with the `random-trace-id` flag broadly adopted — backward-compatible, no code change needed but worth a re-check.
+
+### Verification
+
+- `frontend/package.json` includes the 9 OTel deps at the versions above; `npm install` succeeds without peer-dep warnings.
+- `frontend/src/app/api/otel.ts` exists, is imported as the first line of `frontend/src/main.tsx`, and registers `WebTracerProvider` + `BatchSpanProcessor` + `OTLPTraceExporter` + `FetchInstrumentation`.
+- `frontend/src/app/api/last-trace-id.ts` exposes `recordLastTraceId`, `getLastTraceId`, `useLastTraceId`; fed by `applyCustomAttributesOnSpan`.
+- `infra/otel/otel-collector-config.yaml` includes the `cors:` block on `otlphttp` receiver and the `attributesprocessor` scrub stage in the traces pipeline.
+- `vite build` succeeds with no `Module "path" has been externalized` warning; `vite-bundle-visualizer` shows the `otel` chunk in the 30–45 KB gz range.
+- Smoke test (R-074 §11 verification checklist): browser fetch → DevTools shows `traceparent` header → POST to `:4318/v1/traces` returns 200 → Jaeger UI at `/trace/{trace-id}` shows one trace with client + ASP.NET Core + Marten + Wolverine + Npgsql + RunCoach.Llm spans nested.
+- R-073 error boundary's fallback displays the trace-id when `getLastTraceId()` is non-null; hides the support-code block when null.
+- Collector down → no user-visible UI change (silent drop confirmed); DevTools shows only diag `WARN` lines.
+
+### References
+
+- R-074: `docs/research/artifacts/batch-25b-react19-client-otel-correlation-id.md` — SDK selection, propagation analysis, topology comparison, RTK Query seam, backend-chaining verification, PII patterns, sampling strategy, bundle budget, migration cost.
+- DEC-045 — `otel-collector-contrib` + Jaeger overlay (the backend half this client side joins). Note: "Phoenix" appears in R-051's LLM-observability research as a *candidate* never shipped; this DEC supersedes that shorthand with the actual implementation.
+- DEC-068 — R-073 error boundary that surfaces the trace-id this DEC produces.
+- DEC-059 — server-side `LayeredPromptSanitizer`; the client-side PII scrub layer (`applyCustomAttributesOnSpan`) is the analogous defence at the browser boundary.
+- W3C Trace Context Level 1 — `w3.org/TR/trace-context/`.
+- OpenTelemetry-JS SDK 2.0 announcement — `opentelemetry.io/blog/2025/otel-js-sdk-2-0/`.
+- OpenTelemetry Collector `otlpreceiver` README — `cors:` schema documentation.
+- Slice 1B requirements: `docs/plans/mvp-0-cycle/slice-1b-hardening.md`.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
