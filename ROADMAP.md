@@ -1,13 +1,12 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 1B (Pre-Slice-2 Hardening) — **all research complete; ready for spec-writing** as of 2026-05-12. R-071 / R-072 / R-073 / R-074 landed and locked DEC-066 + DEC-067 + DEC-068 + DEC-069. Slice 1 (Onboarding → Plan) closed 2026-04-26 across PRs #67–#71 (stacked: slice-1a-onboarding-api, slice-1b-onboarding-chat, slice-1c-plan-view, slice-1d-plan-regenerate, slice-1e-sanitizer-closeout) and PR-1F (slice-1f-docs-closeout). Slice 1's end-to-end debugging surfaced four contract-drift bugs (PascalCase wire leak, RTK tag-invalidation race, multi-select clarification dead-end, `Completed`/`Total` field rename) that were patched at the call site; Slice 1B closes the structural gaps so the same class can't recur in Slice 2.
-**Next step:** Write the Slice 1B spec under `docs/specs/` from `slice-1b-hardening.md` + DEC-066 (OpenAPI codegen) + DEC-067 (Marten upcasting) + DEC-068 (error boundary) + DEC-069 (client OTel), then drive implementation. Slice 2 implementation does NOT start until Slice 1B merges.
-**Blockers:** None. All four queued artifacts landed; all four decisions recorded.
+**Active slice:** Slice 1B (Pre-Slice-2 Hardening) — research complete; ready for spec-writing as of 2026-05-12. Closes the structural gaps surfaced by Slice 1's four contract-drift bugs so the same class can't recur in Slice 2.
+**Next step:** Write the Slice 1B spec under `docs/specs/` from `slice-1b-hardening.md` + DEC-066/067/068/069, then implement. Slice 2 does NOT start until Slice 1B merges.
+**Blockers:** None.
 
-**Architectural decisions locked during Slice 1:** DEC-057 (single-handler/single-Marten-session/single-transaction), DEC-058 (Pattern B byte-stable schema), DEC-059 (layered containment-first sanitizer), DEC-060 (handler bodies emit events; projections own EF state), DEC-062 (`opts.Add(...)` registration shape for EF projections), DEC-063 (Tailwind-only animation baseline), DEC-064 (xunit collection-parallelism disabled — supersedes DEC-061).
-
-**Architectural decisions locked for Slice 1B (pre-spec):** DEC-066 (OpenAPI codegen: `@rtk-query/codegen-openapi` + Orval v8 Zod, committed `backend/openapi/swagger.json`, `git diff --exit-code` drift gate, per R-071), DEC-067 (Marten upcasting: versioned CLR event types + `Events.Upcast<TOld, TNew>` + `MapEventTypeWithSchemaVersion<T>(N)`, per R-072), DEC-068 (`react-error-boundary@6.1.1` + declarative `<BrowserRouter>` + POST `/api/v1/client-errors` + dev-only `<ThrowOnQuery />` Playwright pattern, per R-073), DEC-069 (`@opentelemetry/sdk-trace-web` 2.x + `instrumentation-fetch` 0.20x + OTLP/HTTP + collector CORS allow-list + `useSyncExternalStore` trace-id seam, per R-074).
+**Slice 1B decisions (pre-spec):** DEC-066 (OpenAPI → TS+Zod codegen, R-071), DEC-067 (Marten upcasting, R-072), DEC-068 (error boundary, R-073), DEC-069 (client OTel, R-074).
+**Slice 1 decisions:** DEC-057 through DEC-064 — see decision log.
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 

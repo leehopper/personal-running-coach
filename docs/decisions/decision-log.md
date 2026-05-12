@@ -2331,391 +2331,239 @@ The MTP 2.x pin chain is load-bearing — every new MTP-family extension we adop
 
 ---
 
-## DEC-066: OpenAPI → TypeScript + Zod codegen pipeline (two-tool: `@rtk-query/codegen-openapi` + Orval v8 Zod)
+## DEC-066: OpenAPI → TypeScript + Zod codegen pipeline (`@rtk-query/codegen-openapi` + Orval v8 Zod)
 
 **Date:** 2026-05-11
 **Category:** Frontend / Contract codegen
 **Status:** Accepted
-**Drives:** Slice 1B Pre-Slice-2 Hardening — closes Slice 1's PascalCase wire leak (bug #1), RTK tag race (bug #2 — out-of-scope for codegen), multi-select dead-end (bug #3), and `Completed`/`Total` rename (bug #4) classes by removing hand-maintained Zod schemas.
+**Drives:** Slice 1B — removes hand-maintained Zod schemas as the root cause of Slice 1's PascalCase wire leak, multi-select dead-end, and `Completed`/`Total` rename bugs.
 **Cites:** R-071 (`docs/research/artifacts/batch-24a-openapi-typescript-zod-codegen.md`).
 
 ### Decision
 
-OpenAPI document is produced at build time by Swashbuckle 10 (`dotnet swagger tofile` via `AfterTargets="Build"` MSBuild target, env `DOTNET_ROLL_FORWARD=LatestMajor`) and **committed** to `backend/openapi/swagger.json`. OpenAPI dialect is 3.0 with `nullable: true` — NOT 3.1.
+Two-tool codegen pipeline reading a committed `backend/openapi/swagger.json`:
 
-Frontend codegen is a two-tool pipeline, both reading the committed spec file:
+- **Swashbuckle 10** emits the spec via `dotnet swagger tofile` as an `AfterTargets="Build"` MSBuild target. OpenAPI 3.0 with `nullable: true` — NOT 3.1 (codegen-ecosystem nullable regressions).
+- **`@rtk-query/codegen-openapi`** (Redux Toolkit monorepo, MIT, labeled "early preview" — pin a minor) produces the typed RTK Query slice + hooks.
+- **Orval v8.6+ in `client: 'zod'` mode** with `override.zod.strict = true` produces Zod v4 schemas. RTK Query bridges via `enhanceEndpoints({ transformResponse: schema.parse })`.
 
-1. **`@rtk-query/codegen-openapi`** (Redux Toolkit monorepo, MIT, ~200k weekly downloads, labeled "early preview" — pin a minor) produces the typed RTK Query slice, hooks, and `injectEndpoints` shape. Output lands under `frontend/src/api/generated/rtk/`.
-2. **Orval v8.6+** (MIT) run in `client: 'zod'` mode with `override.zod.strict = true` produces Zod v4 runtime schemas keyed on operationId. Output lands under `frontend/src/api/generated/zod/`.
+Backend Swashbuckle adds `SupportNonNullableReferenceTypes()` + a `RequireNonNullablePropertiesSchemaFilter` so C# NRTs map to OpenAPI `required` — without it everything ships as `nullable: true` and the drift gate is silent.
 
-RTK Query consumes both via `enhanceEndpoints({ transformResponse: schema.parse })` — the documented bridge pattern (Redux Toolkit discussion #2576). Slice files do NOT edit generated output; they extend it.
-
-Backend Swashbuckle config calls `options.SupportNonNullableReferenceTypes()` plus a `RequireNonNullablePropertiesSchemaFilter` so C# non-nullable reference types map to OpenAPI `required` (without it every property emits `nullable: true` and Zod generates `.nullish()` — the drift gate goes silent).
-
-Drift gate (CI):
-
-```yaml
-- dotnet build -c Release   # emits backend/openapi/swagger.json via MSBuild target
-- (cd frontend && npm ci && npm run codegen)
-- git diff --exit-code -- backend/openapi/swagger.json frontend/src/api/generated/
-- oasdiff breaking origin/${{ base_ref }}:backend/openapi/swagger.json HEAD:backend/openapi/swagger.json  # advisory
-```
-
-Lefthook `pre-push` runs `npm run codegen:check` to fail-fast locally.
-
-Zod runtime: full `zod` chainable API (NOT `zod/mini`) — readable in PR review; revisit at MVP-1 if bundle telemetry justifies.
-
-Migration order (endpoint-by-endpoint, lowest-risk first):
-
-1. Land the wiring with zero imports changed; CI drift gate goes live against the committed generated files.
-2. `RegisterRequest` — closes the deferred Slice 0 follow-up "frontend Zod schemas must mirror `RegisterRequest` DataAnnotations."
-3. `OnboardingProgressDto` — proves the gate catches Slice 1 bug #4 (`Completed`/`Total` rename). Throwaway commit renames a C# field, CI fails, revert. Document the failure mode.
-4. `SuggestedInputType` — generated Zod owns the server-driven half; client-side fallback rule (`pickInputTypeForTopic`) imports the generated enum.
-5. `OnboardingTurnResponseDto` is **gated behind the Slice 4 `JsonDocument` antipattern fix.** Codegen emits `JsonDocument` properties as `Record<string, unknown>`, silently losing the parse gate on exactly the property that caused Slice 1 bug #1. Ship codegen here only after `AssistantBlocks`/`UserBlocks` become typed discriminated records.
-6. Slice 2 (Workout Logging) endpoints — codegen-only from day one. Zero hand-rolled Zod.
+CI drift gate: `dotnet build` → `npm run codegen` → `git diff --exit-code` on the spec + generated dirs. Advisory `oasdiff` for breaking-change reporting. Lefthook `pre-push` runs `npm run codegen:check` locally.
 
 ### Rationale
 
-- **No single 2026 tool emits both an RTK Query slice and Zod v4 schemas.** Orval has no `rtk-query` client target (by design — only TanStack Query / SWR / Hono / fetch / zod). `@rtk-query/codegen-openapi` deliberately stays runtime-validation-free per its maintainers. Kubb covers Zod but has no RTK plugin. The two-tool seam is the accepted pattern, not a temporary hack.
-- **OpenAPI 3.0 + `nullable: true`, not 3.1.** Both Orval (issues #1817, #2249, #3269) and openapi-typescript (#2144) have known nullable regressions on 3.1. Swashbuckle 10 defaults to 3.0; the `Microsoft.AspNetCore.OpenApi` 3.1-default native generator is a pre-MVP-1 evaluation, not a Slice 1B swap.
-- **Committed `swagger.json`, not a live URL pull in CI.** Drift gate becomes "is the committed backend in sync with the committed frontend?" — that's the question that catches Slice 1 bug #4 before merge, not "is the running backend in sync?" which only catches it post-deploy.
-- **Anthropic Pattern-B (DEC-058) compat verified.** With `override.zod.strict = true`, `additionalProperties: false` on Swashbuckle's record output round-trips as `z.strictObject`, preserving the extra-fields-fail-parse gate. Discriminator + nullable-slot schemas (`OnboardingTurnOutput`'s six `Normalized*` slots + `Topic`) round-trip cleanly when DTOs stay flat (no 2-level inheritance — openapi-typescript #1158 breaks Poodle→Dog→Pet).
-- **`@rtk-query/codegen-openapi` "early preview" labeling.** Heavy real-world usage (~200k weekly downloads), first-class issue handling in the redux-toolkit monorepo, but the API surface is unstable enough to pin a minor and update deliberately. Acceptable risk given no alternative.
+- No 2026 tool emits both an RTK Query slice AND Zod v4 schemas. The two-tool seam is the accepted pattern, not a workaround.
+- Committed `swagger.json` makes the gate "committed backend vs committed frontend" — catches drift pre-merge, not post-deploy.
+- Anthropic Pattern-B (DEC-058) discriminator + nullable-slot schemas round-trip cleanly under `override.zod.strict = true` (preserves `additionalProperties: false` as `z.strictObject`).
 
 ### Alternatives considered
 
-- **`openapi-typescript` (types-only) + hand-written Zod schemas.** Rejected: doesn't satisfy "runtime parse gate on RTK Query responses" — the whole point of Slice 1B. Eliminates the gate that catches Slice 1 bug #4 before merge.
-- **Kubb (`@kubb/plugin-zod` 4.x) as the primary.** Rejected as primary because it has no RTK Query plugin (TanStack Query, SWR, Hono, MSW only) and parts of the Kubb repo are AGPL-3.0 (verify per-plugin before commercial use). Kept as the **per-endpoint fallback** when Orval bugs on a specific schema (e.g., enum + minLength regressions #2249/#3024). Plugin model lets Kubb emit only the offending schema, re-export via the barrel.
-- **`@hey-api/openapi-ts` + TanStack Query** (the "one config, two outputs" tool). Rejected for Slice 1B because adopting it requires replacing RTK Query as the state layer — too large a change for a hardening slice. Documented as the **pivot fallback** if codegen-source pain compounds (trigger: more than ~30% of RTK Query endpoints need bespoke `transformResponse` workarounds).
-- **`openapi-zod-client` (Zodios).** Rejected: couples to Zodios runtime; last release ~a year ago per npm.
-- **`NSwag`, `swagger-typescript-api`, `kiota`, `@7nohe/openapi-react-query-codegen`.** Rejected: no Zod output (NSwag, swagger-typescript-api, kiota) or wrong state layer (`@7nohe` is TanStack-only and release cadence slowed).
-- **Live API URL as codegen source (e.g., `http://localhost:5xxx/swagger/v1/swagger.json`).** Rejected for CI: requires backend boot before frontend generates, and shifts drift detection from "committed vs committed" to "committed vs running" — wrong gate for pre-merge correctness. Allowed for local `npm run codegen:dev` convenience.
-- **`Microsoft.AspNetCore.OpenApi` (native .NET 10) as the spec source.** Rejected for Slice 1B: defaults to OpenAPI 3.1, which has uneven codegen support across the 2026 ecosystem. Revisit at MVP-1 alongside the AOT decision.
+- **`openapi-typescript` (types only).** Rejected: no runtime parse gate.
+- **Kubb (`@kubb/plugin-zod`) as primary.** Rejected: no RTK Query plugin. Kept as the **per-endpoint fallback** when Orval bugs on a specific schema.
+- **`@hey-api/openapi-ts` + TanStack Query.** Rejected for Slice 1B: requires replacing RTK Query as the state layer. Documented as the **pivot fallback** if codegen-source pain compounds (>30% of endpoints need bespoke `transformResponse`).
+- **Live API URL as CI codegen source.** Rejected: wrong gate (committed-vs-running, not committed-vs-committed).
+- **`Microsoft.AspNetCore.OpenApi` native generator.** Rejected for Slice 1B: defaults to OpenAPI 3.1 with uneven codegen support. Revisit at MVP-1 / AOT.
+- **`openapi-zod-client`, NSwag, swagger-typescript-api, kiota, `@7nohe/openapi-react-query-codegen`.** Rejected: either no Zod output, wrong state layer, or stalled.
 
-### Trade-off
+### Trade-offs
 
-- **Two tools, one spec file** — the integration is novel for this exact stack (ASP.NET Core 10 + React 19 + RTK Query + Vite 6 + Orval-Zod + `@rtk-query/codegen-openapi`); no end-to-end reference monorepo exists in 2026. Budget 1–2 sessions for wiring before migration starts.
-- **Generated Zod schema names are operationId-keyed and verbose.** Hand-maintained barrel under `frontend/src/api/generated/index.ts` re-exports with project-conventional names (`onboardingTurnResponseSchema`, etc.); no edits to generated files.
-- **The `JsonDocument`-in-DTO antipattern is hidden, not solved, by codegen.** `AssistantBlocks`/`UserBlocks` flow through as `Record<string, unknown>` until Slice 4's typed-record fix. Acceptance: don't migrate `OnboardingTurnResponseDto` before that fix lands — the runtime gate would be performance-art compliance.
+- Two tools, one spec file — novel for this exact stack; budget 1–2 sessions for wiring.
+- `@rtk-query/codegen-openapi` is "early preview" — pin a minor and update deliberately.
+- `OnboardingTurnResponseDto` codegen is **gated behind the Slice 4 `JsonDocument` antipattern fix** — until then, the runtime gate is silent on `AssistantBlocks`/`UserBlocks` (the exact field that caused Slice 1 bug #1).
 
-### Verification
+### Reconsider if
 
-- `backend/openapi/swagger.json` is committed and matches `dotnet swagger tofile` output (CI `git diff --exit-code`).
-- `frontend/src/api/generated/rtk/**` matches `@rtk-query/codegen-openapi` output for the committed spec.
-- `frontend/src/api/generated/zod/**` matches Orval `client: 'zod'` output for the committed spec.
-- A deliberate "rename a C# DTO property" commit on a throwaway branch fails CI on the drift-check step BEFORE any frontend code is updated — captured in a screenshot or PR link at Slice 1B close.
-- RTK Query slice for `RegisterRequest` calls `transformResponse: schema.parse` and a unit test for the slice asserts a malformed wire payload throws.
+- Orval bugs on three or more endpoints — swap offenders to Kubb.
+- >30% of RTK Query endpoints need bespoke `transformResponse` workarounds — pivot to `@hey-api/openapi-ts` + TanStack Query.
+- Swashbuckle 10 falls behind .NET 11 or Native AOT becomes a requirement — re-evaluate `Microsoft.AspNetCore.OpenApi`.
 
 ### References
 
-- R-071: `docs/research/artifacts/batch-24a-openapi-typescript-zod-codegen.md` — full tool comparison, version pins, CI wiring, migration plan.
-- DEC-058 — Anthropic Pattern-B byte-stable schema (the schema this pipeline must round-trip cleanly).
-- DEC-043 — quality pipeline (CodeRabbit + CodeQL + SonarQube + Trivy); drift gate slots in alongside.
+- R-071: `docs/research/artifacts/batch-24a-openapi-typescript-zod-codegen.md`.
+- DEC-058 — Anthropic Pattern-B schema this pipeline must round-trip.
+- DEC-043 — quality pipeline; drift gate slots in alongside.
 - Slice 1B requirements: `docs/plans/mvp-0-cycle/slice-1b-hardening.md`.
-- Redux Toolkit discussion #2576 — `transformResponse: schema.parse` pattern (the documented bridge between the two tools).
 
 ---
 
-## DEC-067: Marten event upcasting strategy — versioned CLR types + `Events.Upcast<TOld, TNew>` registration on `StoreOptions.Events`
+## DEC-067: Marten event upcasting — versioned CLR types + `Events.Upcast<TOld, TNew>`
 
 **Date:** 2026-05-11
 **Category:** Backend / Persistence / Event sourcing
 **Status:** Accepted
-**Drives:** Slice 1B Pre-Slice-2 Hardening — establishes the schema-evolution strategy so Slice 2's `WorkoutLog`, Slice 3's `PlanAdaptedFromLog`, and Slice 4's `ConversationTurnRecorded` can evolve without breaking pre-existing streams.
+**Drives:** Slice 1B — schema-evolution strategy for `WorkoutLog` (Slice 2), `PlanAdaptedFromLog` (Slice 3), `ConversationTurnRecorded` (Slice 4) so old streams keep projecting.
 **Cites:** R-072 (`docs/research/artifacts/batch-24b-marten-event-upcasting-strategy.md`).
 **Builds on:** DEC-058, DEC-060, DEC-062.
 
 ### Decision
 
-Adopt **versioned CLR event types with synchronous CLR-typed upcaster lambdas** registered on `StoreOptions.Events.Upcast<TOld, TNew>(Func<TOld, TNew>)` as the default schema-evolution mechanism. Use `options.Events.MapEventTypeWithSchemaVersion<T>(N)` for every event type, starting at `N = 1` from initial registration, so `mt_events.type` carries an unambiguous version suffix (`answer_captured_v1`, `answer_captured_v2`, …) across versions.
+Versioned CLR event types with synchronous CLR-typed upcaster lambdas on `StoreOptions.Events.Upcast<TOld, TNew>(Func<TOld, TNew>)`. `Events.MapEventTypeWithSchemaVersion<T>(N)` from `N = 1` on every event type so `mt_events.type` carries an unambiguous suffix (`answer_captured_v1`, `_v2`, …).
 
-Reserve `JsonDocument`-based upcasters (via `Marten.Services.Json.Transformations.SystemTextJson.JsonTransformations.Upcast(Func<JsonDocument, TNew>)`) as the **per-event fallback** when keeping an old CLR record alive would carry removed dependencies (e.g., the legacy type held a `JsonDocument` payload whose serializer is being removed). Both forms register on the same `options.Events.Upcast(...)` surface; the choice is per-event, not per-store.
+Legacy records live in `RunCoach.Domain.{Module}.Legacy.Events.V{N}` — frozen POCOs, no behavior, referenced only by their upcaster. Upcasters are **pure on payload** (no tenant context, no `IServiceProvider`); for tenant-aware enrichment use the projection's `EnrichEventsAsync` hook, which runs downstream of upcasting.
 
-Legacy event records live in a dedicated `RunCoach.Domain.{Module}.Legacy.Events.V{N}` namespace — frozen 10-line POCOs, zero behavior, never referenced by handlers, projections, JsonSchema generators, or Anthropic prompt builders. Only the upcaster lambda references them.
+`JsonDocument`-based upcasters via `JsonTransformations.Upcast(Func<JsonDocument, TNew>)` are the **per-event fallback** when keeping the old CLR record would carry deleted dependencies.
 
-Pure-on-payload constraint: upcasters receive only `TOld` (or `JsonDocument`) — no tenant context, no `IServiceProvider`. If a missing field needs cross-document or tenant-aware lookup, defer to the projection's `EnrichEventsAsync` hook (Marten 8.11+) after upcasting, where `IQuerySession` is tenanted and batched per `EventSlice`.
+A single upcaster registration covers BOTH `SingleStreamProjection.Evolve` (`opts.Projections.Add(...)`) AND `EfCoreSingleStreamProjection.ApplyEvent` (`opts.Add(...)` per DEC-062). Interception is in `Marten.Events.EventMapping.FoldInline/FoldAsync`, *before* `IEvent.Data` reaches any apply method — orthogonal to projection registration.
 
-Anthropic Pattern-B (DEC-058) interaction: when an event carries `JsonDocument NormalizedPayload` (pass-through), schema evolution lives **in the projection's apply method**, not in an upcaster — adding a seventh `Normalized*` slot does NOT need an upcaster, because the event payload is schema-agnostic by construction. Upcasters fire only when promoting a payload field to a *typed* event property.
-
-Observability: every upcaster emits an `upcast.<event_type>` span on `ActivitySource "RunCoach.Marten.Upcaster"` with `from_type` / `to_type` tags; the source is registered alongside `Marten` in the OTel collector config. Daily dashboard query on `mt_doc_dead_letter_event` flags upcaster failures.
-
-Regression-test pattern (Technique B from R-072 §7): raw SQL `INSERT INTO mt_events` of legacy JSON via `session.Connection`, then `IDocumentStore.WaitForNonStaleProjectionDataAsync(30.Seconds())`, then assert the projection produced the expected current-shape document. ~75 LOC including legacy record + lambda + test fixture. Companion to `MartenStoreOptionsCompositionTests`.
+Observability: `ActivitySource "RunCoach.Marten.Upcaster"` emits `upcast.<event_type>` spans with `from_type`/`to_type`; daily dashboard query on `mt_doc_dead_letter_event` flags failures.
 
 ### Rationale
 
-- **Source-confirmed interception point.** `Marten.Events.EventMapping.FoldInline/FoldAsync` calls `jsonTransformation.FromDbDataReaderAsync(serializer, reader, 0, token)` *before* the resulting `IEvent.Data` is handed to any projection apply method. **A single upcaster registration covers BOTH** `SingleStreamProjection<TDoc, TId>.Evolve` (document projections registered via `opts.Projections.Add(...)`) AND `EfCoreSingleStreamProjection<TDoc, TKey, TDbContext>.ApplyEvent` (EF projections registered via `opts.Add(...)` per DEC-062). **No DEC-062 amendments required** — upcaster registration is orthogonal to projection registration.
-- **Versioned CLR types beat same-name evolution for RunCoach** on two axes that dominate the others:
-  - DEC-058 (Anthropic Pattern-B byte-stable schema) — JsonSchema/`AIJsonUtilities.CreateJsonSchema` emits from the *current* CLR type. Versioned legacy types in `Legacy.Events.V*` stay invisible to the prompt builder, eliminating the "developer references a property that doesn't exist in JSON" debugging tarpit.
-  - SQL forensic clarity — distinct `mt_events.type` values per version (`answer_captured`, `answer_captured_v2`) make event-version triage a `WHERE` clause, not a JSON inspection.
-- **Codebase cost is bounded.** Five migrations after five quarters = five 10-line legacy records + five upcaster lambdas + five `MapEventTypeWithSchemaVersion<T>(N)` calls. ~80 LOC including tests. Pure-data records, no apply logic, no projection references.
-- **Failure-mode forensics.** Dead-letter event records the *old* CLR type name (`mt_dotnet_type` = `RunCoach.Domain.Onboarding.Legacy.V1.AnswerCaptured, RunCoach.Domain`), not a generic JSON parse error. Operators can trace exactly which schema version failed.
-- **Conjoined-tenancy compatible without changes.** Upcaster signature `Func<TOld, TNew>` receives only the event payload; tenant context attaches to the `IEvent<T>` envelope downstream. The projection's `TenantId` column on `ITenanted` targets populates post-upcast as before. No interaction with the `opts.Events.TenancyStyle = Conjoined` + `Marten.Metadata.ITenanted` validation that DEC-062 already enforces.
-- **Forward-compat across Marten 8 → 9.** Jeremy Miller's "Critter Stack 2026" roadmap (April 29 2026) targets cold-start optimization, AOT, and migration of code into `JasperFx.Events` — not API breaks in the upcasting surface. Expected v9 migration cost is `using` namespace updates only (e.g., `IEvent`, `StreamAction` types that already moved in 8.0).
+- Versioned types beat same-name evolution on the two axes that matter: Anthropic Pattern-B (DEC-058) schema generators emit from the current CLR type only — legacy types stay invisible to the prompt builder; and per-version `mt_events.type` values make SQL forensics trivial.
+- Codebase cost is bounded: ~80 LOC per five migrations (five 10-line frozen records + five lambdas + five `MapEventTypeWithSchemaVersion` calls).
+- Forward-compat stable through Marten 9 per Jeremy Miller's "Critter Stack 2026" roadmap; expected v9 migration is `using` namespace updates only.
 
 ### Alternatives considered
 
-- **Same-name event-type evolution + JSON-document upcasters as default.** Equally supported by Marten, slightly fewer LOC after many migrations (no legacy CLR records). Rejected because it loses the JsonSchema/Anthropic-Pattern-B clarity (the schema generator only ever sees the current shape with no breadcrumbs of prior versions) and obscures SQL forensics (all rows share `mt_events.type = answer_captured`; you must inspect `data` JSON to know the schema). Retained as the **per-event fallback** when keeping the old CLR record would carry deleted dependencies.
-- **`AsyncOnlyEventUpcaster<TOld, TNew>` for tenant-aware enrichment inside the upcaster.** Rejected: per-event-read N+1 risk (Marten docs explicit warning), and the tenant id is not available in the upcaster signature anyway — `EnrichEventsAsync` is the documented mechanism for tenant-aware projection enrichment, and it sits *after* upcasting on a batched per-`EventSlice` path. **Caveat:** `EnrichEventsAsync` is **not called during `FetchForWriting()` / `FetchLatest()` with Live aggregations** per Marten docs, so it is unsafe for write-model enrichment.
-- **No upcasting layer; rely on `Marten.Schema.MigrateAsync` for column-level changes only.** Rejected: events are immutable JSON rows. A column-shape change cannot rename, drop, or evolve a JSON property without rewriting the JSON in place — that's a copy-and-transform stream operation, not a column migration. Upcasting is the documented Marten-native mechanism for the schema-evolution use case.
-- **Snapshot-based projection rebuild instead of upcasting.** Marten supports snapshotting, but snapshots bypass event replay — upcasters would only fire on snapshot rebuild. RunCoach does not enable snapshots in Slice 1B; revisit if/when snapshotting lands as its own DEC.
-- **N→M event splitting/merging upcasters.** Neither built-in form covers this — would require a custom `IProjection` shim or the "copy and transform stream" recipe. Deferred unless explicitly needed; not on Slice 1B's path.
+- **Same-name evolution + JSON-document upcasters as default.** Rejected: loses JsonSchema/Pattern-B clarity; obscures SQL forensics. Kept as the per-event fallback.
+- **`AsyncOnlyEventUpcaster<TOld, TNew>` for tenant-aware enrichment.** Rejected: per-event-read N+1 risk; tenant id not available in upcaster signature. Use `EnrichEventsAsync` instead.
+- **Snapshot-based rebuild.** Rejected for Slice 1B: snapshots bypass replay; revisit if snapshotting lands as its own DEC.
+- **N→M event splitting upcasters.** Not supported by either built-in form; would require a custom `IProjection` shim or copy-and-transform stream. Deferred unless needed.
 
-### Trade-off
+### Trade-offs
 
-- **Legacy CLR types pile up.** Each version adds one ~10-line frozen record in `Legacy.Events.V*`. Acceptable at the current cadence; reconsider triggers below escalate to JSON-document upcasters if accumulation crosses ~8 versions.
-- **Per-event-read delegate invocation.** The upcaster lambda runs on every read of an old-shape event. Synchronous CLR-typed upcasters are cheap; the async N+1 variant is the trap (avoided by the synchronous default).
-- **One more decision per event-versioning episode.** Authors must consciously version (rename V1 → V2, add upcaster, add `MapEventTypeWithSchemaVersion<V2>(2)`). Reviewers must catch missed versioning. REVIEW.md guard rule covers this — flag any change to a Marten event record's fields that doesn't also touch the versioning surface.
+- Legacy CLR types accumulate (~10 lines each); acceptable to ~8 versions.
+- Authors must consciously version when changing event fields — REVIEW.md guard rule flags missed versioning.
 
 ### Reconsider if
 
-- The codebase accumulates **more than ~8 legacy event versions** — move to JSON-document upcasters to reduce CLR clutter.
-- Marten 9 ships and **changes the `Upcast<TOld, TNew>` extension surface** (not currently signaled in the 2026 roadmap).
-- An Anthropic schema change forces a **splitting migration (1 event → 2 events)** — neither built-in form covers this; would require a custom `IProjection` shim or the copy-and-transform recipe.
-
-### Verification
-
-- `backend/src/RunCoach.Persistence/MartenConfiguration.cs` calls `options.Events.MapEventTypeWithSchemaVersion<T>(N)` for every registered event type starting at `N = 1`.
-- Slice 1B regression test `AnswerCapturedUpcasterTests` (xUnit + Alba host fixture) hand-writes an `mt_events` row with the legacy `type` value missing a new typed slot, calls `WaitForNonStaleProjectionDataAsync(30.Seconds())`, and asserts the projection produced the expected new-shape document.
-- `MartenStoreOptionsCompositionTests` gains a sibling assertion that the registered upcasters reach the expected `TNew` type for each known `TOld` (no orphan upcaster, no missing forward path).
-- OTel collector config registers `ActivitySource "RunCoach.Marten.Upcaster"`; daily dashboard query lists `(from_type, to_type, count)` from the last 24 h.
-- `mt_doc_dead_letter_event` daily query returns zero rows under normal operation; non-zero surfaces upcaster failures with the offending `EventType` discoverable.
+- More than ~8 legacy event versions accumulate — move to JSON-document upcasters.
+- Marten 9 changes the `Upcast<TOld, TNew>` surface (not currently signaled).
+- A schema change forces a splitting (1→2) migration — escalate to a custom `IProjection` shim.
 
 ### References
 
-- R-072: `docs/research/artifacts/batch-24b-marten-event-upcasting-strategy.md` — Marten 8.32 upcasting surface, interception-point source citation, regression-test pattern, conjoined-tenancy gotchas, Marten 9 forward-compat analysis.
-- DEC-058 — Anthropic Pattern-B byte-stable schema (the upstream constraint that biases versioned CLR types over same-name evolution).
-- DEC-060 — handler bodies emit events; projections own EF state (the rule that makes the upcaster's single interception point the right architectural seam).
-- DEC-062 — `EfCoreSingleStreamProjection` registers via `opts.Add(...)`; document projections register via `opts.Projections.Add(...)` (orthogonal to upcaster registration; both projection styles see upcast events identically).
-- Marten docs: Event Versioning page (V8.x), EF Core projections page (V8.x).
-- `JasperFx/marten` source: `src/Marten/Events/EventGraph.cs`, `src/Marten/Events/EventMapping.cs`, `EventSourcingTests/SchemaChange/Upcasters.cs`.
+- R-072: `docs/research/artifacts/batch-24b-marten-event-upcasting-strategy.md`.
+- DEC-058 / DEC-060 / DEC-062 — upstream constraints; this DEC sits orthogonal to all three.
 - Slice 1B requirements: `docs/plans/mvp-0-cycle/slice-1b-hardening.md`.
 
 ---
 
-## DEC-068: Top-level React error-boundary library + router-integration mode + MVP-0 logging shape (`react-error-boundary` + declarative `<BrowserRouter>` + POST `/api/v1/client-errors`)
+## DEC-068: Top-level React error boundary (`react-error-boundary` + declarative `<BrowserRouter>` + POST `/api/v1/client-errors`)
 
 **Date:** 2026-05-12
 **Category:** Frontend / Error handling
 **Status:** Accepted
-**Drives:** Slice 1B Pre-Slice-2 Hardening — closes the acceptance criterion that the React app must survive a child render-time exception with a top-level error boundary that logs and renders a recovery affordance instead of a blank screen, tested via Playwright forcing a child throw.
+**Drives:** Slice 1B — meets the acceptance criterion that the React app survives a child render-time exception with a top-level boundary that logs and renders a recovery affordance.
 **Cites:** R-073 (`docs/research/artifacts/batch-25a-react19-error-boundary-recovery-ux.md`).
 
 ### Decision
 
-Adopt **`react-error-boundary@6.1.1`** as the canonical app-root error boundary (1 kB gz, zero runtime deps, ESM-only, React 19 compatible per unbounded `peerDependencies: { react: ">=16.13.1" }`, latest release 2026-02-13). Single `<AppErrorBoundary>` wraps `<BrowserRouter>` in `frontend/src/main.tsx`. Hand-rolled class component using `static getDerivedStateFromError` + `componentDidCatch` is the contingency fallback — same wire shape, same UX, ~80 LOC, zero deps; file lives in-tree off by default for the case where `react-error-boundary` is yanked or rejected in review.
+`react-error-boundary@6.1.1` (1 kB gz, zero deps, React 19 compatible) as the canonical app-root boundary; single `<AppErrorBoundary>` wraps `<BrowserRouter>` in `main.tsx`. Hand-rolled class component using `static getDerivedStateFromError` + `componentDidCatch` lives in-tree as the contingency fallback (same UX, same wire shape, ~80 LOC, zero deps).
 
-**Stay on declarative `<BrowserRouter>` + `<Routes>` + `<Route>`. Defer the `createBrowserRouter` data-router migration** to a future feature-driven slice where route-level `errorElement`, loaders, or actions become a feature requirement. ~30–60 LOC mechanical migration when triggered. The single app-root boundary satisfies Slice 1B's acceptance criterion; per-route error UI is not in scope.
+Stay on declarative `<BrowserRouter>` + `<Routes>`. Defer the `createBrowserRouter` data-router migration to a future feature-driven slice — Slice 1B needs zero route-level error UI.
 
-**Layered defence — three complementary mechanisms:**
+Three-layer defence: (1) `react-error-boundary` catches render-time errors and renders the fallback; (2) React 19 `createRoot({ onCaughtError, onUncaughtError })` as belt-and-suspenders reporters; (3) top-level `useGlobalErrorReporter()` installs `window.addEventListener('error', …)` + `unhandledrejection` — **log only, do NOT trigger the fallback UI**. Code paths that want async-error-to-fallback escalation call `useErrorBoundary().showBoundary(error)`.
 
-1. **`react-error-boundary`** catches render-time and lifecycle errors and renders the fallback.
-2. **React 19 `createRoot({ onCaughtError, onUncaughtError })`** as belt-and-suspenders root-level reporters — fire on every boundary-caught and uncaught render error regardless of which boundary catches it. Both call `reportClientError`.
-3. **`window.addEventListener('error', …)` + `window.addEventListener('unhandledrejection', …)`** registered in a top-level `useGlobalErrorReporter()` `useEffect` in `<AppShell />`. **Log only, do NOT trigger the fallback UI** — async failures shouldn't punish the user with a full-page card. Code paths that *want* async-error-to-fallback escalation call `useErrorBoundary().showBoundary(error)`.
+Correlation ID: `crypto.randomUUID()` (v4, 36 chars). Card displays the first 8 hex chars; `<details>` disclosure shows the full UUID with copy button. NOT a captured `traceparent` — DEC-069 enriches the report with span context as an additional field; wire shape is forward-compatible.
 
-**Correlation ID:** client-generated **`crypto.randomUUID()`** (36-char v4 UUID, available in all HTTPS / localhost contexts). Attached non-enumerably to the error object so the fallback can display it. Card shows the **first 8 hex chars** for screen-reading; full UUID lives in a `<details>` disclosure with a "Copy ID" button. Deliberately NOT a captured traceparent — R-074 (DEC-069) will enrich the boundary's `onError` to also include the active span's `traceId` alongside the boundary-generated correlation ID. The wire shape is forward-compatible.
+MVP-0 logging: `POST /api/v1/client-errors` with cookie auth, JSON body `{ correlationId, occurredAt, kind, errorName, message, stack, componentStack, url, userAgent, appVersion }`. Transport: `fetch(..., { keepalive: true })` to survive `window.location.reload()`; `navigator.sendBeacon` on fetch failure. Fire-and-forget; reporter must never throw. Endpoint has a single caller and deprecates cleanly when DEC-069's OTel transport lands.
 
-**MVP-0 logging shape — `POST /api/v1/client-errors`** with cookie auth, JSON body:
+Recovery UX: full-viewport card, `role="alert"` (no `aria-live` — would double-announce). Auto-focused `<h1>`. Two affordances: **"Try again"** (`resetErrorBoundary()`; primary soft reset) + **"Reload page"** (`window.location.reload()`; escalation). `<details>` for diagnostic info.
 
-```json
-{
-  "correlationId": "<UUIDv4>",
-  "occurredAt": "<ISO-8601>",
-  "kind": "render | window-error | unhandled-rejection",
-  "errorName": "<error.name>",
-  "message": "<error.message>",
-  "stack": "<error.stack | empty>",
-  "componentStack": "<info.componentStack | empty>",
-  "url": "<window.location.href>",
-  "userAgent": "<navigator.userAgent>",
-  "appVersion": "<VITE_APP_VERSION>"
-}
-```
-
-Transport: `fetch(ENDPOINT, { method: 'POST', credentials: 'include', body, keepalive: true })` so the POST survives an immediate `window.location.reload()`. On `fetch` rejection, fall back to `navigator.sendBeacon(ENDPOINT, blob)`. **Never await** the fetch in `onError` / `componentDidCatch`; fire-and-forget. The reporter must never throw (wrap in `try { … } catch { /* swallow */ }`). Backend endpoint persists to anywhere (or `/dev/null` initially); R-074 / DEC-069 will swap the client to OTel-instrumented export and the endpoint can be deprecated cleanly because it has a single caller.
-
-**Recovery UX:** full-viewport centered card, `role="alert"` (no `aria-live` — some screen readers would double-announce). Auto-focused `<h1>` (`tabIndex={-1}` + `useEffect` focus on mount). Two affordances:
-
-- **"Try again"** — `resetErrorBoundary()` (soft reset; primary). Re-renders the boundary's children from scratch. Cheap escape if the cause was transient.
-- **"Reload page"** — `window.location.reload()` (escalation). Throws away in-memory state.
-
-`<details>` disclosure contains full correlation UUID + copy button + `error.name + ": " + message` + `<pre>` of `error.stack` + `<pre>` of `componentStack`. Buttons are `<button type="button">`. Copy text follows Notion-style ("Something went wrong. RunCoach hit an unexpected error while rendering this page. Your data is safe — this hasn't been sent anywhere.") rather than Linear/GitHub-style.
-
-**Playwright forcing-throw test:** dev-only `<ThrowOnQuery />` component gated by `import.meta.env.DEV`, reads `?throw=render` from URL, throws synchronously during render. Vite statically replaces `import.meta.env.DEV` with `false` in production builds, dead-code-eliminates the whole component (0 bytes shipped). Component is rendered inside the boundary in `<AppShell />` with `{import.meta.env.DEV && <ThrowOnQuery />}`. Spec at `frontend/e2e/error-boundary.spec.ts` asserts on `page.getByRole('alert')` visibility, NOT on `console.error` content or `page.on('pageerror')` events (React 19 logs caught errors to `console.error` only, not `window.reportError`). Test covers both "Try again" soft-reset and "Reload page" hard-reload paths.
+Playwright: dev-only `<ThrowOnQuery />` gated by `import.meta.env.DEV`, reads `?throw=render`, throws synchronously during render. Vite tree-shakes to zero bytes in production. Spec asserts on `getByRole('alert')`, NOT on `console.error` or `page.on('pageerror')`.
 
 ### Rationale
 
-- **`react-error-boundary` over hand-rolled** because of three superpowers that meaningfully shape Slice-4 forward-compat: (a) `resetErrorBoundary(...args?)` callback enables true soft reset, not just "remount on key change"; (b) `resetKeys={[…]}` auto-resets when keys change (`resetKeys={[conversationId]}` is exactly what Slice 4's chat panel will need); (c) `useErrorBoundary().showBoundary(error)` is the canonical hook for async/event-handler error escalation. Hand-rolling these is non-trivial and re-implements an actively-maintained 12 M weekly-downloads library.
-- **React 19 `onCaughtError` / `onUncaughtError` are reporters, NOT boundaries.** Per `react.dev/blog/2024/12/05/react-19`: uncaught errors → `window.reportError`; caught errors → `console.error`. They customize the reporter side, not the fallback-UI side. We use them as a third layer alongside the boundary, not as a substitute.
-- **Declarative router stays** because `errorElement` is data-router-only and Slice 1B needs zero route-level error UI — every render error in the current ~6-8 routes is handled identically by the app-root boundary. Migrating to `createBrowserRouter` for a single hardening slice would expand scope without expanding capability.
-- **`crypto.randomUUID()` over `traceparent`-capture** because the boundary catches errors that may have no preceding fetch (e.g., a render error from a Redux selector returning bad data from cache). There's no useful traceparent to capture in that case. The two IDs serve different purposes: `correlationId` is for the user-reported "I got this error code → please look it up" loop; the traceparent (DEC-069) is for the operator-side "join this error to a server span" loop. The R-073 endpoint accepts an optional future `traceparent` field — forward-compatible with DEC-069.
-- **`fetch keepalive` + `sendBeacon` fallback** ensures the report survives the user clicking "Reload page" mid-fetch. `keepalive` is the modern primitive; `sendBeacon` is best-effort but well-supported.
-- **`role="alert"` without `aria-live`** per A11Y Collective: *"Don't add `aria-live=\"assertive\"` when you're already using `role=\"alert\"` — some screen readers might announce your message twice."*
+- `react-error-boundary` over hand-rolled for three superpowers: `resetErrorBoundary(...args?)` (true soft reset), `resetKeys={[…]}` (auto-reset on key change — Slice 4's chat panel will need `resetKeys={[conversationId]}`), `useErrorBoundary().showBoundary(error)` (canonical async-escalation seam).
+- React 19's `onCaughtError`/`onUncaughtError` are reporters, NOT boundaries — used as a third layer, not a substitute.
+- `crypto.randomUUID()` over captured `traceparent` because the boundary catches errors that may have no preceding fetch. The two IDs serve different purposes; wire shape stays forward-compatible.
 
 ### Alternatives considered
 
-- **Hand-rolled class component as primary.** Rejected as the default because of the three superpowers above; kept as the contingency for the CVE / abandonment case.
-- **Sentry `<Sentry.ErrorBoundary>` / Bugsnag / LogRocket.** Rejected — out of scope per R-073 prompt (R-073 stays vendor-free; hosted-tool decision is post-MVP-0 if RunCoach grows beyond personal use).
-- **Migrate to `createBrowserRouter` (data-router) and use route-level `errorElement`.** Rejected for Slice 1B as scope expansion. Migration is mechanical (~30–60 LOC + the `createRoutesFromElements` helper) but produces no Slice-1B-relevant capability. Logged as a feature-driven future decision, not as tech debt.
-- **Custom `key`-bump pattern instead of `resetErrorBoundary()`.** Rejected — `react-error-boundary`'s soft-reset semantics are richer (can pass args back to the fallback) and the library is already in the tree at this point.
-- **OTel-first correlation ID (R-074 client SDK ships first, boundary reads `traceparent`).** Rejected as the sequencing because R-074's bundle delta is non-trivial (~30-45 KB gz) and may bottom out at the fallback hand-rolled variant if budget bites; the boundary should ship first with a transport that's independent of that decision. R-073's `correlationId` and R-074's `traceparent` are complementary, not substitutes.
+- **Hand-rolled class as primary.** Rejected for the three superpowers above; kept as the CVE / abandonment contingency.
+- **Sentry / Bugsnag / LogRocket.** Rejected — vendor-free posture per R-073.
+- **Migrate to `createBrowserRouter` to use `errorElement`.** Rejected for Slice 1B as scope expansion (~30–60 LOC mechanical migration when feature need triggers it).
+- **OTel-first correlation ID (DEC-069 ships before the boundary).** Rejected: boundary must ship before DEC-069's bundle delta is reckoned with.
 
-### Trade-off
+### Trade-offs
 
-- **New dep (`react-error-boundary` 6.1.1, ~1 kB gz, zero transitives).** Pinned major; ESM-only (acceptable — Vite handles this natively; would bite if RunCoach ever adopted Jest, in which case the hand-rolled fallback is the answer).
-- **No per-route error UI.** A render error anywhere bubbles to the app-root card. Acceptable at the current route count; reversible when data-router migration is triggered by feature need.
-- **New backend endpoint (`POST /api/v1/client-errors`)** that exists solely to be deprecated when DEC-069 lands. The endpoint has a single client caller and the deprecation is a clean swap.
+- New dep (`react-error-boundary` 6.1.1, ~1 kB gz, zero transitives). ESM-only — fine for Vite; would bite Jest adoption.
+- No per-route error UI — render errors anywhere bubble to the app-root card.
+- New backend endpoint that exists to be deprecated by DEC-069 — single-caller, clean swap path.
 
 ### Reconsider if
 
-- A CVE lands against `react-error-boundary` 6.x, or the library is yanked / abandoned — swap to the hand-rolled fallback (file ready, behaviour identical).
-- Route-level loaders, actions, or per-route `errorElement` become a Slice-N requirement — migrate to `createBrowserRouter`. Mechanical; no DEC-068 amendment required (just an update note pointing at the migration commit).
-- A user-reported support flow demonstrates that a UUID prefix is insufficient (e.g., support cannot find the entry without the full UUID) — promote the full UUID to the card surface, demote the prefix.
-
-### Verification
-
-- `frontend/package.json` adds `"react-error-boundary": "^6.1.1"`.
-- `frontend/src/app/error-boundary/app-error-boundary.tsx`, `report-client-error.ts`, `use-global-error-reporter.ts` exist with the implementations from R-073 §10.
-- `frontend/src/main.tsx` wraps `<AppErrorBoundary>` around `<BrowserRouter>` and passes `onCaughtError` / `onUncaughtError` to `createRoot(...)`.
-- `frontend/src/dev-only/throw-on-query.tsx` exists and is rendered inside the boundary in `<AppShell />` behind `import.meta.env.DEV`. `vite build` followed by `rollup-plugin-visualizer` shows zero bytes from this module in production output.
-- `frontend/e2e/error-boundary.spec.ts` passes locally and in CI; covers "Try again" soft-reset and "Reload page" hard-reload paths.
-- Backend `POST /api/v1/client-errors` endpoint exists with cookie auth, accepts the wire shape above, and returns 204 No Content.
-- DEC-069 (R-074) leaves DEC-068 untouched — only enriches the `onError` callback to attach `traceparent` to the same wire shape.
+- A CVE / abandonment signal lands against `react-error-boundary` 6.x — swap to the hand-rolled fallback.
+- Route-level loaders, actions, or `errorElement` become a slice requirement — migrate to `createBrowserRouter`.
+- Support reports show the 8-char UUID prefix is insufficient — promote the full UUID to the card surface.
 
 ### References
 
-- R-073: `docs/research/artifacts/batch-25a-react19-error-boundary-recovery-ux.md` — library scoring, router-integration analysis, recovery UX comparison, Playwright pattern, TS-strict ergonomics, code sketches, forward-compat for Slice 4.
-- `react.dev/blog/2024/12/05/react-19` — React 19 root-options semantics.
-- `react.dev/reference/react-dom/client/createRoot` — `onCaughtError` / `onUncaughtError` reference.
+- R-073: `docs/research/artifacts/batch-25a-react19-error-boundary-recovery-ux.md`.
+- `react.dev/blog/2024/12/05/react-19` — root-options semantics.
 - `github.com/bvaughn/react-error-boundary` — 6.1.1 release.
-- DEC-069 — R-074 client-side OTel; complementary, not a substitute.
+- DEC-069 — complementary client-side OTel.
+- Slice 1B requirements: `docs/plans/mvp-0-cycle/slice-1b-hardening.md`.
 
 ---
 
-## DEC-069: Client-side OpenTelemetry SDK + W3C `traceparent` propagation (`@opentelemetry/sdk-trace-web` + `instrumentation-fetch` + OTLP/HTTP, browser → collector direct with CORS)
+## DEC-069: Client-side OpenTelemetry (`sdk-trace-web` + `instrumentation-fetch` + OTLP/HTTP, browser → collector direct with CORS)
 
 **Date:** 2026-05-12
 **Category:** Frontend / Observability
 **Status:** Accepted
-**Drives:** Slice 1B Pre-Slice-2 Hardening — provides the trace-context propagation that joins R-073's error boundary to backend Jaeger traces under a single trace-id, and instruments the frontend for future Slice 2–4 debugging.
+**Drives:** Slice 1B — joins DEC-068's error boundary to backend Jaeger traces under a single trace-id; instruments the frontend for Slice 2–4 debugging.
 **Cites:** R-074 (`docs/research/artifacts/batch-25b-react19-client-otel-correlation-id.md`).
-**Builds on:** DEC-045 (`otel-collector-contrib` + Jaeger overlay), DEC-068 (R-073 error boundary that surfaces the trace-id), DEC-059 (server-side `LayeredPromptSanitizer` — analogous client-side scrub layer here).
+**Builds on:** DEC-045 (`otel-collector-contrib` + Jaeger overlay), DEC-059 (server-side sanitizer; client-side analogue lives here), DEC-068 (boundary that surfaces the trace-id).
 
 ### Decision
 
-Adopt the **full OpenTelemetry-JS SDK 2.x browser stack** as the default client-side tracing layer. Add to `frontend/package.json`:
+OpenTelemetry-JS SDK 2.x browser stack: `@opentelemetry/api ^1.9`, `sdk-trace-web` + `sdk-trace-base` ^2.7, `exporter-trace-otlp-http` + `instrumentation` + `instrumentation-fetch` ^0.20x, `resources` ^2.7, `semantic-conventions` ^1.37. `StackContextManager` (NOT `ZoneContextManager` — avoids `zone.js`). `BatchSpanProcessor` defaults (5 s, 2048, 64). `OTLPTraceExporter` to `import.meta.env.VITE_OTLP_TRACES_URL ?? 'http://localhost:4318/v1/traces'`.
 
-```jsonc
-"@opentelemetry/api": "^1.9.0",
-"@opentelemetry/core": "^2.7.1",
-"@opentelemetry/exporter-trace-otlp-http": "^0.20x",
-"@opentelemetry/instrumentation": "^0.20x",
-"@opentelemetry/instrumentation-fetch": "^0.20x",
-"@opentelemetry/resources": "^2.7.1",
-"@opentelemetry/sdk-trace-base": "^2.7.1",
-"@opentelemetry/sdk-trace-web": "^2.7.1",
-"@opentelemetry/semantic-conventions": "^1.37.0"
-```
+Default propagators (W3C TraceContext + Baggage) match between OTel-JS browser and OTel-.NET backend with zero config. A single trace traverses `runcoach-frontend` fetch span → ASP.NET Core auto-span → Marten / Wolverine / Npgsql / RunCoach.Llm spans.
 
-(Experimental packages version as `0.20x.0` synchronised with the 2.x stable family per the OTel-JS version-compatibility matrix; pin the highest `0.20x` matching `@opentelemetry/api ^1.9` at install time.)
+**Topology: browser → collector direct** with a CORS allow-list (`allowed_origins: [http://localhost:5173, http://localhost:4173, <prod-origin>]`, `allowed_headers: [traceparent, tracestate, baggage, Content-Type]`) added to the `otlphttp` receiver. **Never `["*"]`** — incompatible with `Access-Control-Allow-Credentials: true` per the CORS spec.
 
-Use `StackContextManager` (the default in `sdk-trace-web` 2.x — NOT `ZoneContextManager`; avoids the `zone.js` dependency). `BatchSpanProcessor` with `scheduledDelayMillis: 5000`, `maxQueueSize: 2048`, `maxExportBatchSize: 64`, `exportTimeoutMillis: 30000`. `OTLPTraceExporter` POSTs to `import.meta.env.VITE_OTLP_TRACES_URL ?? 'http://localhost:4318/v1/traces'`.
+**Initialization is load-bearing:** `import './app/api/otel'` MUST be the first import in `main.tsx`. `FetchInstrumentation` patches `globalThis.fetch` on `enable()`; late init silently drops the bootstrap query's trace. RTK Query needs **zero changes** — `fetchBaseQuery` reads `globalThis.fetch` lazily, so the patch transparently applies. `prepareHeaders` and `baseQueryWith401Handler` stay untouched.
 
-**Default propagators (W3C TraceContext + W3C Baggage) line up between browser and backend with zero config** — `WebTracerProvider.register()` installs them implicitly; ASP.NET Core's hosting layer extracts `traceparent` before OTel-NET observes the activity. A single trace traverses `runcoach-frontend` fetch span → ASP.NET Core auto-span → Marten / Wolverine / Npgsql / RunCoach.Llm spans, viewable as one tree in Jaeger UI at `http://localhost:16686/trace/{trace-id}`.
+Correlation-ID seam: module-level singleton `frontend/src/app/api/last-trace-id.ts` exposing `recordLastTraceId` / `getLastTraceId` / `useLastTraceId()` (`useSyncExternalStore`). Fed by `FetchInstrumentation.applyCustomAttributesOnSpan`. DEC-068's boundary displays trace-id only (32 hex, grouped 8-8-8-8, copy button) — NOT the full traceparent.
 
-**Topology: browser → collector direct.** Add a CORS allow-list to the `otlphttp` receiver in `infra/otel/otel-collector-config.yaml`:
+PII scrubbing: `applyCustomAttributesOnSpan` strips query strings from `http.url`/`http.target` (Option A, MVP-0). Collector `attributesprocessor` as belt-and-braces. MVP-1 adds `SpanProcessor.onStart` regex scrubbing.
 
-```yaml
-receivers:
-  otlp:
-    protocols:
-      http:
-        endpoint: 0.0.0.0:4318
-        cors:
-          allowed_origins:
-            - http://localhost:5173        # Vite dev
-            - http://localhost:4173        # Vite preview
-            # MVP-1 prod: add deployed origin(s) here; never use "*"
-          allowed_headers:
-            - traceparent
-            - tracestate
-            - baggage
-            - Content-Type
-          max_age: 7200
-```
+Sampling: **MVP-0 `AlwaysOnSampler`** (localhost only). **MVP-1 opt-in via cookie consent**, default OFF, SDK lazy-imported on grant.
 
-**Never `["*"]`** — incompatible with `Access-Control-Allow-Credentials: true` per the W3C CORS spec; browsers reject the combination.
-
-**Initialization order is load-bearing:** `import './app/api/otel'` MUST be the **first** import in `frontend/src/main.tsx`, before React/RTK. `FetchInstrumentation` patches `globalThis.fetch` on `enable()`; late init silently drops the bootstrap query's trace. **RTK Query needs zero changes** — `fetchBaseQuery` reads `globalThis.fetch` lazily on each call, so the patch transparently applies. Existing `prepareHeaders` (X-XSRF-TOKEN on mutations) and `baseQueryWith401Handler` stay untouched. No `fetchFn` override, no `fetchBaseQuery` wrap, no API-slice replacement.
-
-**Correlation-ID seam:** module-level singleton `frontend/src/app/api/last-trace-id.ts` exposing `recordLastTraceId(id)` / `getLastTraceId()` / a `useLastTraceId()` hook backed by `useSyncExternalStore`. Fed by `FetchInstrumentation`'s `applyCustomAttributesOnSpan` callback calling `recordLastTraceId(span.spanContext().traceId)` after every fetch. R-073's error-boundary fallback reads via `useLastTraceId()` (function component) or `getLastTraceId()` (class component) and displays trace-id only — 32 lowercase hex grouped 8-8-8-8 in monospace, with a copy button. NOT the full traceparent (55 chars, includes ephemeral span-id). Display only when non-null; for purely-synchronous render errors with no preceding fetch the boundary hides the support-code block.
-
-**PII scrubbing — Option A (default, MVP-0):** `applyCustomAttributesOnSpan` strips query strings, sets `http.url` and `http.target` to `origin + pathname` only. **Option B (MVP-1 defence-in-depth):** custom `SpanProcessor.onStart` regex-scrubs email and UUID patterns from `http.url` before BatchSpanProcessor reads attributes. **Collector belt-and-braces:** add `attributesprocessor` with `hash`/`delete` actions on `http.url`, `user.email`, `http.user_agent` as the first processor in the traces pipeline. Onboarding free-text lives in request bodies (never recorded by `instrumentation-fetch`) — user-typed answers never become span attributes.
-
-**Sampling MVP-0 (personal use): `AlwaysOnSampler` (head-based 100%).** Localhost-only, no consent UI, no DNT check (DNT is deprecated by major browsers — not a reliable 2026 signal).
-
-**Sampling MVP-1 (public testers): opt-in via cookie consent, default OFF.** Lazy-import `./app/api/otel-bootstrap` only on `consent === 'granted'`. Users who decline pay 0 KB of OTel JS. Bundle is code-split. Production-readiness adds: explicit deployed-origin allow-list (never `*`), TLS-terminated collector ingress, static `Authorization: Bearer` header on `OTLPTraceExporter` (treat as rate-limit token — bundled in JS, not confidential), CSP `connect-src 'self' https://otel.runcoach.example.com`. Tail-based "always-on-error" via collector `tailsampling` processor when traces/min crosses ~100 or Jaeger storage hits ~80% of allocation.
-
-**Manual flush on page-hide:** `document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') provider.forceFlush().catch(() => {}); })`. The default web SDK does not auto-flush on `pagehide` — known gap. MDN recommends `visibilitychange` over `pagehide`/`unload` for analytics-style flushes.
-
-**Vite chunking:** explicit `manualChunks: { otel: [...] }` keeps OTel in its own long-cached chunk (changes less often than app code). Verify on first `vite build` that no `Module "path" has been externalized for browser compatibility` warning appears; if it does, add `optimizeDeps.exclude: ['@opentelemetry/instrumentation']` + `rollupOptions.external: ['node:path', 'path']`.
+Manual flush on `visibilitychange === 'hidden'` (SDK doesn't auto-flush on pagehide). Vite `manualChunks: { otel: [...] }` keeps OTel in its own long-cached chunk.
 
 ### Rationale
 
-- **Default propagators already match between OTel-JS browser and OTel-.NET backend** (W3C TraceContext + W3C Baggage). Confirmed by source: `WebTracerProvider.register()` installs the composite implicitly; the .NET SDK's default `CompositeTextMapPropagator` is the same combination per `opentelemetry-dotnet` source. ASP.NET Core's hosting layer parses `traceparent` independently of OTel and creates a server `Activity` with the extracted parentId; `AddAspNetCoreInstrumentation()` observes it. The chain works without configuration changes on either side.
-- **Browser → collector direct** because (a) one config change in one file (the `cors:` block); (b) the collector remains the network boundary — auth, sampling, tail-based sampling, and PII processors all live in collector pipelines; (c) direct POST has no extra hop; (d) it matches upstream OpenTelemetry's own recommendation. Reverse-proxy and backend re-emit variants buy nothing at this stage and force ~150 LOC of OTLP-JSON parsing in ASP.NET Core that has no security benefit.
-- **`StackContextManager` over `ZoneContextManager`** avoids `zone.js` (a ~30 KB gz dependency that conflicts with React 19's concurrent rendering scheduler). Stack-based async context tracking is sufficient for fetch instrumentation; the only thing it misses is `setTimeout`/`setInterval` parent-context preservation, and RunCoach's fetch flows don't depend on that.
-- **`useSyncExternalStore` over Redux/`useContext`/`localStorage`/`ref`** — Redux would re-render every consumer on every fetch (every 100–1000 ms during active usage); `useContext` has the same re-render problem unless wrapped in `useSyncExternalStore` (at which point it's identical to a module singleton + hook); `localStorage` is synchronous I/O on the main thread; `ref` can't be read from a class-component error-boundary's render path.
-- **Trace-id only, not full traceparent.** The traceparent's span-id changes per-fetch; a user pasting "the support code" after hitting "Try again" would get a different span-id but the same trace-id. Trace-id is what Jaeger UI keys on (`/trace/{trace-id}`); the W3C spec confirms it's "the ID of the whole trace forest."
-- **`crypto.randomUUID()` (DEC-068) and `traceparent` (DEC-069) are complementary, not substitutes.** DEC-068 ships first and works without DEC-069; DEC-069 enriches DEC-068's report with an additional field; the wire shape stays forward-compatible.
-- **PII scrubbing on the client side is required** because `LayeredPromptSanitizer` (DEC-059) runs server-side and never sees browser-side span attributes. Path templates are bounded (no PII in `/api/auth/login`, `/api/onboarding/{step}`, `/api/plan`) but query-string discipline cannot be enforced by developer convention alone.
+- Default propagators already match across both stacks — no config required.
+- Browser → collector direct: one config change, collector stays the network boundary, no extra hop.
+- `StackContextManager` avoids `zone.js` (~30 KB gz, conflicts with React 19 concurrent rendering).
+- `useSyncExternalStore` over Redux/`useContext`/`localStorage` — no re-render-on-fetch, no main-thread sync I/O, class-component-accessible.
+- Trace-id only (not full `traceparent`) — span-id changes per fetch; trace-id is the stable Jaeger URL key.
 
 ### Alternatives considered
 
-- **Hand-rolled `prepareHeaders` traceparent injection + minimal OTLP/JSON exporter (~40 LOC, ~1.5 KB gz).** Rejected as the default because it loses Resource Timing API enrichment, auto-correlation between same-trace fetches, and the future ability to layer `instrumentation-document-load` / `instrumentation-user-interaction`. **Kept as the per-budget fallback:** switch to it if total first-payload JS exceeds ~170 KB gz **AND** measured LCP regression > 100 ms on a throttled 4G profile. Keeps correlation IDs and backend chaining working.
-- **`@opentelemetry/auto-instrumentations-web` (meta-package).** Rejected: pulls in every instrumentation by default (~60 KB gz with `instrumentation-document-load` + `instrumentation-user-interaction`) for no Slice-1B-relevant capability. Tree-shake doesn't help when every instrumentation is referenced from the meta-package's entry point.
-- **`@vercel/otel`.** Rejected: Vercel docs explicit — *"No traces or metrics are recorded for any browser-side interactions."* Edge-first wrapper, not a browser SDK.
-- **Sentry browser tracing.** Rejected — vendor-free posture per R-073/R-074; Sentry's `@sentry/browser` produces OTel-compatible traces but couples to Sentry's ingest model.
-- **Reverse-proxy `/v1/traces` from Vite dev + ASP.NET Core in prod** as topology. Rejected as default: extra hop, extra Kestrel allocations per export batch, your backend becomes a critical path for telemetry export, loses the "collector is the network boundary" property. The Vite proxy half is fine for local dev convenience but should not be the prod pattern.
-- **Backend `POST /api/v1/client-traces` re-emit endpoint.** Rejected: either requires ~150 LOC of OTLP-JSON re-deserialization via `OtlpExporter` packages or trusts the JSON and forwards bytes — equivalent to the reverse-proxy variant with extra work. No security benefit.
-- **`["*"]` CORS allowed-origins (the lazy default).** Rejected: incompatible with `Access-Control-Allow-Credentials: true` per the CORS spec; browsers reject the combination outright. Per `confighttp` docs: *"Do not use a plain wildcard `[\"*\"]`."*
-- **Always-on tracing in MVP-1 with aggressive PII scrubbing instead of opt-in consent.** Rejected: trace-id itself is a pseudonymous identifier; GDPR Recital 30 / Art 4(1) treats per-session timing + path sequences as personal data when combinable. Opt-in via cookie consent is the only defensible posture once non-developer users exist.
+- **Hand-rolled `prepareHeaders` traceparent + minimal OTLP/JSON (~1.5 KB gz).** Kept as the per-budget fallback if first-payload JS > 170 KB gz AND LCP regresses >100 ms on throttled 4G. Loses Resource Timing enrichment.
+- **`@opentelemetry/auto-instrumentations-web` meta-package.** Rejected: pulls in `instrumentation-document-load` + `instrumentation-user-interaction` (~60 KB gz) for no Slice-1B capability.
+- **`@vercel/otel`.** Rejected: no browser-side traces by docs.
+- **Sentry browser tracing.** Rejected: vendor-free posture.
+- **Reverse-proxy or backend re-emit endpoint.** Rejected: extra hop, loses collector-as-boundary, no security gain.
+- **`["*"]` CORS allowed-origins.** Rejected: incompatible with `Access-Control-Allow-Credentials: true` per spec.
+- **MVP-1 always-on with aggressive scrubbing instead of opt-in consent.** Rejected: trace-id is pseudonymous; GDPR Recital 30 treats per-session timing + paths as personal data.
 
-### Trade-off
+### Trade-offs
 
-- **~30–45 KB gz bundle delta** (estimated from SigNoz + OneUptime 2026 bundle analyses; confirmed shape against OTel-JS 2.x package set, exact number requires a `vite build` after install). Material but bounded; tree-shaking handled by SDK 2.x's `"sideEffects": false` declarations. The `manualChunks: { otel: [...] }` config keeps it in its own long-cached chunk separate from app code.
-- **First-import constraint** in `main.tsx`. Late init silently drops the bootstrap query's trace. Documented in REVIEW.md as a guard rule.
-- **CORS allow-list maintenance.** Every new deployed origin must be added to the collector config. Acceptable — origin churn is low and the alternative (wildcard) is unsafe.
-- **No `ZoneContextManager` means async context across `setTimeout` is not auto-preserved.** Acceptable — RunCoach's data flows don't rely on `setTimeout`-deferred fetches inheriting parent span context.
-- **`ParentBasedSampler` in browser is advisory under the current backend `AlwaysOnSampler`.** Identical outcome for MVP-0; differences appear only once backend sampling is dialed down. Re-decide then.
+- ~30–45 KB gz bundle delta (estimated; confirm on first `vite build`). Bounded by tree-shaking + `manualChunks`.
+- First-import-in-`main.tsx` constraint — late init silently drops the bootstrap trace. REVIEW.md guard rule.
+- CORS allow-list maintenance per deployed origin.
+- No `ZoneContextManager` means async context across `setTimeout` is not auto-preserved (RunCoach's flows don't depend on this).
 
 ### Reconsider if
 
-- Bundle audit shows first-payload JS > 170 KB gz AND LCP regression > 100 ms on throttled 4G → switch to the ~40-line hand-rolled fallback. Loses Resource Timing API enrichment; keeps correlation IDs and backend chaining.
-- Jaeger storage > 80% of allocated disk OR > ~100 traces/min hitting the collector → enable `ParentBasedSampler({ root: new TraceIdRatioBasedSampler(0.1) })` in browser + collector `tailsampling` processor with "always-on-error" rule.
-- A `@grafana/faro-web-tracing` style drop-in becomes attractive for bundled Web Vitals / session-replay / error-tracking — its setup is a drop-in replacement for `otel.ts`. Trigger: pre-MVP-1 if frontend observability scope grows.
-- The OpenTelemetry-JS browser instrumentation surface promotes from "experimental" to stable (currently labeled experimental per OTel docs); re-check semantic-convention attribute names (`url.full`, `http.url`, `http.target`) for stability shifts at MVP-1.
-- W3C Trace Context Level 2 (currently Candidate Recommendation) ships with the `random-trace-id` flag broadly adopted — backward-compatible, no code change needed but worth a re-check.
-
-### Verification
-
-- `frontend/package.json` includes the 9 OTel deps at the versions above; `npm install` succeeds without peer-dep warnings.
-- `frontend/src/app/api/otel.ts` exists, is imported as the first line of `frontend/src/main.tsx`, and registers `WebTracerProvider` + `BatchSpanProcessor` + `OTLPTraceExporter` + `FetchInstrumentation`.
-- `frontend/src/app/api/last-trace-id.ts` exposes `recordLastTraceId`, `getLastTraceId`, `useLastTraceId`; fed by `applyCustomAttributesOnSpan`.
-- `infra/otel/otel-collector-config.yaml` includes the `cors:` block on `otlphttp` receiver and the `attributesprocessor` scrub stage in the traces pipeline.
-- `vite build` succeeds with no `Module "path" has been externalized` warning; `vite-bundle-visualizer` shows the `otel` chunk in the 30–45 KB gz range.
-- Smoke test (R-074 §11 verification checklist): browser fetch → DevTools shows `traceparent` header → POST to `:4318/v1/traces` returns 200 → Jaeger UI at `/trace/{trace-id}` shows one trace with client + ASP.NET Core + Marten + Wolverine + Npgsql + RunCoach.Llm spans nested.
-- R-073 error boundary's fallback displays the trace-id when `getLastTraceId()` is non-null; hides the support-code block when null.
-- Collector down → no user-visible UI change (silent drop confirmed); DevTools shows only diag `WARN` lines.
+- First-payload JS > 170 KB gz AND LCP regresses >100 ms on throttled 4G — switch to the hand-rolled fallback.
+- Jaeger storage > 80% disk OR >100 traces/min — enable `ParentBasedSampler` + collector `tailsampling` with always-on-error rule.
+- `@grafana/faro-web-tracing` becomes attractive for bundled Web Vitals / session-replay — drop-in replacement for `otel.ts`.
+- OpenTelemetry-JS browser instrumentation promotes from "experimental" to stable — re-check semantic-convention attribute names at MVP-1.
 
 ### References
 
-- R-074: `docs/research/artifacts/batch-25b-react19-client-otel-correlation-id.md` — SDK selection, propagation analysis, topology comparison, RTK Query seam, backend-chaining verification, PII patterns, sampling strategy, bundle budget, migration cost.
-- DEC-045 — `otel-collector-contrib` + Jaeger overlay (the backend half this client side joins). Note: "Phoenix" appears in R-051's LLM-observability research as a *candidate* never shipped; this DEC supersedes that shorthand with the actual implementation.
-- DEC-068 — R-073 error boundary that surfaces the trace-id this DEC produces.
-- DEC-059 — server-side `LayeredPromptSanitizer`; the client-side PII scrub layer (`applyCustomAttributesOnSpan`) is the analogous defence at the browser boundary.
+- R-074: `docs/research/artifacts/batch-25b-react19-client-otel-correlation-id.md`.
+- DEC-045 — backend OTel overlay (`otel-collector-contrib` + Jaeger). *"Phoenix" in R-051 was a never-shipped candidate; this DEC documents the actual implementation.*
+- DEC-059 / DEC-068 — server-side sanitizer (analogue here) and the boundary that consumes the trace-id.
 - W3C Trace Context Level 1 — `w3.org/TR/trace-context/`.
-- OpenTelemetry-JS SDK 2.0 announcement — `opentelemetry.io/blog/2025/otel-js-sdk-2-0/`.
-- OpenTelemetry Collector `otlpreceiver` README — `cors:` schema documentation.
 - Slice 1B requirements: `docs/plans/mvp-0-cycle/slice-1b-hardening.md`.
 
 ---
