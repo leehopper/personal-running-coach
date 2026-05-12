@@ -75,3 +75,14 @@ pre-push:
       root: "frontend/"
       glob: "*.{ts,tsx}"
       run: npx tsc --noEmit
+    codegen-check:
+      # OpenAPI codegen drift gate (DEC-066 / R-071). Re-runs the two-tool
+      # pipeline (`@rtk-query/codegen-openapi` + Orval Zod) against the
+      # committed `backend/openapi/swagger.json` and refuses the push if
+      # the regenerated output differs from what's on disk — locks the
+      # generated TS / Zod surface to the wire contract one commit at a
+      # time. The glob fires the hook on any change under either the
+      # backend (which can change the spec) or the frontend (which can
+      # change the codegen config or scripts).
+      glob: "{backend/**/*.cs,backend/openapi/swagger.json,frontend/openapi-config.ts,frontend/orval.config.ts,frontend/package.json,frontend/scripts/codegen-prepend-header.mjs}"
+      run: cd frontend && npm run codegen:check
