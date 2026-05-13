@@ -219,7 +219,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
       }
     },
     "/api/v1/auth/logout": {
@@ -251,7 +257,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
       }
     },
     "/api/v1/client-errors": {
@@ -342,7 +354,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
       }
     },
     "/api/v1/onboarding/turns": {
@@ -430,7 +448,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
       }
     },
     "/api/v1/onboarding/state": {
@@ -479,7 +503,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
       }
     },
     "/api/v1/onboarding/answers/revise": {
@@ -547,7 +577,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
       }
     },
     "/api/v1/plan/current": {
@@ -616,7 +652,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
       }
     },
     "/api/v1/plan/regenerate": {
@@ -724,7 +766,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
       }
     }
   },
@@ -1776,6 +1824,20 @@
           "CrossTrain"
         ],
         "type": "string"
+      }
+    },
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "description": "Session cookie issued by /api/v1/auth/login.",
+        "name": "__Host-RunCoach",
+        "in": "cookie"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "description": "JWT bearer token (Authorization: Bearer ...). Either scheme satisfies the CookieOrBearer policy.",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     }
   },

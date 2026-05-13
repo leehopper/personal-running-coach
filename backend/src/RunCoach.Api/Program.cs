@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi;
 using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -327,6 +328,33 @@ builder.Services.AddSwaggerGen(options =>
     // bare `type: string` in swagger and the frontend Zod codegen loses
     // every maxLength / minLength / format / pattern constraint.
     options.SchemaFilter<RecordCtorParamDataAnnotationsSchemaFilter>();
+
+    // `__Host-RunCoach` session cookie — browser SPA auth scheme.
+    // Cookie name is the `AuthCookieNames.Session` constant so Swagger UI
+    // sends the same cookie the real SPA sends on every credentialed request.
+    options.AddSecurityDefinition("cookieAuth", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Cookie,
+        Name = AuthCookieNames.Session,
+        Description = "Session cookie issued by /api/v1/auth/login.",
+    });
+
+    // JWT bearer token — future iOS / API-client auth scheme.
+    // Either scheme satisfies the `CookieOrBearer` authorization policy.
+    options.AddSecurityDefinition("bearerAuth", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "JWT bearer token (Authorization: Bearer ...). Either scheme satisfies the CookieOrBearer policy.",
+    });
+
+    // Annotates each operation that carries `[Authorize]` with the
+    // `cookieAuth` + `bearerAuth` security requirement so generated
+    // frontend clients know which endpoints require authentication.
+    // Operations decorated with `[AllowAnonymous]` are skipped.
+    options.OperationFilter<AuthorizeOperationFilter>();
 });
 
 builder.Services.AddHealthChecks();
