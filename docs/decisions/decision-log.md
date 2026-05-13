@@ -2566,6 +2566,12 @@ Manual flush on `visibilitychange === 'hidden'` (SDK doesn't auto-flush on pageh
 - W3C Trace Context Level 1 — `w3.org/TR/trace-context/`.
 - Slice 1B requirements: `docs/plans/mvp-0-cycle/slice-1b-hardening.md`.
 
+### Amendment (2026-05-13) — `allowed_headers: ["*"]` documented override
+
+The implementation in PR #93 ships `allowed_headers: ["*"]` on the OTLP/HTTP receiver's `cors` block, diverging from the enumerated list `[traceparent, tracestate, baggage, Content-Type]` originally specified in this DEC. Empirical investigation (T02-04 in `docs/specs/14-spec-slice-1b-hardening/14-proofs/T02-proofs.md`) established that `rs/cors v1` in `otel-collector-contrib:0.150.1` silently rejects preflights when `Content-Type` is enumerated explicitly, returning 204 with no `Access-Control-Allow-Origin` and breaking the `OTLPTraceExporter` POST. The upstream confighttp README explicitly endorses `["*"]` for `allowed_headers`. The constraint is scoped: this override applies to `allowed_headers` only. **The "Never `["*"]`" prohibition remains in force for `allowed_origins`** — credentials-incompatibility under the Fetch Standard makes a wildcard origin unsafe, and the localhost allow-list stays explicit.
+
+Reconsider trigger: future versions of `otel-collector-contrib` that honour the `Content-Type` implicit safelist when an explicit `allowed_headers` list is supplied — at which point the enumerated form should be restored.
+
 ---
 
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

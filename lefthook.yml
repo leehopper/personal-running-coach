@@ -24,6 +24,14 @@ pre-commit:
       glob: "*.{ts,tsx}"
       run: npx eslint --fix {staged_files}
       stage_fixed: true
+    otel-cors-origin-wildcard-guard:
+      # DEC-069: `allowed_origins` on the OTLP/HTTP receiver must never
+      # contain a bare `"*"` — incompatible with
+      # `Access-Control-Allow-Credentials: true` per the CORS spec. The
+      # `allowed_headers: ["*"]` wildcard is an intentional documented
+      # override (see the DEC-069 amendment) and is not flagged.
+      glob: "infra/otel/otel-collector-config.yaml"
+      run: python3 infra/otel/validate-cors-origins.py infra/otel/otel-collector-config.yaml
     prettier:
       root: "frontend/"
       glob: "*.{ts,tsx,css,json}"

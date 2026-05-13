@@ -1,7 +1,8 @@
 # OpenTelemetry Collector config for the local dev observability overlay.
 #
 # Receivers: OTLP over gRPC (4317) and HTTP (4318) — accepts spans and metrics
-# from the RunCoach API container.
+# from the RunCoach API container and (per DEC-069) directly from the browser
+# SPA via the OTLP/HTTP exporter.
 #
 # Exporters: OTLP to Jaeger's native OTLP ingest on port 4317 for traces;
 # logging exporter as a fallback for metrics while a long-term metric backend
@@ -18,8 +19,85 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+        # CORS allow-list for direct browser → collector OTLP/HTTP posts
+        # (DEC-069, R-074 §2). The OTel collector exposes `cors` on http-based
+        # receivers; without it the browser preflight rejects the POST and no
+        # spans ever leave the SPA. `allowed_origins` specifically must not be
+        # `["*"]`: the collector's CORS response includes
+        # `Access-Control-Allow-Credentials: true`, which browsers refuse to
+        # combine with a wildcard origin per the Fetch Standard (see
+        # opentelemetry-collector/config/confighttp/README.md). The wildcard
+        # restriction does not apply to `allowed_headers` — see the comment
+        # block below for that field's separate rationale.
+        #
+        # Production hardening requirements (per DEC-069): when this overlay is
+        # exposed beyond localhost, `allowed_origins` must be replaced with the
+        # deployed origin(s) (e.g. `https://runcoach.example.com`), a TLS
+        # terminator must front :4318, and the browser exporter must pin a static
+        # `Authorization: Bearer <token>` header so this endpoint is not
+        # anonymously writable from the open internet.
+        cors:
+          allowed_origins:
+            - http://localhost:5173        # Vite dev server
+            - http://localhost:4173        # Vite preview server
+          # R02.1's intent is that `traceparent`, `tracestate`, `baggage`, and
+          # `Content-Type` must all be accepted on the preflight. In
+          # opentelemetry-collector-contrib:0.150.1 (confighttp / `rs/cors v1`),
+          # an explicit `allowed_headers` list ignores the documented
+          # "Content-Type implicitly allowed" safelist behaviour: a preflight
+          # whose `Access-Control-Request-Headers` includes `Content-Type`
+          # returns 204 with no `Access-Control-Allow-Origin`, breaking the
+          # `OTLPTraceExporter` POST (which sends `Content-Type:
+          # application/json`). `["*"]` is the only configuration that admits
+          # `Content-Type` *plus* the W3C trace headers in this collector
+          # version, and the upstream docs explicitly endorse it
+          # (`config/confighttp/README.md`: *"Setting it to ["*"] allows any
+          # request header"*). Origin matching is unaffected — the
+          # `allowed_origins` allow-list above still rejects unknown origins.
+          allowed_headers:
+            - "*"
+          max_age: 7200
 
 processors:
+  # Belt-and-braces PII scrub for browser-sourced spans (DEC-069, R-074 §7).
+  # The SPA's FetchInstrumentation also strips query strings client-side, but
+  # enforcing the redaction at the collector means a developer cannot
+  # accidentally bypass it by tweaking the browser exporter. Must run *before*
+  # `batch` so scrubbed values are what gets buffered and exported.
+  #
+  # Both the legacy (`http.*`) and stable (`url.*` / `user_agent.*`) HTTP
+  # semantic-convention attribute names are scrubbed because OpenTelemetry-JS
+  # selects between them via `semconvStabilityOptIn` (stable HTTP semconv was
+  # declared v1.23.0; `http.url` and `http.user_agent` are deprecated in
+  # favour of `url.full` and `user_agent.original`). Scrubbing only the legacy
+  # names would silently bypass the redaction the moment the browser SDK
+  # flipped to stable semconv.
+  #
+  # All path-bearing HTTP attributes are deleted: `http.url` / `url.full`
+  #   carry full URLs; `http.target` (legacy path + query), `url.path`
+  #   (stable path), and `url.query` (stable query) are deleted to ensure no
+  #   query-string secrets propagate even if an OTLP client emits these
+  #   attributes without client-side scrubbing.
+  # `http.user_agent` / `user_agent.original`: `hash` preserves cardinality
+  #   for cohort analysis while destroying identifiability of the raw UA
+  #   string.
+  attributes/scrub:
+    actions:
+      - key: http.url
+        action: delete
+      - key: url.full
+        action: delete
+      - key: http.target
+        action: delete
+      - key: url.path
+        action: delete
+      - key: url.query
+        action: delete
+      - key: http.user_agent
+        action: hash
+      - key: user_agent.original
+        action: hash
+
   batch:
     timeout: 5s
     send_batch_size: 1024
@@ -36,7 +114,8 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
+      # Order matters: attributes/scrub must precede batch — see processor block for rationale.
+      processors: [attributes/scrub, batch]
       exporters: [otlp/jaeger, debug]
     metrics:
       receivers: [otlp]

@@ -18,6 +18,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      infra: ${{ steps.filter.outputs.infra }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d  # v4.0.1
@@ -29,6 +30,8 @@ jobs:
               - 'global.json'
             frontend:
               - 'frontend/**'
+            infra:
+              - 'infra/otel/**'
 
   backend:
     name: Backend (build + test)
@@ -164,15 +167,31 @@ jobs:
           scanners: 'secret'
           exit-code: '1'
 
+  infra-validate:
+    name: Infra (OTel collector validate)
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    # Validates the OTel collector config against the collector binary so
+    # broken YAML is caught in CI before it reaches any deployed environment.
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Validate OTel collector config
+        run: >-
+          docker run --rm
+          -v $PWD/infra/otel:/etc/otelcol
+          otel/opentelemetry-collector-contrib:0.150.1
+          validate --config=/etc/otelcol/otel-collector-config.yaml
+
   gate:
     name: CI Gate
     runs-on: ubuntu-latest
-    needs: [backend, frontend, security]
+    needs: [backend, frontend, security, infra-validate]
     if: always()
     steps:
       - name: Check results
         run: |
-          if [[ "${{ needs.backend.result }}" == "failure" || "${{ needs.frontend.result }}" == "failure" || "${{ needs.security.result }}" == "failure" ]]; then
+          if [[ "${{ needs.backend.result }}" == "failure" || "${{ needs.frontend.result }}" == "failure" || "${{ needs.security.result }}" == "failure" || "${{ needs.infra-validate.result }}" == "failure" ]]; then
             echo "One or more required jobs failed"
             exit 1
           fi
