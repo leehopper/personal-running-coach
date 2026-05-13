@@ -109,22 +109,31 @@ public sealed class OnboardingTurnOutputValidationResultTests
     [Fact]
     public void Valid_NegativeCount_Throws()
     {
+        // Act
         var act = () => OnboardingTurnOutputValidationResult.Valid(-1);
+
+        // Assert
         act.Should().Throw<ArgumentOutOfRangeException>().Which.ParamName.Should().Be("nonNullSlotCount");
     }
 
     [Fact]
     public void Invalid_NegativeCount_Throws()
     {
+        // Act
         var act = () => OnboardingTurnOutputValidationResult.Invalid(
             OnboardingTurnOutputValidationViolation.MultipleNormalizedSlots, -1);
+
+        // Assert
         act.Should().Throw<ArgumentOutOfRangeException>().Which.ParamName.Should().Be("nonNullSlotCount");
     }
 
     [Fact]
     public void Default_OfReferenceTypeIsNull()
     {
+        // Act
         OnboardingTurnOutputValidationResult? actual = default;
+
+        // Assert
         actual.Should().BeNull();
     }
 }
