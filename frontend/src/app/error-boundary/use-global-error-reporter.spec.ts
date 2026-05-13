@@ -30,13 +30,13 @@ describe('useGlobalErrorReporter', () => {
   it('attaches error + unhandledrejection listeners on mount and removes them on unmount', () => {
     const { unmount } = renderHook(() => useGlobalErrorReporter())
 
-    const events = addSpy.mock.calls.map((call) => call[0])
+    const events = addSpy.mock.calls.map((call: unknown[]) => call[0] as string)
     expect(events).toContain('error')
     expect(events).toContain('unhandledrejection')
 
     unmount()
 
-    const removed = removeSpy.mock.calls.map((call) => call[0])
+    const removed = removeSpy.mock.calls.map((call: unknown[]) => call[0] as string)
     expect(removed).toContain('error')
     expect(removed).toContain('unhandledrejection')
   })
@@ -77,23 +77,21 @@ describe('useGlobalErrorReporter', () => {
     expect(args.error.message).toBe('window error')
   })
 
+  // jsdom v29 reliably ships `PromiseRejectionEvent`. We pre-attach a
+  // swallow handler to the rejected promise we feed into the event so
+  // jsdom does not surface it as an unhandled rejection in test output.
+  const buildRejectionEvent = (reason: unknown): PromiseRejectionEvent => {
+    const promise = Promise.reject(reason)
+    promise.catch(() => {
+      /* swallow synthetic rejection */
+    })
+    return new PromiseRejectionEvent('unhandledrejection', { promise, reason })
+  }
+
   it('forwards an Error reason from a PromiseRejectionEvent as kind="unhandled-rejection"', () => {
     renderHook(() => useGlobalErrorReporter())
     const reason = new Error('rejected')
-    // jsdom v29 ships `PromiseRejectionEvent`; if it ever regresses we
-    // fall back to a generic `Event` with the needed shape — the hook
-    // only reads `.reason`, never the prototype identity.
-    const ctor = (globalThis as { PromiseRejectionEvent?: typeof PromiseRejectionEvent })
-      .PromiseRejectionEvent
-    const event =
-      ctor !== undefined
-        ? new ctor('unhandledrejection', { promise: Promise.reject(reason), reason })
-        : Object.assign(new Event('unhandledrejection'), { reason })
-    // Pre-attach a swallow handler so jsdom does not surface the
-    // rejection from the synthetic promise above.
-    event.promise?.catch(() => {
-      /* swallow */
-    })
+    const event = buildRejectionEvent(reason)
 
     window.dispatchEvent(event)
 
@@ -103,18 +101,7 @@ describe('useGlobalErrorReporter', () => {
 
   it('wraps a primitive reason via String(reason) when the reason is not an Error', () => {
     renderHook(() => useGlobalErrorReporter())
-    const ctor = (globalThis as { PromiseRejectionEvent?: typeof PromiseRejectionEvent })
-      .PromiseRejectionEvent
-    const event =
-      ctor !== undefined
-        ? new ctor('unhandledrejection', {
-            promise: Promise.reject('plain-string'),
-            reason: 'plain-string',
-          })
-        : Object.assign(new Event('unhandledrejection'), { reason: 'plain-string' })
-    event.promise?.catch(() => {
-      /* swallow */
-    })
+    const event = buildRejectionEvent('plain-string')
 
     window.dispatchEvent(event)
 
