@@ -231,8 +231,8 @@ jobs:
     steps:
       - name: Check results
         run: |
-          if [[ "$BACKEND_RESULT" == "failure" || "$FRONTEND_RESULT" == "failure" || "$CODEGEN_DRIFT_RESULT" == "failure" || "$SECURITY_RESULT" == "failure" || "$INFRA_VALIDATE_RESULT" == "failure" ]]; then
-            echo "One or more required jobs failed"
+          if [[ "$BACKEND_RESULT" =~ ^(failure|cancelled)$ || "$FRONTEND_RESULT" =~ ^(failure|cancelled)$ || "$CODEGEN_DRIFT_RESULT" =~ ^(failure|cancelled)$ || "$SECURITY_RESULT" =~ ^(failure|cancelled)$ || "$INFRA_VALIDATE_RESULT" =~ ^(failure|cancelled)$ ]]; then
+            echo "One or more required jobs failed or were cancelled"
             exit 1
           fi
           echo "All required jobs passed or were skipped"
