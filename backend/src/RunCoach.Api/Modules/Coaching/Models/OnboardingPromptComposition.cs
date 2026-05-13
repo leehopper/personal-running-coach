@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 
 namespace RunCoach.Api.Modules.Coaching.Models;
@@ -24,12 +25,20 @@ namespace RunCoach.Api.Modules.Coaching.Models;
 /// PII-free sanitization audit trail describing which patterns matched and
 /// whether they were neutralized vs. log-only. Empty when nothing tripped.
 /// </param>
-/// <param name="Neutralized">
-/// True if the sanitizer stripped any content (Unicode-tag / zero-width /
-/// DAN-family neutralize). False when findings exist but were all log-only.
-/// </param>
 public sealed record OnboardingPromptComposition(
     string SystemPrompt,
     string UserMessage,
-    ImmutableArray<SanitizationFinding> Findings,
-    bool Neutralized);
+    ImmutableArray<SanitizationFinding> Findings)
+{
+    /// <summary>
+    /// Gets a value indicating whether the sanitizer stripped any content
+    /// (Unicode-tag / zero-width / DAN-family neutralize). The flag is
+    /// <see langword="false"/> when no findings exist or all findings were
+    /// log-only.
+    /// </summary>
+    /// <remarks>
+    /// Computed from <see cref="Findings"/> rather than stored alongside it
+    /// so the flag can never desynchronize from the audit trail.
+    /// </remarks>
+    public bool Neutralized => Findings.Any(f => f.Stripped);
+}

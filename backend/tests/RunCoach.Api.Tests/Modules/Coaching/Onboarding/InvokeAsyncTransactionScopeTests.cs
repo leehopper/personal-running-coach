@@ -76,8 +76,7 @@ public class InvokeAsyncTransactionScopeTests
             .Returns(new OnboardingPromptComposition(
                 "system",
                 "user",
-                System.Collections.Immutable.ImmutableArray<SanitizationFinding>.Empty,
-                false));
+                System.Collections.Immutable.ImmutableArray<SanitizationFinding>.Empty));
         llm
             .GenerateStructuredAsync<OnboardingTurnOutput>(
                 Arg.Any<string>(),

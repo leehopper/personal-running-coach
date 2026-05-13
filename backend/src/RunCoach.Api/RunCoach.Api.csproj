@@ -37,4 +37,38 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
   </ItemGroup>
 
+  <!--
+    OpenAPI emission target (DEC-066 / R-071). Re-runs `dotnet swagger tofile`
+    after every Release build (or any build with `EmitOpenApi=true`), writing
+    a deterministic `backend/openapi/swagger.json` that is the committed
+    source of truth for the frontend codegen pipeline. CI's drift gate runs
+    a Release build then `git diff exit-code` on the file; drift fails CI.
+
+    `DOTNET_ROLL_FORWARD=LatestMajor` lets the pinned Swashbuckle.AspNetCore.Cli
+    10.x execute under the .NET 10 SDK even if its target framework runtime is
+    not present (Alex Sikilinda's documented workaround for the historical
+    older-runtime pin on the CLI tool).
+
+    `WorkingDirectory` points at the repo root so `dotnet swagger`'s implicit
+    `dotnet tool restore` walk finds the root `dotnet-tools.json` manifest.
+  -->
+  <Target Name="EmitOpenApi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' OR '$(EmitOpenApi)' == 'true'">
+    <PropertyGroup>
+      <_OpenApiOutputPath>$(MSBuildThisFileDirectory)..\..\openapi\swagger.json</_OpenApiOutputPath>
+      <_RepoRoot>$(MSBuildThisFileDirectory)..\..\..\</_RepoRoot>
+    </PropertyGroup>
+    <MakeDir Directories="$(MSBuildThisFileDirectory)..\..\openapi" />
+    <!--
+      Boot the swagger CLI under ASPNETCORE_ENVIRONMENT=Development so the
+      production-only `JwtAuthOptionsValidator.ValidateOnStart` registration
+      (gated on `!IsDevelopment()` in Program.cs) does not fail the host
+      start when emitting the spec without real Auth:Jwt configuration.
+      The emitted swagger.json is environment-independent — schemas come
+      from controllers' attribute metadata, not from runtime config.
+    -->
+    <Exec Command="dotnet swagger tofile --output &quot;$(_OpenApiOutputPath)&quot; &quot;$(TargetPath)&quot; v1"
+          EnvironmentVariables="DOTNET_ROLL_FORWARD=LatestMajor;ASPNETCORE_ENVIRONMENT=Development"
+          WorkingDirectory="$(_RepoRoot)" />
+  </Target>
+
 </Project>

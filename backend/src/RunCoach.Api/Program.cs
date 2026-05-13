@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi;
 using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -13,6 +14,7 @@ using OpenTelemetry.Trace;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Identity.Entities;
+using RunCoach.Api.Swashbuckle;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.ErrorHandling;
@@ -273,8 +275,16 @@ builder.Services.AddOpenTelemetry()
         serviceInstanceId: Environment.MachineName))
     .WithTracing(tracing =>
     {
+        // UpcasterTelemetry.SourceName is "RunCoach.Marten.Upcaster"; the
+        // literal here matches the DEC-067 / R-072 spec's CLI proof grep
+        // and pins the on-disk string Jaeger filters on.
         tracing
-            .AddSource("Marten", "Wolverine", "RunCoach.Llm", "Npgsql")
+            .AddSource(
+                "Marten",
+                "RunCoach.Marten.Upcaster",
+                "Wolverine",
+                "RunCoach.Llm",
+                "Npgsql")
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation();
         if (otlpExporterEnabled)
@@ -296,7 +306,57 @@ builder.Services.AddOpenTelemetry()
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Swashbuckle 10.x options for the build-time `dotnet swagger tofile` emit
+// (DEC-066 / R-071 §3). `SupportNonNullableReferenceTypes` makes Swashbuckle
+// walk C# nullable annotations when inferring `nullable: true`, and
+// `RequireNonNullablePropertiesSchemaFilter` promotes every non-nullable
+// property into the OpenAPI `required` array. Without both, the frontend
+// Zod codegen turns into `.nullish()` everywhere and the drift gate goes
+// silent on the exact class of rename / drop bug that motivated this slice.
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SupportNonNullableReferenceTypes();
+    options.SchemaFilter<RequireNonNullablePropertiesSchemaFilter>();
+
+    // Lifts DataAnnotations off positional record ctor parameters onto the
+    // generated property schemas. ASP.NET's model-binding pipeline refuses
+    // to start with DataAnnotations on the synthesized property of a
+    // positional record (it requires them on the ctor parameter), and
+    // Swashbuckle's built-in DataAnnotationsSchemaFilter only inspects
+    // properties — without this bridge, every positional-record DTO emits
+    // bare `type: string` in swagger and the frontend Zod codegen loses
+    // every maxLength / minLength / format / pattern constraint.
+    options.SchemaFilter<RecordCtorParamDataAnnotationsSchemaFilter>();
+
+    // `__Host-RunCoach` session cookie — browser SPA auth scheme.
+    // Cookie name is the `AuthCookieNames.Session` constant so Swagger UI
+    // sends the same cookie the real SPA sends on every credentialed request.
+    options.AddSecurityDefinition("cookieAuth", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Cookie,
+        Name = AuthCookieNames.Session,
+        Description = "Session cookie issued by /api/v1/auth/login.",
+    });
+
+    // JWT bearer token — future iOS / API-client auth scheme.
+    // Either scheme satisfies the `CookieOrBearer` authorization policy.
+    options.AddSecurityDefinition("bearerAuth", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "JWT bearer token (Authorization: Bearer ...). Either scheme satisfies the CookieOrBearer policy.",
+    });
+
+    // Annotates each operation that carries `[Authorize]` with the
+    // `cookieAuth` + `bearerAuth` security requirement so generated
+    // frontend clients know which endpoints require authentication.
+    // Operations decorated with `[AllowAnonymous]` are skipped.
+    options.OperationFilter<AuthorizeOperationFilter>();
+});
+
 builder.Services.AddHealthChecks();
 builder.Services.AddApplicationModules(builder.Configuration);
 

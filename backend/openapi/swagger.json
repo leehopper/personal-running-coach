@@ -1,0 +1,1858 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "RunCoach.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+    "version": "1.0"
+  },
+  "paths": {
+    "/api/v1/auth/xsrf": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/client-errors": {
+      "post": {
+        "tags": [
+          "ClientErrors"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientErrorRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientErrorRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientErrorRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/turns": {
+      "post": {
+        "tags": [
+          "Onboarding"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingTurnRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingTurnRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingTurnRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingTurnResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingTurnResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingTurnResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/state": {
+      "get": {
+        "tags": [
+          "Onboarding"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/answers/revise": {
+      "post": {
+        "tags": [
+          "Onboarding"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviseAnswerRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviseAnswerRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviseAnswerRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/plan/current": {
+      "get": {
+        "tags": [
+          "PlanRendering"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanProjectionDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanProjectionDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanProjectionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/plan/regenerate": {
+      "post": {
+        "tags": [
+          "PlanRendering"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegeneratePlanRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegeneratePlanRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegeneratePlanRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegeneratePlanResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegeneratePlanResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegeneratePlanResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AuthResponseDto": {
+        "required": [
+          "email",
+          "userId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClientErrorKind": {
+        "enum": [
+          "render",
+          "window-error",
+          "unhandled-rejection"
+        ],
+        "type": "string"
+      },
+      "ClientErrorRequestDto": {
+        "required": [
+          "appVersion",
+          "correlationId",
+          "errorName",
+          "kind",
+          "message",
+          "occurredAt",
+          "stack",
+          "url",
+          "userAgent"
+        ],
+        "type": "object",
+        "properties": {
+          "correlationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ClientErrorKind"
+          },
+          "errorName": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "stack": {
+            "type": "string"
+          },
+          "componentStack": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string"
+          },
+          "userAgent": {
+            "type": "string"
+          },
+          "appVersion": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CurrentFitnessAnswer": {
+        "required": [
+          "description",
+          "longestRecentRunKm",
+          "recentRaceDistanceKm",
+          "recentRaceTimeIso",
+          "typicalWeeklyKm"
+        ],
+        "type": "object",
+        "properties": {
+          "typicalWeeklyKm": {
+            "type": "number",
+            "description": "Typical weekly running distance in kilometers over the past four weeks.",
+            "format": "double"
+          },
+          "longestRecentRunKm": {
+            "type": "number",
+            "description": "Longest single run completed in the past four weeks, in kilometers.",
+            "format": "double"
+          },
+          "recentRaceDistanceKm": {
+            "type": "number",
+            "description": "Optional recent race distance in kilometers. Null if the runner has no recent race result.",
+            "format": "double",
+            "nullable": true
+          },
+          "recentRaceTimeIso": {
+            "type": "string",
+            "description": "Optional recent race time as ISO-8601 duration (e.g. PT0H45M30S). Null if the runner has no recent race result.",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "description": "Self-reported fitness summary in the runner's own words."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DaySlotType": {
+        "enum": [
+          "Run",
+          "Rest",
+          "CrossTrain"
+        ],
+        "type": "string"
+      },
+      "InjuryHistoryAnswer": {
+        "required": [
+          "activeInjuryDescription",
+          "hasActiveInjury",
+          "pastInjurySummary"
+        ],
+        "type": "object",
+        "properties": {
+          "hasActiveInjury": {
+            "type": "boolean",
+            "description": "Whether the runner currently has an active injury or pain that limits training."
+          },
+          "activeInjuryDescription": {
+            "type": "string",
+            "description": "Description of the active injury or limitation. Empty string when there is no active injury."
+          },
+          "pastInjurySummary": {
+            "type": "string",
+            "description": "Summary of past injuries or recurring issues that should inform the training plan. Empty string if none."
+          }
+        },
+        "additionalProperties": false
+      },
+      "IntensityProfile": {
+        "enum": [
+          "Easy",
+          "Moderate",
+          "Threshold",
+          "VO2Max",
+          "Repetition"
+        ],
+        "type": "string"
+      },
+      "LoginRequestDto": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MacroPlanOutput": {
+        "required": [
+          "goalDescription",
+          "phases",
+          "rationale",
+          "totalWeeks",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "totalWeeks": {
+            "type": "integer",
+            "description": "Total number of weeks in the training plan.",
+            "format": "int32"
+          },
+          "goalDescription": {
+            "type": "string",
+            "description": "The name of the goal race or training objective, such as 'Half Marathon' or 'General Fitness'."
+          },
+          "phases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanPhaseOutput"
+            },
+            "description": "The periodized training phases that make up this plan."
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Overall coaching rationale explaining why this plan is structured this way."
+          },
+          "warnings": {
+            "type": "string",
+            "description": "Important warnings or prerequisites the athlete should be aware of before starting."
+          }
+        },
+        "additionalProperties": false
+      },
+      "MesoDaySlotOutput": {
+        "required": [
+          "notes",
+          "slotType",
+          "workoutType"
+        ],
+        "type": "object",
+        "properties": {
+          "slotType": {
+            "$ref": "#/components/schemas/DaySlotType"
+          },
+          "workoutType": {
+            "$ref": "#/components/schemas/WorkoutType"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Brief coaching note for this day, such as emphasis or purpose."
+          }
+        },
+        "additionalProperties": false
+      },
+      "MesoWeekOutput": {
+        "required": [
+          "friday",
+          "isDeloadWeek",
+          "monday",
+          "phaseType",
+          "saturday",
+          "sunday",
+          "thursday",
+          "tuesday",
+          "wednesday",
+          "weeklyTargetKm",
+          "weekNumber",
+          "weekSummary"
+        ],
+        "type": "object",
+        "properties": {
+          "weekNumber": {
+            "type": "integer",
+            "description": "The week number within the current training phase (1-based).",
+            "format": "int32"
+          },
+          "phaseType": {
+            "$ref": "#/components/schemas/PhaseType"
+          },
+          "weeklyTargetKm": {
+            "type": "integer",
+            "description": "Target total weekly running distance in kilometers.",
+            "format": "int32"
+          },
+          "isDeloadWeek": {
+            "type": "boolean",
+            "description": "Whether this is a deload week with reduced volume for recovery."
+          },
+          "sunday": {
+            "$ref": "#/components/schemas/MesoDaySlotOutput"
+          },
+          "monday": {
+            "$ref": "#/components/schemas/MesoDaySlotOutput"
+          },
+          "tuesday": {
+            "$ref": "#/components/schemas/MesoDaySlotOutput"
+          },
+          "wednesday": {
+            "$ref": "#/components/schemas/MesoDaySlotOutput"
+          },
+          "thursday": {
+            "$ref": "#/components/schemas/MesoDaySlotOutput"
+          },
+          "friday": {
+            "$ref": "#/components/schemas/MesoDaySlotOutput"
+          },
+          "saturday": {
+            "$ref": "#/components/schemas/MesoDaySlotOutput"
+          },
+          "weekSummary": {
+            "type": "string",
+            "description": "Coaching summary explaining the focus and goals for this training week."
+          }
+        },
+        "additionalProperties": false
+      },
+      "MicroWorkoutListOutput": {
+        "required": [
+          "workouts"
+        ],
+        "type": "object",
+        "properties": {
+          "workouts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkoutOutput"
+            },
+            "description": "The list of detailed workout prescriptions for the training week."
+          }
+        },
+        "additionalProperties": false
+      },
+      "OnboardingProgressDto": {
+        "required": [
+          "completedTopics",
+          "totalTopics"
+        ],
+        "type": "object",
+        "properties": {
+          "completedTopics": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalTopics": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OnboardingStateDto": {
+        "required": [
+          "completedTopics",
+          "currentFitness",
+          "currentTopic",
+          "injuryHistory",
+          "isComplete",
+          "outstandingClarifications",
+          "preferences",
+          "primaryGoal",
+          "status",
+          "targetEvent",
+          "totalTopics",
+          "userId",
+          "weeklySchedule"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OnboardingStatus"
+          },
+          "currentTopic": {
+            "$ref": "#/components/schemas/OnboardingTopic"
+          },
+          "completedTopics": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalTopics": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isComplete": {
+            "type": "boolean"
+          },
+          "outstandingClarifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnboardingTopic"
+            }
+          },
+          "primaryGoal": {
+            "$ref": "#/components/schemas/PrimaryGoalAnswer"
+          },
+          "targetEvent": {
+            "$ref": "#/components/schemas/TargetEventAnswer"
+          },
+          "currentFitness": {
+            "$ref": "#/components/schemas/CurrentFitnessAnswer"
+          },
+          "weeklySchedule": {
+            "$ref": "#/components/schemas/WeeklyScheduleAnswer"
+          },
+          "injuryHistory": {
+            "$ref": "#/components/schemas/InjuryHistoryAnswer"
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/PreferencesAnswer"
+          },
+          "currentPlanId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "OnboardingStatus": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "OnboardingTopic": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "OnboardingTurnKind": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "OnboardingTurnRequestDto": {
+        "required": [
+          "idempotencyKey",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OnboardingTurnResponseDto": {
+        "required": [
+          "assistantBlocks",
+          "kind",
+          "progress",
+          "suggestedInputType",
+          "topic"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/OnboardingTurnKind"
+          },
+          "assistantBlocks": { },
+          "topic": {
+            "$ref": "#/components/schemas/OnboardingTopic"
+          },
+          "suggestedInputType": {
+            "$ref": "#/components/schemas/SuggestedInputType"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/OnboardingProgressDto"
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PhaseType": {
+        "enum": [
+          "Base",
+          "Build",
+          "Peak",
+          "Taper",
+          "Recovery"
+        ],
+        "type": "string"
+      },
+      "PlanPhaseOutput": {
+        "required": [
+          "allowedWorkoutTypes",
+          "includesDeload",
+          "intensityDistribution",
+          "notes",
+          "phaseType",
+          "targetPaceEasySecPerKm",
+          "targetPaceFastSecPerKm",
+          "weeklyDistanceEndKm",
+          "weeklyDistanceStartKm",
+          "weeks"
+        ],
+        "type": "object",
+        "properties": {
+          "phaseType": {
+            "$ref": "#/components/schemas/PhaseType"
+          },
+          "weeks": {
+            "type": "integer",
+            "description": "The number of weeks in this training phase.",
+            "format": "int32"
+          },
+          "weeklyDistanceStartKm": {
+            "type": "integer",
+            "description": "Target weekly distance in kilometers at the start of this phase.",
+            "format": "int32"
+          },
+          "weeklyDistanceEndKm": {
+            "type": "integer",
+            "description": "Target weekly distance in kilometers at the end of this phase.",
+            "format": "int32"
+          },
+          "intensityDistribution": {
+            "type": "string",
+            "description": "The intensity distribution for this phase, such as '80/20 easy/hard'."
+          },
+          "allowedWorkoutTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkoutType"
+            },
+            "description": "The workout types allowed during this phase."
+          },
+          "targetPaceEasySecPerKm": {
+            "type": "integer",
+            "description": "Target easy pace in seconds per kilometer for this phase.",
+            "format": "int32"
+          },
+          "targetPaceFastSecPerKm": {
+            "type": "integer",
+            "description": "Target fast pace in seconds per kilometer for hard workouts in this phase.",
+            "format": "int32"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Coaching notes explaining the purpose and focus of this phase."
+          },
+          "includesDeload": {
+            "type": "boolean",
+            "description": "Whether this phase includes a deload week for recovery."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlanProjectionDto": {
+        "required": [
+          "generatedAt",
+          "macro",
+          "mesoWeeks",
+          "microWorkoutsByWeek",
+          "modelId",
+          "planId",
+          "promptVersion",
+          "userId"
+        ],
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "previousPlanId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "promptVersion": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string"
+          },
+          "macro": {
+            "$ref": "#/components/schemas/MacroPlanOutput"
+          },
+          "mesoWeeks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MesoWeekOutput"
+            }
+          },
+          "microWorkoutsByWeek": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MicroWorkoutListOutput"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PreferencesAnswer": {
+        "required": [
+          "comfortableWithIntensity",
+          "description",
+          "preferredUnits",
+          "preferTrail"
+        ],
+        "type": "object",
+        "properties": {
+          "preferredUnits": {
+            "$ref": "#/components/schemas/PreferredUnits"
+          },
+          "preferTrail": {
+            "type": "boolean",
+            "description": "Whether the runner prefers trail running where possible."
+          },
+          "comfortableWithIntensity": {
+            "type": "boolean",
+            "description": "Whether the runner is comfortable with structured high-intensity workouts (intervals, threshold)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Runner-supplied free-text description of any other preferences not captured above."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PreferredUnits": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "PrimaryGoal": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "PrimaryGoalAnswer": {
+        "required": [
+          "description",
+          "goal"
+        ],
+        "type": "object",
+        "properties": {
+          "goal": {
+            "$ref": "#/components/schemas/PrimaryGoal"
+          },
+          "description": {
+            "type": "string",
+            "description": "Runner-supplied free-text description that informed the categorical mapping."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": { }
+      },
+      "RegeneratePlanRequestDto": {
+        "required": [
+          "idempotencyKey",
+          "intent"
+        ],
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/RegenerationIntentRequestDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegeneratePlanResponse": {
+        "required": [
+          "planId",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegenerationIntentRequestDto": {
+        "required": [
+          "freeText"
+        ],
+        "type": "object",
+        "properties": {
+          "freeText": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegisterRequestDto": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 12,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReviseAnswerRequestDto": {
+        "required": [
+          "normalizedValue",
+          "topic"
+        ],
+        "type": "object",
+        "properties": {
+          "topic": {
+            "$ref": "#/components/schemas/OnboardingTopic"
+          },
+          "normalizedValue": { }
+        },
+        "additionalProperties": false
+      },
+      "SegmentType": {
+        "enum": [
+          "Warmup",
+          "Work",
+          "Recovery",
+          "Cooldown"
+        ],
+        "type": "string"
+      },
+      "SuggestedInputType": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "TargetEventAnswer": {
+        "required": [
+          "distanceKm",
+          "eventDateIso",
+          "eventName",
+          "targetFinishTimeIso"
+        ],
+        "type": "object",
+        "properties": {
+          "eventName": {
+            "type": "string",
+            "description": "Name of the goal race or event, such as 'Berlin Marathon' or 'Local 10K'."
+          },
+          "distanceKm": {
+            "type": "number",
+            "description": "Target distance in kilometers for the event.",
+            "format": "double"
+          },
+          "eventDateIso": {
+            "type": "string",
+            "description": "Target event date in ISO-8601 calendar form (yyyy-MM-dd)."
+          },
+          "targetFinishTimeIso": {
+            "type": "string",
+            "description": "Optional target finishing time as ISO-8601 duration (e.g. PT1H45M30S). Null if the runner has no specific time goal.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValidationProblemDetails": {
+        "required": [
+          "errors"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "additionalProperties": { }
+      },
+      "WeeklyScheduleAnswer": {
+        "required": [
+          "description",
+          "friday",
+          "maxRunDaysPerWeek",
+          "monday",
+          "saturday",
+          "sunday",
+          "thursday",
+          "tuesday",
+          "typicalSessionMinutes",
+          "wednesday"
+        ],
+        "type": "object",
+        "properties": {
+          "maxRunDaysPerWeek": {
+            "type": "integer",
+            "description": "Maximum number of run days per week the runner can commit to. Valid range 1 through 7.",
+            "format": "int32"
+          },
+          "typicalSessionMinutes": {
+            "type": "integer",
+            "description": "Typical session duration in minutes the runner has available per training day.",
+            "format": "int32"
+          },
+          "monday": {
+            "type": "boolean",
+            "description": "Whether Monday is an available run day."
+          },
+          "tuesday": {
+            "type": "boolean",
+            "description": "Whether Tuesday is an available run day."
+          },
+          "wednesday": {
+            "type": "boolean",
+            "description": "Whether Wednesday is an available run day."
+          },
+          "thursday": {
+            "type": "boolean",
+            "description": "Whether Thursday is an available run day."
+          },
+          "friday": {
+            "type": "boolean",
+            "description": "Whether Friday is an available run day."
+          },
+          "saturday": {
+            "type": "boolean",
+            "description": "Whether Saturday is an available run day."
+          },
+          "sunday": {
+            "type": "boolean",
+            "description": "Whether Sunday is an available run day."
+          },
+          "description": {
+            "type": "string",
+            "description": "Runner-supplied free-text description of constraints not captured by the day flags (e.g. 'no early mornings')."
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkoutOutput": {
+        "required": [
+          "coachingNotes",
+          "cooldownNotes",
+          "dayOfWeek",
+          "perceivedEffort",
+          "segments",
+          "targetDistanceKm",
+          "targetDurationMinutes",
+          "targetPaceEasySecPerKm",
+          "targetPaceFastSecPerKm",
+          "title",
+          "warmupNotes",
+          "workoutType"
+        ],
+        "type": "object",
+        "properties": {
+          "dayOfWeek": {
+            "type": "integer",
+            "description": "The day of the week as an integer: 0 = Sunday, 1 = Monday, ..., 6 = Saturday.",
+            "format": "int32"
+          },
+          "workoutType": {
+            "$ref": "#/components/schemas/WorkoutType"
+          },
+          "title": {
+            "type": "string",
+            "description": "A descriptive title for this workout, such as 'Easy Aerobic Run' or 'Threshold Intervals'."
+          },
+          "targetDistanceKm": {
+            "type": "integer",
+            "description": "Target total distance for this workout in kilometers.",
+            "format": "int32"
+          },
+          "targetDurationMinutes": {
+            "type": "integer",
+            "description": "Target total duration for this workout in minutes.",
+            "format": "int32"
+          },
+          "targetPaceEasySecPerKm": {
+            "type": "integer",
+            "description": "Target easy pace in seconds per kilometer for easy portions of this workout.",
+            "format": "int32"
+          },
+          "targetPaceFastSecPerKm": {
+            "type": "integer",
+            "description": "Target fast pace in seconds per kilometer for hard portions of this workout.",
+            "format": "int32"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkoutSegmentOutput"
+            },
+            "description": "The structured segments that make up this workout (warmup, work intervals, cooldown, etc.)."
+          },
+          "warmupNotes": {
+            "type": "string",
+            "description": "Specific warmup instructions for this workout."
+          },
+          "cooldownNotes": {
+            "type": "string",
+            "description": "Specific cooldown instructions for this workout."
+          },
+          "coachingNotes": {
+            "type": "string",
+            "description": "Coaching notes explaining the purpose and execution guidance for this workout."
+          },
+          "perceivedEffort": {
+            "type": "integer",
+            "description": "Expected perceived effort on a 1-10 scale, where 1 is very easy and 10 is maximal.",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkoutSegmentOutput": {
+        "required": [
+          "durationMinutes",
+          "intensity",
+          "notes",
+          "repetitions",
+          "segmentType",
+          "targetPaceSecPerKm"
+        ],
+        "type": "object",
+        "properties": {
+          "segmentType": {
+            "$ref": "#/components/schemas/SegmentType"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "description": "Duration of this segment in minutes.",
+            "format": "int32"
+          },
+          "targetPaceSecPerKm": {
+            "type": "integer",
+            "description": "Target pace in seconds per kilometer for this segment.",
+            "format": "int32"
+          },
+          "intensity": {
+            "$ref": "#/components/schemas/IntensityProfile"
+          },
+          "repetitions": {
+            "type": "integer",
+            "description": "Number of repetitions for interval segments, or 1 for continuous efforts.",
+            "format": "int32"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Coaching notes for this segment, such as effort cues or technique reminders."
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkoutType": {
+        "enum": [
+          "Easy",
+          "LongRun",
+          "Tempo",
+          "Interval",
+          "Repetition",
+          "Recovery",
+          "CrossTrain"
+        ],
+        "type": "string"
+      }
+    },
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "description": "Session cookie issued by /api/v1/auth/login.",
+        "name": "__Host-RunCoach",
+        "in": "cookie"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "description": "JWT bearer token (Authorization: Bearer ...). Either scheme satisfies the CookieOrBearer policy.",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "ClientErrors"
+    },
+    {
+      "name": "Onboarding"
+    },
+    {
+      "name": "PlanRendering"
+    }
+  ]
+}

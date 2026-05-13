@@ -132,27 +132,6 @@ public sealed partial class ContextAssembler : IContextAssembler
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ContextAssembler"/> class
-    /// for the legacy plan-generation path. <see cref="ComposeForOnboardingAsync"/>
-    /// is unavailable on instances built via this constructor — call the
-    /// onboarding-aware constructor below instead.
-    /// </summary>
-    /// <param name="promptStore">The prompt store for loading YAML templates.</param>
-    /// <param name="timeProvider">Time provider for deterministic date calculations.</param>
-    /// <param name="logger">Logger instance.</param>
-    public ContextAssembler(IPromptStore promptStore, TimeProvider timeProvider, ILogger<ContextAssembler> logger)
-    {
-        ArgumentNullException.ThrowIfNull(promptStore);
-        ArgumentNullException.ThrowIfNull(timeProvider);
-        ArgumentNullException.ThrowIfNull(logger);
-        _promptStore = promptStore;
-        _timeProvider = timeProvider;
-        _logger = logger;
-        _sanitizer = null;
-        _onboardingSystemPromptCache = null;
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ContextAssembler"/> class
     /// wired for both plan-generation and onboarding flows. The
     /// <paramref name="sanitizer"/> is invoked per-section by
     /// <see cref="ComposeForOnboardingAsync"/> per R-068 / DEC-059 (Slice 1
@@ -191,6 +170,34 @@ public sealed partial class ContextAssembler : IContextAssembler
         _onboardingSystemPromptCache = new Lazy<Task<string>>(
             () => LoadOnboardingSystemPromptAsync(onboardingFilePath),
             LazyThreadSafetyMode.ExecutionAndPublication);
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ContextAssembler"/> class
+    /// for the legacy plan-generation path. <see cref="ComposeForOnboardingAsync"/>
+    /// is unavailable on instances built via this constructor — call the
+    /// onboarding-aware constructor above instead.
+    /// </summary>
+    /// <remarks>
+    /// Marked <c>internal</c> so production DI cannot construct the
+    /// half-functional form: the default container's "most-resolvable
+    /// parameters" heuristic would otherwise pick this ctor and leave
+    /// <c>_sanitizer</c> null. The test assembly retains access via
+    /// <c>InternalsVisibleTo</c>.
+    /// </remarks>
+    /// <param name="promptStore">The prompt store for loading YAML templates.</param>
+    /// <param name="timeProvider">Time provider for deterministic date calculations.</param>
+    /// <param name="logger">Logger instance.</param>
+    internal ContextAssembler(IPromptStore promptStore, TimeProvider timeProvider, ILogger<ContextAssembler> logger)
+    {
+        ArgumentNullException.ThrowIfNull(promptStore);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(logger);
+        _promptStore = promptStore;
+        _timeProvider = timeProvider;
+        _logger = logger;
+        _sanitizer = null;
+        _onboardingSystemPromptCache = null;
     }
 
     /// <inheritdoc />
@@ -269,8 +276,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         return new OnboardingPromptComposition(
             SystemPrompt: systemPrompt,
             UserMessage: userMessage,
-            Findings: sanitized.Findings.ToImmutableArray(),
-            Neutralized: sanitized.Neutralized);
+            Findings: sanitized.Findings.ToImmutableArray());
     }
 
     /// <inheritdoc />

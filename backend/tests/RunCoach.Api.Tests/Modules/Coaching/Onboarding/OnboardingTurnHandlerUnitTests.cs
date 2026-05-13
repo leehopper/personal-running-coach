@@ -639,8 +639,7 @@ public class OnboardingTurnHandlerUnitTests
                 .Returns(new OnboardingPromptComposition(
                     SystemPrompt: systemPrompt,
                     UserMessage: userMessage,
-                    Findings: System.Collections.Immutable.ImmutableArray<SanitizationFinding>.Empty,
-                    Neutralized: false));
+                    Findings: System.Collections.Immutable.ImmutableArray<SanitizationFinding>.Empty));
         }
 
         public void LlmReturnsSequence(params OnboardingTurnOutput[] outputs)
