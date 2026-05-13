@@ -2,9 +2,9 @@ import { useState, type ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useLastTraceId } from '~/api/last-trace-id'
 import { AppErrorBoundary } from './app-error-boundary'
 import { reportClientError } from './report-client-error'
-import { useLastTraceId } from '~/api/last-trace-id'
 
 vi.mock('./report-client-error', () => ({
   reportClientError: vi.fn(),
