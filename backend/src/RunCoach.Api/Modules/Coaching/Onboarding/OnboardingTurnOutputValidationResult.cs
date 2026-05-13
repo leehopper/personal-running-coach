@@ -11,7 +11,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// (e.g. <c>IsValid: true</c> alongside a non-<c>None</c> violation) cannot be
 /// expressed.
 /// </remarks>
-public readonly record struct OnboardingTurnOutputValidationResult
+public sealed record OnboardingTurnOutputValidationResult
 {
     /// <summary>
     /// Constructs a result directly from the three component fields. Internal
@@ -56,8 +56,15 @@ public readonly record struct OnboardingTurnOutputValidationResult
     /// Zero for the vacuous case (<c>Extracted</c> is null); one for the
     /// well-formed case.
     /// </param>
-    public static OnboardingTurnOutputValidationResult Valid(int nonNullSlotCount = 0) =>
-        new(isValid: true, violation: OnboardingTurnOutputValidationViolation.None, nonNullSlotCount: nonNullSlotCount);
+    public static OnboardingTurnOutputValidationResult Valid(int nonNullSlotCount = 0)
+    {
+        if (nonNullSlotCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(nonNullSlotCount), "nonNullSlotCount must be non-negative.");
+        }
+
+        return new(isValid: true, violation: OnboardingTurnOutputValidationViolation.None, nonNullSlotCount: nonNullSlotCount);
+    }
 
     /// <summary>
     /// Returns an invalid result for the given violation kind.
@@ -75,6 +82,11 @@ public readonly record struct OnboardingTurnOutputValidationResult
         OnboardingTurnOutputValidationViolation violation,
         int nonNullSlotCount = 0)
     {
+        if (nonNullSlotCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(nonNullSlotCount), "nonNullSlotCount must be non-negative.");
+        }
+
         if (violation == OnboardingTurnOutputValidationViolation.None)
         {
             throw new ArgumentException(

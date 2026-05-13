@@ -70,12 +70,17 @@ public sealed class RegeneratePlanHandlerDiResolutionTests : IClassFixture<RunCo
         // ILogger<T> are registered by Marten + the host's logging
         // builder respectively — covered by the session-sharing fact below
         // which boots the full SUT.
-        services.Should().Contain(
-            d => d.ServiceType == typeof(IPlanGenerationService),
+        var planGenerationDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IPlanGenerationService));
+        planGenerationDescriptor.Should().NotBeNull(
             because: "RegeneratePlanHandler.Handle requires IPlanGenerationService at request time");
-        services.Should().Contain(
-            d => d.ServiceType == typeof(IIdempotencyStore),
+        planGenerationDescriptor!.ImplementationType.Should().Be<PlanGenerationService>();
+        planGenerationDescriptor.Lifetime.Should().Be(ServiceLifetime.Scoped);
+
+        var idempotencyDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IIdempotencyStore));
+        idempotencyDescriptor.Should().NotBeNull(
             because: "RegeneratePlanHandler.Handle requires IIdempotencyStore at request time");
+        idempotencyDescriptor!.ImplementationType.Should().Be<MartenIdempotencyStore>();
+        idempotencyDescriptor.Lifetime.Should().Be(ServiceLifetime.Scoped);
     }
 
     [Fact]

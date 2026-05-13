@@ -105,4 +105,26 @@ public sealed class OnboardingTurnOutputValidationResultTests
         act.Should().Throw<ArgumentException>()
             .WithParameterName("violation");
     }
+
+    [Fact]
+    public void Valid_NegativeCount_Throws()
+    {
+        var act = () => OnboardingTurnOutputValidationResult.Valid(-1);
+        act.Should().Throw<ArgumentOutOfRangeException>().Which.ParamName.Should().Be("nonNullSlotCount");
+    }
+
+    [Fact]
+    public void Invalid_NegativeCount_Throws()
+    {
+        var act = () => OnboardingTurnOutputValidationResult.Invalid(
+            OnboardingTurnOutputValidationViolation.MultipleNormalizedSlots, -1);
+        act.Should().Throw<ArgumentOutOfRangeException>().Which.ParamName.Should().Be("nonNullSlotCount");
+    }
+
+    [Fact]
+    public void Default_OfReferenceTypeIsNull()
+    {
+        OnboardingTurnOutputValidationResult? actual = default;
+        actual.Should().BeNull();
+    }
 }

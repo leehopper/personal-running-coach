@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text;
 using Marten;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -156,19 +157,40 @@ public sealed partial class ClientErrorsController(
         return NoContent();
     }
 
-    private static string TruncateStack(string stack)
+    internal static string TruncateStack(string stack)
     {
-        if (stack.Length <= MaxStackBytes)
+        if (Encoding.UTF8.GetByteCount(stack) <= MaxStackBytes)
         {
             return stack;
         }
 
-        // Reserve room for the suffix so the final stored stack never
-        // exceeds MaxStackBytes. Truncating against the char length is a
-        // safe upper-bound on UTF-8 byte length for the BMP characters
-        // that comprise typical JS error stacks.
-        var headLength = MaxStackBytes - StackTruncationSuffix.Length;
-        return string.Concat(stack.AsSpan(0, headLength), StackTruncationSuffix);
+        // Walk runes so the byte budget is measured in UTF-8 bytes, not
+        // UTF-16 code units. This correctly handles multibyte characters
+        // (emoji, CJK, supplementary planes) that would otherwise let the
+        // stored stack exceed MaxStackBytes.
+        var suffixBytes = Encoding.UTF8.GetByteCount(StackTruncationSuffix);
+        var budget = MaxStackBytes - suffixBytes;
+        if (budget <= 0)
+        {
+            return StackTruncationSuffix;
+        }
+
+        var builder = new StringBuilder();
+        var used = 0;
+        foreach (var rune in stack.EnumerateRunes())
+        {
+            var runeBytes = rune.Utf8SequenceLength;
+            if (used + runeBytes > budget)
+            {
+                break;
+            }
+
+            builder.Append(rune);
+            used += runeBytes;
+        }
+
+        builder.Append(StackTruncationSuffix);
+        return builder.ToString();
     }
 
     [LoggerMessage(

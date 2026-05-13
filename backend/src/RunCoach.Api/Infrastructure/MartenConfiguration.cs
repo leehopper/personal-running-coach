@@ -1,3 +1,4 @@
+using System.Reflection;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using JasperFx.Events;
@@ -30,6 +31,12 @@ namespace RunCoach.Api.Infrastructure;
 public static class MartenConfiguration
 {
     public const string EventsSchema = "runcoach_events";
+
+    // Cached open generic MethodInfo for MapEventTypeWithSchemaVersion<T>.
+    // Initialized via the helper below; must be a field (not a property) so
+    // StyleCop SA1201 keeps all fields before properties in this class.
+    private static readonly MethodInfo MapEventTypeWithSchemaVersionMethod =
+        ResolveMapEventTypeWithSchemaVersionMethod();
 
     /// <summary>
     /// Gets every Marten event type currently emitted by the system, in registration order.
@@ -181,10 +188,7 @@ public static class MartenConfiguration
     /// <param name="events">The Marten <c>IEventStoreOptions</c> exposed by <c>opts.Events</c>.</param>
     /// <param name="eventType">The event CLR type to register.</param>
     /// <param name="version">The schema version to append to the snake-cased type name.</param>
-    private static void MapEventTypeWithSchemaVersionFor(
-        global::Marten.Events.IEventStoreOptions events,
-        Type eventType,
-        uint version)
+    private static MethodInfo ResolveMapEventTypeWithSchemaVersionMethod()
     {
         // The single-arg generic extension lives on Marten's
         // EventStoreOptionsExtensions (declared at the assembly root, no
@@ -195,11 +199,22 @@ public static class MartenConfiguration
             ?? throw new InvalidOperationException(
                 "EventStoreOptionsExtensions not found in Marten assembly; " +
                 "API moved between Marten versions — regenerate the helper.");
-        var method = extensions
+        return extensions
             .GetMethods()
-            .Single(m => m.Name == "MapEventTypeWithSchemaVersion"
-                         && m.GetParameters().Length == 2)
-            .MakeGenericMethod(eventType);
+            .Single(m =>
+                m.Name == "MapEventTypeWithSchemaVersion"
+                && m.IsGenericMethodDefinition
+                && m.GetParameters() is [var p0, var p1]
+                && typeof(global::Marten.Events.IEventStoreOptions).IsAssignableFrom(p0.ParameterType)
+                && p1.ParameterType == typeof(uint));
+    }
+
+    private static void MapEventTypeWithSchemaVersionFor(
+        global::Marten.Events.IEventStoreOptions events,
+        Type eventType,
+        uint version)
+    {
+        var method = MapEventTypeWithSchemaVersionMethod.MakeGenericMethod(eventType);
         method.Invoke(null, [events, version]);
     }
 

@@ -175,15 +175,17 @@ public class ClientErrorsControllerIntegrationTests(RunCoachAppFactory factory)
     [Fact]
     public async Task Report_Authenticated_StackOver16Kb_TruncatesServerSide()
     {
-        // Arrange — Stack is bounded server-side at 16 KB; the truncation
-        // marker is appended verbatim and the stored stack never exceeds
-        // the cap.
+        // Arrange — Stack is bounded server-side at 16 KB measured in UTF-8
+        // bytes. Use a multibyte character ('漢', 3 UTF-8 bytes each) so
+        // 8 000 repetitions yield ~24 KB UTF-8, well above the cap. This
+        // exercises the rune-walk truncation path for non-ASCII input that
+        // would silently exceed the cap if byte counting were skipped.
         var (client, container) = CreateCookieClient(Factory);
         var email = GenerateEmail();
         var userId = await RegisterAsync(client, container, email, StrongPassword);
         await LoginAsync(client, container, email, StrongPassword);
 
-        var longStack = new string('s', ClientErrorsController.MaxStackBytes + 4096);
+        var longStack = new string('漢', 8000);
         var dto = BuildValidRequest() with { Stack = longStack };
         var store = Factory.Services.GetRequiredService<IDocumentStore>();
 
@@ -202,12 +204,12 @@ public class ClientErrorsControllerIntegrationTests(RunCoachAppFactory factory)
             dto.CorrelationId,
             token: TestContext.Current.CancellationToken);
         var stored = events[0].Data.Should().BeOfType<ClientErrorReported>().Subject;
-        stored.Stack.Length.Should().Be(
-            ClientErrorsController.MaxStackBytes,
-            because: "the head + suffix together never exceed the configured cap");
         stored.Stack.Should().EndWith(
             ClientErrorsController.StackTruncationSuffix,
             because: "the truncation marker is visible to humans inspecting the row");
+        Encoding.UTF8.GetByteCount(stored.Stack).Should().BeLessThanOrEqualTo(
+            ClientErrorsController.MaxStackBytes,
+            because: "the UTF-8 byte length of the stored stack must not exceed the documented cap");
     }
 
     [Fact]
