@@ -70,8 +70,8 @@ const Fallback = ({ error: raw, resetErrorBoundary, correlationId }: FallbackInt
           Something went wrong
         </h1>
         <p className="text-sm text-slate-700">
-          RunCoach hit an unexpected error while rendering this page. Your data is safe — this
-          hasn’t been sent anywhere.
+          RunCoach hit an unexpected error while rendering this page. We may send technical
+          diagnostics to help investigate, but your training data remains safe.
         </p>
         <p className="text-sm text-slate-700">
           Error ID:{' '}
