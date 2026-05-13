@@ -22,17 +22,20 @@ receivers:
         # CORS allow-list for direct browser → collector OTLP/HTTP posts
         # (DEC-069, R-074 §2). The OTel collector exposes `cors` on http-based
         # receivers; without it the browser preflight rejects the POST and no
-        # spans ever leave the SPA. An explicit allow-list (not `["*"]`) is
-        # required because the collector's CORS response includes
+        # spans ever leave the SPA. `allowed_origins` specifically must not be
+        # `["*"]`: the collector's CORS response includes
         # `Access-Control-Allow-Credentials: true`, which browsers refuse to
-        # combine with a wildcard origin (see
-        # opentelemetry-collector/config/confighttp/README.md).
+        # combine with a wildcard origin per the Fetch Standard (see
+        # opentelemetry-collector/config/confighttp/README.md). The wildcard
+        # restriction does not apply to `allowed_headers` — see the comment
+        # block below for that field's separate rationale.
         #
-        # MVP-1 public-rollout TODO: replace the localhost origins below with
-        # the deployed origin(s), e.g. `https://runcoach.example.com`, add a
-        # TLS terminator in front of :4318, and pin a static
-        # `Authorization: Bearer <token>` header on the browser exporter so
-        # this endpoint is not anonymously writable from the open internet.
+        # Production hardening requirements (per DEC-069): when this overlay is
+        # exposed beyond localhost, `allowed_origins` must be replaced with the
+        # deployed origin(s) (e.g. `https://runcoach.example.com`), a TLS
+        # terminator must front :4318, and the browser exporter must pin a static
+        # `Authorization: Bearer <token>` header so this endpoint is not
+        # anonymously writable from the open internet.
         cors:
           allowed_origins:
             - http://localhost:5173        # Vite dev server
@@ -70,11 +73,11 @@ processors:
   # names would silently bypass the redaction the moment the browser SDK
   # flipped to stable semconv.
   #
-  # `http.url` / `url.full`: `delete` removes the attribute outright — the
-  #   strongest guarantee that any query-string secrets (tokens, onboarding
-  #   answers echoed back in URLs) never reach the exporter. `url.path` and
-  #   `http.target` (path + query) still ride along with the span and carry
-  #   the navigation context the SPA's client-side strip leaves intact.
+  # All path-bearing HTTP attributes are deleted: `http.url` / `url.full`
+  #   carry full URLs; `http.target` (legacy path + query), `url.path`
+  #   (stable path), and `url.query` (stable query) are deleted to ensure no
+  #   query-string secrets propagate even if an OTLP client emits these
+  #   attributes without client-side scrubbing.
   # `http.user_agent` / `user_agent.original`: `hash` preserves cardinality
   #   for cohort analysis while destroying identifiability of the raw UA
   #   string.
@@ -83,6 +86,12 @@ processors:
       - key: http.url
         action: delete
       - key: url.full
+        action: delete
+      - key: http.target
+        action: delete
+      - key: url.path
+        action: delete
+      - key: url.query
         action: delete
       - key: http.user_agent
         action: hash
@@ -105,9 +114,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      # attributes/scrub MUST be first so redaction happens before batching;
-      # batching after scrubbing keeps the per-span work cheap and the export
-      # batch contains only sanitised attributes.
+      # Order matters: attributes/scrub must precede batch — see processor block for rationale.
       processors: [attributes/scrub, batch]
       exporters: [otlp/jaeger, debug]
     metrics:
