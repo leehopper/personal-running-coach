@@ -33,19 +33,19 @@ public sealed record OnboardingTurnOutputValidationResult
     }
 
     /// <summary>Gets a value indicating whether true when the Pattern-B-Invariant holds.</summary>
-    public bool IsValid { get; init; }
+    public bool IsValid { get; }
 
     /// <summary>
     /// Gets the kind of invariant violation detected, or
     /// <see cref="OnboardingTurnOutputValidationViolation.None"/> when valid.
     /// </summary>
-    public OnboardingTurnOutputValidationViolation Violation { get; init; }
+    public OnboardingTurnOutputValidationViolation Violation { get; }
 
     /// <summary>
     /// Gets count of non-null <c>Normalized*</c> slots seen on the extracted answer.
     /// Should always be exactly one when valid.
     /// </summary>
-    public int NonNullSlotCount { get; init; }
+    public int NonNullSlotCount { get; }
 
     /// <summary>
     /// Returns the canonical valid result: <c>IsValid=true</c>,

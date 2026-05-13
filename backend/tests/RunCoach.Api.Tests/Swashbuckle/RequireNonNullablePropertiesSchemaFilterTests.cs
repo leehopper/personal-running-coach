@@ -23,6 +23,7 @@ public sealed class RequireNonNullablePropertiesSchemaFilterTests
     [Fact]
     public void Apply_PromotesNonNullableProperty_IntoRequired()
     {
+        // Arrange
         var schema = new OpenApiSchema
         {
             Properties = new Dictionary<string, IOpenApiSchema>
@@ -31,15 +32,19 @@ public sealed class RequireNonNullablePropertiesSchemaFilterTests
             },
         };
 
+        // Act
         _sut.Apply(schema, BuildContext());
 
-        schema.Required.Should().NotBeNull();
-        schema.Required.Should().Contain("name");
+        // Assert
+        var actualRequired = schema.Required;
+        actualRequired.Should().NotBeNull();
+        actualRequired.Should().Contain("name");
     }
 
     [Fact]
     public void Apply_DoesNotPromoteNullableProperty_IntoRequired()
     {
+        // Arrange
         var schema = new OpenApiSchema
         {
             Properties = new Dictionary<string, IOpenApiSchema>
@@ -48,15 +53,19 @@ public sealed class RequireNonNullablePropertiesSchemaFilterTests
             },
         };
 
+        // Act
         _sut.Apply(schema, BuildContext());
 
-        schema.Required.Should().NotBeNull();
-        schema.Required.Should().NotContain("maybe");
+        // Assert
+        var actualRequired = schema.Required;
+        actualRequired.Should().NotBeNull();
+        actualRequired.Should().NotContain("maybe");
     }
 
     [Fact]
     public void Apply_PreservesExistingRequiredEntries()
     {
+        // Arrange
         var schema = new OpenApiSchema
         {
             Required = new HashSet<string>(StringComparer.Ordinal) { "pre" },
@@ -67,45 +76,45 @@ public sealed class RequireNonNullablePropertiesSchemaFilterTests
             },
         };
 
+        // Act
         _sut.Apply(schema, BuildContext());
 
-        schema.Required.Should().BeEquivalentTo(ExpectedPreAndPost);
+        // Assert
+        var actualRequired = schema.Required;
+        actualRequired.Should().BeEquivalentTo(ExpectedPreAndPost);
     }
 
-    [Fact]
-    public void Apply_NoOps_WhenSchemaHasNoProperties()
+    [Theory]
+    [InlineData(false)] // null Properties dict
+    [InlineData(true)] // empty Properties dict
+    public void Apply_NoOps_WhenSchemaHasNoMaterializedProperties(bool useEmptyDict)
     {
-        var schema = new OpenApiSchema { Type = JsonSchemaType.String };
+        // Arrange
+        var schema = useEmptyDict
+            ? new OpenApiSchema { Properties = new Dictionary<string, IOpenApiSchema>() }
+            : new OpenApiSchema { Type = JsonSchemaType.String };
 
+        // Act
         _sut.Apply(schema, BuildContext());
 
-        schema.Required.Should().BeNull();
-    }
-
-    [Fact]
-    public void Apply_NoOps_WhenSchemaHasEmptyPropertiesDictionary()
-    {
-        var schema = new OpenApiSchema
-        {
-            Properties = new Dictionary<string, IOpenApiSchema>(),
-        };
-
-        _sut.Apply(schema, BuildContext());
-
+        // Assert
         schema.Required.Should().BeNull();
     }
 
     [Fact]
     public void Apply_ThrowsArgumentNullException_WhenSchemaIsNull()
     {
+        // Arrange
         var act = () => _sut.Apply(schema: null!, BuildContext());
 
+        // Act + Assert
         act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact]
     public void Apply_IsIdempotent_WhenInvokedTwice()
     {
+        // Arrange
         var schema = new OpenApiSchema
         {
             Properties = new Dictionary<string, IOpenApiSchema>
@@ -114,9 +123,11 @@ public sealed class RequireNonNullablePropertiesSchemaFilterTests
             },
         };
 
+        // Act
         _sut.Apply(schema, BuildContext());
         _sut.Apply(schema, BuildContext());
 
+        // Assert
         schema.Required.Should().ContainSingle().Which.Should().Be("name");
     }
 

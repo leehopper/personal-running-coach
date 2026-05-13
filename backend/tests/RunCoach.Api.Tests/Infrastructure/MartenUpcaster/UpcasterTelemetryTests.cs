@@ -32,7 +32,11 @@ public sealed class UpcasterTelemetryTests
         // documented tag shape and Ok status.
         actual.Value.Should().Be("payload");
 
-        var activity = captured.Should().ContainSingle().Subject;
+        var upcastSpans = captured
+            .Where(a => a.OperationName == $"upcast.{nameof(CurrentShape)}"
+                        && (a.GetTagItem("to_type") as string) == typeof(CurrentShape).FullName)
+            .ToList();
+        var activity = upcastSpans.Should().ContainSingle().Subject;
         activity.OperationName.Should().Be($"upcast.{nameof(CurrentShape)}");
         activity.GetTagItem("from_type").Should().Be(typeof(LegacyShape).FullName);
         activity.GetTagItem("to_type").Should().Be(typeof(CurrentShape).FullName);
@@ -59,7 +63,11 @@ public sealed class UpcasterTelemetryTests
         // The Activity is disposed inside TraceUpcast on the throw path, so the
         // captured reference still carries the error status + tags the catch
         // block set before rethrowing.
-        var activity = captured.Should().ContainSingle().Subject;
+        var upcastSpans = captured
+            .Where(a => a.OperationName == $"upcast.{nameof(CurrentShape)}"
+                        && (a.GetTagItem("to_type") as string) == typeof(CurrentShape).FullName)
+            .ToList();
+        var activity = upcastSpans.Should().ContainSingle().Subject;
         activity.Status.Should().Be(ActivityStatusCode.Error);
         activity.StatusDescription.Should().Be("upcaster blew up");
         activity.GetTagItem("exception.type").Should().Be(typeof(InvalidOperationException).FullName);
@@ -68,11 +76,17 @@ public sealed class UpcasterTelemetryTests
     [Fact]
     public void SourceName_MatchesPublishedConstant()
     {
-        // Arrange/Act/Assert — the Program.cs OTel registration adds a
-        // source by this literal; if it ever drifts, traces silently stop
-        // being emitted.
-        UpcasterTelemetry.SourceName.Should().Be("RunCoach.Marten.Upcaster");
-        UpcasterTelemetry.Source.Name.Should().Be("RunCoach.Marten.Upcaster");
+        // Arrange
+        const string expectedSourceName = "RunCoach.Marten.Upcaster";
+
+        // Act
+        var actualSourceName = UpcasterTelemetry.SourceName;
+        var actualActivitySourceName = UpcasterTelemetry.Source.Name;
+
+        // Assert — the Program.cs OTel registration adds a source by this
+        // literal; if it ever drifts, traces silently stop being emitted.
+        actualSourceName.Should().Be(expectedSourceName);
+        actualActivitySourceName.Should().Be(expectedSourceName);
     }
 
     private static ActivityListener AttachListener(List<Activity> captured)

@@ -3,7 +3,7 @@ using System.Reflection;
 using FluentAssertions;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 
-namespace RunCoach.Api.Tests.Modules.Coaching;
+namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 
 /// <summary>
 /// Guards for <see cref="OnboardingTurnOutputValidationResult"/>'s factory-only

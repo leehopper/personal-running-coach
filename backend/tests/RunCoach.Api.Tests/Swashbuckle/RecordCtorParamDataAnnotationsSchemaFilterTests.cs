@@ -22,10 +22,13 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_LiftsMaxLengthFromCtorParam_OntoPropertySchema()
     {
+        // Arrange
         var schema = BuildSchemaFor<MaxLengthRecord>(propertyName: "name");
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(MaxLengthRecord)));
 
+        // Assert
         schema.Properties!["name"].Should().BeOfType<OpenApiSchema>()
             .Which.MaxLength.Should().Be(64);
     }
@@ -33,10 +36,13 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_LiftsMinLengthFromCtorParam_OntoPropertySchema()
     {
+        // Arrange
         var schema = BuildSchemaFor<MinLengthRecord>(propertyName: "name");
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(MinLengthRecord)));
 
+        // Assert
         schema.Properties!["name"].Should().BeOfType<OpenApiSchema>()
             .Which.MinLength.Should().Be(3);
     }
@@ -44,10 +50,13 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_LiftsStringLength_PopulatesBothMaxAndMinWhenMinSet()
     {
+        // Arrange
         var schema = BuildSchemaFor<StringLengthRecord>(propertyName: "name");
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(StringLengthRecord)));
 
+        // Assert
         var prop = schema.Properties!["name"].Should().BeOfType<OpenApiSchema>().Which;
         prop.MaxLength.Should().Be(40);
         prop.MinLength.Should().Be(2);
@@ -56,10 +65,13 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_LiftsRegularExpression_OntoPropertyPattern()
     {
+        // Arrange
         var schema = BuildSchemaFor<RegexRecord>(propertyName: "code");
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(RegexRecord)));
 
+        // Assert
         schema.Properties!["code"].Should().BeOfType<OpenApiSchema>()
             .Which.Pattern.Should().Be("^[A-Z]{3}$");
     }
@@ -67,10 +79,13 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_LiftsEmailAddress_OntoFormat()
     {
+        // Arrange
         var schema = BuildSchemaFor<EmailRecord>(propertyName: "email");
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(EmailRecord)));
 
+        // Assert
         schema.Properties!["email"].Should().BeOfType<OpenApiSchema>()
             .Which.Format.Should().Be("email");
     }
@@ -78,10 +93,13 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_LiftsUrl_OntoFormat()
     {
+        // Arrange
         var schema = BuildSchemaFor<UrlRecord>(propertyName: "homepage");
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(UrlRecord)));
 
+        // Assert
         schema.Properties!["homepage"].Should().BeOfType<OpenApiSchema>()
             .Which.Format.Should().Be("uri");
     }
@@ -89,10 +107,13 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_LiftsRange_OntoMinimumAndMaximum()
     {
+        // Arrange
         var schema = BuildSchemaFor<RangeRecord>(propertyName: "age");
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(RangeRecord)));
 
+        // Assert
         var prop = schema.Properties!["age"].Should().BeOfType<OpenApiSchema>().Which;
         prop.Minimum.Should().Be("0");
         prop.Maximum.Should().Be("150");
@@ -101,11 +122,14 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_DoesNotOverwrite_PreviouslySetSchemaKeyword()
     {
+        // Arrange
         var schema = BuildSchemaFor<MaxLengthRecord>(propertyName: "name");
         ((OpenApiSchema)schema.Properties!["name"]).MaxLength = 999;
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(MaxLengthRecord)));
 
+        // Assert
         schema.Properties!["name"].Should().BeOfType<OpenApiSchema>()
             .Which.MaxLength.Should().Be(999);
     }
@@ -113,20 +137,26 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_NoOps_WhenSchemaHasNoProperties()
     {
+        // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.Object };
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(MaxLengthRecord)));
 
+        // Assert
         schema.Properties.Should().BeNull();
     }
 
     [Fact]
     public void Apply_NoOps_WhenTargetTypeHasNoConstructor()
     {
+        // Arrange
         var schema = BuildSchemaFor<AbstractRecord>(propertyName: "value");
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(AbstractRecord)));
 
+        // Assert
         schema.Properties!["value"].Should().BeOfType<OpenApiSchema>()
             .Which.MaxLength.Should().BeNull();
     }
@@ -134,6 +164,7 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_SkipsPropertiesWithoutMatchingCtorParam()
     {
+        // Arrange
         var schema = new OpenApiSchema
         {
             Properties = new Dictionary<string, IOpenApiSchema>
@@ -142,8 +173,10 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
             },
         };
 
+        // Act
         _sut.Apply(schema, BuildContext(typeof(MaxLengthRecord)));
 
+        // Assert
         schema.Properties!["unmapped"].Should().BeOfType<OpenApiSchema>()
             .Which.MaxLength.Should().BeNull();
     }
@@ -151,18 +184,23 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
     [Fact]
     public void Apply_ThrowsArgumentNullException_WhenSchemaIsNull()
     {
+        // Act
         var act = () => _sut.Apply(schema: null!, BuildContext(typeof(MaxLengthRecord)));
 
+        // Assert
         act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact]
     public void Apply_ThrowsArgumentNullException_WhenContextIsNull()
     {
+        // Arrange
         var schema = new OpenApiSchema();
 
+        // Act
         var act = () => _sut.Apply(schema, context: null!);
 
+        // Assert
         act.Should().Throw<ArgumentNullException>();
     }
 
