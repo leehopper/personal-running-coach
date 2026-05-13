@@ -62,19 +62,31 @@ processors:
   # accidentally bypass it by tweaking the browser exporter. Must run *before*
   # `batch` so scrubbed values are what gets buffered and exported.
   #
-  # `http.url`: `delete` removes the attribute outright — the strongest
-  #   guarantee that any query-string secrets (tokens, onboarding answers
-  #   echoed back in URLs) never reach the exporter. The browser SDK already
-  #   emits `url.full` / `url.path` separately with query stripped client-side
-  #   for navigation context, so deleting the full URL here loses no useful
-  #   signal.
-  # `http.user_agent`: `hash` preserves cardinality for cohort analysis while
-  #   destroying identifiability of the raw UA string.
+  # Both the legacy (`http.*`) and stable (`url.*` / `user_agent.*`) HTTP
+  # semantic-convention attribute names are scrubbed because OpenTelemetry-JS
+  # selects between them via `semconvStabilityOptIn` (stable HTTP semconv was
+  # declared v1.23.0; `http.url` and `http.user_agent` are deprecated in
+  # favour of `url.full` and `user_agent.original`). Scrubbing only the legacy
+  # names would silently bypass the redaction the moment the browser SDK
+  # flipped to stable semconv.
+  #
+  # `http.url` / `url.full`: `delete` removes the attribute outright — the
+  #   strongest guarantee that any query-string secrets (tokens, onboarding
+  #   answers echoed back in URLs) never reach the exporter. `url.path` and
+  #   `http.target` (path + query) still ride along with the span and carry
+  #   the navigation context the SPA's client-side strip leaves intact.
+  # `http.user_agent` / `user_agent.original`: `hash` preserves cardinality
+  #   for cohort analysis while destroying identifiability of the raw UA
+  #   string.
   attributes/scrub:
     actions:
       - key: http.url
         action: delete
+      - key: url.full
+        action: delete
       - key: http.user_agent
+        action: hash
+      - key: user_agent.original
         action: hash
 
   batch:
