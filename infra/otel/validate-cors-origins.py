@@ -21,6 +21,17 @@ except ImportError:
 
 
 def main(path: str) -> int:
+    """Return ``0`` if ``path`` has no wildcard ``allowed_origins``, else ``1``.
+
+    Loads the YAML at ``path`` and inspects
+    ``receivers.otlp.protocols.http.cors.allowed_origins``. A bare ``"*"`` in
+    that list is the violation: it is incompatible with
+    ``Access-Control-Allow-Credentials: true`` per the Fetch Standard and is
+    prohibited by DEC-069. A missing file (``path`` removed in the staged
+    commit) returns ``0`` so the guard does not spuriously fail when the
+    overlay is being deleted. Errors are written to stderr; the function never
+    raises.
+    """
     p = Path(path)
     if not p.exists():
         return 0  # file removed in this commit — nothing to guard
