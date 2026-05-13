@@ -50,7 +50,10 @@ const buildBody = ({
     message: error.message,
     stack: error.stack ?? '',
     componentStack: componentStack ?? '',
-    url: window.location.href,
+    // Redact query string and fragment to avoid leaking tokens, emails, or
+    // other identifiers in error telemetry. Pathname alone is enough to
+    // locate the failing route; URL params are reproducible via repro steps.
+    url: window.location.origin + window.location.pathname,
     userAgent: navigator.userAgent,
     appVersion: import.meta.env.VITE_APP_VERSION ?? 'unknown',
   }
