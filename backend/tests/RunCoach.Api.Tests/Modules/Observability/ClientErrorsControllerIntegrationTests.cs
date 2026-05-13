@@ -1,12 +1,15 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Marten;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Identity.Contracts;
 using RunCoach.Api.Modules.Observability;
@@ -136,6 +139,84 @@ public class ClientErrorsControllerIntegrationTests(RunCoachAppFactory factory)
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+    }
+
+    [Fact]
+    public async Task Report_Authenticated_OutOfRangeNumericKind_Returns_400_With_InvalidKindProblem()
+    {
+        // Arrange — authenticate, then POST a well-formed body whose `kind`
+        // is a numeric integer outside ClientErrorKind's declared range.
+        // System.Text.Json's JsonStringEnumConverter rejects unknown wire
+        // *strings* before model binding completes, but a numeric value
+        // bypasses that converter and arrives as (ClientErrorKind)999.
+        // The controller's Enum.IsDefined defense-in-depth check catches
+        // the residual case and returns 400 with the InvalidKindType URI.
+        var (client, container) = CreateCookieClient(Factory);
+        var email = GenerateEmail();
+        await RegisterAsync(client, container, email, StrongPassword);
+        await LoginAsync(client, container, email, StrongPassword);
+
+        var rawJson = $$"""
+            {
+              "correlationId": "{{Guid.NewGuid()}}",
+              "occurredAt": "2026-05-12T00:00:00Z",
+              "kind": 999,
+              "errorName": "TypeError",
+              "message": "boom",
+              "stack": "at boom()",
+              "url": "https://app/",
+              "userAgent": "Mozilla/5.0",
+              "appVersion": "1.0.0"
+            }
+            """;
+
+        using var content = new StringContent(rawJson, Encoding.UTF8, "application/json");
+
+        // Act
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/client-errors")
+        {
+            Content = content,
+        };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var actualProblem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        actualProblem.Should().NotBeNull();
+        actualProblem!.Type.Should().Be(
+            "https://runcoach.app/problems/invalid-client-error-kind",
+            because: "the controller's Enum.IsDefined gate must surface the canonical problem type URI");
+    }
+
+    [Fact]
+    public async Task Report_BearerToken_With_Non_Guid_Sub_Returns_401_With_MissingUserClaimProblem()
+    {
+        // Arrange — present a validly-signed bearer token whose `sub` claim
+        // is a non-Guid string. The framework accepts the token (signature,
+        // issuer, audience all valid) so the request reaches the controller.
+        // TryGetUserId then fails to parse the sub as a Guid and the
+        // MissingUserClaim() branch returns 401 with the canonical URI.
+        var expectedToken = MintBearerTokenWithRawSub("not-a-guid");
+        using var client = CreateBearerClient(Factory, expectedToken);
+
+        // Act
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/client-errors")
+        {
+            Content = JsonContent.Create(BuildValidRequest()),
+        };
+        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var actualProblem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        actualProblem.Should().NotBeNull();
+        actualProblem!.Type.Should().Be(
+            "https://runcoach.app/problems/missing-user-claim",
+            because: "the controller's TryGetUserId branch must surface the canonical missing-user-claim URI");
     }
 
     [Fact]
@@ -352,4 +433,38 @@ public class ClientErrorsControllerIntegrationTests(RunCoachAppFactory factory)
     }
 
     private static string GenerateEmail() => $"user-{Guid.NewGuid():N}@example.test";
+
+    private static HttpClient CreateBearerClient(
+        Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory,
+        string token)
+    {
+        var client = factory.CreateClient();
+        client.BaseAddress = BaseUri;
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
+
+    private static string MintBearerTokenWithRawSub(string sub)
+    {
+        // Mints a validly-signed JWT with a raw (non-Guid) `sub` claim so the
+        // framework's bearer middleware accepts the token while the controller's
+        // TryGetUserId returns false. Mirrors the helper in
+        // PlanRenderingControllerIntegrationTests.
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(RunCoachAppFactory.TestJwtSigningKey))
+        {
+            KeyId = RunCoachAppFactory.TestJwtKeyId,
+        };
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(
+            issuer: RunCoachAppFactory.TestJwtIssuer,
+            audience: RunCoachAppFactory.TestJwtAudience,
+            claims: [new Claim(JwtRegisteredClaimNames.Sub, sub)],
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddMinutes(5),
+            signingCredentials: credentials);
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
 }

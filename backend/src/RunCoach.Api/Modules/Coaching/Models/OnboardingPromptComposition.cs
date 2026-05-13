@@ -31,9 +31,10 @@ public sealed record OnboardingPromptComposition(
     ImmutableArray<SanitizationFinding> Findings)
 {
     /// <summary>
-    /// Gets a value indicating whether true when the sanitizer stripped any content (Unicode-tag / zero-width /
-    /// DAN-family neutralize). False when no findings exist or all findings
-    /// were log-only.
+    /// Gets a value indicating whether the sanitizer stripped any content
+    /// (Unicode-tag / zero-width / DAN-family neutralize). The flag is
+    /// <see langword="false"/> when no findings exist or all findings were
+    /// log-only.
     /// </summary>
     /// <remarks>
     /// Computed from <see cref="Findings"/> rather than stored alongside it

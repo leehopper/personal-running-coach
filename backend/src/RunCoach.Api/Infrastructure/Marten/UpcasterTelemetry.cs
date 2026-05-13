@@ -33,8 +33,9 @@ public static class UpcasterTelemetry
     /// <summary>
     /// Runs <paramref name="upcast"/>, wrapping the call in a single
     /// <c>upcast.&lt;event_type&gt;</c> span with <c>from_type</c> /
-    /// <c>to_type</c> tags. The span name uses the snake_cased new-event
-    /// short name so trace filtering can scope to a single event family.
+    /// <c>to_type</c> tags. The span name uses the PascalCase CLR type name
+    /// of <typeparamref name="TNew"/> (e.g. <c>upcast.OnboardingStarted</c>)
+    /// so trace filtering can scope to a single event family.
     /// </summary>
     /// <typeparam name="TOld">The legacy CLR record type Marten reads from the row's <c>mt_dotnet_type</c>.</typeparam>
     /// <typeparam name="TNew">The current CLR record type the projection apply path expects.</typeparam>

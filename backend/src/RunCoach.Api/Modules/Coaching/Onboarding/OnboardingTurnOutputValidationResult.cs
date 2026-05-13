@@ -32,7 +32,7 @@ public sealed record OnboardingTurnOutputValidationResult
         NonNullSlotCount = nonNullSlotCount;
     }
 
-    /// <summary>Gets a value indicating whether true when the Pattern-B-Invariant holds.</summary>
+    /// <summary>Gets a value indicating whether the Pattern-B-Invariant holds.</summary>
     public bool IsValid { get; }
 
     /// <summary>
@@ -58,10 +58,7 @@ public sealed record OnboardingTurnOutputValidationResult
     /// </param>
     public static OnboardingTurnOutputValidationResult Valid(int nonNullSlotCount = 0)
     {
-        if (nonNullSlotCount < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(nonNullSlotCount), "nonNullSlotCount must be non-negative.");
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(nonNullSlotCount);
 
         return new(isValid: true, violation: OnboardingTurnOutputValidationViolation.None, nonNullSlotCount: nonNullSlotCount);
     }
@@ -82,10 +79,7 @@ public sealed record OnboardingTurnOutputValidationResult
         OnboardingTurnOutputValidationViolation violation,
         int nonNullSlotCount = 0)
     {
-        if (nonNullSlotCount < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(nonNullSlotCount), "nonNullSlotCount must be non-negative.");
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(nonNullSlotCount);
 
         if (violation == OnboardingTurnOutputValidationViolation.None)
         {

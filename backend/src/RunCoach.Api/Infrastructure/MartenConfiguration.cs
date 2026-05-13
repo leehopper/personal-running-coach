@@ -179,15 +179,18 @@ public static class MartenConfiguration
     }
 
     /// <summary>
-    /// Invokes <c>EventGraph.MapEventTypeWithSchemaVersion&lt;T&gt;(int)</c> for a
-    /// runtime-known <see cref="Type"/>. The closed generic dispatch keeps
-    /// <see cref="RegisteredEventTypes"/> as a single source-of-truth list — adding a
-    /// new event there auto-wires the schema-version registration without touching
-    /// <see cref="Apply"/>.
+    /// Resolves and returns the cached generic <c>MethodInfo</c> for
+    /// <c>EventStoreOptionsExtensions.MapEventTypeWithSchemaVersion&lt;T&gt;(IEventStoreOptions, uint)</c>
+    /// declared at the Marten assembly root.
     /// </summary>
-    /// <param name="events">The Marten <c>IEventStoreOptions</c> exposed by <c>opts.Events</c>.</param>
-    /// <param name="eventType">The event CLR type to register.</param>
-    /// <param name="version">The schema version to append to the snake-cased type name.</param>
+    /// <returns>
+    /// The open generic <see cref="MethodInfo"/> for
+    /// <c>MapEventTypeWithSchemaVersion&lt;T&gt;</c>.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when <c>EventStoreOptionsExtensions</c> cannot be located in the Marten assembly,
+    /// indicating the API moved between Marten versions.
+    /// </exception>
     private static MethodInfo ResolveMapEventTypeWithSchemaVersionMethod()
     {
         // The single-arg generic extension lives on Marten's
@@ -209,6 +212,16 @@ public static class MartenConfiguration
                 && p1.ParameterType == typeof(uint));
     }
 
+    /// <summary>
+    /// Invokes the cached generic <c>MapEventTypeWithSchemaVersion&lt;T&gt;</c> method for a
+    /// runtime-known event <see cref="Type"/> and <paramref name="version"/>. The closed
+    /// generic dispatch keeps <see cref="RegisteredEventTypes"/> as a single source-of-truth
+    /// list — adding a new event there auto-wires the schema-version registration without
+    /// touching <see cref="Apply"/>.
+    /// </summary>
+    /// <param name="events">The Marten <c>IEventStoreOptions</c> exposed by <c>opts.Events</c>.</param>
+    /// <param name="eventType">The event CLR type to register.</param>
+    /// <param name="version">The schema version to append to the snake-cased type name.</param>
     private static void MapEventTypeWithSchemaVersionFor(
         global::Marten.Events.IEventStoreOptions events,
         Type eventType,
