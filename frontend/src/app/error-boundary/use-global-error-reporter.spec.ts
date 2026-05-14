@@ -111,4 +111,41 @@ describe('useGlobalErrorReporter', () => {
     expect(args.error).toBeInstanceOf(Error)
     expect(args.error.message).toBe('plain-string')
   })
+
+  // Locks the send-everything contract: a future filter must update these tests deliberately.
+  it('forwards a browser-extension error (e.g. ResizeObserver noise) without filtering', () => {
+    renderHook(() => useGlobalErrorReporter())
+    const event = new ErrorEvent('error', {
+      message: 'ResizeObserver loop limit exceeded',
+      filename: 'chrome-extension://abc/content.js',
+      lineno: 0,
+      colno: 0,
+    })
+
+    window.dispatchEvent(event)
+
+    expect(reportMock).toHaveBeenCalledTimes(1)
+    const args = reportMock.mock.calls[0][0]
+    expect(args.kind).toBe('window-error')
+    expect(args.error).toBeInstanceOf(Error)
+    expect(args.error.message).toBe('ResizeObserver loop limit exceeded')
+  })
+
+  it('forwards the cross-origin opaque error string ("Script error.") without filtering', () => {
+    renderHook(() => useGlobalErrorReporter())
+    const event = new ErrorEvent('error', {
+      message: 'Script error.',
+      filename: '',
+      lineno: 0,
+      colno: 0,
+    })
+
+    window.dispatchEvent(event)
+
+    expect(reportMock).toHaveBeenCalledTimes(1)
+    const args = reportMock.mock.calls[0][0]
+    expect(args.kind).toBe('window-error')
+    expect(args.error).toBeInstanceOf(Error)
+    expect(args.error.message).toBe('Script error.')
+  })
 })

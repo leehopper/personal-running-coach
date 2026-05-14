@@ -17,11 +17,9 @@ import { reportClientError } from './report-client-error'
 
 export const useGlobalErrorReporter = (): void => {
   useEffect(() => {
-    const fallbackMessage = (event: ErrorEvent): string =>
-      event.message.length > 0 ? event.message : 'window error'
-
     const onError = (event: ErrorEvent): void => {
-      const error = event.error instanceof Error ? event.error : new Error(fallbackMessage(event))
+      const error =
+        event.error instanceof Error ? event.error : new Error(event.message || 'window error')
       reportClientError({ kind: 'window-error', error })
     }
 
@@ -30,6 +28,9 @@ export const useGlobalErrorReporter = (): void => {
       reportClientError({ kind: 'unhandled-rejection', error })
     }
 
+    // forwards every `window.error` and `unhandledrejection`, including third-party / extension
+    // noise. filtering is deferred — when added, update the matching tests in
+    // `use-global-error-reporter.spec.ts`.
     window.addEventListener('error', onError)
     window.addEventListener('unhandledrejection', onUnhandledRejection)
     return () => {
