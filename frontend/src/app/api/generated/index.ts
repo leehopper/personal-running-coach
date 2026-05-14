@@ -20,6 +20,14 @@
  * surfaces here as a TypeScript error during `npm run codegen:check`. That
  * regression class is exactly what Slice 1 bug #4 shipped undetected and
  * what DEC-066 exists to prevent.
+ *
+ * Drift is caught bidirectionally for `SuggestedInputType`:
+ *   - const ⊆ union: enforced by `satisfies Record<string, SuggestedInputType>`
+ *     on the const object — a value not in the union is a compile error.
+ *   - union ⊆ const: enforced by `_suggestedInputTypeExhaustivenessGuard`
+ *     immediately below the const — a new backend variant that widens the
+ *     Zod-inferred union without a matching entry in the const causes the
+ *     guard to resolve to `never`, failing the build.
  */
 import { z } from 'zod'
 
@@ -61,3 +69,21 @@ export const SuggestedInputType = {
   Numeric: 3,
   Date: 4,
 } as const satisfies Record<string, SuggestedInputType>
+
+// Exhaustiveness guard — union ⊆ const direction.
+// `satisfies` above already ensures every value in the const is a member of
+// the `SuggestedInputType` union (const ⊆ union). This assertion covers the
+// other direction: if the Zod-inferred `SuggestedInputType` union gains a new
+// member (e.g. the backend adds variant `5`), `_SuggestedInputTypeUnionMinusConst`
+// becomes that literal rather than `never`, causing `_SuggestedInputTypeExhaustive`
+// to resolve to `never` — making the `export const` assignment below fail with
+// "Type 'true' is not assignable to type 'never'" (build error).
+type _SuggestedInputTypeConstMembers = (typeof SuggestedInputType)[keyof typeof SuggestedInputType]
+type _SuggestedInputTypeUnionMinusConst = Exclude<
+  SuggestedInputType,
+  _SuggestedInputTypeConstMembers
+>
+type _SuggestedInputTypeExhaustive = _SuggestedInputTypeUnionMinusConst extends never ? true : never
+// Exported to satisfy `noUnusedLocals`; the assignment fails if a new backend
+// variant widens `SuggestedInputType` without a matching entry in the const above.
+export const _suggestedInputTypeExhaustivenessGuard: _SuggestedInputTypeExhaustive = true
