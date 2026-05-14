@@ -66,7 +66,10 @@ describe('reportClientError', () => {
     })
     expect(typeof body.occurredAt).toBe('string')
     expect(() => new Date(body.occurredAt as string).toISOString()).not.toThrow()
-    expect(body.url).toBe(window.location.href)
+    // Default jsdom URL (https://localhost:5173/) has no query/fragment, so
+    // origin+pathname === href — the redaction contract is not exercised here.
+    // A dedicated test below covers it; here we just confirm url is present.
+    expect(typeof body.url).toBe('string')
     expect(body.userAgent).toBe('vitest-jsdom')
     expect(typeof body.appVersion).toBe('string')
   })
@@ -163,5 +166,82 @@ describe('reportClientError', () => {
     // fetch must never fire when body construction throws.
     expect(fetchMock).not.toHaveBeenCalled()
     expect(sendBeaconMock).not.toHaveBeenCalled()
+  })
+
+  it('redacts query string and fragment from body.url', () => {
+    // Stub window.location with a URL that carries PII-like values in both
+    // the query string and the fragment. The production code must send only
+    // origin+pathname, stripping everything after the path.
+    vi.stubGlobal('location', {
+      origin: 'https://app.runcoach.io',
+      pathname: '/onboarding',
+      href: 'https://app.runcoach.io/onboarding?token=secret123&email=u@x.com#section',
+    })
+
+    reportClientError({
+      kind: 'render',
+      correlationId: 'redact-test',
+      error: buildError(),
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+
+    // Only origin+pathname — no query string, no fragment.
+    expect(body.url).toBe('https://app.runcoach.io/onboarding')
+
+    // Belt-and-suspenders: the raw JSON must not contain any PII token.
+    const raw = JSON.stringify(body)
+    expect(raw).not.toContain('secret123')
+    expect(raw).not.toContain('u@x.com')
+    expect(raw).not.toContain('#section')
+  })
+
+  it('does not throw and does not call fetch again when sendBeacon returns false', async () => {
+    // `sendBeacon` returns `false` when the queue is full or the body exceeds
+    // the 64 KB limit. The contract is silent-drop: no throw, no retry.
+    sendBeaconMock.mockReturnValue(false)
+    fetchMock.mockRejectedValueOnce(new Error('network down'))
+
+    expect(() =>
+      reportClientError({
+        kind: 'render',
+        correlationId: 'beacon-false',
+        error: buildError(),
+      }),
+    ).not.toThrow()
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // sendBeacon was still called (attempted), but returned false — that is
+    // allowed. No second fetch call must be made.
+    expect(sendBeaconMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not throw when sendBeacon is undefined (missing polyfill)', async () => {
+    // If the polyfill is absent, `navigator.sendBeacon` is undefined and the
+    // call site throws a TypeError. The outer try/catch on sendBeaconFallback
+    // must swallow it so the error boundary can still render the fallback card.
+    vi.stubGlobal('navigator', {
+      ...globalThis.navigator,
+      sendBeacon: undefined,
+      userAgent: 'vitest-jsdom',
+    })
+    fetchMock.mockRejectedValueOnce(new Error('network down'))
+
+    expect(() =>
+      reportClientError({
+        kind: 'render',
+        correlationId: 'no-beacon',
+        error: buildError(),
+      }),
+    ).not.toThrow()
+
+    await Promise.resolve()
+    await Promise.resolve()
+    // No assertion on sendBeacon — it is undefined and must not be called.
+    // The test passes as long as no exception propagates.
   })
 })
