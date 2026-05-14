@@ -11,13 +11,14 @@
 // below ever misses an attribute.
 
 import { context, trace } from '@opentelemetry/api'
+import type { Span } from '@opentelemetry/api'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 import { registerInstrumentations } from '@opentelemetry/instrumentation'
 import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import { BatchSpanProcessor, WebTracerProvider } from '@opentelemetry/sdk-trace-web'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
-import { recordLastTraceId } from './last-trace-id'
+import * as lti from './last-trace-id'
 
 const COLLECTOR_URL = import.meta.env.VITE_OTLP_TRACES_URL ?? 'http://localhost:4318/v1/traces'
 
@@ -58,33 +59,62 @@ const provider = new WebTracerProvider({
 // the instrumentation, not by user code. No `ZoneContextManager` needed.
 provider.register()
 
+// Two URLs must be excluded from `FetchInstrumentation`:
+//
+//   1. `/v1/traces` — the OTLP exporter's own POST. Tracing it would
+//      create an infinite recursion of "post traces -> span -> post traces".
+//
+//   2. `/api/v1/client-errors` — the SPA's React-error-boundary report
+//      endpoint. The Fallback shows the support code held by
+//      `last-trace-id` (the trace-id of the failed upstream fetch). If
+//      this POST were traced, its own completion would call
+//      `applyCustomAttributesOnSpan`, which would in turn call
+//      `recordLastTraceId` with the client-errors POST's trace-id and
+//      OVERWRITE the upstream-cause trace-id — the visible support
+//      code would point at the error-report span, not the failure that
+//      triggered the boundary.
+//
+// `\/?$` tolerates a stray trailing slash from a misconfigured
+// collector or backend URL. The regexes match both path-only forms
+// (`/api/v1/client-errors`) and origin+path forms
+// (`https://app.runcoach.io/api/v1/client-errors`).
+// `internal export for unit tests`.
+export const ignoreUrls: RegExp[] = [/\/v1\/traces\/?$/, /\/api\/v1\/client-errors\/?$/]
+
+// PII scrub Option A (DEC-069 §7). Runs *before* the span is exported,
+// so the collector receives a query-string-less and fragment-less
+// `http.url` even though the collector also deletes the attribute
+// outright as belt-and-braces (T02). Two layers, neither alone
+// load-bearing. Also records the trace-id of the just-completed fetch
+// into `last-trace-id`, which the Fallback surfaces as a support code.
+// Calls `recordLastTraceId` via the module namespace `lti` so unit
+// tests can `vi.spyOn(lti, 'recordLastTraceId')`.
+// `internal export for unit tests`.
+export const applyCustomAttributesOnSpan = (
+  span: Span,
+  request: Request | RequestInit | string,
+): void => {
+  lti.recordLastTraceId(span.spanContext().traceId)
+  const urlStr = typeof request === 'string' ? request : ((request as Request).url ?? '')
+  try {
+    const u = new URL(urlStr, window.location.origin)
+    span.setAttribute('http.url', `${u.origin}${u.pathname}`)
+    span.setAttribute('http.target', u.pathname)
+  } catch {
+    // Leave the original `http.url` / `http.target` in place if the
+    // URL constructor rejects the input (e.g. a malformed
+    // `fetch('//bogus')` from a third-party SDK). Better to ship a
+    // possibly-unscrubbed attribute than to drop the span — the
+    // collector still has its own `attributes/scrub` processor.
+  }
+}
+
 registerInstrumentations({
   instrumentations: [
     new FetchInstrumentation({
-      // Don't trace the trace exporter itself — that would create an
-      // infinite recursion of "post /v1/traces -> span -> post /v1/traces".
-      ignoreUrls: [/\/v1\/traces$/],
+      ignoreUrls,
       clearTimingResources: true,
-      // PII scrub Option A (DEC-069 §7). Runs *before* the span is
-      // exported, so the collector receives a query-string-less
-      // `http.url` even though the collector also deletes the attribute
-      // outright as belt-and-braces (T02). Two layers, neither alone
-      // load-bearing.
-      applyCustomAttributesOnSpan: (span, request) => {
-        recordLastTraceId(span.spanContext().traceId)
-        const urlStr = typeof request === 'string' ? request : (request as Request).url
-        try {
-          const u = new URL(urlStr, window.location.origin)
-          span.setAttribute('http.url', `${u.origin}${u.pathname}`)
-          span.setAttribute('http.target', u.pathname)
-        } catch {
-          // Leave the original `http.url` / `http.target` in place if the
-          // URL constructor rejects the input (e.g. a malformed
-          // `fetch('//bogus')` from a third-party SDK). Better to ship a
-          // possibly-unscrubbed attribute than to drop the span — the
-          // collector still has its own `attributes/scrub` processor.
-        }
-      },
+      applyCustomAttributesOnSpan,
     }),
   ],
 })
