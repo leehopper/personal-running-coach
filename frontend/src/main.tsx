@@ -8,25 +8,18 @@ import './index.css'
 const root = document.getElementById('root')
 if (!root) throw new Error('Root element not found')
 
-// React 19 root-options reporters (DEC-068 §10.4 belt-and-suspenders).
-// `onCaughtError` fires on every render-time error a boundary catches —
-// even a future deeper boundary that <AppErrorBoundary> never sees;
-// `onUncaughtError` fires when no boundary catches the error at all
-// (the renderer then unmounts the tree). Both forward to
-// `reportClientError` so every render-time failure reaches
-// `POST /api/v1/client-errors` regardless of which layer ultimately
-// catches it.
+// Two-layer render-error reporting:
+// 1. `<AppErrorBoundary>`'s own `onError` prop calls `reportClientError` for
+//    every error the boundary catches (react-error-boundary fires this once
+//    per error with a caller-supplied correlation ID).
+// 2. `onUncaughtError` fires only when no boundary catches the error at all
+//    (the renderer then unmounts the tree). `onCaughtError` is intentionally
+//    omitted — it fires for every boundary catch and would duplicate the
+//    report already sent by `<AppErrorBoundary>`'s `onError`.
 const toError = (value: unknown): Error =>
   value instanceof Error ? value : new Error(String(value))
 
 createRoot(root, {
-  onCaughtError: (error, info) => {
-    reportClientError({
-      kind: 'render',
-      error: toError(error),
-      componentStack: info.componentStack ?? undefined,
-    })
-  },
   onUncaughtError: (error, info) => {
     reportClientError({
       kind: 'render',
