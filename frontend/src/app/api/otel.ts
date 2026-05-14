@@ -10,7 +10,7 @@
 // `http.url` outright as belt-and-braces in case the client-side scrub
 // below ever misses an attribute.
 
-import { context, trace } from '@opentelemetry/api'
+import { trace } from '@opentelemetry/api'
 import type { Span } from '@opentelemetry/api'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 import { registerInstrumentations } from '@opentelemetry/instrumentation'
@@ -146,4 +146,4 @@ if (typeof document !== 'undefined') {
 }
 
 export const tracer = trace.getTracer('runcoach-frontend')
-export { context }
+export { context } from '@opentelemetry/api'
