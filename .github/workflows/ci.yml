@@ -167,6 +167,14 @@ jobs:
       - name: Run frontend codegen drift gate
         run: npm run codegen:check
         working-directory: frontend
+      - name: Verify drift gate fails on a dirty generated file
+        # Positive-failure test: proves the gate has teeth, not just that
+        # it passes against an already-in-sync tree (DEC-066 / R-071).
+        # The script appends a sentinel to a generated file, asserts
+        # codegen:check exits non-zero, then reverts via `git checkout --`
+        # on EXIT so the runner tree stays clean for any later steps.
+        run: npm run test:codegen-drift
+        working-directory: frontend
 
   security:
     name: Security (Trivy)
