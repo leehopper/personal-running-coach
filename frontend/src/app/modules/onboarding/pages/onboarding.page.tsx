@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
 import { OnboardingChat } from '~/modules/onboarding/components/onboarding-chat.component'
 import { expandCompletedTopicCount } from '~/modules/onboarding/components/topic-progress-indicator.helpers'
+import { SuggestedInputType } from '~/api/generated'
 import { useOnboardingTurn } from '~/modules/onboarding/hooks/use-onboarding-turn.hooks'
-import { OnboardingTopic, SuggestedInputType } from '~/modules/onboarding/models/onboarding.model'
+import { OnboardingTopic } from '~/modules/onboarding/models/onboarding.model'
 import {
   transcriptCleared,
   transcriptReplaced,

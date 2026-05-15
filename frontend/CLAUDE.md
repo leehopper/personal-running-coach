@@ -155,6 +155,10 @@ Use `~/` path alias for cross-module imports. Avoid `../` to top-level directori
 - **Booleans:** verb prefix (`isLoading`, `hasError`, `canSubmit`)
 - **Identifiers:** descriptive (`productId`, `workoutId`), never generic `id`
 
+## Dev-Only Code
+
+Code under `frontend/src/dev-only/` is tree-shaken in production builds; gate every consumer with `import.meta.env.DEV`.
+
 ## Code Quality
 
 - Components under 100 lines — extract when larger

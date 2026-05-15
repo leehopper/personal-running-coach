@@ -68,7 +68,11 @@ const submitForm = (): void => {
 
 const VALID_EMAIL = 'runner@example.com'
 // Mirrors the backend's ASP.NET Identity policy: ≥ 12 chars, upper + lower +
-// digit + non-alphanumeric (Program.cs lines 108–127 / auth.schema.ts).
+// digit + non-alphanumeric (Program.cs lines 108–127). The client-side Zod
+// schema is generated from RegisterRequestDto's DataAnnotations (DEC-066 /
+// R-071) which carry only the length + email-format constraints; the
+// character-class rules are enforced server-side at submit time and the
+// 400 / 409 ProblemDetails responses are surfaced via parseProblem.
 const VALID_PASSWORD = 'StrongPassw0rd!'
 
 describe('RegisterPage', () => {
@@ -84,17 +88,21 @@ describe('RegisterPage', () => {
     vi.clearAllMocks()
   })
 
-  describe('client-side validation', () => {
+  describe('client-side validation mirrors the generated Zod schema (DataAnnotations only)', () => {
     it('shows validation errors when the form is submitted empty and does not invoke the mutation', async () => {
       renderRegister()
       submitForm()
-      // `emailSchema` trims first so `.min(1)` surfaces "Email is required."
-      // on an empty submission; the dedicated format test below covers the
-      // `.email()` failure path for malformed-but-non-empty input.
-      expect(await screen.findByText('Email is required.')).toBeInTheDocument()
-      expect(
-        await screen.findByText(/password must be at least 12 characters/i),
-      ).toBeInTheDocument()
+      // An empty string fails the schema's `zod.email()` check (the
+      // surfaced default message in zod v4) — the schema does not carry
+      // an explicit `.min(1, 'Email is required.')` refinement because the
+      // backend's `[Required] + [EmailAddress]` collapses both signals to
+      // the format check on the wire.
+      expect(await screen.findByText(/invalid email/i)).toBeInTheDocument()
+      // Password fails the schema's `.min(12)` check on an empty string —
+      // the default zod v4 message is "Too small: expected string to have
+      // >=12 characters". Matching loosely on ">=12 characters" keeps this
+      // test resilient to minor formatting changes in zod's default text.
+      expect(await screen.findByText(/>=\s*12 characters/i)).toBeInTheDocument()
       expect(registerTrigger).not.toHaveBeenCalled()
     })
 
@@ -103,59 +111,22 @@ describe('RegisterPage', () => {
       await fillEmail(user, 'not-an-email')
       await fillPassword(user, VALID_PASSWORD)
       submitForm()
-      expect(await screen.findByText('Email must be a valid address.')).toBeInTheDocument()
+      expect(await screen.findByText(/invalid email/i)).toBeInTheDocument()
       expect(registerTrigger).not.toHaveBeenCalled()
     })
 
-    describe('weak-password validation mirrors the backend Identity policy', () => {
-      it('rejects a too-short password (< 12 chars)', async () => {
-        const { user } = renderRegister()
-        await fillEmail(user, VALID_EMAIL)
-        await fillPassword(user, 'Short1!')
-        submitForm()
-        expect(
-          await screen.findByText(/password must be at least 12 characters/i),
-        ).toBeInTheDocument()
-        expect(registerTrigger).not.toHaveBeenCalled()
-      })
-
-      it('rejects a password missing an uppercase letter', async () => {
-        const { user } = renderRegister()
-        await fillEmail(user, VALID_EMAIL)
-        await fillPassword(user, 'lowercase0!word')
-        submitForm()
-        expect(
-          await screen.findByText(/password must contain an uppercase letter/i),
-        ).toBeInTheDocument()
-      })
-
-      it('rejects a password missing a lowercase letter', async () => {
-        const { user } = renderRegister()
-        await fillEmail(user, VALID_EMAIL)
-        await fillPassword(user, 'UPPERCASE0!WORD')
-        submitForm()
-        expect(
-          await screen.findByText(/password must contain a lowercase letter/i),
-        ).toBeInTheDocument()
-      })
-
-      it('rejects a password missing a digit', async () => {
-        const { user } = renderRegister()
-        await fillEmail(user, VALID_EMAIL)
-        await fillPassword(user, 'NoDigitsHere!!')
-        submitForm()
-        expect(await screen.findByText(/password must contain a digit/i)).toBeInTheDocument()
-      })
-
-      it('rejects a password missing a non-alphanumeric character', async () => {
-        const { user } = renderRegister()
-        await fillEmail(user, VALID_EMAIL)
-        await fillPassword(user, 'NoSymbolHere0')
-        submitForm()
-        expect(
-          await screen.findByText(/password must contain a non-alphanumeric character/i),
-        ).toBeInTheDocument()
-      })
+    it('rejects a too-short password (< 12 chars)', async () => {
+      const { user } = renderRegister()
+      await fillEmail(user, VALID_EMAIL)
+      await fillPassword(user, 'Short1!')
+      submitForm()
+      // Character-class rules (uppercase / lowercase / digit /
+      // non-alphanumeric) are NOT on the generated client schema — they
+      // are Identity-policy server-side rules. The 400 ProblemDetails the
+      // server returns when the policy fails is exercised by the
+      // server-side error-surfacing tests further down.
+      expect(await screen.findByText(/>=\s*12 characters/i)).toBeInTheDocument()
+      expect(registerTrigger).not.toHaveBeenCalled()
     })
   })
 

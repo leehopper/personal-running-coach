@@ -1,9 +1,10 @@
 import type { UseFormReturn } from 'react-hook-form'
-import type { RegisterFormValues } from '~/modules/auth/schemas/auth.schema'
+
+import type { RegisterRequest } from '~/api/generated'
 
 export interface RegisterFormProps {
-  form: UseFormReturn<RegisterFormValues>
-  onSubmit: (values: RegisterFormValues) => Promise<void> | void
+  form: UseFormReturn<RegisterRequest>
+  onSubmit: (values: RegisterRequest) => Promise<void> | void
   isLoading: boolean
   formAlert: string | null
 }
@@ -66,8 +67,9 @@ export const RegisterForm = ({ form, onSubmit, isLoading, formAlert }: RegisterF
           />
           {passwordError === undefined ? (
             <p id="register-password-hint" className="mt-1 text-xs text-slate-500">
-              At least 12 characters, with upper &amp; lower case letters, a digit, and a
-              non-alphanumeric character.
+              At least 12 characters. The server also requires an uppercase letter, a lowercase
+              letter, a digit, and a non-alphanumeric character; a weaker password is rejected at
+              submit with a server-side error.
             </p>
           ) : (
             <p id="register-password-error" role="alert" className="mt-1 text-xs text-red-700">

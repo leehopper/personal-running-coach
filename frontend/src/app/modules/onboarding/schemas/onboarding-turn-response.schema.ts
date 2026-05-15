@@ -1,9 +1,9 @@
 import { z } from 'zod'
+import { SuggestedInputType } from '~/api/generated'
 import {
   AnthropicContentBlockType,
   OnboardingTopic,
   OnboardingTurnKind,
-  SuggestedInputType,
 } from '~/modules/onboarding/models/onboarding.model'
 
 // Discriminated-union Zod schema for `OnboardingTurnResponse` per Slice 1
