@@ -1,7 +1,5 @@
-import type {
-  OnboardingTopic,
-  SuggestedInputType,
-} from '~/modules/onboarding/models/onboarding.model'
+import type { SuggestedInputType } from '~/api/generated'
+import type { OnboardingTopic } from '~/modules/onboarding/models/onboarding.model'
 
 // Shape submitted by every per-topic input component. Strings on the wire
 // because the chat surface re-uses one POST endpoint

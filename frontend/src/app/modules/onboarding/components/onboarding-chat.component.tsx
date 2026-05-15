@@ -1,13 +1,13 @@
 import { type ReactElement } from 'react'
+import {
+  SuggestedInputType,
+  type SuggestedInputType as SuggestedInputTypeValue,
+} from '~/api/generated'
 import { MessageBubble } from '~/modules/coaching/components/message-bubble.component'
 import { TranscriptScroller } from '~/modules/coaching/components/transcript-scroller.component'
 import { InputForTopic } from './input-for-topic.component'
 import { TopicProgressIndicator } from './topic-progress-indicator.component'
-import {
-  OnboardingTopic,
-  SuggestedInputType,
-  type SuggestedInputType as SuggestedInputTypeValue,
-} from '~/modules/onboarding/models/onboarding.model'
+import { OnboardingTopic } from '~/modules/onboarding/models/onboarding.model'
 import type { InputSubmissionPayload } from './input-for-topic.types'
 import type { OnboardingTurn } from '~/modules/onboarding/store/onboarding.slice'
 

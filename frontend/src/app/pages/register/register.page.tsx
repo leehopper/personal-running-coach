@@ -5,12 +5,20 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { zodResolver } from '@hookform/resolvers/zod'
 
+import { registerRequestSchema, type RegisterRequest } from '~/api/generated'
 import { useLoginMutation, useRegisterMutation } from '~/api/auth.api'
 import { parseProblem } from '~/modules/auth/helpers/problem-details.helpers'
-import { registerSchema, type RegisterFormValues } from '~/modules/auth/schemas/auth.schema'
 import { sessionVerified } from '~/modules/auth/store/auth.slice'
 import type { AppDispatch } from '~/modules/app/app.store'
 import { RegisterForm } from './register-form.component'
+
+// Form values mirror the generated `RegisterRequest` shape inferred from
+// the codegen'd Zod schema. Renames or shape drift in `RegisterRequestDto`
+// on the backend surface here as a TypeScript error rather than a silent UX
+// regression. The schema mirrors the C# DataAnnotations (DEC-066 / R-071):
+// maxLength 254 + email format on email, minLength 12 + maxLength 128 on
+// password.
+type RegisterFormValues = RegisterRequest
 
 // Register → Login chained flow. The backend `register` endpoint
 // deliberately does NOT auto-authenticate (AuthController.Register
@@ -25,7 +33,7 @@ const RegisterPage = () => {
   const [formAlert, setFormAlert] = useState<string | null>(null)
 
   const form = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerRequestSchema),
     mode: 'onChange',
     defaultValues: { email: '', password: '' },
   })
