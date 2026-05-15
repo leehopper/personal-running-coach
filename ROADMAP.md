@@ -1,11 +1,11 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 1B (Pre-Slice-2 Hardening) — research complete; ready for spec-writing as of 2026-05-12. Closes the structural gaps surfaced by Slice 1's four contract-drift bugs so the same class can't recur in Slice 2.
-**Next step:** Write the Slice 1B spec under `docs/specs/` from `slice-1b-hardening.md` + DEC-066/067/068/069, then implement. Slice 2 does NOT start until Slice 1B merges.
+**Active slice:** Slice 2 (Workout Logging) — not yet started; spec-writing is the next step. Slices 0, 1, and 1B are complete and merged. Slice 1B (merged 2026-05-15, PRs #91–#94) closed the structural gaps surfaced by Slice 1's four contract-drift bugs so the same class can't recur in Slice 2.
+**Next step:** Write the Slice 2 spec under `docs/specs/` from `docs/plans/mvp-0-cycle/slice-2-logging.md`, then implement.
 **Blockers:** None.
 
-**Slice 1B decisions (pre-spec):** DEC-066 (OpenAPI → TS+Zod codegen, R-071), DEC-067 (Marten upcasting, R-072), DEC-068 (error boundary, R-073), DEC-069 (client OTel, R-074).
+**Slice 1B decisions:** DEC-066 (OpenAPI → TS+Zod codegen, R-071), DEC-067 (Marten upcasting, R-072), DEC-068 (error boundary, R-073), DEC-069 (client OTel, R-074).
 **Slice 1 decisions:** DEC-057 through DEC-064 — see decision log.
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
