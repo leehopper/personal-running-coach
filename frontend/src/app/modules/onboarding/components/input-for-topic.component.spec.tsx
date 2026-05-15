@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { OnboardingTopic, SuggestedInputType } from '~/modules/onboarding/models/onboarding.model'
+import { SuggestedInputType } from '~/api/generated'
+import { OnboardingTopic } from '~/modules/onboarding/models/onboarding.model'
 import { InputForTopic } from './input-for-topic.component'
 import { InputForTopicMap } from './input-for-topic.helpers'
 
