@@ -19,6 +19,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
+      "@/*": ["./src/*"],
       "~/*": ["./src/app/*"],
       "~dev-only/*": ["./src/dev-only/*"]
     }
