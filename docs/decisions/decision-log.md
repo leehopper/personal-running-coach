@@ -2646,6 +2646,10 @@ Adopt shadcn/ui properly on Tailwind CSS v4's CSS-first layout and theme it with
 - shadcn/ui theming + Tailwind v4 docs — `ui.shadcn.com/docs/theming`, `ui.shadcn.com/docs/tailwind-v4`.
 - Sub-project 2a design doc: `docs/plans/mvp-0-cycle/slice-2a-frontend-foundation.md`.
 
+### Amendment (2026-05-18) — `radix-ui` unified package; `next-themes` removed
+
+T01.1 implementation surfaced two divergences from this DEC's estimates. (1) The current shadcn `new-york` CLI installs Radix as the **unified `radix-ui` package**, not the individual `@radix-ui/react-*` packages the component-set estimate assumed — the ~32–35 kB gz figure stands as an estimate to confirm with `vite-bundle-visualizer`, but the dependency is a single package. (2) The CLI also pulls `next-themes` (a Next.js-oriented theme library, wrong for a Vite SPA); it was removed and `sonner.tsx` rewritten to read the active theme from the `.dark` class via a `MutationObserver`. The class-based `ThemeProvider` specified in this DEC remains the single theme authority.
+
 ---
 
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
