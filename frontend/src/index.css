@@ -1,1 +1,270 @@
+/* ───────────────────────────────────────────────────────────────────────────
+ * RunCoach design-token layer — DEC-070 two-tier Catppuccin hybrid.
+ *
+ * Canonical Tailwind-v4 / shadcn order (do not reorder):
+ *   1. @import "tailwindcss"
+ *   2. @import "tw-animate-css"
+ *   3. @custom-variant dark
+ *   4. primitive tier   — raw Catppuccin neutrals (--ctp-*)
+ *   5. semantic tier    — shadcn slots (--background, --primary, …)
+ *   6. one @theme inline block — exposes the semantic tier to utilities
+ *
+ * TWO TIERS
+ *   Primitive (--ctp-*): raw Catppuccin hex, catppuccin/palette v1.7.1.
+ *     Latte ramp in :root, Mocha ramp in .dark. Dark mode swaps THIS tier
+ *     only. Components must never reference --ctp-* directly.
+ *   Semantic (--background, --foreground, …): every shadcn slot maps to a
+ *     --ctp-* primitive. The mappings are mode-invariant — re-declared in
+ *     .dark purely for single-place readability.
+ *
+ * CONTRAST RULE (machine-checked by scripts/check-contrast.ts)
+ *   Text-role tokens — --foreground, --card-foreground, --popover-foreground,
+ *   --primary-foreground, --muted-foreground — map only to --ctp-text or
+ *   --ctp-subtext1. --muted-foreground maps to --ctp-subtext1 (Latte
+ *   subtext0-on-base is 4.37:1, an AA-normal fail by 0.13).
+ *
+ * ACCENT — Catppuccin teal
+ *   Dark  --primary = Mocha teal #94e2d5, --primary-foreground = --ctp-crust.
+ *   Light --primary = oklch(0.52 0.088 201.1) — the Latte teal hue held
+ *   constant, lightness reduced until white-on-fill clears AA 4.5:1
+ *   (measured 5.26:1). --primary-foreground = white.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
 @import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── Primitive tier — Catppuccin Latte (light). catppuccin/palette v1.7.1 ── */
+:root {
+  --ctp-rosewater: #dc8a78;
+  --ctp-flamingo: #dd7878;
+  --ctp-pink: #ea76cb;
+  --ctp-mauve: #8839ef;
+  --ctp-red: #d20f39;
+  --ctp-maroon: #e64553;
+  --ctp-peach: #fe640b;
+  --ctp-yellow: #df8e1d;
+  --ctp-green: #40a02b;
+  --ctp-teal: #179299;
+  --ctp-sky: #04a5e5;
+  --ctp-sapphire: #209fb5;
+  --ctp-blue: #1e66f5;
+  --ctp-lavender: #7287fd;
+  --ctp-text: #4c4f69;
+  --ctp-subtext1: #5c5f77;
+  --ctp-subtext0: #6c6f85;
+  --ctp-overlay2: #7c7f93;
+  --ctp-overlay1: #8c8fa1;
+  --ctp-overlay0: #9ca0b0;
+  --ctp-surface2: #acb0be;
+  --ctp-surface1: #bcc0cc;
+  --ctp-surface0: #ccd0da;
+  --ctp-base: #eff1f5;
+  --ctp-mantle: #e6e9ef;
+  --ctp-crust: #dce0e8;
+
+  /* Project-owned teal accent. Light fill is an OKLCH-lightness-reduced
+   * Latte teal — hue held, lightness lowered until white-on-fill ≥ AA
+   * 4.5:1. Statically committed (not runtime color-mix) so check-contrast
+   * can assert it. */
+  --ctp-accent-fill: oklch(0.52 0.088 201.1);
+  --ctp-accent-on: #ffffff;
+}
+
+/* ── Primitive tier — Catppuccin Mocha (dark). catppuccin/palette v1.7.1 ── */
+.dark {
+  --ctp-rosewater: #f5e0dc;
+  --ctp-flamingo: #f2cdcd;
+  --ctp-pink: #f5c2e7;
+  --ctp-mauve: #cba6f7;
+  --ctp-red: #f38ba8;
+  --ctp-maroon: #eba0ac;
+  --ctp-peach: #fab387;
+  --ctp-yellow: #f9e2af;
+  --ctp-green: #a6e3a1;
+  --ctp-teal: #94e2d5;
+  --ctp-sky: #89dceb;
+  --ctp-sapphire: #74c7ec;
+  --ctp-blue: #89b4fa;
+  --ctp-lavender: #b4befe;
+  --ctp-text: #cdd6f4;
+  --ctp-subtext1: #bac2de;
+  --ctp-subtext0: #a6adc8;
+  --ctp-overlay2: #9399b2;
+  --ctp-overlay1: #7f849c;
+  --ctp-overlay0: #6c7086;
+  --ctp-surface2: #585b70;
+  --ctp-surface1: #45475a;
+  --ctp-surface0: #313244;
+  --ctp-base: #1e1e2e;
+  --ctp-mantle: #181825;
+  --ctp-crust: #11111b;
+
+  /* Dark teal accent is the native Catppuccin Mocha teal. */
+  --ctp-accent-fill: #94e2d5;
+  --ctp-accent-on: #11111b;
+}
+
+/* ── Semantic tier — shadcn slots mapped to the primitive tier. ──────────────
+ * Mode-invariant: the same mappings are declared in :root and .dark; dark
+ * mode swaps the --ctp-* primitives above, the mappings below do not change.
+ * They are re-declared in .dark only so a reader sees the full set in one
+ * place. --radius is shadcn's default; --font-* are system stacks. */
+:root {
+  --radius: 0.625rem;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --background: var(--ctp-base);
+  --foreground: var(--ctp-text);
+
+  --card: var(--ctp-base);
+  --card-foreground: var(--ctp-text);
+
+  --popover: var(--ctp-base);
+  --popover-foreground: var(--ctp-text);
+
+  --primary: var(--ctp-accent-fill);
+  --primary-foreground: var(--ctp-accent-on);
+
+  --secondary: var(--ctp-surface0);
+  --secondary-foreground: var(--ctp-text);
+
+  --muted: var(--ctp-mantle);
+  --muted-foreground: var(--ctp-subtext1);
+
+  --accent: var(--ctp-surface0);
+  --accent-foreground: var(--ctp-text);
+
+  --destructive: var(--ctp-red);
+  --destructive-foreground: var(--ctp-base);
+
+  /* --border is a decorative divider (WCAG 1.4.11 exempt); --input is a
+   * form-control boundary and is held to the 3:1 UI-component rule. */
+  --border: var(--ctp-surface1);
+  --input: var(--ctp-overlay2);
+  --ring: var(--ctp-accent-fill);
+
+  /* Catppuccin accent ramp for charts — non-text, decorative. */
+  --chart-1: var(--ctp-teal);
+  --chart-2: var(--ctp-blue);
+  --chart-3: var(--ctp-mauve);
+  --chart-4: var(--ctp-peach);
+  --chart-5: var(--ctp-green);
+
+  --sidebar: var(--ctp-mantle);
+  --sidebar-foreground: var(--ctp-text);
+  --sidebar-primary: var(--ctp-accent-fill);
+  --sidebar-primary-foreground: var(--ctp-accent-on);
+  --sidebar-accent: var(--ctp-surface0);
+  --sidebar-accent-foreground: var(--ctp-text);
+  --sidebar-border: var(--ctp-surface1);
+  --sidebar-ring: var(--ctp-accent-fill);
+}
+
+.dark {
+  --background: var(--ctp-base);
+  --foreground: var(--ctp-text);
+
+  --card: var(--ctp-base);
+  --card-foreground: var(--ctp-text);
+
+  --popover: var(--ctp-base);
+  --popover-foreground: var(--ctp-text);
+
+  --primary: var(--ctp-accent-fill);
+  --primary-foreground: var(--ctp-accent-on);
+
+  --secondary: var(--ctp-surface0);
+  --secondary-foreground: var(--ctp-text);
+
+  --muted: var(--ctp-mantle);
+  --muted-foreground: var(--ctp-subtext1);
+
+  --accent: var(--ctp-surface0);
+  --accent-foreground: var(--ctp-text);
+
+  --destructive: var(--ctp-red);
+  --destructive-foreground: var(--ctp-crust);
+
+  --border: var(--ctp-surface1);
+  --input: var(--ctp-overlay2);
+  --ring: var(--ctp-accent-fill);
+
+  --chart-1: var(--ctp-teal);
+  --chart-2: var(--ctp-blue);
+  --chart-3: var(--ctp-mauve);
+  --chart-4: var(--ctp-peach);
+  --chart-5: var(--ctp-green);
+
+  --sidebar: var(--ctp-mantle);
+  --sidebar-foreground: var(--ctp-text);
+  --sidebar-primary: var(--ctp-accent-fill);
+  --sidebar-primary-foreground: var(--ctp-accent-on);
+  --sidebar-accent: var(--ctp-surface0);
+  --sidebar-accent-foreground: var(--ctp-text);
+  --sidebar-border: var(--ctp-surface1);
+  --sidebar-ring: var(--ctp-accent-fill);
+}
+
+/* ── @theme inline — exposes the semantic tier to Tailwind utilities. ────────
+ * `inline` (not bare @theme) is mandatory: utilities compile to
+ * `var(--token)` so the .dark cascade wins at runtime. Without `inline`,
+ * Tailwind would inline the :root value and dark mode would not switch. */
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
