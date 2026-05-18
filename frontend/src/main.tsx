@@ -2,6 +2,7 @@ import './app/api/otel' // MUST stay the first import — FetchInstrumentation p
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/modules/app/app.component'
+import { ThemeProvider } from './components/theme-provider'
 import { reportClientError } from './app/error-boundary/report-client-error'
 import './index.css'
 
@@ -29,6 +30,8 @@ createRoot(root, {
   },
 }).render(
   <StrictMode>
-    <App />
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </StrictMode>,
 )
