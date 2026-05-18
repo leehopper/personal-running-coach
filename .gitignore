@@ -49,3 +49,6 @@ docs/specs/
 
 # Claude Code runtime artifacts (per-session lock files; not source)
 .claude/scheduled_tasks.lock
+
+# Brainstorming visual companion (superpowers)
+.superpowers/

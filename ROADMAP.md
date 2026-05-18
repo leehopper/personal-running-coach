@@ -1,10 +1,11 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 2 (Workout Logging) — not yet started; spec-writing is the next step. Slices 0, 1, and 1B are complete and merged. Slice 1B (merged 2026-05-15, PRs #91–#94) closed the structural gaps surfaced by Slice 1's four contract-drift bugs so the same class can't recur in Slice 2.
-**Next step:** Write the Slice 2 spec under `docs/specs/` from `docs/plans/mvp-0-cycle/slice-2-logging.md`, then implement.
+**Active slice:** Slice 2 (Workout Logging) — decomposed 2026-05-18 into two sub-projects: **2a Frontend Visual Foundation** (palette + semantic design tokens, light/dark, Tailwind v4 `@theme` wiring, the shadcn/ui-vs-pure-Tailwind component-library decision, typography/spacing scale, migrating existing surfaces) then **2b Workout Logging proper** (data model, endpoints, `ContextAssembler` extension, log form / today's card / history list). 2a goes first — the frontend has no design foundation (`index.css` is bare; shadcn/ui was never actually installed despite the stack listing). Currently brainstorming 2a. Slices 0, 1, and 1B are complete and merged.
+**Next step:** Sub-project 2a (Frontend Visual Foundation) brainstorm is done — design doc at `docs/plans/mvp-0-cycle/slice-2a-frontend-foundation.md`. Research artifact **R-075** has landed and is integrated as **DEC-070** (token architecture + dark mode locked). Next is the 2a spec → implement. Sub-project 2b (Workout Logging) gets its own brainstorm after 2a; its requirements are at `docs/plans/mvp-0-cycle/slice-2-logging.md`.
 **Blockers:** None.
 
+**Slice 2a decision:** DEC-070 (frontend design-token architecture — two-tier Catppuccin hybrid tokens + shadcn/ui on Tailwind v4 + class-based dark mode, R-075).
 **Slice 1B decisions:** DEC-066 (OpenAPI → TS+Zod codegen, R-071), DEC-067 (Marten upcasting, R-072), DEC-068 (error boundary, R-073), DEC-069 (client OTel, R-074).
 **Slice 1 decisions:** DEC-057 through DEC-064 — see decision log.
 
