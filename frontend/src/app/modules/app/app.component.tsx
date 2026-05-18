@@ -12,6 +12,7 @@ import { HomePage } from '~/modules/plan/pages/home.page'
 import { SettingsPage } from '~/modules/settings/pages/settings.page'
 import { LoginPage } from '~/pages/login/login.page'
 import { RegisterPage } from '~/pages/register/register.page'
+import { ThemeDebugPage } from '~dev-only/theme-debug'
 import { ThrowOnQuery } from '~dev-only/throw-on-query'
 
 interface OnboardingRedirectGuardProps {
@@ -163,6 +164,12 @@ const AppShell = () => {
             </RequireAuth>
           }
         />
+        {/* Dev-only design-token inspector. `import.meta.env.DEV` is
+            replaced with the literal `false` by Vite during `build`, so
+            this <Route> is never registered and `ThemeDebugPage` is
+            tree-shaken from the production bundle — the route 404s in
+            production. */}
+        {import.meta.env.DEV && <Route path="/dev/theme-debug" element={<ThemeDebugPage />} />}
       </Routes>
     </>
   )
