@@ -4,12 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SuggestedInputType } from '~/api/generated'
 import {
   OnboardingStatus,
   OnboardingTopic,
   OnboardingTurnKind,
   AnthropicContentBlockType,
-  SuggestedInputType,
   type OnboardingStateDto,
   type OnboardingTurnAskResponse,
   type OnboardingTurnCompleteResponse,

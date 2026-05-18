@@ -6,6 +6,15 @@
 // the C# `enum` declarations. Renaming or reordering members on either side
 // of the wire requires a paired change here. Schema validation lives in
 // `../schemas/onboarding-turn-response.schema.ts`.
+//
+// `OnboardingProgressDto` and `SuggestedInputType` are migrated to the
+// OpenAPI codegen pipeline per T03.2 / DEC-066 / R-071 §6 — consumers
+// import them directly from `~/api/generated`. A backend rename of
+// either surfaces as a TypeScript error on the next codegen regeneration
+// before reaching production. This file deliberately does NOT re-export
+// the migrated symbols so call-sites point at the wire-format source.
+
+import type { OnboardingProgressDto, SuggestedInputType } from '~/api/generated'
 
 /**
  * Lifecycle status of the per-user onboarding stream. Mirrors
@@ -46,18 +55,11 @@ export const OnboardingTurnKind = {
 } as const
 export type OnboardingTurnKind = (typeof OnboardingTurnKind)[keyof typeof OnboardingTurnKind]
 
-/**
- * Frontend input control hint paired with each `Ask` turn. Mirrors
- * `RunCoach.Api.Modules.Coaching.Onboarding.Models.SuggestedInputType`.
- */
-export const SuggestedInputType = {
-  Text: 0,
-  SingleSelect: 1,
-  MultiSelect: 2,
-  Numeric: 3,
-  Date: 4,
-} as const
-export type SuggestedInputType = (typeof SuggestedInputType)[keyof typeof SuggestedInputType]
+// `SuggestedInputType` is now sourced from `~/api/generated` so the chat
+// surface's input dispatcher stays pinned to whatever the OpenAPI spec
+// declares (DEC-066 / R-071 §6). The `as const` enum-shaped object that
+// gives consumers `SuggestedInputType.Text` syntax lives there alongside
+// the Zod validator extracted from the Orval-generated parent envelope.
 
 /**
  * Anthropic content block discriminator. Mirrors
@@ -81,13 +83,10 @@ export interface AnthropicContentBlock {
   text: string
 }
 
-/**
- * Topic-completion progress for the chat UI's six-segment indicator.
- */
-export interface OnboardingProgressDto {
-  completedTopics: number
-  totalTopics: number
-}
+// `OnboardingProgressDto` is now sourced from `~/api/generated` so a
+// backend rename of `completedTopics`/`totalTopics` (the exact class of
+// Slice 1 bug #4) surfaces as a TypeScript error on the next codegen
+// regeneration. The hand-rolled interface used to live here.
 
 /**
  * The runner's primary training goal. Mirrors
