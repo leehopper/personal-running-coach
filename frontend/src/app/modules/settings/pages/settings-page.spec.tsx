@@ -30,6 +30,15 @@ vi.mock('~/modules/settings/components/regenerate-plan-dialog.component', () => 
     ) : null,
 }))
 
+// `ThemeToggle` reads `useTheme()` from the app-level `<ThemeProvider>`,
+// which is mounted in `main.tsx` and not in this page-scoped test tree.
+// Stubbed here — its own behaviour is covered by
+// `theme-toggle.component.spec.tsx` — so this suite stays focused on the
+// SettingsPage's plan logic.
+vi.mock('~/modules/settings/components/theme-toggle.component', () => ({
+  ThemeToggle: () => <div data-testid="theme-toggle-stub">theme toggle</div>,
+}))
+
 import { SettingsPage } from './settings.page'
 
 const renderPage = () =>
@@ -76,6 +85,17 @@ describe('SettingsPage', () => {
     renderPage()
     expect(screen.getByTestId('settings-plan-generated-at')).toBeInTheDocument()
     expect(screen.getByTestId('settings-regenerate-button')).toBeInTheDocument()
+  })
+
+  it('renders the Appearance section with the theme toggle', () => {
+    getCurrentPlanMock.mockReturnValue({
+      data: buildPlanStub(),
+      isLoading: false,
+      isError: false,
+    })
+    renderPage()
+    expect(screen.getByTestId('settings-appearance-section')).toBeInTheDocument()
+    expect(screen.getByTestId('theme-toggle-stub')).toBeInTheDocument()
   })
 
   it('does not render the previous-plan link when previousPlanId is null', () => {

@@ -4,6 +4,8 @@
 
 import { useEffect, useRef } from 'react'
 import { type FallbackProps } from 'react-error-boundary'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { useLastTraceId } from '~/api/last-trace-id'
 
 // Format a 32-hex W3C trace-id as `xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx`
@@ -62,34 +64,36 @@ export const Fallback = ({
     <div
       role="alert"
       data-testid="app-error-boundary"
-      className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 motion-reduce:transition-none"
+      className="flex min-h-screen items-center justify-center bg-background px-4 py-12 motion-reduce:transition-none"
     >
-      <div className="w-full max-w-md space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <Card className="w-full max-w-md gap-4 p-6">
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="text-xl font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+          className="text-xl font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Something went wrong
         </h1>
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-muted-foreground">
           RunCoach hit an unexpected error while rendering this page. We may send technical
           diagnostics to help investigate, but your training data remains safe.
         </p>
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-muted-foreground">
           Error ID:{' '}
-          <code className="select-all rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-900">
+          <code className="select-all rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
             {shortId}
           </code>
         </p>
         {traceId !== null && (
-          <p className="text-sm text-slate-700">
+          <p className="text-sm text-muted-foreground">
             Support code:{' '}
-            <code className="select-all rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-900">
+            <code className="select-all rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
               {formatTraceId(traceId)}
             </code>{' '}
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="xs"
               onClick={() => {
                 // `navigator.clipboard.writeText` requires HTTPS and a
                 // user gesture in some browsers; it's a nice-to-have.
@@ -101,36 +105,32 @@ export const Fallback = ({
                 )
               }}
               aria-label="Copy support code"
-              className="rounded border border-slate-300 px-1.5 py-0.5 text-xs font-medium text-slate-700 transition-colors duration-200 ease-out hover:bg-slate-100 motion-reduce:transition-none"
             >
               Copy
-            </button>
+            </Button>
           </p>
         )}
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={resetErrorBoundary}
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 ease-out hover:bg-slate-700 motion-reduce:transition-none"
-          >
+          <Button type="button" size="sm" onClick={resetErrorBoundary}>
             Try again
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => window.location.reload()}
-            className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors duration-200 ease-out hover:bg-slate-100 motion-reduce:transition-none"
           >
             Reload page
-          </button>
+          </Button>
         </div>
-        <details className="text-sm text-slate-700">
-          <summary className="cursor-pointer select-none text-slate-500">
+        <details className="text-sm text-muted-foreground">
+          <summary className="cursor-pointer select-none text-muted-foreground">
             Show error details
           </summary>
           <div className="mt-2 space-y-2">
             <p>
               Full ID:{' '}
-              <code className="select-all rounded bg-slate-100 px-1 font-mono text-xs">
+              <code className="select-all rounded bg-muted px-1 font-mono text-xs">
                 {correlationId}
               </code>
             </p>
@@ -138,13 +138,13 @@ export const Fallback = ({
               <strong className="font-semibold">{error.name}</strong>: {error.message}
             </p>
             {error.stack !== undefined && error.stack.length > 0 && (
-              <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-slate-50 p-2 font-mono text-xs text-slate-700">
+              <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2 font-mono text-xs text-muted-foreground">
                 {error.stack}
               </pre>
             )}
           </div>
         </details>
-      </div>
+      </Card>
     </div>
   )
 }

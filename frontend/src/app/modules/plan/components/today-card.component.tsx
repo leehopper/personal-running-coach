@@ -56,8 +56,8 @@ export const TodayCard = ({
         className={`flex flex-col gap-2 ${className ?? ''}`}
       >
         <header className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Today</h2>
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          <h2 className="text-lg font-semibold text-foreground">Today</h2>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {todayLabel}
           </span>
         </header>
@@ -74,23 +74,26 @@ export const TodayCard = ({
       aria-label="Today's workout"
       data-testid="today-card"
       data-variant="rest"
-      className={`flex flex-col gap-3 rounded-lg border-2 border-slate-200 bg-slate-50 p-5 ${className ?? ''}`}
+      className={`flex flex-col gap-3 rounded-lg border-2 bg-muted p-5 ${className ?? ''}`}
     >
       <header className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">Today</h2>
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <h2 className="text-lg font-semibold text-foreground">Today</h2>
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {todayLabel}
         </span>
       </header>
-      <p className="text-base font-semibold text-slate-700">Rest day — recover well.</p>
+      <p className="text-base font-semibold text-foreground">Rest day — recover well.</p>
       {nextDayLabel !== null && nextWorkout !== undefined ? (
-        <p data-testid="today-card-next-workout" className="text-sm leading-snug text-slate-600">
+        <p
+          data-testid="today-card-next-workout"
+          className="text-sm leading-snug text-muted-foreground"
+        >
           Next workout: <strong className="font-semibold">{nextDayLabel}</strong> ·{' '}
           {nextWorkout.title}
         </p>
       ) : null}
       {slot.notes.trim().length > 0 ? (
-        <p className="text-xs leading-snug text-slate-500">{slot.notes}</p>
+        <p className="text-xs leading-snug text-muted-foreground">{slot.notes}</p>
       ) : null}
     </section>
   )

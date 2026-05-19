@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useGetCurrentPlanQuery } from '~/api/plan.api'
 import { RegeneratePlanDialog } from '~/modules/settings/components/regenerate-plan-dialog.component'
+import { ThemeToggle } from '~/modules/settings/components/theme-toggle.component'
 
 /**
  * `/settings` route surface. Renders the "Plan" section: current plan's
@@ -50,6 +51,14 @@ export const SettingsPage = (): ReactElement => {
             Regenerate plan
           </Button>
         </div>
+      </Card>
+
+      <Card className="gap-2 p-6" data-testid="settings-appearance-section">
+        <h2 className="text-lg font-semibold text-foreground">Appearance</h2>
+        <p className="text-sm text-muted-foreground">
+          Choose how RunCoach looks. System follows your device setting.
+        </p>
+        <ThemeToggle />
       </Card>
 
       <RegeneratePlanDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
