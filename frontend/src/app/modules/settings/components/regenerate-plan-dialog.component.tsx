@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement, type SubmitEvent } from 'react'
+import { Button } from '@/components/ui/button'
 import { useRegeneratePlanMutation } from '~/api/plan.api'
 
 /**
@@ -109,7 +110,7 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
     <div
       role="presentation"
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 px-4"
       onClick={closeIfIdle}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -124,20 +125,20 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
         aria-modal="true"
         aria-labelledby="regenerate-plan-title"
         aria-describedby="regenerate-plan-description"
-        className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+        className="w-full max-w-md rounded-lg border bg-popover p-6 text-popover-foreground shadow-xl"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}
         data-testid="regenerate-plan-dialog"
       >
-        <h2 id="regenerate-plan-title" className="text-lg font-semibold text-slate-900">
+        <h2 id="regenerate-plan-title" className="text-lg font-semibold text-foreground">
           Regenerate plan
         </h2>
-        <p id="regenerate-plan-description" className="mt-2 text-sm text-slate-600">
+        <p id="regenerate-plan-description" className="mt-2 text-sm text-muted-foreground">
           This replaces your current plan.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
-          <label htmlFor="regenerate-plan-intent" className="text-sm font-medium text-slate-700">
+          <label htmlFor="regenerate-plan-intent" className="text-sm font-medium text-foreground">
             Anything we should know? (optional)
           </label>
           <textarea
@@ -149,39 +150,29 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
             rows={4}
             disabled={isLoading}
             placeholder="e.g. coming back from a calf strain, want to focus on long runs…"
-            className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none dark:bg-input/30"
             data-testid="regenerate-plan-intent"
           />
-          <div className="flex justify-end text-xs text-slate-500" aria-live="polite">
+          <div className="flex justify-end text-xs text-muted-foreground" aria-live="polite">
             {remaining} characters remaining
           </div>
 
           {errorMessage !== null ? (
             <p
               role="alert"
-              className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
             >
               {errorMessage}
             </p>
           ) : null}
 
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading}
-              className="rounded px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-              data-testid="regenerate-plan-submit"
-            >
+            </Button>
+            <Button type="submit" disabled={isLoading} data-testid="regenerate-plan-submit">
               {isLoading ? 'Regenerating…' : 'Regenerate'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
