@@ -37,6 +37,21 @@ pre-commit:
       glob: "*.{ts,tsx,css,json}"
       run: npx prettier --write {staged_files}
       stage_fixed: true
+    check-contrast:
+      # WCAG-AA contrast gate (DEC-070). `frontend/scripts/check-contrast.ts`
+      # recomputes the contrast ratio of every semantic foreground/
+      # background token pair from the committed values in
+      # `frontend/src/index.css` and refuses the commit if any text pair
+      # drops below 4.5:1 or any non-text UI pair below 3:1. The glob
+      # fires on a change to the token file itself or to the script; it
+      # uses repo-relative paths because lefthook matches `glob` against
+      # the repo-relative staged path (`root` only sets the run CWD). The
+      # script always asserts the whole token set, so no `{staged_files}`
+      # is passed. Mirrored by the `Check contrast` step in
+      # `.github/workflows/ci.yml`.
+      root: "frontend/"
+      glob: "{frontend/src/index.css,frontend/scripts/check-contrast.ts}"
+      run: npm run check-contrast
 
 commit-msg:
   commands:
