@@ -10,7 +10,7 @@ See ROADMAP.md for current status and next steps.
 ## Tech Stack
 
 - **Backend:** .NET 10 / C# 14, ASP.NET Core controllers, EF Core + Marten (event sourcing on PostgreSQL JSONB), Wolverine (background processing), ASP.NET Core Identity + JWT
-- **Frontend:** React 19 + TypeScript (strict), Vite SPA, React Router v7, Redux Toolkit + RTK Query, Tailwind CSS + shadcn/ui, React Hook Form + Zod
+- **Frontend:** React 19 + TypeScript (strict), Vite SPA, React Router v7, Redux Toolkit + RTK Query, Tailwind CSS v4 + shadcn/ui (installed; two-tier semantic-token layer with light/dark mode — see `frontend/CLAUDE.md` § Styling), React Hook Form + Zod
 - **Testing:** xUnit v3 (MTP runner) + FluentAssertions + NSubstitute + M.E.AI.Evaluation, Vitest + React Testing Library, Playwright E2E
 - **Infrastructure:** Docker Compose + Tilt (local dev), Colima, GitHub Actions CI/CD, PostgreSQL + Redis
 - **Quality:** Lefthook pre-commit, local `/review-pr` via Max (PR review), Trivy + Codecov (CI), SonarAnalyzer.CSharp + eslint-plugin-sonarjs (build-time analysis), Dependabot
