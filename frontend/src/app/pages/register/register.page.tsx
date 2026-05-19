@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { zodResolver } from '@hookform/resolvers/zod'
 
+import { Card } from '@/components/ui/card'
 import { registerRequestSchema, type RegisterRequest } from '~/api/generated'
 import { useLoginMutation, useRegisterMutation } from '~/api/auth.api'
 import { parseProblem } from '~/modules/auth/helpers/problem-details.helpers'
@@ -71,17 +72,17 @@ const RegisterPage = () => {
   const isLoading = registerState.isLoading || loginState.isLoading
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <section className="w-full max-w-sm rounded-lg bg-white p-6 shadow">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
+      <Card className="w-full max-w-sm gap-0 p-6">
         <RegisterForm form={form} onSubmit={onSubmit} isLoading={isLoading} formAlert={formAlert} />
 
-        <p className="mt-4 text-sm text-slate-600">
+        <p className="mt-4 text-sm text-muted-foreground">
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-slate-900 underline">
+          <Link to="/login" className="font-medium text-foreground underline">
             Sign in
           </Link>
         </p>
-      </section>
+      </Card>
     </main>
   )
 }
