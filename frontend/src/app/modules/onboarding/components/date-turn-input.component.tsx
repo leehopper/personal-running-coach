@@ -2,6 +2,9 @@ import type { ReactElement } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { InputProps } from './input-for-topic.types'
 
 // Zod schema: ISO `YYYY-MM-DD` per the HTML `<input type="date">`
@@ -49,26 +52,22 @@ export const DateTurnInput = ({ onSubmit, isSubmitting = false }: InputProps): R
         Date
       </label>
       <div className="flex items-end gap-2">
-        <input
+        <Input
           id="date-turn-input-field"
           data-testid="date-turn-input-field"
           type="date"
           aria-invalid={valueError !== undefined}
           aria-describedby={valueError === undefined ? undefined : 'date-turn-input-error'}
           disabled={isSubmitting}
-          className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex-1"
           {...form.register('value')}
         />
-        <button
-          type="submit"
-          disabled={isSubmitDisabled}
-          className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <Button type="submit" disabled={isSubmitDisabled}>
           {isSubmitting ? 'Sending…' : 'Send'}
-        </button>
+        </Button>
       </div>
       {valueError !== undefined && (
-        <p id="date-turn-input-error" role="alert" className="text-xs text-red-700">
+        <p id="date-turn-input-error" role="alert" className="text-xs text-destructive">
           {valueError.message}
         </p>
       )}

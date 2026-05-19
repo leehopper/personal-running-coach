@@ -1,7 +1,11 @@
 import type { ReactElement } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import type { InputProps } from './input-for-topic.types'
 
 // Zod-validated form: exactly one option must be picked. The schema
@@ -24,10 +28,11 @@ const FALLBACK_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
 /**
  * Radio-style single-pick input for `suggestedInputType: single-select`
  * Ask turns. Uses React Hook Form + Zod (per frontend conventions —
- * structural validation belongs in a schema). Falls back to a canned
- * PrimaryGoal option list when the server does not attach `options` to
- * the Ask turn; that fallback covers the very first onboarding turn,
- * which is fixed to the PrimaryGoal topic.
+ * structural validation belongs in a schema). The shadcn RadioGroup is a
+ * controlled Radix primitive, so it is bound through RHF's `Controller`.
+ * Falls back to a canned PrimaryGoal option list when the server does not
+ * attach `options` to the Ask turn; that fallback covers the very first
+ * onboarding turn, which is fixed to the PrimaryGoal topic.
  */
 export const SingleSelectTurnInput = ({
   onSubmit,
@@ -55,30 +60,39 @@ export const SingleSelectTurnInput = ({
       onSubmit={form.handleSubmit(submit)}
       className="flex w-full flex-col gap-3"
     >
-      <fieldset className="flex flex-col gap-2" disabled={isSubmitting}>
-        <legend className="sr-only">Pick one</legend>
-        {renderedOptions.map((option) => (
-          <label
-            key={option.value}
-            className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 px-3 py-2 text-sm hover:border-slate-400"
-          >
-            <input
-              type="radio"
-              value={option.value}
-              {...form.register('value')}
-              className="h-4 w-4"
-            />
-            <span>{option.label}</span>
-          </label>
-        ))}
-      </fieldset>
-      <button
-        type="submit"
-        disabled={isSubmitDisabled}
-        className="self-end rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Controller
+        control={form.control}
+        name="value"
+        render={({ field }) => (
+          <fieldset disabled={isSubmitting}>
+            <legend className="sr-only">Pick one</legend>
+            <RadioGroup
+              value={field.value}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              name={field.name}
+            >
+              {renderedOptions.map((option) => {
+                const itemId = `single-select-${option.value}`
+                return (
+                  <div
+                    key={option.value}
+                    className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:border-ring motion-reduce:transition-none"
+                  >
+                    <RadioGroupItem id={itemId} value={option.value} />
+                    <Label htmlFor={itemId} className="cursor-pointer font-normal">
+                      {option.label}
+                    </Label>
+                  </div>
+                )
+              })}
+            </RadioGroup>
+          </fieldset>
+        )}
+      />
+      <Button type="submit" disabled={isSubmitDisabled} className="self-end">
         {isSubmitting ? 'Sending…' : 'Send'}
-      </button>
+      </Button>
     </form>
   )
 }

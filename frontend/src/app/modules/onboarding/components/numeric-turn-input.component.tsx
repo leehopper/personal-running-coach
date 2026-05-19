@@ -2,6 +2,9 @@ import type { ReactElement } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { InputProps } from './input-for-topic.types'
 
 // Zod schema for numeric input: positive finite number, capped at a sane
@@ -53,7 +56,7 @@ export const NumericTurnInput = ({ onSubmit, isSubmitting = false }: InputProps)
         Weekly distance (km)
       </label>
       <div className="flex items-end gap-2">
-        <input
+        <Input
           id="numeric-turn-input-field"
           data-testid="numeric-turn-input-field"
           type="number"
@@ -64,19 +67,15 @@ export const NumericTurnInput = ({ onSubmit, isSubmitting = false }: InputProps)
           aria-invalid={valueError !== undefined}
           aria-describedby={valueError === undefined ? undefined : 'numeric-turn-input-error'}
           disabled={isSubmitting}
-          className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex-1"
           {...form.register('value', { valueAsNumber: true })}
         />
-        <button
-          type="submit"
-          disabled={isSubmitDisabled}
-          className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <Button type="submit" disabled={isSubmitDisabled}>
           {isSubmitting ? 'Sending…' : 'Send'}
-        </button>
+        </Button>
       </div>
       {valueError !== undefined && (
-        <p id="numeric-turn-input-error" role="alert" className="text-xs text-red-700">
+        <p id="numeric-turn-input-error" role="alert" className="text-xs text-destructive">
           {valueError.message}
         </p>
       )}

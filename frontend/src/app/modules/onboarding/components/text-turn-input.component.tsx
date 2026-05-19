@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react'
 import { useForm } from 'react-hook-form'
+
+import { Button } from '@/components/ui/button'
 import type { InputProps } from './input-for-topic.types'
 
 interface TextFormValues {
@@ -49,18 +51,14 @@ export const TextTurnInput = ({
         rows={2}
         disabled={isSubmitting}
         placeholder="Type your reply…"
-        className="flex-1 resize-none rounded border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-input/30"
         {...form.register('text', {
           validate: (value) => value.trim().length > 0,
         })}
       />
-      <button
-        type="submit"
-        disabled={isSubmitDisabled}
-        className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isSubmitDisabled}>
         {isSubmitting ? 'Sending…' : 'Send'}
-      </button>
+      </Button>
     </form>
   )
 }
