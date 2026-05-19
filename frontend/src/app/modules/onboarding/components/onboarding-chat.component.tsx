@@ -1,4 +1,6 @@
 import { type ReactElement } from 'react'
+
+import { Button } from '@/components/ui/button'
 import {
   SuggestedInputType,
   type SuggestedInputType as SuggestedInputTypeValue,
@@ -53,15 +55,15 @@ export const OnboardingChat = ({
   return (
     <main
       data-testid="onboarding-chat"
-      className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-4 bg-slate-50 px-4 py-6"
+      className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-4 bg-background px-4 py-6"
     >
       <header className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Tell me about your running</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Tell me about your running</h1>
         <TopicProgressIndicator completedTopics={completedTopics} currentTopic={currentTopic} />
       </header>
       <TranscriptScroller
         turnCount={turns.length}
-        className="flex-1 rounded border border-slate-200 bg-white p-4"
+        className="flex-1 rounded-md border border-border bg-card p-4"
       >
         {turns.map((turn) => (
           <TurnRow key={turn.id} turn={turn} />
@@ -94,7 +96,11 @@ const TurnRow = ({ turn }: TurnRowProps): ReactElement => {
     <div
       data-testid={`turn-row-${turn.role}`}
       data-status={turn.status}
-      className={turn.status === 'building-plan' ? 'flex w-full animate-pulse' : 'flex w-full'}
+      className={
+        turn.status === 'building-plan'
+          ? 'flex w-full animate-pulse motion-reduce:animate-none'
+          : 'flex w-full'
+      }
     >
       <MessageBubble role={turn.role} content={turn.content} pending={isPending} />
     </div>
@@ -110,19 +116,19 @@ const RetryAffordance = ({ onRetry, isSubmitting }: RetryAffordanceProps): React
   <div
     role="alert"
     data-testid="onboarding-retry"
-    className="flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+    className="flex items-center justify-between rounded-md border border-border bg-secondary px-3 py-2 text-sm text-secondary-foreground"
   >
     <span>That didn’t go through. Try again?</span>
-    <button
+    <Button
       type="button"
+      size="xs"
       onClick={() => {
         void onRetry()
       }}
       disabled={isSubmitting}
-      className="rounded bg-slate-900 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
     >
       {isSubmitting ? 'Retrying…' : 'Retry'}
-    </button>
+    </Button>
   </div>
 )
 
