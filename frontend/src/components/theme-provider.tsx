@@ -22,8 +22,12 @@ const isTheme = (value: string | null): value is Theme =>
 
 const readStoredTheme = (defaultTheme: Theme): Theme => {
   if (typeof localStorage === 'undefined') return defaultTheme
-  const stored = localStorage.getItem(STORAGE_KEY)
-  return isTheme(stored) ? stored : defaultTheme
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return isTheme(stored) ? stored : defaultTheme
+  } catch {
+    return defaultTheme
+  }
 }
 
 const systemPrefersDark = (): boolean =>

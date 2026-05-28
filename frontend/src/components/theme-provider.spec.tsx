@@ -118,6 +118,16 @@ describe('ThemeProvider', () => {
     expect(result.current.theme).toBe('system')
   })
 
+  it('falls back to defaultTheme when localStorage.getItem throws', () => {
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('SecurityError')
+    })
+    const { result } = renderHook(() => useTheme(), { wrapper: wrapper() })
+
+    expect(result.current.theme).toBe('system')
+    spy.mockRestore()
+  })
+
   it('follows OS preference changes while on system', () => {
     const { result } = renderHook(() => useTheme(), { wrapper: wrapper() })
     expect(result.current.resolvedTheme).toBe('light')
