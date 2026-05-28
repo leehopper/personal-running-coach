@@ -33,7 +33,7 @@
     <PackageVersion Include="Marten" Version="8.37.1" />
     <PackageVersion Include="Marten.EntityFrameworkCore" Version="8.37.1" />
     <PackageVersion Include="WolverineFx" Version="5.39.3" />
-    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="5.39.3" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.1.0" />
     <PackageVersion Include="WolverineFx.Marten" Version="5.39.3" />
     <!-- Observability — OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry" Version="1.15.3" />
