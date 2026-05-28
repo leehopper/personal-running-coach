@@ -40,6 +40,9 @@ export default defineConfig({
   plugins: [react(), ...(mkcertPresent ? [] : [basicSsl()]), tailwindcss()],
   resolve: {
     alias: {
+      // `@` is shadcn/ui's canonical alias — it expects `@/components/ui`,
+      // `@/lib/utils`, etc. Maps to `src/` (not `src/app/`, which is `~`).
+      '@': path.resolve(__dirname, './src'),
       '~': path.resolve(__dirname, './src/app'),
       // `~dev-only` reaches the build-time-stripped harness directory.
       // Everything under `src/dev-only/` is gated by `import.meta.env.DEV`
@@ -114,6 +117,11 @@ export default defineConfig({
         'src/main.tsx',
         'src/test-setup.ts',
         'src/vite-env.d.ts',
+        // shadcn/ui primitives + cn() helper are vendor-copy code per
+        // the shadcn convention; mirror sonar.coverage.exclusions so
+        // the local report matches what SonarCloud measures.
+        'src/components/ui/**',
+        'src/lib/utils.ts',
       ],
     },
   },

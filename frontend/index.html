@@ -4,7 +4,26 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vite-scaffold</title>
+    <title>RunCoach</title>
+    <script>
+      // No-flash theme script — must run before the module script below so
+      // the .dark/.light class is on <html> before first paint. Mirrors
+      // the storage key and resolution logic in `ThemeProvider`; keep the
+      // 'runcoach-theme' key in sync between this script and the provider.
+      // A try/catch keeps a storage-disabled browser from blocking the render.
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('runcoach-theme')
+          var theme = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+          var dark =
+            theme === 'dark' ||
+            (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.classList.add(dark ? 'dark' : 'light')
+        } catch (e) {
+          document.documentElement.classList.add('light')
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

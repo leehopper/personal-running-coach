@@ -2574,4 +2574,82 @@ Reconsider trigger: future versions of `otel-collector-contrib` that honour the 
 
 ---
 
+## DEC-070: Frontend design-token architecture — two-tier Catppuccin hybrid tokens, shadcn/ui on Tailwind v4, class-based dark mode
+
+**Date:** 2026-05-18
+**Category:** Frontend / Design System
+**Status:** Accepted
+**Drives:** Sub-project 2a (Frontend Visual Foundation) — the design foundation Slice 2b and every later frontend slice build on.
+**Cites:** R-075 (`docs/research/artifacts/batch-26a-frontend-design-system-theming-integration.md`).
+**Builds on:** R-065 (shadcn/ui as the prescribed component library), DEC-063 (Tailwind-only animation baseline — `tw-animate-css` is its v4 continuation).
+
+### Decision
+
+Adopt shadcn/ui properly on Tailwind CSS v4's CSS-first layout and theme it with a two-tier Catppuccin-derived token system.
+
+**shadcn/ui install.** `npx shadcn@latest init` → `new-york` style, OKLCH color format, `cssVariables: true`, `lucide` icons, `components.json` with `tailwind.config: ""` (v4 is CSS-first — no `tailwind.config.ts`). Both `tsconfig.json` and `tsconfig.app.json` carry the `@/*` path alias. `@vitejs/plugin-react@^6` (Babel-free; v5 is the fallback).
+
+**Single `src/index.css`, shadcn's v4 canonical order:** `@import "tailwindcss"` → `@import "tw-animate-css"` → `@custom-variant dark (&:is(.dark *))` → primitive tier → semantic tier → one `@theme inline` block.
+
+**Two-tier tokens.** A *primitive* tier (`--ctp-*`) carries raw Catppuccin neutrals — Latte in `:root`, Mocha in `.dark` — hex pasted from `catppuccin/palette` v1.7.1. A *semantic* tier (`--background`, `--foreground`, `--primary`, `--muted-foreground`, `--border`, …) maps each shadcn slot to a `--ctp-*` primitive; shadcn primitives consume only the semantic tier. **Dark mode swaps the primitive tier only** — the semantic mappings are mode-invariant and re-declared in `.dark` for readability. Components never reference `--ctp-*` directly.
+
+**Dark mode.** A ~40-LOC `ThemeProvider` (`useState` + `localStorage` + `prefers-color-scheme`) toggles `.dark` on `documentElement`, plus an inline no-flash script in `index.html` before the module script. `defaultTheme="system"` with a 3-state (Light / Dark / System) toggle on the Settings page. Class-based, not media-query-only — `@custom-variant dark` keys off the class, and an in-app override must be possible.
+
+**Contrast rule encoded in the token mappings.** Text-role semantic tokens (`--foreground`, `--card-foreground`, `--primary-foreground`, `--muted-foreground`, `--popover-foreground`) map only to Catppuccin `text` or `subtext1`. `--muted-foreground` maps to `subtext1` in Latte specifically — Latte `subtext0`-on-`base` is 4.37:1, an AA-normal fail by 0.13. Mocha has the headroom for `subtext0`. A CI contrast-assertion script (`scripts/check-contrast.ts`) backs the rule; misuse is otherwise caught in review against the named primitive tier.
+
+**Accent.** One statically-committed OKLCH shade per mode for `--primary`: hue held constant, lightness the only lever. The Mocha (dark) `--primary` is the native Catppuccin accent with `--primary-foreground = crust`; the Latte (light) `--primary` is the accent's lightness reduced until white-on-accent clears AA 4.5:1, with a near-white `--primary-foreground`. The accent *family* (green / teal / …) is a spec-time pick — this decision locks the derivation *method* only.
+
+**Component set.** Install `button input label form card collapsible dialog sonner badge radio-group scroll-area` — ~32–35 kB gz, six `@radix-ui/react-*` packages plus `sonner`. shadcn's `Form` / `FormField` / `FormControl` / `FormMessage` wrap the existing React Hook Form + Zod usage verbatim — zero validation-behaviour and zero request-wire-shape change.
+
+**Animation.** `tw-animate-css` (the CSS-only v4 successor to `tailwindcss-animate`) is the animation import — consistent with DEC-063. Every shadcn primitive shipping `animate-in` / `animate-out` classes carries a sibling `motion-reduce:animate-none motion-reduce:transition-none`.
+
+**Typography & spacing.** Set `--font-sans` / `--font-mono` to system stacks via `@theme`; keep Tailwind's default spacing / type scales and shadcn's `--radius` (`0.625rem`).
+
+### Rationale
+
+- shadcn's v4 canonical layout is documented and battle-tested; deviating invites breakage on every CLI `add`.
+- The two-tier split keeps the foundation *closed*: a future re-theme (high-contrast mode, a different palette) is a new primitive block — never a touch to component code.
+- `@theme inline` (not `@theme`) is mandatory so utilities compile to `var(--token)` and the `.dark` cascade wins at runtime.
+- Pasting Catppuccin hex beats the `@catppuccin/tailwindcss` package: the package ships 26 colors as `ctp-*` *utilities*, the opposite of a closed primitive tier mapped into shadcn's semantic slots.
+- Encoding the contrast rule in the token mappings (rather than relying on a linter) means the safe choice is the *only* choice a component can make — components see only semantic tokens.
+- A statically-committed accent shade is reviewable, grep-able, and CI-assertable; runtime `color-mix` is a moving target.
+- shadcn `Form` is a thin RHF wrapper — migration is JSX-only, ~15–25 min per form, no behaviour change.
+
+### Alternatives considered
+
+- **`@catppuccin/tailwindcss` for the primitive tier.** Rejected as the default — ships `ctp-*` utility classes, not a closed tier mapped into semantic slots. Kept as a fallback for non-text accent utilities (chart / status colors) later.
+- **Media-query-only dark mode** (`@media (prefers-color-scheme)`). Rejected — cannot honour an in-app override; `@custom-variant dark` needs the class.
+- **Runtime `color-mix(in oklch, …)` accent.** Rejected as default — not statically assertable. Kept as the fallback if multiple accent families ever sit behind one token name.
+- **HSL color format / `default` style.** Superseded — shadcn moved to OKLCH + `new-york` in Feb 2025.
+- **Linter-enforced contrast as the primary mechanism.** Rejected as primary — Stylelint cannot resolve CSS-variable downstream values; the token-mapping encoding is primary, the CI script and Stylelint are belt-and-braces.
+
+### Trade-offs
+
+- ~32–35 kB gz bundle delta from Radix (estimate — confirm with `vite-bundle-visualizer` after install; `react-remove-scroll` via Dialog dominates).
+- Latte `text`-on-`base` is 7.06:1 — borderline AAA. The foundation is AA-compliant; treat AAA as not guaranteed.
+- The primitive tier must be re-synced if `catppuccin/palette` ever shifts the neutral steps (stable since Catppuccin v0.2.0).
+- Every animated shadcn primitive must be patched with the `motion-reduce:` sibling at install — a per-primitive checklist item.
+- The semantic tier is re-declared in `.dark` (verbose) for single-place readability.
+
+### Reconsider if
+
+- The chosen accent family cannot reach AA at a reasonable lightness — escalate to a near-neutral primary or a different family.
+- Non-text accent utilities (charts, status colors) are needed — add `@catppuccin/tailwindcss` alongside the inline tier.
+- `catppuccin/palette` ships a neutral-step revision — re-sync the primitive tier.
+- A future high-contrast or alternate theme is required — add a primitive block; the semantic tier and components are untouched.
+
+### References
+
+- R-075: `docs/research/artifacts/batch-26a-frontend-design-system-theming-integration.md`.
+- R-065 (`batch-21a-onboarding-chat-ux-react19.md`) — shadcn/ui as the component library.
+- DEC-063 — Tailwind-only animation baseline; `tw-animate-css` is its v4 continuation.
+- shadcn/ui theming + Tailwind v4 docs — `ui.shadcn.com/docs/theming`, `ui.shadcn.com/docs/tailwind-v4`.
+- Sub-project 2a design doc: `docs/plans/mvp-0-cycle/slice-2a-frontend-foundation.md`.
+
+### Amendment (2026-05-18) — `radix-ui` unified package; `next-themes` removed
+
+T01.1 implementation surfaced two divergences from this DEC's estimates. (1) The current shadcn `new-york` CLI installs Radix as the **unified `radix-ui` package**, not the individual `@radix-ui/react-*` packages the component-set estimate assumed — the ~32–35 kB gz figure stands as an estimate to confirm with `vite-bundle-visualizer`, but the dependency is a single package. (2) The CLI also pulls `next-themes` (a Next.js-oriented theme library, wrong for a Vite SPA); it was removed and `sonner.tsx` rewritten to read the active theme from the `.dark` class via a `MutationObserver`. The class-based `ThemeProvider` specified in this DEC remains the single theme authority.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

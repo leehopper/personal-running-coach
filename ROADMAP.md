@@ -1,10 +1,11 @@
 # RunCoach — Roadmap
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
-**Active slice:** Slice 2 (Workout Logging) — not yet started; spec-writing is the next step. Slices 0, 1, and 1B are complete and merged. Slice 1B (merged 2026-05-15, PRs #91–#94) closed the structural gaps surfaced by Slice 1's four contract-drift bugs so the same class can't recur in Slice 2.
-**Next step:** Write the Slice 2 spec under `docs/specs/` from `docs/plans/mvp-0-cycle/slice-2-logging.md`, then implement.
+**Active slice:** Slice 2 (Workout Logging) — decomposed 2026-05-18 into two sub-projects: **2a Frontend Visual Foundation** (palette + semantic design tokens, light/dark, Tailwind v4 `@theme` wiring, the shadcn/ui-vs-pure-Tailwind component-library decision, typography/spacing scale, migrating existing surfaces) then **2b Workout Logging proper** (data model, endpoints, `ContextAssembler` extension, log form / today's card / history list). 2a goes first — the frontend has no design foundation (`index.css` is bare; shadcn/ui was never actually installed despite the stack listing). 2a is **implemented 2026-05-19** (spec `docs/specs/15-spec-slice-2a-frontend-foundation/`, 16 tasks across four `slice-2a-*` branches) but **not yet merged**. Slices 0, 1, and 1B are complete and merged.
+**Next step:** Push the four `slice-2a-*` branches and merge the four stacked PRs (foundation → contrast-gate + migration → home-settings), then work the **Slice 2a post-merge cleanup checklist** in the cycle plan's Status section (Playwright E2E + `check-contrast` on `main`, worktree teardown). Once 2a is merged, brainstorm sub-project 2b (Workout Logging) — requirements at `docs/plans/mvp-0-cycle/slice-2-logging.md`.
 **Blockers:** None.
 
+**Slice 2a decision:** DEC-070 (frontend design-token architecture — two-tier Catppuccin hybrid tokens + shadcn/ui on Tailwind v4 + class-based dark mode, R-075).
 **Slice 1B decisions:** DEC-066 (OpenAPI → TS+Zod codegen, R-071), DEC-067 (Marten upcasting, R-072), DEC-068 (error boundary, R-073), DEC-069 (client OTel, R-074).
 **Slice 1 decisions:** DEC-057 through DEC-064 — see decision log.
 
@@ -19,7 +20,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - **"What should I work on?"** → active cycle plan (pointer above).
 - **"What's the active slice doing?"** → active slice spec under `docs/specs/` (pointer in cycle plan's Status section, once a slice is underway).
 - **"How does X work?"** → `docs/planning/{topic}.md` + the relevant module under `backend/src/RunCoach.Api/Modules/` or `frontend/src/app/modules/`.
-- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-069).
+- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-070).
 - **"Has this been researched?"** → `docs/research/research-queue.md` + `docs/research/artifacts/`.
 - **"What are the rules for code changes?"** → root `CLAUDE.md`, `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `REVIEW.md` files (root / backend / frontend).
 - **"I found an unknown — can I just pick one and move on?"** → No. See `CLAUDE.md` § Research Protocol and the active cycle plan's "When Agents Encounter Unknowns" section.
@@ -37,7 +38,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - Safety & legal: `docs/planning/safety-and-legal.md`
 - Self-optimization: `docs/planning/self-optimization.md`
 - Unit system design: `docs/planning/unit-system-design.md`
-- Decision log: `docs/decisions/decision-log.md` (69 entries)
+- Decision log: `docs/decisions/decision-log.md` (70 entries)
 - Feature backlog: `docs/features/backlog.md`
 - Research queue & artifacts: `docs/research/research-queue.md`, `docs/research/artifacts/`
 - POC roadmap (historical framing, superseded by cycle plans): `docs/planning/poc-roadmap.md`
