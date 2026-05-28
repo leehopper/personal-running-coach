@@ -28,7 +28,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url))
 const cssPath = resolve(scriptDir, '../src/index.css')
 
 /** sRGB colour in 0-255 channels. */
-interface Rgb {
+export interface Rgb {
   r: number
   g: number
   b: number
@@ -38,7 +38,7 @@ interface Rgb {
  * A semantic foreground/background pair to assert. `fg` and `bg` are
  * primitive token names (--ctp-*); the values are resolved per mode.
  */
-interface Pair {
+export interface Pair {
   /** Human-readable label for failure messages, e.g. "--foreground on --background". */
   label: string
   /** Foreground primitive token name (without leading --). */
@@ -50,12 +50,13 @@ interface Pair {
 }
 
 /**
- * The semantic matrix from src/index.css. Each entry is the resolved
- * primitive pair behind a shadcn semantic foreground/background slot.
- * Mode-invariant: the same mapping holds for Latte and Mocha — only the
- * primitive *values* differ between modes, so each pair is checked twice.
+ * The semantic matrix from src/index.css. Each entry names the primitive
+ * (--ctp-*) token pair behind a shadcn semantic foreground/background slot.
+ * Mode-invariant: the same primitive names hold for Latte and Mocha — only
+ * their *values* differ between modes, so each pair is checked twice (once
+ * against the :root table, once against the .dark table).
  */
-const PAIRS: readonly Pair[] = [
+export const PAIRS: readonly Pair[] = [
   // Text-role pairs — WCAG AA normal text, 4.5:1.
   { label: '--foreground on --background', fg: 'ctp-text', bg: 'ctp-base', threshold: 4.5 },
   { label: '--card-foreground on --card', fg: 'ctp-text', bg: 'ctp-base', threshold: 4.5 },
@@ -75,8 +76,8 @@ const PAIRS: readonly Pair[] = [
     threshold: 4.5,
   },
   {
-    label: '--destructive-foreground on --destructive (light)',
-    fg: 'ctp-base',
+    label: '--destructive-foreground on --destructive',
+    fg: 'ctp-destructive-on',
     bg: 'ctp-red',
     threshold: 4.5,
   },
@@ -111,22 +112,8 @@ const PAIRS: readonly Pair[] = [
   },
 ]
 
-/**
- * Mode-specific overrides: pairs whose primitive mapping differs between
- * :root and .dark. --destructive-foreground is the only one (base vs
- * crust); the base entry above covers light, this covers dark.
- */
-const DARK_OVERRIDES: readonly Pair[] = [
-  {
-    label: '--destructive-foreground on --destructive (dark)',
-    fg: 'ctp-crust',
-    bg: 'ctp-red',
-    threshold: 4.5,
-  },
-]
-
 /** Parse `#rrggbb` (3- or 6-digit) into an Rgb. */
-function parseHex(hex: string): Rgb {
+export function parseHex(hex: string): Rgb {
   const h = hex.replace('#', '')
   if (h.length !== 3 && h.length !== 6) {
     throw new Error(`Unsupported hex colour format: ${hex}`)
@@ -152,7 +139,7 @@ function parseHex(hex: string): Rgb {
  * Pipeline: OKLCH → OKLab → linear sRGB → gamma-encoded sRGB.
  * Matrices per the CSS Color 4 spec / Björn Ottosson's OKLab reference.
  */
-function parseOklch(value: string): Rgb {
+export function parseOklch(value: string): Rgb {
   const match = /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/i.exec(value)
   if (!match) {
     throw new Error(`Unrecognised oklch() value: ${value}`)
@@ -187,7 +174,7 @@ function parseOklch(value: string): Rgb {
 }
 
 /** Parse a committed CSS colour token value (hex or oklch) into Rgb. */
-function parseColor(value: string): Rgb {
+export function parseColor(value: string): Rgb {
   const trimmed = value.trim()
   if (trimmed.startsWith('#')) {
     return parseHex(trimmed)
@@ -199,7 +186,7 @@ function parseColor(value: string): Rgb {
 }
 
 /** WCAG relative luminance of an sRGB colour (WCAG 2.x SC 1.4.3). */
-function relativeLuminance({ r, g, b }: Rgb): number {
+export function relativeLuminance({ r, g, b }: Rgb): number {
   const channel = (v: number): number => {
     const srgb = v / 255
     return srgb <= 0.04045 ? srgb / 12.92 : Math.pow((srgb + 0.055) / 1.055, 2.4)
@@ -208,7 +195,7 @@ function relativeLuminance({ r, g, b }: Rgb): number {
 }
 
 /** WCAG contrast ratio between two colours: (L1 + 0.05) / (L2 + 0.05). */
-function contrastRatio(a: Rgb, b: Rgb): number {
+export function contrastRatio(a: Rgb, b: Rgb): number {
   const la = relativeLuminance(a)
   const lb = relativeLuminance(b)
   const lighter = Math.max(la, lb)
@@ -221,7 +208,7 @@ function contrastRatio(a: Rgb, b: Rgb): number {
  * contain `:` and `;` characters that would otherwise confuse the literal
  * block- and declaration-scanning below.
  */
-function stripComments(css: string): string {
+export function stripComments(css: string): string {
   let out = ''
   let cursor = 0
   for (;;) {
@@ -246,7 +233,7 @@ function stripComments(css: string): string {
  * is *not* brace-adjacent. The primitive tier has no nested braces, so
  * the next `}` closes it.
  */
-function findBlockBody(css: string, selector: string): string {
+export function findBlockBody(css: string, selector: string): string {
   for (let at = css.indexOf(selector); at !== -1; at = css.indexOf(selector, at + 1)) {
     let cursor = at + selector.length
     while (cursor < css.length && /\s/.test(css[cursor])) {
@@ -270,7 +257,7 @@ function findBlockBody(css: string, selector: string): string {
  * remainder. Pure string indexing — no regex, no backtracking. Returns
  * `null` for a segment that is not a custom-property declaration.
  */
-function parseDeclaration(segment: string): readonly [string, string] | null {
+export function parseDeclaration(segment: string): readonly [string, string] | null {
   const dashes = segment.lastIndexOf('--')
   if (dashes === -1) {
     return null
@@ -290,7 +277,7 @@ function parseDeclaration(segment: string): readonly [string, string] | null {
  * `.dark` for Mocha. Only the first matching block is read — index.css
  * declares the primitive tier once per mode, before the semantic tier.
  */
-function extractTokens(css: string, selector: string): Map<string, string> {
+export function extractTokens(css: string, selector: string): Map<string, string> {
   const tokens = new Map<string, string>()
   for (const segment of findBlockBody(css, selector).split(';')) {
     const decl = parseDeclaration(segment)
@@ -302,7 +289,7 @@ function extractTokens(css: string, selector: string): Map<string, string> {
 }
 
 /** Resolve a primitive token name to an Rgb, erroring if absent. */
-function resolveToken(tokens: Map<string, string>, name: string, mode: string): Rgb {
+export function resolveToken(tokens: Map<string, string>, name: string, mode: string): Rgb {
   const value = tokens.get(name)
   if (value === undefined) {
     throw new Error(`Token --${name} not found in the ${mode} primitive tier`)
@@ -310,7 +297,7 @@ function resolveToken(tokens: Map<string, string>, name: string, mode: string): 
   return parseColor(value)
 }
 
-interface Result {
+export interface Result {
   mode: string
   label: string
   ratio: number
@@ -319,7 +306,11 @@ interface Result {
 }
 
 /** Check every pair for one mode and return the results. */
-function checkMode(tokens: Map<string, string>, mode: string, pairs: readonly Pair[]): Result[] {
+export function checkMode(
+  tokens: Map<string, string>,
+  mode: string,
+  pairs: readonly Pair[],
+): Result[] {
   return pairs.map((pair) => {
     const fg = resolveToken(tokens, pair.fg, mode)
     const bg = resolveToken(tokens, pair.bg, mode)
@@ -348,27 +339,22 @@ function main(): void {
   const lightTokens = extractTokens(source, ':root')
   const darkTokens = extractTokens(source, '.dark')
 
-  // Light mode runs the shared matrix; dark mode runs the shared matrix
-  // minus the light-only --destructive-foreground entry plus its dark
-  // override, since that pair's primitive mapping differs by mode.
-  const lightPairs = PAIRS
-  const darkPairs = [...PAIRS.filter((p) => !p.label.includes('(light)')), ...DARK_OVERRIDES]
-
+  // Every pair is mode-invariant: the same primitive matrix runs against
+  // both the :root (Latte) and .dark (Mocha) token tables.
   const results = [
-    ...checkMode(lightTokens, 'light', lightPairs),
-    ...checkMode(darkTokens, 'dark', darkPairs),
+    ...checkMode(lightTokens, 'light', PAIRS),
+    ...checkMode(darkTokens, 'dark', PAIRS),
   ]
 
   let failures = 0
   for (const result of results) {
     const status = result.pass ? 'PASS' : 'FAIL'
     const line = `[${status}] ${result.mode.padEnd(5)} ${result.label}: ${result.ratio.toFixed(2)}:1 (need ${result.threshold.toFixed(1)}:1)`
-    if (result.pass) {
-      nodeProcess.stdout.write(`${line}\n`)
-    } else {
+    const stream = result.pass ? nodeProcess.stdout : nodeProcess.stderr
+    if (!result.pass) {
       failures++
-      nodeProcess.stderr.write(`${line}\n`)
     }
+    stream.write(`${line}\n`)
   }
 
   if (failures > 0) {
@@ -378,4 +364,8 @@ function main(): void {
   nodeProcess.stdout.write(`\ncheck-contrast: all ${results.length} pairs pass WCAG thresholds.\n`)
 }
 
-main()
+// Run the gate only on direct invocation (`tsx scripts/check-contrast.ts`),
+// not when the module is imported by a unit test.
+if (nodeProcess.argv[1] === fileURLToPath(import.meta.url)) {
+  main()
+}
