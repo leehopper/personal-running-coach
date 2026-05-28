@@ -128,6 +128,9 @@ const DARK_OVERRIDES: readonly Pair[] = [
 /** Parse `#rrggbb` (3- or 6-digit) into an Rgb. */
 function parseHex(hex: string): Rgb {
   const h = hex.replace('#', '')
+  if (h.length !== 3 && h.length !== 6) {
+    throw new Error(`Unsupported hex colour format: ${hex}`)
+  }
   const full =
     h.length === 3
       ? h
@@ -135,11 +138,13 @@ function parseHex(hex: string): Rgb {
           .map((c) => c + c)
           .join('')
       : h
-  return {
-    r: parseInt(full.slice(0, 2), 16),
-    g: parseInt(full.slice(2, 4), 16),
-    b: parseInt(full.slice(4, 6), 16),
+  const r = parseInt(full.slice(0, 2), 16)
+  const g = parseInt(full.slice(2, 4), 16)
+  const b = parseInt(full.slice(4, 6), 16)
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
+    throw new Error(`Unsupported hex colour format: ${hex}`)
   }
+  return { r, g, b }
 }
 
 /**
