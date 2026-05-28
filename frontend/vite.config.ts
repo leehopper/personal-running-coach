@@ -117,6 +117,11 @@ export default defineConfig({
         'src/main.tsx',
         'src/test-setup.ts',
         'src/vite-env.d.ts',
+        // shadcn/ui primitives + cn() helper are vendor-copy code per
+        // the shadcn convention; mirror sonar.coverage.exclusions so
+        // the local report matches what SonarCloud measures.
+        'src/components/ui/**',
+        'src/lib/utils.ts',
       ],
     },
   },
