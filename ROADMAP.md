@@ -20,7 +20,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - **"What should I work on?"** → active cycle plan (pointer above).
 - **"What's the active slice doing?"** → active slice spec under `docs/specs/` (pointer in cycle plan's Status section, once a slice is underway).
 - **"How does X work?"** → `docs/planning/{topic}.md` + the relevant module under `backend/src/RunCoach.Api/Modules/` or `frontend/src/app/modules/`.
-- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-069).
+- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-070).
 - **"Has this been researched?"** → `docs/research/research-queue.md` + `docs/research/artifacts/`.
 - **"What are the rules for code changes?"** → root `CLAUDE.md`, `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `REVIEW.md` files (root / backend / frontend).
 - **"I found an unknown — can I just pick one and move on?"** → No. See `CLAUDE.md` § Research Protocol and the active cycle plan's "When Agents Encounter Unknowns" section.
@@ -38,7 +38,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - Safety & legal: `docs/planning/safety-and-legal.md`
 - Self-optimization: `docs/planning/self-optimization.md`
 - Unit system design: `docs/planning/unit-system-design.md`
-- Decision log: `docs/decisions/decision-log.md` (69 entries)
+- Decision log: `docs/decisions/decision-log.md` (70 entries)
 - Feature backlog: `docs/features/backlog.md`
 - Research queue & artifacts: `docs/research/research-queue.md`, `docs/research/artifacts/`
 - POC roadmap (historical framing, superseded by cycle plans): `docs/planning/poc-roadmap.md`

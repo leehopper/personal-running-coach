@@ -33,8 +33,7 @@ const LINE_TOKENS = ['border', 'input', 'ring'] as const
 const Swatch = ({ fill, on }: { fill: string; on: string }) => (
   <div
     data-testid={`swatch-${fill}`}
-    className="flex min-h-20 flex-col justify-between rounded-lg border border-border p-3"
-    style={{ backgroundColor: `var(--${fill})`, color: `var(--${on})` }}
+    className={`flex min-h-20 flex-col justify-between rounded-lg border border-border p-3 bg-[var(--${fill})] text-[var(--${on})]`}
   >
     <span className="text-sm font-medium">--{fill}</span>
     <span className="text-xs opacity-80">on --{on}</span>
@@ -44,8 +43,7 @@ const Swatch = ({ fill, on }: { fill: string; on: string }) => (
 const LineSwatch = ({ token }: { token: string }) => (
   <div
     data-testid={`swatch-${token}`}
-    className="flex min-h-20 items-center justify-center rounded-lg bg-background p-3"
-    style={{ border: `3px solid var(--${token})` }}
+    className={`flex min-h-20 items-center justify-center rounded-lg bg-background p-3 border-[3px] border-solid border-[color:var(--${token})]`}
   >
     <span className="text-sm font-medium text-foreground">--{token}</span>
   </div>

@@ -54,7 +54,7 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
+      {...(asChild ? props : { type: 'button' as const, ...props })}
     />
   )
 }
