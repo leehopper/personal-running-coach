@@ -44,7 +44,7 @@ docs/specs/
 
 # Misc
 *.log
-/.deep-review/
+**/.deep-review/
 /.playwright-mcp/
 
 # Claude Code runtime artifacts (per-session lock files; not source)

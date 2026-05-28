@@ -13,9 +13,10 @@ import { ThemeProviderContext, type Theme } from './theme-context'
 // so this file's only export is the `ThemeProvider` component (keeps
 // React Fast Refresh happy).
 
-// Single source of truth — the no-flash script in index.html hard-codes
-// this same string; keep them in sync.
-const STORAGE_KEY = 'runcoach-theme'
+// Exported so the spec can pin it; the inline no-flash script in `index.html`
+// mirrors the same literal and is pinned by a drift assertion in
+// `theme-provider.spec.tsx`.
+export const STORAGE_KEY = 'runcoach-theme'
 
 const isTheme = (value: string | null): value is Theme =>
   value === 'light' || value === 'dark' || value === 'system'

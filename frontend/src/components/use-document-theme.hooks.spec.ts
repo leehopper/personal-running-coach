@@ -10,6 +10,8 @@ describe('useDocumentTheme', () => {
 
   afterEach(() => {
     document.documentElement.className = ''
+    document.documentElement.removeAttribute('data-noise')
+    document.body.classList.remove('dark')
     vi.restoreAllMocks()
   })
 
@@ -56,6 +58,50 @@ describe('useDocumentTheme', () => {
       document.documentElement.classList.add('dark')
     })
     expect(result.current).toBe('light')
+  })
+
+  // The render counter below is captured by a closure so the test can
+  // assert idempotent observer callbacks (non-class attribute mutations,
+  // descendant class mutations) do NOT trigger React re-renders.
+  // Closure form rather than `useRef` because reading `ref.current` during
+  // render trips the `react-hooks/refs` lint rule (refs are not for render
+  // output); the test pattern mirrors the StrictMode case below this block.
+  it('ignores non-class attribute mutations on documentElement', async () => {
+    let renders = 0
+    const { result } = renderHook(() => {
+      renders += 1
+      return useDocumentTheme()
+    })
+    expect(result.current).toBe('light')
+    const initialRenders = renders
+
+    await act(async () => {
+      document.documentElement.setAttribute('data-noise', 'x')
+    })
+
+    expect(result.current).toBe('light')
+    expect(renders).toBe(initialRenders)
+
+    document.documentElement.removeAttribute('data-noise')
+  })
+
+  it('ignores class mutations on descendants of documentElement (no subtree)', async () => {
+    let renders = 0
+    const { result } = renderHook(() => {
+      renders += 1
+      return useDocumentTheme()
+    })
+    expect(result.current).toBe('light')
+    const initialRenders = renders
+
+    await act(async () => {
+      document.body.classList.add('dark')
+    })
+
+    expect(result.current).toBe('light')
+    expect(renders).toBe(initialRenders)
+
+    document.body.classList.remove('dark')
   })
 
   it('eagerly re-syncs after mount when the class changed between render and effect', () => {

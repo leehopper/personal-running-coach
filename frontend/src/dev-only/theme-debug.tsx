@@ -12,39 +12,82 @@
 
 import { useTheme } from '@/components/theme-context'
 
-// Each pair is a [fill, text-on-fill] token duo — the swatch fills with
-// the first and writes its own name with the second so contrast is
-// visible at a glance.
-const TOKEN_PAIRS: ReadonlyArray<readonly [fill: string, on: string]> = [
-  ['background', 'foreground'],
-  ['card', 'card-foreground'],
-  ['popover', 'popover-foreground'],
-  ['primary', 'primary-foreground'],
-  ['secondary', 'secondary-foreground'],
-  ['muted', 'muted-foreground'],
-  ['accent', 'accent-foreground'],
-  ['destructive', 'destructive-foreground'],
+// Tailwind v4 (Oxide) is a static source scanner — interpolated
+// arbitrary-value class strings (e.g. `bg-[var(--${token})]`) are never
+// seen as full literals by the scanner and therefore never emitted into
+// the CSS bundle. Each entry must carry the full, literal Tailwind utility
+// class string so the scanner can collect it at build time.
+
+interface TokenPair {
+  fill: string
+  on: string
+  label: string
+}
+
+// Each pair fills with the semantic background colour and writes its own
+// label in the matching foreground colour so contrast is visible at a glance.
+const TOKEN_PAIRS: ReadonlyArray<TokenPair> = [
+  { fill: 'bg-background', on: 'text-foreground', label: 'background / foreground' },
+  { fill: 'bg-card', on: 'text-card-foreground', label: 'card / card-foreground' },
+  { fill: 'bg-popover', on: 'text-popover-foreground', label: 'popover / popover-foreground' },
+  { fill: 'bg-primary', on: 'text-primary-foreground', label: 'primary / primary-foreground' },
+  {
+    fill: 'bg-secondary',
+    on: 'text-secondary-foreground',
+    label: 'secondary / secondary-foreground',
+  },
+  { fill: 'bg-muted', on: 'text-muted-foreground', label: 'muted / muted-foreground' },
+  { fill: 'bg-accent', on: 'text-accent-foreground', label: 'accent / accent-foreground' },
+  {
+    fill: 'bg-destructive',
+    on: 'text-destructive-foreground',
+    label: 'destructive / destructive-foreground',
+  },
 ]
 
-// Single-role tokens — rendered as a labelled border/outline sample.
-const LINE_TOKENS = ['border', 'input', 'ring'] as const
+interface LineToken {
+  border: string
+  label: string
+}
 
-const Swatch = ({ fill, on }: { fill: string; on: string }) => (
+// Single-role tokens — rendered as a labelled border/outline sample.
+// `border-border`, `border-input`, `ring-ring` are the semantic utilities
+// exposed by the `@theme inline` block; they must appear as full literal
+// strings so the scanner emits them.
+const LINE_TOKENS: ReadonlyArray<LineToken> = [
+  { border: 'border-border', label: 'border' },
+  { border: 'border-input', label: 'input' },
+  { border: 'ring-ring', label: 'ring' },
+]
+
+interface SwatchProps {
+  fill: string
+  on: string
+  label: string
+  name: string
+}
+
+const Swatch = ({ fill, on, label, name }: SwatchProps) => (
   <div
-    data-testid={`swatch-${fill}`}
-    className={`flex min-h-20 flex-col justify-between rounded-lg border border-border p-3 bg-[var(--${fill})] text-[var(--${on})]`}
+    data-testid={`swatch-${name}`}
+    className={`flex min-h-20 flex-col justify-between rounded-lg border border-border p-3 ${fill} ${on}`}
   >
-    <span className="text-sm font-medium">--{fill}</span>
-    <span className="text-xs opacity-80">on --{on}</span>
+    <span className="text-sm font-medium">{label.split(' / ')[0]}</span>
+    <span className="text-xs opacity-80">on {label.split(' / ')[1]}</span>
   </div>
 )
 
-const LineSwatch = ({ token }: { token: string }) => (
+interface LineSwatchProps {
+  border: string
+  label: string
+}
+
+const LineSwatch = ({ border, label }: LineSwatchProps) => (
   <div
-    data-testid={`swatch-${token}`}
-    className={`flex min-h-20 items-center justify-center rounded-lg bg-background p-3 border-[3px] border-solid border-[color:var(--${token})]`}
+    data-testid={`swatch-${label}`}
+    className={`flex min-h-20 items-center justify-center rounded-lg bg-background p-3 border-[3px] border-solid ${border}`}
   >
-    <span className="text-sm font-medium text-foreground">--{token}</span>
+    <span className="text-sm font-medium text-foreground">--{label}</span>
   </div>
 )
 
@@ -79,11 +122,11 @@ export const ThemeDebugPage = (): React.ReactElement => {
         aria-label="Semantic token swatches"
         className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
       >
-        {TOKEN_PAIRS.map(([fill, on]) => (
-          <Swatch key={fill} fill={fill} on={on} />
+        {TOKEN_PAIRS.map(({ fill, on, label }) => (
+          <Swatch key={fill} fill={fill} on={on} label={label} name={label.split(' / ')[0]} />
         ))}
-        {LINE_TOKENS.map((token) => (
-          <LineSwatch key={token} token={token} />
+        {LINE_TOKENS.map(({ border, label }) => (
+          <LineSwatch key={label} border={border} label={label} />
         ))}
       </section>
     </main>

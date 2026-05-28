@@ -1,10 +1,10 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { act, render, renderHook, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ThemeProvider } from './theme-provider'
+import { STORAGE_KEY, ThemeProvider } from './theme-provider'
 import { useTheme } from './theme-context'
 import type { ReactNode } from 'react'
-
-const STORAGE_KEY = 'runcoach-theme'
 
 // jsdom ships no `matchMedia`; the ThemeProvider needs it to resolve the
 // `system` preference. This mock lets each test pin the OS preference.
@@ -184,5 +184,13 @@ describe('useTheme', () => {
       'useTheme must be used within a <ThemeProvider>',
     )
     spy.mockRestore()
+  })
+})
+
+describe('STORAGE_KEY contract', () => {
+  it('matches the inline no-flash script literal in index.html', () => {
+    const indexHtmlPath = resolve(__dirname, '../../index.html')
+    const indexHtml = readFileSync(indexHtmlPath, 'utf-8')
+    expect(indexHtml).toContain(`localStorage.getItem('${STORAGE_KEY}')`)
   })
 })

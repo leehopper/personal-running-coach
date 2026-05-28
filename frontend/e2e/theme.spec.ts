@@ -1,13 +1,11 @@
 import { expect, test } from '@playwright/test'
+import { STORAGE_KEY } from '../src/components/theme-provider'
 
 // The inline no-flash IIFE in `index.html` runs before React boots and stamps
 // `.dark` or `.light` on `<html>` from `localStorage.getItem('runcoach-theme')`,
 // falling back to `prefers-color-scheme` (system) and finally to `light` when
 // storage throws. This spec exercises each branch directly against the dev
-// server's root document — no auth, no API, no React state — so the storage
-// key literal below is intentionally hard-coded to mirror the markup and
-// catch any drift between the IIFE and `theme-provider.tsx`.
-const STORAGE_KEY = 'runcoach-theme'
+// server's root document — no auth, no API, no React state.
 
 test.describe('no-flash theme script', () => {
   test('applies `dark` class before React boots when localStorage holds dark', async ({ page }) => {

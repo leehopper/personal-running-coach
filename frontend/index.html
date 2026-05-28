@@ -7,10 +7,10 @@
     <title>RunCoach</title>
     <script>
       // No-flash theme script — must run before the module script below so
-      // the `.dark`/`.light` class is on <html> before first paint. Mirrors
-      // the storage key and resolution logic in src/components/theme-provider.tsx
-      // (keep the 'runcoach-theme' key in sync). A try/catch keeps a
-      // storage-disabled browser from blocking the render.
+      // the .dark/.light class is on <html> before first paint. Mirrors
+      // the storage key and resolution logic in `ThemeProvider`; keep the
+      // 'runcoach-theme' key in sync between this script and the provider.
+      // A try/catch keeps a storage-disabled browser from blocking the render.
       ;(function () {
         try {
           var stored = localStorage.getItem('runcoach-theme')
