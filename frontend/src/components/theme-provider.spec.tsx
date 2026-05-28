@@ -89,12 +89,33 @@ describe('ThemeProvider', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBe('dark')
   })
 
+  it('persists chosen theme even when localStorage.setItem throws', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceededError')
+    })
+    const { result } = renderHook(() => useTheme(), { wrapper: wrapper() })
+
+    act(() => result.current.setTheme('dark'))
+
+    expect(result.current.theme).toBe('dark')
+    expect(result.current.resolvedTheme).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    spy.mockRestore()
+  })
+
   it('reads the persisted theme on mount', () => {
     localStorage.setItem(STORAGE_KEY, 'dark')
     const { result } = renderHook(() => useTheme(), { wrapper: wrapper() })
 
     expect(result.current.theme).toBe('dark')
     expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('falls back to defaultTheme when localStorage holds an invalid value', () => {
+    localStorage.setItem(STORAGE_KEY, 'not-a-theme')
+    const { result } = renderHook(() => useTheme(), { wrapper: wrapper() })
+
+    expect(result.current.theme).toBe('system')
   })
 
   it('follows OS preference changes while on system', () => {
@@ -106,6 +127,14 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
+  it('removes the matchMedia listener on unmount', () => {
+    const { unmount } = renderHook(() => useTheme(), { wrapper: wrapper() })
+    expect(mediaListeners.size).toBeGreaterThanOrEqual(1)
+
+    unmount()
+    expect(mediaListeners.size).toBe(0)
+  })
+
   it('ignores OS preference changes once an explicit theme is set', () => {
     const { result } = renderHook(() => useTheme(), { wrapper: wrapper() })
 
@@ -114,6 +143,18 @@ describe('ThemeProvider', () => {
 
     expect(result.current.resolvedTheme).toBe('light')
     expect(document.documentElement.classList.contains('light')).toBe(true)
+  })
+
+  it('re-subscribes to OS preference when returning to system mode', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper: wrapper() })
+
+    act(() => result.current.setTheme('light'))
+    act(() => result.current.setTheme('system'))
+
+    setOsPreference(true)
+
+    expect(result.current.resolvedTheme).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
   it('renders its children', () => {

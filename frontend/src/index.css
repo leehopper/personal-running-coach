@@ -70,6 +70,9 @@
    * can assert it. */
   --ctp-accent-fill: oklch(0.52 0.088 201.1);
   --ctp-accent-on: #ffffff;
+
+  /* Statically-committed destructive-foreground — paired with --ctp-red to clear AA on both modes. */
+  --ctp-destructive-on: #eff1f5;
 }
 
 /* ── Primitive tier — Catppuccin Mocha (dark). catppuccin/palette v1.7.1 ── */
@@ -104,6 +107,9 @@
   /* Dark teal accent is the native Catppuccin Mocha teal. */
   --ctp-accent-fill: #94e2d5;
   --ctp-accent-on: #11111b;
+
+  /* Statically-committed destructive-foreground — paired with --ctp-red to clear AA on both modes. */
+  --ctp-destructive-on: #11111b;
 }
 
 /* ── Semantic tier — shadcn slots mapped to the primitive tier. ──────────────
@@ -143,7 +149,7 @@
   --accent-foreground: var(--ctp-text);
 
   --destructive: var(--ctp-red);
-  --destructive-foreground: var(--ctp-base);
+  --destructive-foreground: var(--ctp-destructive-on);
 
   /* --border is a decorative divider (WCAG 1.4.11 exempt); --input is a
    * form-control boundary and is held to the 3:1 UI-component rule. */
@@ -191,7 +197,7 @@
   --accent-foreground: var(--ctp-text);
 
   --destructive: var(--ctp-red);
-  --destructive-foreground: var(--ctp-crust);
+  --destructive-foreground: var(--ctp-destructive-on);
 
   --border: var(--ctp-surface1);
   --input: var(--ctp-overlay2);

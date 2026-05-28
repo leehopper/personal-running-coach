@@ -3,9 +3,8 @@
 // `import.meta.env.DEV &&` gate; Vite replaces that with the literal
 // `false` for `build`, so the route element is never constructed and
 // Rollup tree-shakes this whole module out (verified: `grep -r
-// theme-debug dist/` returns no matches). Every consumer under
-// `frontend/src/dev-only/` must gate its import/usage with
-// `import.meta.env.DEV`.
+// theme-debug dist/` returns no matches). Every consumer in this
+// directory must gate its import/usage with `import.meta.env.DEV`.
 //
 // The page renders a swatch for every shadcn semantic token so the token
 // layer (T01.2) and the dark cascade (T01.3) can be eyeballed in

@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useState } from 'react'
+import { type CSSProperties } from 'react'
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -7,30 +7,10 @@ import {
   TriangleAlertIcon,
 } from 'lucide-react'
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
+import { useDocumentTheme } from '@/components/use-document-theme.hooks'
 
-// shadcn ships this component wired to `next-themes`; this is a Vite SPA,
-// so the toaster instead mirrors the `.dark` class that the project's own
-// ThemeProvider (and the index.html no-flash script) toggles on
-// `documentElement`. A MutationObserver keeps it in sync with theme changes.
-function useDocumentTheme(): 'light' | 'dark' {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
-    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-      ? 'dark'
-      : 'light',
-  )
-
-  useEffect(() => {
-    const root = document.documentElement
-    const sync = () => setTheme(root.classList.contains('dark') ? 'dark' : 'light')
-    sync()
-    const observer = new MutationObserver(sync)
-    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
-    return () => observer.disconnect()
-  }, [])
-
-  return theme
-}
-
+// Toaster mirrors the `.dark` class on `documentElement` rather than relying
+// on `next-themes`, which this Vite SPA does not use.
 const Toaster = ({ ...props }: ToasterProps) => {
   const theme = useDocumentTheme()
 
