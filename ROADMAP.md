@@ -114,6 +114,7 @@ Tiered model routing (Haiku / Sonnet / Opus) for ~60% cost reduction; Batch API 
 - Performance regression testing in CI — deferred per DEC-034 (GitHub runner variance).
 - Trivy container image scanning — add when deploying Docker images.
 - **Trademark build-time analyzer** — Roslyn rule that flags "VDOT" (case-insensitive, with explicit carve-outs in `docs/`, `NOTICE`, `CLAUDE.md`, `README.md`, and the existing live-guard assertions) as a compile error in `Prompts/*` and API response paths. DEC-042's runtime check in `ContextAssemblerTests` is the current safety net; promote to compile-time before the first non-builder contributor joins the repo. Surfaced in the Slice 1B production-grade gap audit (2026-04-27).
+- **Reduced-motion build-time lint rule** — ESLint rule that flags Tailwind `transition-*` / `animate-*` utilities lacking a paired `motion-reduce:` variant (e.g. `motion-reduce:transition-none`, `motion-reduce:animate-none`), enforcing the DEC-063 reduced-motion contract (WCAG 2.3.3) in `npm run lint` (the eslint-plugin-sonarjs hard-gate layer) instead of leaving it to CodeRabbit / human review. No off-the-shelf rule covers this class-pairing semantic — needs a custom ESLint rule (or an `eslint-plugin-tailwindcss` extension); treat as a Research Protocol item before implementing. Recurs in CodeRabbit reviews (most recently PR #113, 2026-05-29).
 
 ### Test parallelism — per-collection database isolation (DEC-064 deferred reversal)
 
