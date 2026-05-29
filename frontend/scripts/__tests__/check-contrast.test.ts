@@ -44,7 +44,7 @@ describe('parseHex', () => {
     expect(() => parseHex('#abcde')).toThrow(/Unsupported hex colour format/)
   })
 
-  it('throws on non-hex characters via the NaN guard', () => {
+  it('throws on non-hex characters via the hex-digit regex', () => {
     expect(() => parseHex('#gggggg')).toThrow(/Unsupported hex colour format/)
   })
 
