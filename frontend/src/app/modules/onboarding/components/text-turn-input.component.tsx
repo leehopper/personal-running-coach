@@ -1,5 +1,8 @@
 import type { ReactElement } from 'react'
 import { useForm } from 'react-hook-form'
+
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import type { InputProps } from './input-for-topic.types'
 
 interface TextFormValues {
@@ -43,24 +46,20 @@ export const TextTurnInput = ({
       <label htmlFor="text-turn-input-field" className="sr-only">
         Your reply
       </label>
-      <textarea
+      <Textarea
         id="text-turn-input-field"
         data-testid="text-turn-input-field"
         rows={2}
         disabled={isSubmitting}
         placeholder="Type your reply…"
-        className="flex-1 resize-none rounded border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex-1 resize-none"
         {...form.register('text', {
           validate: (value) => value.trim().length > 0,
         })}
       />
-      <button
-        type="submit"
-        disabled={isSubmitDisabled}
-        className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isSubmitDisabled}>
         {isSubmitting ? 'Sending…' : 'Send'}
-      </button>
+      </Button>
     </form>
   )
 }
