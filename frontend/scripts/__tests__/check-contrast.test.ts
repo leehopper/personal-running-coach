@@ -12,6 +12,7 @@ import {
   parseOklch,
   relativeLuminance,
   resolveToken,
+  stripComments,
   type Pair,
 } from '../check-contrast'
 
@@ -109,6 +110,22 @@ describe('parseOklch', () => {
     }
   })
 
+  it('clamps an out-of-sRGB-gamut colour to the [0,255] boundary', () => {
+    // oklch(0.7 0.35 30) is well outside the sRGB gamut: the red linear
+    // channel overshoots 1 while green and blue go negative. Without the
+    // [0,1] gamut clamp in encode() those would round to out-of-range
+    // values (r≈318, g≈-303); the clamp pins them to 255 / 0. Asserting
+    // both boundaries proves the clamp fires in both directions — remove
+    // it and this test fails.
+    const rgb = parseOklch('oklch(0.7 0.35 30)')
+    for (const channel of [rgb.r, rgb.g, rgb.b]) {
+      expect(channel).toBeGreaterThanOrEqual(0)
+      expect(channel).toBeLessThanOrEqual(255)
+    }
+    expect(Math.max(rgb.r, rgb.g, rgb.b)).toBe(255)
+    expect(Math.min(rgb.r, rgb.g, rgb.b)).toBe(0)
+  })
+
   it('throws on malformed oklch() input', () => {
     expect(() => parseOklch('oklch(not a colour)')).toThrow(/Unrecognised oklch/)
   })
@@ -154,6 +171,27 @@ describe('parseDeclaration', () => {
   })
 })
 
+describe('stripComments', () => {
+  it('strips a block comment but preserves the surrounding text', () => {
+    // The comment carries `:` and `;` — the exact characters that would
+    // otherwise confuse the literal block/declaration scanning downstream.
+    const out = stripComments('a { x: 1; } /* note: has ; and : */ b { y: 2; }')
+    expect(out).not.toContain('note')
+    expect(out).toContain('a { x: 1; }')
+    expect(out).toContain('b { y: 2; }')
+  })
+
+  it('removes multiple consecutive comments', () => {
+    expect(stripComments('/* one */keep/* two *//* three */end')).toBe('keepend')
+  })
+
+  it('drops everything from an unterminated comment onward', () => {
+    // Documented truncation contract (an unclosed `/*` swallows the rest):
+    // the gate would rather lose trailing tokens than mis-parse them.
+    expect(stripComments('visible /* unterminated rest is gone')).toBe('visible ')
+  })
+})
+
 const CSS_FIXTURE = `
 /* primitive tier — comment with a : and ; to confuse naive parsers */
 :root {
@@ -186,7 +224,14 @@ describe('findBlockBody', () => {
   })
 
   it('throws when the selector has no brace-adjacent block', () => {
-    expect(() => findBlockBody('@custom-variant dark', '.dark')).toThrow(
+    // Real Tailwind v4 `@custom-variant` directive form: the fixture *does*
+    // contain `.dark` (inside `&:is(.dark *)`), but that match is followed by
+    // ` *))`, not `{`. So findBlockBody finds the substring, hits the
+    // brace-adjacency guard (the `continue` that skips a non-`{` match), finds
+    // no further `.dark`, and throws via the not-found path. This is the guard
+    // branch the test is meant to cover — a fixture lacking `.dark` entirely
+    // would instead throw straight from "not found" without exercising it.
+    expect(() => findBlockBody('@custom-variant dark (&:is(.dark *));', '.dark')).toThrow(
       /Could not find a "\.dark" block/,
     )
   })
