@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
@@ -56,19 +56,27 @@ export const NumericTurnInput = ({ onSubmit, isSubmitting = false }: InputProps)
         Weekly distance (km)
       </label>
       <div className="flex items-end gap-2">
-        <Input
-          id="numeric-turn-input-field"
-          data-testid="numeric-turn-input-field"
-          type="number"
-          inputMode="decimal"
-          min={0}
-          max={300}
-          step={0.1}
-          aria-invalid={valueError !== undefined}
-          aria-describedby={valueError === undefined ? undefined : 'numeric-turn-input-error'}
-          disabled={isSubmitting}
-          className="flex-1"
-          {...form.register('value', { valueAsNumber: true })}
+        <Controller
+          control={form.control}
+          name="value"
+          render={({ field }) => (
+            <Input
+              {...field}
+              id="numeric-turn-input-field"
+              data-testid="numeric-turn-input-field"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={300}
+              step={0.1}
+              aria-invalid={valueError !== undefined}
+              aria-describedby={valueError === undefined ? undefined : 'numeric-turn-input-error'}
+              disabled={isSubmitting}
+              className="flex-1"
+              value={Number.isNaN(field.value) ? '' : field.value}
+              onChange={(event) => field.onChange(event.target.valueAsNumber)}
+            />
+          )}
         />
         <Button type="submit" disabled={isSubmitDisabled}>
           {isSubmitting ? 'Sending…' : 'Send'}

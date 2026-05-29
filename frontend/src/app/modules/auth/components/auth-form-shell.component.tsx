@@ -31,7 +31,7 @@ export const AuthFormShell = <TValues extends FieldValues>({
   pendingLabel,
   children,
 }: AuthFormShellProps<TValues>) => {
-  const isSubmitDisabled = !form.formState.isValid || isLoading
+  const isSubmitDisabled = !form.formState.isValid || form.formState.isSubmitting || isLoading
 
   return (
     <>

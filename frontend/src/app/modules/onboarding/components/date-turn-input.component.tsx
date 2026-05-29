@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
@@ -52,15 +52,21 @@ export const DateTurnInput = ({ onSubmit, isSubmitting = false }: InputProps): R
         Date
       </label>
       <div className="flex items-end gap-2">
-        <Input
-          id="date-turn-input-field"
-          data-testid="date-turn-input-field"
-          type="date"
-          aria-invalid={valueError !== undefined}
-          aria-describedby={valueError === undefined ? undefined : 'date-turn-input-error'}
-          disabled={isSubmitting}
-          className="flex-1"
-          {...form.register('value')}
+        <Controller
+          control={form.control}
+          name="value"
+          render={({ field }) => (
+            <Input
+              {...field}
+              id="date-turn-input-field"
+              data-testid="date-turn-input-field"
+              type="date"
+              aria-invalid={valueError !== undefined}
+              aria-describedby={valueError === undefined ? undefined : 'date-turn-input-error'}
+              disabled={isSubmitting}
+              className="flex-1"
+            />
+          )}
         />
         <Button type="submit" disabled={isSubmitDisabled}>
           {isSubmitting ? 'Sending…' : 'Send'}
