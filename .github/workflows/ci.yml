@@ -121,6 +121,14 @@ jobs:
       - name: Install
         run: npm ci
         working-directory: frontend
+      - name: Check contrast
+        # WCAG-AA contrast gate (DEC-070). Recomputes the contrast ratio
+        # of every semantic foreground/background token pair from the
+        # committed values in src/index.css and fails the build if any
+        # text pair drops below 4.5:1 or any non-text UI pair below 3:1.
+        # Mirrors the `check-contrast` Lefthook pre-commit hook.
+        run: npm run check-contrast
+        working-directory: frontend
       - name: Build
         run: npm run build
         working-directory: frontend
