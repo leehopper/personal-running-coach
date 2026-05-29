@@ -1,10 +1,17 @@
 // @vitest-environment node
+import { execFileSync } from 'node:child_process'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, resolve } from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   PAIRS,
   checkMode,
   contrastRatio,
   extractTokens,
+  findBlockBodies,
   findBlockBody,
   parseColor,
   parseDeclaration,
@@ -12,12 +19,16 @@ import {
   parseOklch,
   relativeLuminance,
   resolveToken,
+  runChecks,
   stripComments,
   type Pair,
 } from '../check-contrast'
 
 const WHITE = { r: 255, g: 255, b: 255 }
 const BLACK = { r: 0, g: 0, b: 0 }
+
+const here = dirname(fileURLToPath(import.meta.url))
+const realIndexCssPath = resolve(here, '../../src/index.css')
 
 describe('parseHex', () => {
   it('parses a 6-digit #rrggbb into channels', () => {
@@ -158,6 +169,16 @@ describe('parseDeclaration', () => {
     expect(parseDeclaration('   --ctp-red :   #d20f39  ')).toEqual(['ctp-red', '#d20f39'])
   })
 
+  it('keeps a var() value intact (the property is the FIRST --, not the last)', () => {
+    // The semantic tier holds values like `var(--ctp-text)`, whose own `--`
+    // must not be mistaken for the property name. This is the regression the
+    // first-`--` parse fixes; lastIndexOf would have returned null here.
+    expect(parseDeclaration('--muted-foreground: var(--ctp-subtext1)')).toEqual([
+      'muted-foreground',
+      'var(--ctp-subtext1)',
+    ])
+  })
+
   it('returns null for a segment with no custom property', () => {
     expect(parseDeclaration('color: red')).toBeNull()
   })
@@ -209,6 +230,34 @@ const CSS_FIXTURE = `
 }
 `
 
+// A two-tier fixture: a primitive :root block plus a semantic :root block
+// that maps slots through var(--ctp-*), mirroring index.css's structure.
+const TWO_TIER_FIXTURE = `
+:root {
+  --ctp-base: #ffffff;
+  --ctp-text: #000000;
+}
+:root {
+  --background: var(--ctp-base);
+  --foreground: var(--ctp-text);
+}
+`
+
+describe('findBlockBodies', () => {
+  it('returns every brace-adjacent block for a selector', () => {
+    const bodies = findBlockBodies(TWO_TIER_FIXTURE, ':root')
+    expect(bodies).toHaveLength(2)
+    expect(bodies[0]).toContain('--ctp-base: #ffffff')
+    expect(bodies[1]).toContain('--background: var(--ctp-base)')
+  })
+
+  it('returns an empty array when the selector is not brace-adjacent', () => {
+    // Real Tailwind v4 `@custom-variant` directive form: `.dark` appears but
+    // is followed by ` *))`, not `{`, so it is skipped.
+    expect(findBlockBodies('@custom-variant dark (&:is(.dark *));', '.dark')).toEqual([])
+  })
+})
+
 describe('findBlockBody', () => {
   it('extracts the body of a :root block', () => {
     const body = findBlockBody(CSS_FIXTURE, ':root')
@@ -224,13 +273,6 @@ describe('findBlockBody', () => {
   })
 
   it('throws when the selector has no brace-adjacent block', () => {
-    // Real Tailwind v4 `@custom-variant` directive form: the fixture *does*
-    // contain `.dark` (inside `&:is(.dark *)`), but that match is followed by
-    // ` *))`, not `{`. So findBlockBody finds the substring, hits the
-    // brace-adjacency guard (the `continue` that skips a non-`{` match), finds
-    // no further `.dark`, and throws via the not-found path. This is the guard
-    // branch the test is meant to cover — a fixture lacking `.dark` entirely
-    // would instead throw straight from "not found" without exercising it.
     expect(() => findBlockBody('@custom-variant dark (&:is(.dark *));', '.dark')).toThrow(
       /Could not find a "\.dark" block/,
     )
@@ -251,31 +293,63 @@ describe('extractTokens', () => {
     expect(tokens.get('ctp-base')).toBe('#000000')
     expect(tokens.get('ctp-destructive-on')).toBe('oklch(0 0 0)')
   })
+
+  it('merges the primitive and semantic blocks into one map', () => {
+    const tokens = extractTokens(TWO_TIER_FIXTURE, ':root')
+    expect(tokens.get('ctp-text')).toBe('#000000')
+    expect(tokens.get('foreground')).toBe('var(--ctp-text)')
+    expect(tokens.get('background')).toBe('var(--ctp-base)')
+  })
+
+  it('throws when no block matches the selector', () => {
+    expect(() => extractTokens(':root { --ctp-base: #fff; }', '.dark')).toThrow(
+      /Could not find a "\.dark" block/,
+    )
+  })
 })
 
 describe('resolveToken', () => {
-  it('resolves a known token to an Rgb', () => {
+  it('resolves a known primitive token to an Rgb', () => {
     const tokens = extractTokens(CSS_FIXTURE, ':root')
     expect(resolveToken(tokens, 'ctp-base', 'light')).toEqual(WHITE)
     expect(resolveToken(tokens, 'ctp-text', 'light')).toEqual(BLACK)
   })
 
+  it('follows a var() reference from the semantic tier to the primitive value', () => {
+    const tokens = extractTokens(TWO_TIER_FIXTURE, ':root')
+    expect(resolveToken(tokens, 'foreground', 'light')).toEqual(BLACK)
+    expect(resolveToken(tokens, 'background', 'light')).toEqual(WHITE)
+  })
+
   it('throws naming the mode when the token is absent', () => {
     const tokens = extractTokens(CSS_FIXTURE, ':root')
     expect(() => resolveToken(tokens, 'ctp-missing', 'light')).toThrow(
-      /Token --ctp-missing not found in the light primitive tier/,
+      /Token --ctp-missing not found in the light tier/,
     )
+  })
+
+  it('throws when a var() reference points at a missing token', () => {
+    const tokens = new Map([['slot', 'var(--ctp-missing)']])
+    expect(() => resolveToken(tokens, 'slot', 'light')).toThrow(/Token --ctp-missing not found/)
+  })
+
+  it('throws on a cyclic var() reference instead of looping forever', () => {
+    const tokens = new Map([
+      ['a', 'var(--b)'],
+      ['b', 'var(--a)'],
+    ])
+    expect(() => resolveToken(tokens, 'a', 'light')).toThrow(/Cyclic var\(\) reference/)
   })
 })
 
 describe('PAIRS matrix', () => {
-  it('asserts the destructive pair against the real ctp-destructive-on token (F1 fix)', () => {
+  it('names the destructive pair by its semantic slots (F1 fix)', () => {
     const destructive = PAIRS.find((pair) =>
       pair.label.includes('--destructive-foreground on --destructive'),
     )
     expect(destructive).toBeDefined()
-    expect(destructive?.fg).toBe('ctp-destructive-on')
-    expect(destructive?.bg).toBe('ctp-red')
+    expect(destructive?.fg).toBe('destructive-foreground')
+    expect(destructive?.bg).toBe('destructive')
     expect(destructive?.threshold).toBe(4.5)
   })
 
@@ -341,4 +415,96 @@ describe('checkMode', () => {
     const results = checkMode(tokens, 'light', [PASS_PAIR, FAIL_PAIR])
     expect(results).toHaveLength(2)
   })
+
+  it('detects a re-pointed semantic mapping (bug-1 regression)', () => {
+    // The same semantic slot --fg, mapped to a strong vs a weak primitive.
+    // Only the mapping differs; the gate must follow it through var() and
+    // flip pass→fail. Under the old primitive-only design this regression
+    // class was invisible.
+    const primitives = ':root { --ctp-strong: #595959; --ctp-weak: #bdbdbd; --ctp-bg: #ffffff; }'
+    const pair: Pair = { label: '--fg on --bg', fg: 'fg', bg: 'bg', threshold: 4.5 }
+    const passing = primitives + ':root { --fg: var(--ctp-strong); --bg: var(--ctp-bg); }'
+    const failing = primitives + ':root { --fg: var(--ctp-weak); --bg: var(--ctp-bg); }'
+    expect(checkMode(extractTokens(passing, ':root'), 'light', [pair])[0].passed).toBe(true)
+    expect(checkMode(extractTokens(failing, ':root'), 'light', [pair])[0].passed).toBe(false)
+  })
+})
+
+describe('runChecks (against the committed index.css)', () => {
+  it('resolves every PAIRS slot in both modes without throwing', () => {
+    const css = stripComments(readFileSync(realIndexCssPath, 'utf8'))
+    for (const selector of [':root', '.dark']) {
+      const tokens = extractTokens(css, selector)
+      for (const pair of PAIRS) {
+        expect(() => resolveToken(tokens, pair.fg, selector)).not.toThrow()
+        expect(() => resolveToken(tokens, pair.bg, selector)).not.toThrow()
+      }
+    }
+  })
+
+  it('reports 28 results (14 pairs × 2 modes), all passing', () => {
+    const results = runChecks(readFileSync(realIndexCssPath, 'utf8'))
+    expect(results).toHaveLength(28)
+    for (const result of results) {
+      expect(result.passed).toBe(true)
+    }
+  })
+})
+
+describe('check-contrast script (integration)', () => {
+  const frontendRoot = resolve(here, '../..')
+  const scriptRel = 'scripts/check-contrast.ts'
+  const tsxBin = resolve(frontendRoot, 'node_modules/.bin/tsx')
+
+  function runGate(cssPathArg?: string): { status: number; stdout: string; stderr: string } {
+    try {
+      const stdout = execFileSync(tsxBin, [scriptRel, ...(cssPathArg ? [cssPathArg] : [])], {
+        cwd: frontendRoot,
+        encoding: 'utf8',
+      })
+      return { status: 0, stdout, stderr: '' }
+    } catch (error) {
+      const e = error as { status?: number; stdout?: Buffer | string; stderr?: Buffer | string }
+      return {
+        status: e.status ?? 1,
+        stdout: e.stdout?.toString() ?? '',
+        stderr: e.stderr?.toString() ?? '',
+      }
+    }
+  }
+
+  it('exits 0 and reports all pairs passing against the committed tokens', () => {
+    const { status, stdout } = runGate()
+    expect(status).toBe(0)
+    expect(stdout).toContain('all 28 pairs pass WCAG thresholds')
+  }, 30000)
+
+  it('exits non-zero and names the failing pair + ratio on stderr when a token regresses', () => {
+    // Break the light --foreground by lightening its primitive (--ctp-text)
+    // to near-white, so --foreground on --background drops below 4.5:1.
+    // Plain string slicing (no backtracking-prone regex) rewrites the first
+    // `--ctp-text:` declaration's value up to its `;`.
+    const original = readFileSync(realIndexCssPath, 'utf8')
+    const markerAt = original.indexOf('--ctp-text:')
+    const semicolonAt = original.indexOf(';', markerAt)
+    const broken = `${original.slice(0, markerAt)}--ctp-text: #f4f4f4${original.slice(semicolonAt)}`
+    const tmp = resolve(tmpdir(), `check-contrast-fail-${process.pid}.css`)
+    writeFileSync(tmp, broken)
+    try {
+      const { status, stderr } = runGate(tmp)
+      expect(status).toBe(1)
+      expect(stderr).toContain('below threshold')
+      const failLine = stderr
+        .split('\n')
+        .find((line) => line.includes('[FAIL]') && line.includes('--foreground on --background'))
+      expect(failLine).toBeDefined()
+      expect(failLine).toContain('(need 4.5:1)')
+      // The measured ratio is printed just before ':1' and must be below 4.5.
+      const measuredRatio = Number.parseFloat((failLine ?? '').split('--background:')[1] ?? '')
+      expect(measuredRatio).toBeGreaterThan(0)
+      expect(measuredRatio).toBeLessThan(4.5)
+    } finally {
+      rmSync(tmp, { force: true })
+    }
+  }, 30000)
 })

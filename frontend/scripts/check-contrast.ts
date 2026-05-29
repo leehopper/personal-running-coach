@@ -4,19 +4,22 @@
  *
  * DEC-070's two-tier token system maps every shadcn semantic slot
  * (--foreground, --primary, …) to a Catppuccin primitive (--ctp-*). This
- * script parses the committed primitive values out of src/index.css,
- * resolves each semantic foreground/background pair through the mapping,
- * computes the WCAG 2.x contrast ratio, and exits non-zero if any pair
- * falls below its threshold:
+ * script parses BOTH tiers out of src/index.css — the primitive tier
+ * (raw --ctp-* values) and the semantic tier (--foreground: var(--ctp-*),
+ * …) — resolves each semantic slot through its own var() reference to the
+ * per-mode primitive value, computes the WCAG 2.x contrast ratio, and
+ * exits non-zero if any pair falls below its threshold:
  *
  *   - text-role pairs        ≥ 4.5:1  (WCAG SC 1.4.3 AA, normal text)
  *   - non-text UI pairs      ≥ 3.0:1  (WCAG SC 1.4.11, UI components)
  *
  * Both light (Latte, :root) and dark (Mocha, .dark) ramps are checked.
- * The semantic-pair matrix below is hand-encoded from index.css; if a new
- * semantic token is added there, add it here too. Parsing the primitive
- * *values* (rather than hard-coding ratios) means a token-value
- * regression — the failure mode this gate exists to catch — is detected.
+ * The PAIRS matrix below names the SEMANTIC slots to assert; following the
+ * committed var() mapping (rather than hard-coding the primitive) means
+ * both failure modes are caught: a primitive-value regression AND a
+ * re-pointed semantic mapping (e.g. --muted-foreground swapped to a
+ * lower-contrast primitive). If a new semantic pair must be guarded, add
+ * its slot names here.
  */
 
 import { readFileSync } from 'node:fs'
@@ -25,7 +28,7 @@ import { dirname, resolve } from 'node:path'
 import nodeProcess from 'node:process'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
-const cssPath = resolve(scriptDir, '../src/index.css')
+const DEFAULT_CSS_PATH = resolve(scriptDir, '../src/index.css')
 
 /** sRGB colour in 0-255 channels. */
 export interface Rgb {
@@ -34,80 +37,95 @@ export interface Rgb {
   b: number
 }
 
+/** The only two legal WCAG 2.x thresholds: AA normal text and non-text UI. */
+export type WcagThreshold = 4.5 | 3
+
 /**
  * A semantic foreground/background pair to assert. `fg` and `bg` are
- * primitive token names (--ctp-*); the values are resolved per mode.
+ * SEMANTIC slot names (e.g. `muted-foreground`, `muted`); each is resolved
+ * through its committed `var(--ctp-*)` mapping to a primitive value per mode.
  */
 export interface Pair {
   /** Human-readable label for failure messages, e.g. "--foreground on --background". */
   label: string
-  /** Foreground primitive token name (without leading --). */
+  /** Foreground semantic slot name (without leading --). */
   fg: string
-  /** Background primitive token name (without leading --). */
+  /** Background semantic slot name (without leading --). */
   bg: string
   /** 4.5 for text roles, 3.0 for non-text UI roles. */
-  threshold: number
+  threshold: WcagThreshold
 }
 
 /**
- * The semantic matrix from src/index.css. Each entry names the primitive
- * (--ctp-*) token pair behind a shadcn semantic foreground/background slot.
- * Mode-invariant: the same primitive names hold for Latte and Mocha — only
- * their *values* differ between modes, so each pair is checked twice (once
- * against the :root table, once against the .dark table).
+ * The semantic pairs to assert, named by their shadcn SEMANTIC slot
+ * (`--foreground`, `--muted`, …). Each slot is resolved through its
+ * committed `var(--ctp-*)` mapping in index.css to a primitive value, per
+ * mode — so a re-pointed mapping is followed, not silently ignored. The
+ * mappings are mode-invariant; only the primitive values differ between
+ * Latte (:root) and Mocha (.dark), so each pair is checked against both.
  */
 export const PAIRS: readonly Pair[] = [
   // Text-role pairs — WCAG AA normal text, 4.5:1.
-  { label: '--foreground on --background', fg: 'ctp-text', bg: 'ctp-base', threshold: 4.5 },
-  { label: '--card-foreground on --card', fg: 'ctp-text', bg: 'ctp-base', threshold: 4.5 },
-  { label: '--popover-foreground on --popover', fg: 'ctp-text', bg: 'ctp-base', threshold: 4.5 },
+  { label: '--foreground on --background', fg: 'foreground', bg: 'background', threshold: 4.5 },
+  { label: '--card-foreground on --card', fg: 'card-foreground', bg: 'card', threshold: 4.5 },
   {
-    label: '--secondary-foreground on --secondary',
-    fg: 'ctp-text',
-    bg: 'ctp-surface0',
+    label: '--popover-foreground on --popover',
+    fg: 'popover-foreground',
+    bg: 'popover',
     threshold: 4.5,
   },
-  { label: '--muted-foreground on --muted', fg: 'ctp-subtext1', bg: 'ctp-mantle', threshold: 4.5 },
-  { label: '--accent-foreground on --accent', fg: 'ctp-text', bg: 'ctp-surface0', threshold: 4.5 },
+  {
+    label: '--secondary-foreground on --secondary',
+    fg: 'secondary-foreground',
+    bg: 'secondary',
+    threshold: 4.5,
+  },
+  { label: '--muted-foreground on --muted', fg: 'muted-foreground', bg: 'muted', threshold: 4.5 },
+  {
+    label: '--accent-foreground on --accent',
+    fg: 'accent-foreground',
+    bg: 'accent',
+    threshold: 4.5,
+  },
   {
     label: '--primary-foreground on --primary',
-    fg: 'ctp-accent-on',
-    bg: 'ctp-accent-fill',
+    fg: 'primary-foreground',
+    bg: 'primary',
     threshold: 4.5,
   },
   {
     label: '--destructive-foreground on --destructive',
-    fg: 'ctp-destructive-on',
-    bg: 'ctp-red',
+    fg: 'destructive-foreground',
+    bg: 'destructive',
     threshold: 4.5,
   },
   {
     label: '--sidebar-foreground on --sidebar',
-    fg: 'ctp-text',
-    bg: 'ctp-mantle',
+    fg: 'sidebar-foreground',
+    bg: 'sidebar',
     threshold: 4.5,
   },
   {
     label: '--sidebar-accent-foreground on --sidebar-accent',
-    fg: 'ctp-text',
-    bg: 'ctp-surface0',
+    fg: 'sidebar-accent-foreground',
+    bg: 'sidebar-accent',
     threshold: 4.5,
   },
   {
     label: '--sidebar-primary-foreground on --sidebar-primary',
-    fg: 'ctp-accent-on',
-    bg: 'ctp-accent-fill',
+    fg: 'sidebar-primary-foreground',
+    bg: 'sidebar-primary',
     threshold: 4.5,
   },
   // Non-text UI pairs — WCAG SC 1.4.11, 3:1. --ring and --input are
   // checked against --background, the surface they border. --border is a
   // decorative divider (1.4.11 exempt) and is intentionally not asserted.
-  { label: '--ring on --background', fg: 'ctp-accent-fill', bg: 'ctp-base', threshold: 3.0 },
-  { label: '--input on --background', fg: 'ctp-overlay2', bg: 'ctp-base', threshold: 3.0 },
+  { label: '--ring on --background', fg: 'ring', bg: 'background', threshold: 3.0 },
+  { label: '--input on --background', fg: 'input', bg: 'background', threshold: 3.0 },
   {
     label: '--sidebar-ring on --sidebar',
-    fg: 'ctp-accent-fill',
-    bg: 'ctp-mantle',
+    fg: 'sidebar-ring',
+    bg: 'sidebar',
     threshold: 3.0,
   },
 ]
@@ -228,14 +246,16 @@ export function stripComments(css: string): string {
 }
 
 /**
- * Find the body text of the first CSS rule whose `selector` is followed
+ * Find the body text of EVERY CSS rule whose `selector` is followed
  * (whitespace only) by an opening brace. Literal scanning, not a regex —
  * a dynamic `new RegExp` from a selector is a ReDoS surface, and
  * index.css mentions the selector text inside `@custom-variant` where it
- * is *not* brace-adjacent. The primitive tier has no nested braces, so
- * the next `}` closes it.
+ * is *not* brace-adjacent (so it is skipped). index.css declares each
+ * selector twice — a primitive block and a semantic block — and both are
+ * returned; neither tier has nested braces, so the next `}` closes it.
  */
-export function findBlockBody(css: string, selector: string): string {
+export function findBlockBodies(css: string, selector: string): string[] {
+  const bodies: string[] = []
   for (let at = css.indexOf(selector); at !== -1; at = css.indexOf(selector, at + 1)) {
     let cursor = at + selector.length
     while (cursor < css.length && /\s/.test(css[cursor])) {
@@ -248,19 +268,31 @@ export function findBlockBody(css: string, selector: string): string {
     if (close === -1) {
       break
     }
-    return css.slice(cursor + 1, close)
+    bodies.push(css.slice(cursor + 1, close))
   }
-  throw new Error(`Could not find a "${selector}" block in index.css`)
+  return bodies
+}
+
+/** Find the first brace-adjacent block body for `selector`, erroring if none. */
+export function findBlockBody(css: string, selector: string): string {
+  const [first] = findBlockBodies(css, selector)
+  if (first === undefined) {
+    throw new Error(`Could not find a "${selector}" block in index.css`)
+  }
+  return first
 }
 
 /**
  * Parse one `--prop: value` declaration. The property is the text after
- * the last `--` up to the first following `:`; the value is the
- * remainder. Pure string indexing — no regex, no backtracking. Returns
- * `null` for a segment that is not a custom-property declaration.
+ * the FIRST `--` up to the first following `:`; the value is the
+ * remainder. The first `--` (not the last) is the property name: a
+ * semantic value like `var(--ctp-text)` contains its own `--`, and
+ * `lastIndexOf` would mistake that for the property. Pure string indexing —
+ * no regex, no backtracking. Returns `null` for a segment that is not a
+ * custom-property declaration.
  */
 export function parseDeclaration(segment: string): readonly [string, string] | null {
-  const dashes = segment.lastIndexOf('--')
+  const dashes = segment.indexOf('--')
   if (dashes === -1) {
     return null
   }
@@ -274,29 +306,54 @@ export function parseDeclaration(segment: string): readonly [string, string] | n
 }
 
 /**
- * Extract the primitive token table for one mode from index.css. `selector`
- * is the CSS rule that opens the primitive block: `:root` for Latte,
- * `.dark` for Mocha. Only the first matching block is read — index.css
- * declares the primitive tier once per mode, before the semantic tier.
+ * Build the custom-property table for one mode by merging EVERY matching
+ * block. `selector` is `:root` (Latte) or `.dark` (Mocha). index.css
+ * declares both a primitive block (`--ctp-*: #hex`) and a semantic block
+ * (`--foreground: var(--ctp-text)`) for each; merging them lets a semantic
+ * slot be resolved to its primitive value via var() indirection, so a
+ * re-pointed mapping is reflected rather than silently ignored.
  */
 export function extractTokens(css: string, selector: string): Map<string, string> {
+  const bodies = findBlockBodies(css, selector)
+  if (bodies.length === 0) {
+    throw new Error(`Could not find a "${selector}" block in index.css`)
+  }
   const tokens = new Map<string, string>()
-  for (const segment of findBlockBody(css, selector).split(';')) {
-    const decl = parseDeclaration(segment)
-    if (decl) {
-      tokens.set(decl[0], decl[1])
+  for (const body of bodies) {
+    for (const segment of body.split(';')) {
+      const decl = parseDeclaration(segment)
+      if (decl) {
+        const [name, value] = decl
+        tokens.set(name, value)
+      }
     }
   }
   return tokens
 }
 
-/** Resolve a primitive token name to an Rgb, erroring if absent. */
+/**
+ * Resolve a custom-property name to an Rgb for `mode`, following CSS
+ * `var(--other)` indirection (the semantic tier points at primitive
+ * tokens). Errors on a missing token or a var() reference cycle.
+ */
 export function resolveToken(tokens: Map<string, string>, name: string, mode: string): Rgb {
-  const value = tokens.get(name)
-  if (value === undefined) {
-    throw new Error(`Token --${name} not found in the ${mode} primitive tier`)
+  const seen = new Set<string>()
+  let current = name
+  for (;;) {
+    const value = tokens.get(current)
+    if (value === undefined) {
+      throw new Error(`Token --${current} not found in the ${mode} tier`)
+    }
+    const ref = /^var\(\s*--([\w-]+)\s*\)$/.exec(value.trim())
+    if (!ref) {
+      return parseColor(value)
+    }
+    if (seen.has(current)) {
+      throw new Error(`Cyclic var() reference resolving --${name} in the ${mode} tier`)
+    }
+    seen.add(current)
+    current = ref[1]
   }
-  return parseColor(value)
 }
 
 export interface Result {
@@ -327,36 +384,50 @@ export function checkMode(
   })
 }
 
+/**
+ * Run the gate against CSS source text: strip comments, extract the merged
+ * token table for each mode, and check every pair against both. Pure — no
+ * I/O and no `exit`, so it is unit-testable.
+ */
+export function runChecks(css: string): Result[] {
+  const source = stripComments(css)
+  // Each pair is checked against both the :root (Latte) and .dark (Mocha)
+  // token tables; the semantic mappings are mode-invariant, the primitive
+  // values they resolve to are not.
+  return [
+    ...checkMode(extractTokens(source, ':root'), 'light', PAIRS),
+    ...checkMode(extractTokens(source, '.dark'), 'dark', PAIRS),
+  ]
+}
+
+/** Render one result as a `[PASS|FAIL] mode label: ratio (need threshold)` line. */
+function formatResult(result: Result): string {
+  const status = result.passed ? 'PASS' : 'FAIL'
+  return `[${status}] ${result.mode.padEnd(5)} ${result.label}: ${result.ratio.toFixed(2)}:1 (need ${result.threshold.toFixed(1)}:1)`
+}
+
 function main(): void {
+  // Optional argv[2] overrides the token file (used by integration tests);
+  // CI, Lefthook, and `npm run check-contrast` pass no argument.
+  const cssPath =
+    nodeProcess.argv[2] !== undefined ? resolve(nodeProcess.argv[2]) : DEFAULT_CSS_PATH
   let css: string
   try {
     css = readFileSync(cssPath, 'utf8')
   } catch {
     nodeProcess.stderr.write(`check-contrast: could not read ${cssPath}\n`)
     nodeProcess.exit(1)
-    return
   }
 
-  const source = stripComments(css)
-  const lightTokens = extractTokens(source, ':root')
-  const darkTokens = extractTokens(source, '.dark')
-
-  // Every pair is mode-invariant: the same primitive matrix runs against
-  // both the :root (Latte) and .dark (Mocha) token tables.
-  const results = [
-    ...checkMode(lightTokens, 'light', PAIRS),
-    ...checkMode(darkTokens, 'dark', PAIRS),
-  ]
+  const results = runChecks(css)
 
   let failures = 0
   for (const result of results) {
-    const status = result.passed ? 'PASS' : 'FAIL'
-    const line = `[${status}] ${result.mode.padEnd(5)} ${result.label}: ${result.ratio.toFixed(2)}:1 (need ${result.threshold.toFixed(1)}:1)`
     const stream = result.passed ? nodeProcess.stdout : nodeProcess.stderr
     if (!result.passed) {
       failures++
     }
-    stream.write(`${line}\n`)
+    stream.write(`${formatResult(result)}\n`)
   }
 
   if (failures > 0) {
