@@ -115,7 +115,11 @@ export const PAIRS: readonly Pair[] = [
 /** Parse `#rrggbb` (3- or 6-digit) into an Rgb. */
 export function parseHex(hex: string): Rgb {
   const h = hex.replace('#', '')
-  if (h.length !== 3 && h.length !== 6) {
+  // Length must be 3 or 6 and every character a hex digit. The explicit
+  // character test matters because `parseInt` stops at the first invalid
+  // digit (`parseInt('1z', 16) === 1`), so a partially-invalid string like
+  // `#1z3456` would otherwise parse to a silently wrong colour.
+  if ((h.length !== 3 && h.length !== 6) || !/^[0-9a-fA-F]+$/.test(h)) {
     throw new Error(`Unsupported hex colour format: ${hex}`)
   }
   const full =
@@ -125,13 +129,11 @@ export function parseHex(hex: string): Rgb {
           .map((c) => c + c)
           .join('')
       : h
-  const r = parseInt(full.slice(0, 2), 16)
-  const g = parseInt(full.slice(2, 4), 16)
-  const b = parseInt(full.slice(4, 6), 16)
-  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
-    throw new Error(`Unsupported hex colour format: ${hex}`)
+  return {
+    r: parseInt(full.slice(0, 2), 16),
+    g: parseInt(full.slice(2, 4), 16),
+    b: parseInt(full.slice(4, 6), 16),
   }
-  return { r, g, b }
 }
 
 /**
@@ -302,7 +304,7 @@ export interface Result {
   label: string
   ratio: number
   threshold: number
-  pass: boolean
+  passed: boolean
 }
 
 /** Check every pair for one mode and return the results. */
@@ -320,7 +322,7 @@ export function checkMode(
       label: pair.label,
       ratio,
       threshold: pair.threshold,
-      pass: ratio >= pair.threshold,
+      passed: ratio >= pair.threshold,
     }
   })
 }
@@ -348,10 +350,10 @@ function main(): void {
 
   let failures = 0
   for (const result of results) {
-    const status = result.pass ? 'PASS' : 'FAIL'
+    const status = result.passed ? 'PASS' : 'FAIL'
     const line = `[${status}] ${result.mode.padEnd(5)} ${result.label}: ${result.ratio.toFixed(2)}:1 (need ${result.threshold.toFixed(1)}:1)`
-    const stream = result.pass ? nodeProcess.stdout : nodeProcess.stderr
-    if (!result.pass) {
+    const stream = result.passed ? nodeProcess.stdout : nodeProcess.stderr
+    if (!result.passed) {
       failures++
     }
     stream.write(`${line}\n`)
