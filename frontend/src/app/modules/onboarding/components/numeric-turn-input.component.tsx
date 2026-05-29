@@ -9,9 +9,10 @@ import type { InputProps } from './input-for-topic.types'
 
 // Zod schema for numeric input: positive finite number, capped at a sane
 // upper bound (300km / week is well above any plausible runner). The form
-// state stores a `number` directly — `<input type="number">` is registered
-// with `valueAsNumber: true` below so RHF returns the parsed numeric value
-// rather than the raw string.
+// state stores a `number` directly — the `<Input>` is bound through a
+// `Controller` whose `onChange` passes `event.target.valueAsNumber`, so RHF
+// receives the parsed number rather than the raw string (and the field shows
+// an empty string while that parse is `NaN`).
 const numericSchema = z.object({
   value: z
     .number({ message: 'Enter a number.' })

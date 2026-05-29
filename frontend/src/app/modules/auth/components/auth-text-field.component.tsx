@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ComponentProps, HTMLInputTypeAttribute, ReactNode } from 'react'
 import type { Control, FieldPath, FieldValues } from 'react-hook-form'
 
 import {
@@ -15,8 +15,8 @@ export interface AuthTextFieldProps<TValues extends FieldValues> {
   control: Control<TValues>
   name: FieldPath<TValues>
   label: string
-  type: string
-  autoComplete: string
+  type: HTMLInputTypeAttribute
+  autoComplete: NonNullable<ComponentProps<'input'>['autoComplete']>
   autoFocus?: boolean
   description?: ReactNode
 }
