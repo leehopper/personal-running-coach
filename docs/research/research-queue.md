@@ -231,6 +231,10 @@ Research is batched by dependency. Later batches depend on findings from earlier
 
 - **Batch 26:** R-075 — single-artifact pre-spec pass landed 2026-05-18, Status `Integrated`. Resolved the shadcn/ui × Tailwind v4 × Catppuccin-hybrid-token × dark-mode wiring for sub-project 2a. **Verdict:** single `src/index.css` in shadcn's v4 canonical order (`tailwindcss` → `tw-animate-css` → `@custom-variant dark` → primitive tier → semantic tier → `@theme inline`); two-tier tokens (primitive `--ctp-*` Catppuccin Latte/Mocha below shadcn's semantic tokens, dark mode swaps the primitive tier only); Catppuccin hex pasted inline (not the `@catppuccin/tailwindcss` package); class-based dark mode via a ~40-LOC `ThemeProvider` + inline no-flash script, `defaultTheme="system"` + a 3-state Settings toggle; the contrast rule encoded in the token mappings (text roles → `text`/`subtext1` only — Latte `subtext0`-on-`base` is 4.37:1, an AA-normal fail); accent = one statically-committed OKLCH shade per mode (hue held, lightness moved); component set `button input label form card collapsible dialog sonner badge radio-group scroll-area` (~32–35 kB gz); `tw-animate-css` (CSS-only, consistent with DEC-063). Integrated as **DEC-070**; feeds the Slice 2a spec.
 
+### Batch 27 (Critter Stack 2026 dependency upgrade — Marten 9 / Wolverine 6)
+
+- **Batch 27:** R-076 — Critter Stack upgrade migration map; landed 2026-05-30, Status `Integrated`. Marten 8.37.1→9.2.1 + Wolverine 5.39.3→6.1.0 on JasperFx 2.0. Captures the verified breaking changes (namespace moves of `[Identity]` / `TenancyStyle` / `TrackLevel` / `DocumentAlreadyExistsException` into the shared `JasperFx` assembly; convention-method `SingleStreamProjection` subclasses must be `partial` for the compile-time source-gen dispatcher; `WolverineFx.RuntimeCompilation` required for the dev/test `TypeLoadMode.Auto` host after Wolverine 6 pulled Roslyn out of core), the behavioral default flips (append mode → QuickAppend — kept `Rich`; advanced async tracking on), and the value the upgrade unlocks. Artifact: `batch-27a-critter-stack-9-6-migration.md`. Integrated as **DEC-071**.
+
 ---
 
 ## Errata

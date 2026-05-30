@@ -2652,4 +2652,32 @@ T01.1 implementation surfaced two divergences from this DEC's estimates. (1) The
 
 ---
 
+## DEC-071: Critter Stack 2026 upgrade — Marten 9 / Wolverine 6; kept `Rich` append mode; `RuntimeCompilation` required for dev/test codegen
+
+**Date:** 2026-05-30
+**Category:** Backend / Persistence / Event sourcing / Build
+**Status:** Accepted
+**Drives:** Keeps the event-sourcing + outbox backbone current on .NET 10 and puts the production path on the AOT-ready, Roslyn-free `TypeLoadMode.Static` track.
+**Cites:** R-076 (`docs/research/artifacts/batch-27a-critter-stack-9-6-migration.md`); PR #125.
+**Builds on:** DEC-048, DEC-049 (Marten + Wolverine startup composition), DEC-067 (event upcasting — verified intact).
+
+**Decision:** Upgraded the full Critter Stack together — Marten / Marten.EntityFrameworkCore 8.37.1 → 9.2.1, WolverineFx / .EntityFrameworkCore / .Marten 5.39.3 → 6.1.0, on JasperFx 2.0 — consolidating the four dependabot PRs (#119–#122) that each failed CI in isolation because the five packages are interdependent. Accepted the new 9/6 performance defaults (source-generated projections, lightweight sessions, System.Text.Json, `EnableAdvancedAsyncTracking` on) **except** deliberately kept `EventAppendMode.Rich` rather than adopt the new `QuickWithServerTimestamps` (QuickAppend) default. Did **not** use `RestoreV8Defaults()`. Added `WolverineFx.RuntimeCompilation` 6.1.0 on the dev/test path only.
+
+**Rationale:**
+
+- **`Rich` kept on purpose.** Marten 9 flipped the append-mode default to QuickAppend. Our append metadata semantics assume Rich, so the explicit `Rich` is now load-bearing rather than coincidental. QuickAppend's ~50% throughput gain is a deferred lever (ROADMAP) pending a validation pass that nothing depends on Rich's client-side timestamps/metadata — throughput is not a POC constraint yet.
+- **`WolverineFx.RuntimeCompilation` is now required wherever the host boots `TypeLoadMode.Auto`** (dev runs + the integration-test host) because Wolverine 6 extracted the runtime Roslyn compiler out of core. Without it the host throws `No IAssemblyGenerator is registered`. Production stays `TypeLoadMode.Static` (pre-generated) and ships with no Roslyn — the intended design and a cold-start win. This extends DEC-048's composition; the self-contained rationale lives in `RunCoach.Api.csproj` at the reference.
+- **Convention-method `SingleStreamProjection` subclasses must be `partial`** — Marten 9 dispatches `Apply`/`Create`/`ShouldDelete` via the compile-time `JasperFx.Events` source generator (shipped in the Marten analyzer asset); the runtime reflection fallback was removed. `OnboardingProjection` and `PlanProjection` became `partial`; `UserProfileFromOnboardingProjection` uses an explicit `ApplyEvent` override and is unaffected. Self-documented in the projection classes.
+- **Composition otherwise unchanged.** `IntegrateWithWolverine()`-alone envelope wiring (DEC-048) is still the sole path and correct in 6.x. The `ServiceLocationPolicy` → `NotAllowed` default flip does not affect our constructor-injection DI. The reflection-based per-event schema-version helper (`MapEventTypeWithSchemaVersion` / `EventStoreOptionsExtensions`) is byte-identical in 9.2.1 and left as-is.
+
+**Verified:** `dotnet build` clean (0 warnings under `TreatWarningsAsErrors`), full suite **1124/1124** on Testcontainers Postgres (Solo async daemon + `ApplyAllDatabaseChangesOnStartup` clean boot; upcaster and idempotency error-routing tests green); CI green on PR #125 including the OpenAPI drift gate (zero API-contract drift).
+
+**Alternatives considered:**
+
+- **`RestoreV8Defaults()` for a zero-behavior-change upgrade** — rejected. We want the new performance defaults; the only one with semantic risk (Rich → QuickAppend) was overridden explicitly, so the blanket restore would needlessly forfeit the rest.
+- **Merging the four dependabot PRs (#119–#122) individually** — impossible; `WolverineFx.Marten 6.x` requires `WolverineFx 6.x` and `Marten 9.x`, so each PR failed alone. Consolidated into one branch.
+- **Pre-generating Wolverine code (`dotnet run -- codegen write`) + `Static` everywhere** to avoid the new dependency — rejected for dev/test; it reintroduces the on-disk generated-file hazard the in-memory codegen avoids. `RuntimeCompilation` is the lower-risk path for the test suite.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

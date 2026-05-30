@@ -96,7 +96,9 @@ Anthropic's constrained decoding enforces property names, types, and `additional
 - Kubernetes — deferred to public beta per DEC-032.
 - Garmin Connect integration — deferred to post-MVP-1; Apple Health prioritized per DEC-033.
 - Frontend visual design planning — flagged, not yet started.
-- **Marten 9 upgrade** — current pin is Marten 8.28; Marten 9 (undated) drops sync LINQ ops (tied to Npgsql 10), flips Conjoined PK ordering to `TenantId_Then_Id`, and will formally certify .NET 10. Both changes are mechanical — sync removal is a pass with `LoadAsync`-style replacements, PK reorder is a one-time index-rebuild migration. No load-bearing rewrite risk. Monitor `JasperFx/marten` repo; revisit when v9 ships. If a `.net10`-specific Marten 8 bug surfaces before v9 lands, the escape hatch is targeting the test assembly at `net9.0` while keeping the SUT on `net10.0`. Captured per R-047.
+- **Marten 9 / Wolverine 6 upgrade** — ✅ Shipped 2026-05-30 (DEC-071, PR #125): Marten 9.2.1 + Wolverine 6.1.0 on JasperFx 2.0. Remaining levers deferred:
+  - **QuickAppend append mode** — Marten 9 made `QuickWithServerTimestamps` the default; we deliberately kept `EventAppendMode.Rich` (DEC-071). ~50% append throughput + fewer skips under contention. Adopt only after validating nothing depends on Rich's client-side timestamps/metadata. Not a POC constraint; revisit at pre-MVP-0 scale.
+  - **`Marten.PgVector` for the coaching/LLM layer** — Marten 9.3 ships `UsePgVector()` + a `VectorProjection` base; embeddings live in the same Postgres. Candidate for similar-athlete / session-history retrieval feeding LLM context. Evaluate if RAG-style retrieval enters scope.
 
 ### Cost optimization (post-MVP-0, DEC-038)
 
