@@ -115,9 +115,10 @@ frontier
 - All internal code identifiers were renamed to trademark-neutral names in
   DEC-042 and spec 11 (`PaceZoneIndexCalculator`, `PaceZoneCalculator`,
   `FitnessEstimate.EstimatedPaceZoneIndex`). The only remaining in-repo
-  occurrences of the literal term are carve-out-exempt: rule-enforcing test
-  guard literals (`ContextAssemblerTests.cs` VDOT-absence assertions) and
-  one math comment in `DanielsGilbertEquationsTests.cs`. Do not flag those.
+  occurrences of the literal term are carve-out-exempt: rule-enforcing
+  VDOT-absence test guards (e.g. `ContextAssemblerTests.cs`,
+  `OnboardingPromptTests.cs`) and one math comment in
+  `DanielsGilbertEquationsTests.cs`. Do not flag those.
 - Historical research artifacts under `docs/research/artifacts/` and
   historical DEC entries in `docs/decisions/decision-log.md` are also exempt
   — they are append-only records preserved as-is with a top-of-file rename
