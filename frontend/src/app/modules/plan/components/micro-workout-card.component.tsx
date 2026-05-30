@@ -40,20 +40,20 @@ export const MicroWorkoutCard = ({
       data-testid="micro-workout-card"
       data-workout-type={workout.workoutType}
       data-emphasized={emphasized ? 'true' : 'false'}
-      className={`flex flex-col gap-3 rounded-lg border p-4 text-sm shadow-sm transition-colors duration-200 ease-out ${
-        emphasized ? 'border-slate-900 bg-white ring-2 ring-slate-900' : 'border-slate-200 bg-white'
+      className={`flex flex-col gap-3 rounded-lg border bg-card p-4 text-sm text-card-foreground shadow-sm transition-colors duration-200 ease-out motion-reduce:transition-none ${
+        emphasized ? 'border-primary ring-2 ring-primary' : ''
       } ${className ?? ''}`}
     >
       <header className="flex flex-col gap-1">
         {dayLabel.length > 0 ? (
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {dayLabel}
           </span>
         ) : null}
-        <h3 className="text-base font-semibold leading-tight text-slate-900">{workout.title}</h3>
+        <h3 className="text-base font-semibold leading-tight text-foreground">{workout.title}</h3>
         <span
           data-testid="micro-workout-type-label"
-          className="text-xs font-medium uppercase tracking-wide text-slate-600"
+          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
         >
           {WORKOUT_TYPE_LABELS[workout.workoutType]}
         </span>
@@ -61,18 +61,18 @@ export const MicroWorkoutCard = ({
 
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Distance
           </dt>
-          <dd className="text-base font-semibold text-slate-900">
+          <dd className="text-base font-semibold text-foreground">
             {workout.targetDistanceKm.toFixed(1)} km
           </dd>
         </div>
         <div>
-          <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Target pace
           </dt>
-          <dd data-testid="micro-workout-pace" className="text-base font-semibold text-slate-900">
+          <dd data-testid="micro-workout-pace" className="text-base font-semibold text-foreground">
             {paceRange ?? '—/km'}
           </dd>
         </div>
@@ -101,7 +101,7 @@ export const MicroWorkoutCard = ({
       {workout.coachingNotes.trim().length > 0 ? (
         <p
           data-testid="micro-workout-coaching-notes"
-          className="rounded-md bg-slate-50 px-3 py-2 text-xs leading-snug text-slate-700"
+          className="rounded-md bg-muted px-3 py-2 text-xs leading-snug text-muted-foreground"
         >
           {workout.coachingNotes}
         </p>

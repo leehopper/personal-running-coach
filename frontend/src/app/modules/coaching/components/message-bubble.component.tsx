@@ -34,11 +34,13 @@ const hashText = (text: string): number => {
 }
 
 // Role-based styling lives in a static map so consumers can tell at a
-// glance which classes attach to which side of the conversation. Tailwind
-// utilities only — no shadcn primitive is needed at this size.
+// glance which classes attach to which side of the conversation.
+// Semantic tokens only — the user bubble uses the `primary` accent, the
+// assistant bubble the neutral `muted` surface. No shadcn primitive is
+// needed at this size.
 const ROLE_STYLES: Record<MessageRole, string> = {
-  user: 'ml-auto bg-slate-900 text-slate-50 rounded-2xl rounded-br-sm',
-  assistant: 'mr-auto bg-slate-100 text-slate-900 rounded-2xl rounded-bl-sm',
+  user: 'ml-auto bg-primary text-primary-foreground rounded-2xl rounded-br-sm',
+  assistant: 'mr-auto bg-muted text-foreground rounded-2xl rounded-bl-sm',
 }
 
 export const MessageBubble = ({

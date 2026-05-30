@@ -1,14 +1,18 @@
 import type { ReactElement } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { InputProps } from './input-for-topic.types'
 
 // Zod schema for numeric input: positive finite number, capped at a sane
 // upper bound (300km / week is well above any plausible runner). The form
-// state stores a `number` directly — `<input type="number">` is registered
-// with `valueAsNumber: true` below so RHF returns the parsed numeric value
-// rather than the raw string.
+// state stores a `number` directly — the `<Input>` is bound through a
+// `Controller` whose `onChange` passes `event.target.valueAsNumber`, so RHF
+// receives the parsed number rather than the raw string (and the field shows
+// an empty string while that parse is `NaN`).
 const numericSchema = z.object({
   value: z
     .number({ message: 'Enter a number.' })
@@ -53,30 +57,34 @@ export const NumericTurnInput = ({ onSubmit, isSubmitting = false }: InputProps)
         Weekly distance (km)
       </label>
       <div className="flex items-end gap-2">
-        <input
-          id="numeric-turn-input-field"
-          data-testid="numeric-turn-input-field"
-          type="number"
-          inputMode="decimal"
-          min={0}
-          max={300}
-          step={0.1}
-          aria-invalid={valueError !== undefined}
-          aria-describedby={valueError === undefined ? undefined : 'numeric-turn-input-error'}
-          disabled={isSubmitting}
-          className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-          {...form.register('value', { valueAsNumber: true })}
+        <Controller
+          control={form.control}
+          name="value"
+          render={({ field }) => (
+            <Input
+              {...field}
+              id="numeric-turn-input-field"
+              data-testid="numeric-turn-input-field"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={300}
+              step={0.1}
+              aria-invalid={valueError !== undefined}
+              aria-describedby={valueError === undefined ? undefined : 'numeric-turn-input-error'}
+              disabled={isSubmitting}
+              className="flex-1"
+              value={Number.isNaN(field.value) ? '' : field.value}
+              onChange={(event) => field.onChange(event.target.valueAsNumber)}
+            />
+          )}
         />
-        <button
-          type="submit"
-          disabled={isSubmitDisabled}
-          className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <Button type="submit" disabled={isSubmitDisabled}>
           {isSubmitting ? 'Sending…' : 'Send'}
-        </button>
+        </Button>
       </div>
       {valueError !== undefined && (
-        <p id="numeric-turn-input-error" role="alert" className="text-xs text-red-700">
+        <p id="numeric-turn-input-error" role="alert" className="text-xs text-destructive">
           {valueError.message}
         </p>
       )}
