@@ -2,6 +2,8 @@ import type { ReactElement } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+
+import { Button } from '@/components/ui/button'
 import type { InputProps } from './input-for-topic.types'
 
 // Zod schema: at least one option must be checked. Stores the picked
@@ -62,25 +64,21 @@ export const MultiSelectTurnInput = ({
         {renderedOptions.map((option) => (
           <label
             key={option.value}
-            className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 px-3 py-2 text-sm hover:border-slate-400"
+            className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:border-ring motion-reduce:transition-none"
           >
             <input
               type="checkbox"
               value={option.value}
               {...form.register('values')}
-              className="h-4 w-4"
+              className="size-4 accent-primary"
             />
             <span>{option.label}</span>
           </label>
         ))}
       </fieldset>
-      <button
-        type="submit"
-        disabled={isSubmitDisabled}
-        className="self-end rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isSubmitDisabled} className="self-end">
         {isSubmitting ? 'Sending…' : 'Send'}
-      </button>
+      </Button>
     </form>
   )
 }

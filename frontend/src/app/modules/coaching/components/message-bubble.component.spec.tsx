@@ -75,7 +75,7 @@ describe('MessageBubble', () => {
     const bubble = screen.getByTestId('message-bubble')
     expect(bubble.dataset.role).toBe('user')
     expect(bubble.className).toMatch(/ml-auto/)
-    expect(bubble.className).toMatch(/bg-slate-900/)
+    expect(bubble.className).toMatch(/bg-primary/)
   })
 
   it('applies assistant role styling and data attribute', () => {
@@ -83,7 +83,7 @@ describe('MessageBubble', () => {
     const bubble = screen.getByTestId('message-bubble')
     expect(bubble.dataset.role).toBe('assistant')
     expect(bubble.className).toMatch(/mr-auto/)
-    expect(bubble.className).toMatch(/bg-slate-100/)
+    expect(bubble.className).toMatch(/bg-muted/)
   })
 
   it('marks pending bubbles with reduced opacity and data attribute', () => {

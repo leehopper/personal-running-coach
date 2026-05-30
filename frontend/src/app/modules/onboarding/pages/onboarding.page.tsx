@@ -1,6 +1,7 @@
 import { useEffect, useMemo, type ReactElement } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
 import { OnboardingChat } from '~/modules/onboarding/components/onboarding-chat.component'
 import { expandCompletedTopicCount } from '~/modules/onboarding/components/topic-progress-indicator.helpers'
@@ -115,9 +116,9 @@ export const OnboardingPage = (): ReactElement => {
       <div
         role="status"
         aria-live="polite"
-        className="flex min-h-screen items-center justify-center bg-slate-50"
+        className="flex min-h-screen items-center justify-center bg-background"
       >
-        <span className="text-sm text-slate-500">Loading…</span>
+        <span className="text-sm text-muted-foreground">Loading…</span>
       </div>
     )
   }
@@ -127,20 +128,20 @@ export const OnboardingPage = (): ReactElement => {
       <div
         role="alert"
         data-testid="onboarding-bootstrap-error"
-        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 px-4 text-center"
+        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center"
       >
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-muted-foreground">
           We couldn’t reach the onboarding service. Check your connection and try again.
         </p>
-        <button
+        <Button
           type="button"
+          size="sm"
           onClick={() => {
             void refetch()
           }}
-          className="rounded bg-slate-900 px-3 py-1 text-xs font-medium text-white"
         >
           Retry
-        </button>
+        </Button>
       </div>
     )
   }

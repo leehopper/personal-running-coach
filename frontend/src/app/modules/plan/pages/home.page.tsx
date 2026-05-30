@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import { MacroPhaseStrip } from '~/modules/plan/components/macro-phase-strip.component'
 import { TodayCard } from '~/modules/plan/components/today-card.component'
 import { UpcomingList } from '~/modules/plan/components/upcoming-list.component'
@@ -36,9 +37,9 @@ export const HomePage = (): ReactElement => {
       <div
         role="status"
         aria-live="polite"
-        className="flex min-h-screen items-center justify-center bg-slate-50"
+        className="flex min-h-screen items-center justify-center bg-background"
       >
-        <span className="text-sm text-slate-500">Loading…</span>
+        <span className="text-sm text-muted-foreground">Loading…</span>
       </div>
     )
   }
@@ -50,11 +51,11 @@ export const HomePage = (): ReactElement => {
   if (isError || plan === undefined) {
     return (
       <main
-        className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-4"
+        className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4"
         data-testid="home-page-error"
       >
-        <h1 className="text-2xl font-semibold text-slate-900">Something went wrong</h1>
-        <p className="max-w-md text-center text-sm text-slate-600">
+        <h1 className="text-2xl font-semibold text-foreground">Something went wrong</h1>
+        <p className="max-w-md text-center text-sm text-muted-foreground">
           We could not load your plan right now. Reload the page in a moment.
         </p>
       </main>
@@ -83,7 +84,7 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
 
   return (
     <main
-      className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 bg-slate-50 px-4 py-8"
+      className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 bg-background px-4 py-8"
       data-testid="home-page"
     >
       {plan.macro === null ? null : (
@@ -112,19 +113,16 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
  */
 const NoPlanYetState = (): ReactElement => (
   <main
-    className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-4"
+    className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4"
     data-testid="home-page-no-plan"
   >
-    <h1 className="text-2xl font-semibold text-slate-900">No plan yet</h1>
-    <p className="max-w-md text-center text-sm text-slate-600">
+    <h1 className="text-2xl font-semibold text-foreground">No plan yet</h1>
+    <p className="max-w-md text-center text-sm text-muted-foreground">
       Your training plan has not been generated. Finish onboarding to get started.
     </p>
-    <Link
-      to="/onboarding"
-      className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white"
-    >
-      Go to onboarding
-    </Link>
+    <Button asChild>
+      <Link to="/onboarding">Go to onboarding</Link>
+    </Button>
   </main>
 )
 

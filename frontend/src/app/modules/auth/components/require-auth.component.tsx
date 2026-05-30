@@ -25,7 +25,7 @@ export const RequireAuth = ({ children }: RequireAuthProps) => {
         role="status"
         aria-live="polite"
       >
-        <span className="text-sm text-slate-500">Loading…</span>
+        <span className="text-sm text-muted-foreground">Loading…</span>
       </div>
     )
   }
