@@ -114,10 +114,33 @@ Pattern: `{name}.{type}.{extension}`
 
 ## Styling
 
-- **Tailwind CSS** utility classes for styling
-- **shadcn/ui** components (Radix primitives) — copy-paste into project
+- **Tailwind CSS** (v4, CSS-first) utility classes for styling
+- **shadcn/ui** is installed — `new-york` style, copy-pasted Radix-primitive
+  sources under `src/components/ui/`, configured via `components.json` and
+  the `cn()` helper in `src/lib/utils.ts`. There is no `tailwind.config.ts`;
+  Tailwind v4 is CSS-first.
 - Avoid inline styles — prefer Tailwind classes
 - Mobile-first responsive design with Tailwind breakpoints
+
+### Design tokens & theming (DEC-070)
+
+- All themed colour flows through **semantic tokens**, never hardcoded
+  colour utilities (`bg-slate-*`, `text-red-*`, `bg-white`, etc.). New UI
+  uses `bg-background`, `text-foreground`, `text-muted-foreground`,
+  `bg-card`, `bg-primary`, `border`, `bg-destructive`, and friends.
+- `src/index.css` carries a **two-tier token layer**: a primitive
+  Catppuccin tier (`--ctp-*`, Latte in `:root` / Mocha in `.dark`) under
+  shadcn/ui's semantic tier, joined by one `@theme inline` block. The
+  accent is the Catppuccin **teal** family.
+- **Dark mode** is class-based — the `.dark` class on `documentElement`.
+  `ThemeProvider` (`src/components/theme-provider.tsx`) owns that class and
+  the `light | dark | system` choice; consume it via the `useTheme()` hook
+  from `src/components/theme-context.ts`. A no-flash script in `index.html`
+  sets the initial class before first paint. The Settings page surfaces a
+  3-state toggle.
+- A `check-contrast` script gates the token set against WCAG AA in
+  pre-commit and CI — every semantic foreground/background pair must clear
+  the ratio. Do not commit a token change that fails it.
 
 ### Animation baseline (DEC-063)
 

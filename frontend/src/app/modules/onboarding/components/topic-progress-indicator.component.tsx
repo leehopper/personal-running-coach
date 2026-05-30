@@ -49,7 +49,7 @@ export const TopicProgressIndicator = ({
           aria-current={state === 'current' ? 'step' : undefined}
           data-state={state}
           data-topic={topic}
-          className={`flex flex-1 items-center justify-center rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-200 ease-out ${SEGMENT_STYLES[state]}`}
+          className={`flex flex-1 items-center justify-center rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-200 ease-out motion-reduce:transition-none ${SEGMENT_STYLES[state]}`}
         >
           <span className="truncate">{TOPIC_LABELS[topic]}</span>
         </li>
