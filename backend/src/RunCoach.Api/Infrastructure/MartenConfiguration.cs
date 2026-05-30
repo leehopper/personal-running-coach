@@ -4,6 +4,8 @@ using JasperFx.CodeGeneration;
 using JasperFx.Events;
 using JasperFx.Events.Daemon;
 using JasperFx.Events.Projections;
+using JasperFx.MultiTenancy;
+using JasperFx.OpenTelemetry;
 using Marten;
 using Marten.EntityFrameworkCore;
 using Marten.Services;

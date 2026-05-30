@@ -30,11 +30,12 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
     <!-- Persistence — Marten + Wolverine (event-sourcing + outbox) -->
-    <PackageVersion Include="Marten" Version="8.37.1" />
-    <PackageVersion Include="Marten.EntityFrameworkCore" Version="8.37.1" />
-    <PackageVersion Include="WolverineFx" Version="5.39.3" />
-    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="5.39.3" />
-    <PackageVersion Include="WolverineFx.Marten" Version="5.39.3" />
+    <PackageVersion Include="Marten" Version="9.2.1" />
+    <PackageVersion Include="Marten.EntityFrameworkCore" Version="9.2.1" />
+    <PackageVersion Include="WolverineFx" Version="6.1.0" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.1.0" />
+    <PackageVersion Include="WolverineFx.Marten" Version="6.1.0" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.1.0" />
     <!-- Observability — OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry" Version="1.15.3" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />

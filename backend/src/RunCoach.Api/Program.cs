@@ -91,13 +91,15 @@ builder.Host.UseWolverine(opts =>
     //     default retry pipeline and re-runs the handler, defeating the
     //     "first response wins" contract the marker exists to enforce.
     //
-    // Note: `DocumentAlreadyExistsException` is a sibling — not a parent — of
-    // the two stream-collision exceptions in Marten's hierarchy, so the rule
-    // must be registered explicitly; the existing two registrations do not
-    // cover it transitively.
+    // Note: `DocumentAlreadyExistsException` is not a parent of the two
+    // stream-collision exceptions — Marten 9 relocated it to the shared
+    // `JasperFx` assembly (`JasperFx.DocumentAlreadyExistsException`) while the
+    // stream-collision pair stays in `Marten.Exceptions`, so no inheritance
+    // links them and the rule must be registered explicitly; the existing two
+    // registrations do not cover it transitively.
     opts.OnException<Marten.Exceptions.ExistingStreamIdCollisionException>().MoveToErrorQueue();
     opts.OnException<Marten.Exceptions.ConcurrentUpdateException>().MoveToErrorQueue();
-    opts.OnException<Marten.Exceptions.DocumentAlreadyExistsException>().MoveToErrorQueue();
+    opts.OnException<JasperFx.DocumentAlreadyExistsException>().MoveToErrorQueue();
 
     // Must match Marten's `AddAsyncDaemon(DaemonMode.Solo)` — `HotCold` takes
     // advisory locks that collide with `ApplyAllDatabaseChangesOnStartup`.

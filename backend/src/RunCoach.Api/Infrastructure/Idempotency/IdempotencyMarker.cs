@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Marten.Schema;
+using JasperFx;
 
 namespace RunCoach.Api.Infrastructure.Idempotency;
 
