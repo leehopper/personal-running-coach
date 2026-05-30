@@ -87,14 +87,16 @@ change that forced `partial`); `EnableAdvancedAsyncTracking` for better Solo-dae
 catch-up; PostgreSQL LISTEN/NOTIFY async-daemon wakeup (lower projection latency);
 Roslyn removed from the hot path + AOT-clean `TypeLoadMode.Static` (leaner/faster
 prod cold start); BigInt events (removes the ~2.1B-event ceiling, auto-migrates);
-Wolverine 6.1 EF-outbox flush-timing correctness fix and 6.2.2 EF transaction-
-middleware codegen fix (both touch our "EF write + Marten append in one TX"
-pattern); Wolverine 6.2 outgoing-envelope pooling (~90% fewer publish-path allocs).
+and the Wolverine 6.1 EF-outbox flush-timing correctness fix (the outbox flush
+completes before the HTTP response is written — touches our "EF write + Marten
+append in one TX" pattern; included in our 6.1.0 pin).
 
 **Available levers, not adopted:** QuickAppend append mode (~50% append
 throughput); `Marten.PgVector` (9.3) embeddings-in-Postgres + `VectorProjection`
 for the LLM/coaching layer; DCB tag-based cross-stream invariants; per-event binary
-serialization (`Marten.MemoryPack`).
+serialization (`Marten.MemoryPack`). A future patch bump to Wolverine 6.2.x would
+add outgoing-envelope pooling (~90% fewer publish-path allocations) and the 6.2.2
+EF transaction-middleware codegen fix — neither is in our 6.1.0 pin.
 
 **Plumbing:** JasperFx 2.0 / JasperFx.Events 2.0 / Weasel 9.0 extraction; Lamar
 removed (Wolverine uses MS DI fully); coordinated namespace moves.
