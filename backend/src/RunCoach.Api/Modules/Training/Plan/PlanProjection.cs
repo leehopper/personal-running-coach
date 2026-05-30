@@ -7,8 +7,9 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <summary>
 /// Inline single-stream projection that materializes a Plan stream into a
 /// <see cref="PlanProjectionDto"/> Marten document the frontend renders directly
-/// (spec 13 § Unit 2, R02.3). Marten's codegen wires each <c>Apply</c> overload
-/// below to its event type via pattern-matching at startup; the document is
+/// (spec 13 § Unit 2, R02.3). Marten 9's compile-time JasperFx source generator
+/// dispatches each <c>Apply</c>/<c>Create</c> convention method below to its event
+/// type, which is why this class must be declared <c>partial</c>; the document is
 /// upserted on the same <c>IDocumentSession</c> as the event append, preserving
 /// atomicity for the calling handler (Unit 1 onboarding terminal-branch handler
 /// in Slice 1, Unit 5 regenerate handler later).
@@ -28,7 +29,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <c>Apply</c> methods - no breaking changes for the Slice 1 frontend.
 /// </para>
 /// </remarks>
-public sealed class PlanProjection : SingleStreamProjection<PlanProjectionDto, Guid>
+public sealed partial class PlanProjection : SingleStreamProjection<PlanProjectionDto, Guid>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="PlanProjection"/> class. Marten's

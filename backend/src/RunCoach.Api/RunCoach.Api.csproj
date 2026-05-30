@@ -29,6 +29,13 @@
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />
     <PackageReference Include="WolverineFx.Marten" />
+    <!-- Wolverine 6 extracted runtime Roslyn code generation into this package.
+         Required because Development (dev runs + the integration-test host) boots
+         with CodeGeneration.TypeLoadMode.Auto (Program.cs), which compiles handler
+         and projection dispatch code at startup; without it the host throws
+         "No IAssemblyGenerator is registered". Production uses TypeLoadMode.Static
+         (pre-generated) and never invokes runtime compilation. -->
+    <PackageReference Include="WolverineFx.RuntimeCompilation" />
     <!-- Observability -->
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />

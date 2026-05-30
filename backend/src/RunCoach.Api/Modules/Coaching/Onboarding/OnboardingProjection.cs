@@ -6,10 +6,11 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 
 /// <summary>
 /// Inline single-stream projection that materializes the runner's in-flight onboarding state
-/// into an <see cref="OnboardingView"/> Marten document (spec 13 § Unit 1, R01.4). Marten's
-/// codegen wires each <c>Apply</c> overload below to the corresponding event type via
-/// pattern-matching at startup; the document is upserted on the same <c>IDocumentSession</c>
-/// as the event append, preserving atomicity for the per-turn handler.
+/// into an <see cref="OnboardingView"/> Marten document (spec 13 § Unit 1, R01.4). Marten 9's
+/// compile-time JasperFx source generator dispatches each <c>Apply</c>/<c>Create</c> convention
+/// method below to its event type, which is why this class must be declared <c>partial</c>; the
+/// document is upserted on the same <c>IDocumentSession</c> as the event append, preserving
+/// atomicity for the per-turn handler.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -22,7 +23,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// branch so the in-memory view stays in sync with the EF projection (DEC-060 / R-069).
 /// </para>
 /// </remarks>
-public sealed class OnboardingProjection : SingleStreamProjection<OnboardingView, Guid>
+public sealed partial class OnboardingProjection : SingleStreamProjection<OnboardingView, Guid>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="OnboardingProjection"/> class. Marten's
