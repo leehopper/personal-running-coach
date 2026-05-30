@@ -36,8 +36,6 @@ frontend/
         app/                              # Core application shell
           app.component.tsx
           app.store.ts
-          root-layout/
-          error-boundary.component.tsx
           providers/
         common/                           # Shared utilities, components, hooks
           components/
@@ -148,7 +146,7 @@ Tailwind utility classes are the animation baseline for the current frontend sur
 
 - State-change tweens — `transition-colors duration-200 ease-out` (or the appropriate `transition-{property}` variant).
 - Loading shimmers / placeholders — `animate-pulse`, `animate-spin`.
-- Radix-driven enter/exit (Dialog, Popover, etc.) — `data-[state=open]:animate-in data-[state=closed]:animate-out` from `tailwindcss-animate` (already pulled in transitively by shadcn/ui). Do not wrap Radix primitives in `AnimatePresence`.
+- Radix-driven enter/exit (Dialog, Popover, etc.) — `data-[state=open]:animate-in data-[state=closed]:animate-out` from `tw-animate-css` (a direct dependency imported in `src/index.css`; the Tailwind v4 successor to `tailwindcss-animate`). Do not wrap Radix primitives in `AnimatePresence`.
 - Reduced-motion contract (WCAG 2.3.3) — pair every animation with the `motion-reduce:` variant (e.g. `motion-reduce:transition-none`, `motion-reduce:animate-none`). Tailwind handles `prefers-reduced-motion: reduce` at the CSS level; no JS hook is needed for the current surface.
 
 `motion/react` adoption is deferred until either (a) Slice 4's streaming chat UI lands token-by-token rendering or animated typing indicators that need spring physics, or (b) a gesture-driven surface (drag-to-dismiss, swipe-back) enters scope. When either trigger fires, adopt `motion@^12` slice-wide alongside `useReducedMotion()` parity — no piecemeal pre-adoption. See `docs/decisions/decision-log.md` § DEC-063 for the full rationale and revisit triggers.
@@ -201,7 +199,7 @@ Code under `frontend/src/dev-only/` is tree-shaken in production builds; gate ev
 
 ## Security
 
-- **DOMPurify** for rendering any HTML content
+- Sanitize any HTML before rendering — no sanitizer is wired yet; add one (e.g. DOMPurify) when the first HTML-rendering surface lands
 - Environment variables for configuration — no secrets in client bundle
 - Never commit API keys or credentials
 

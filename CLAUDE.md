@@ -4,7 +4,7 @@
 
 A solo-developer project building an AI running coach that maintains a persistent adaptive coaching relationship. The AI is the coach — it builds training plans, consumes workout results, and continuously adapts. It does NOT do live workout tracking (that's Garmin/Strava/Apple Health territory).
 
-**Current Phase: POC 1 Complete — Merging to Main**
+**Current cycle: MVP-0 + Adaptation Loop.** Slices 0, 1, 1B, and 2a (Frontend Visual Foundation) are complete and merged; Slice 2b (Workout Logging) is next.
 See ROADMAP.md for current status and next steps.
 
 ## Tech Stack
@@ -33,7 +33,7 @@ backend/               # .NET API (has its own CLAUDE.md)
 frontend/              # React SPA (has its own CLAUDE.md)
 docs/
   planning/            # Vision, architecture, safety, coaching persona
-  decisions/           # Decision log (DEC-001 through DEC-047)
+  decisions/           # Decision log (DEC-001 through DEC-071)
   features/            # Feature backlog
   research/            # Research queue, prompts, and artifacts
 ```
@@ -99,7 +99,7 @@ Within an active cycle, the cycle plan's **When Agents Encounter Unknowns** sect
 
 ## Trademark Rule: VDOT
 
-User-facing surface (coaching prompts, UI strings, README, documentation, API responses, commit messages, PR descriptions) must use "**Daniels-Gilbert zones**", "**pace-zone index**", or generic exercise-physiology terminology — **not** "VDOT". The VDOT mark is actively enforced by The Run SMART Project LLC: it compelled Runalyze to remove all VDOT-named features. A public OSS repo will not fly under the radar. Internal code identifiers, variable names, private implementation, and historical research artifacts may use VDOT freely until DEC-042's pace-calculator rewrite replaces them with `PaceZoneIndexCalculator` and friends. When in doubt, treat anything that will appear in an LLM prompt, a user-visible string, a generated plan, a badge, or a README as user-facing. See `NOTICE` for the full disclaimer text and `docs/research/artifacts/batch-14g-license-trademark-attribution.md` for the precedent research.
+User-facing surface (coaching prompts, UI strings, README, documentation, API responses, commit messages, PR descriptions) must use "**Daniels-Gilbert zones**", "**pace-zone index**", or generic exercise-physiology terminology — **not** "VDOT". The VDOT mark is actively enforced by The Run SMART Project LLC: it compelled Runalyze to remove all VDOT-named features. A public OSS repo will not fly under the radar. Internal code identifiers, variable names, private implementation, and historical research artifacts may reference VDOT historically; DEC-042's pace-calculator rewrite has shipped, replacing the VDOT-named calculators with `PaceZoneIndexCalculator` and friends — no VDOT identifiers remain in `backend/src`. When in doubt, treat anything that will appear in an LLM prompt, a user-visible string, a generated plan, a badge, or a README as user-facing. See `NOTICE` for the full disclaimer text and `docs/research/artifacts/batch-14g-license-trademark-attribution.md` for the precedent research.
 
 ## PR Review Protocol
 
@@ -131,7 +131,7 @@ Five-layer pipeline: pre-commit (Lefthook), PR review (CodeRabbit + local `/revi
 
 ## Key References
 
-- `docs/decisions/decision-log.md` — all 47 decisions with rationale
+- `docs/decisions/decision-log.md` — all 71 decisions with rationale
 - `docs/planning/vision-and-principles.md` — why this exists, design principles
 - `docs/planning/safety-and-legal.md` — legal landscape, safety guardrails
-- `docs/research/artifacts/` — full research outputs (11 integrated topics)
+- `docs/research/artifacts/` — full research outputs (71 artifacts; see `docs/research/research-queue.md` for integration status)
