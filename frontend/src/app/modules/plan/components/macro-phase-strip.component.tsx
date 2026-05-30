@@ -43,7 +43,7 @@ export const MacroPhaseStrip = ({
     <ol
       aria-label="Training phases"
       data-testid="macro-phase-strip"
-      className={`flex w-full items-stretch gap-1 rounded-lg border border-slate-200 bg-slate-50 p-2 ${className ?? ''}`}
+      className={`flex w-full items-stretch gap-1 rounded-lg border bg-muted p-2 ${className ?? ''}`}
     >
       {ranges.map((range) => {
         const widthPercent = (range.phase.weeks / totalWeeks) * 100
@@ -58,10 +58,10 @@ export const MacroPhaseStrip = ({
             data-phase={range.phase.phaseType}
             data-current={current ? 'true' : 'false'}
             aria-current={current ? 'step' : undefined}
-            className={`macro-phase-segment flex min-w-[80px] flex-col items-center justify-center rounded-md px-3 py-2 text-xs font-medium transition-colors duration-200 ease-out ${
+            className={`macro-phase-segment flex min-w-[80px] flex-col items-center justify-center rounded-md px-3 py-2 text-xs font-medium transition-colors duration-200 ease-out motion-reduce:transition-none ${
               current
-                ? 'bg-slate-900 text-slate-50 ring-2 ring-slate-900'
-                : 'bg-white text-slate-700'
+                ? 'bg-primary text-primary-foreground ring-2 ring-primary'
+                : 'bg-card text-card-foreground'
             }`}
             ref={(el) => {
               if (el !== null) {
@@ -78,7 +78,7 @@ export const MacroPhaseStrip = ({
             {current && currentWeek !== null ? (
               <span
                 data-testid="macro-phase-current-marker"
-                className="mt-1 inline-block rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-900"
+                className="mt-1 inline-block rounded-full bg-background px-2 py-0.5 text-[10px] font-bold text-foreground"
               >
                 Week {currentWeek}
               </span>

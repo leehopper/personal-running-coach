@@ -18,16 +18,16 @@ export const MicroWorkoutSegmentRow = ({
       data-testid="micro-workout-segment"
       data-segment-type={segment.segmentType}
       data-segment-index={index}
-      className="flex items-baseline justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-xs"
+      className="flex items-baseline justify-between gap-2 rounded-md bg-muted px-3 py-2 text-xs"
     >
-      <span className="font-semibold text-slate-700">
+      <span className="font-semibold text-foreground">
         {segment.segmentType}
         {segment.repetitions > 1 ? ` × ${segment.repetitions}` : ''}
       </span>
-      <span className="text-slate-600">
+      <span className="text-muted-foreground">
         {segment.durationMinutes} min{pace === null ? '' : ` · ${pace}`}
       </span>
-      <span className="text-[11px] uppercase tracking-wide text-slate-500">
+      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
         {INTENSITY_LABELS[segment.intensity] ?? segment.intensity}
       </span>
     </li>
