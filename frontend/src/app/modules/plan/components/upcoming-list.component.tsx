@@ -51,7 +51,7 @@ export const UpcomingList = ({
     >
       {remainder.length > 0 ? (
         <div className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">Rest of this week</h2>
+          <h2 className="text-lg font-semibold text-foreground">Rest of this week</h2>
           <ol
             aria-label="Workouts later this week"
             data-testid="upcoming-week-remainder"
@@ -71,7 +71,7 @@ export const UpcomingList = ({
 
       {weeks.length > 0 ? (
         <div className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">Upcoming weeks</h2>
+          <h2 className="text-lg font-semibold text-foreground">Upcoming weeks</h2>
           <MesoWeekBlock weeks={weeks} currentWeek={currentWeek} />
         </div>
       ) : null}

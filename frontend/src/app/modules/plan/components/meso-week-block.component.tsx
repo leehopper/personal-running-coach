@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { Badge } from '@/components/ui/badge'
 import type { MesoWeekTemplateDto } from '~/modules/plan/models/plan.model'
 import { labelForPhase } from './plan-display.helpers'
 
@@ -32,10 +33,10 @@ const cardStateFor = (
 }
 
 const STATE_STYLES: Record<'past' | 'current' | 'future' | 'neutral', string> = {
-  past: 'bg-slate-100 text-slate-500',
-  current: 'bg-slate-900 text-slate-50 ring-2 ring-slate-900',
-  future: 'bg-white text-slate-500 opacity-70',
-  neutral: 'bg-white text-slate-700',
+  past: 'bg-muted text-muted-foreground',
+  current: 'bg-primary text-primary-foreground ring-2 ring-primary',
+  future: 'bg-card text-muted-foreground opacity-70',
+  neutral: 'bg-card text-card-foreground',
 }
 
 /**
@@ -70,7 +71,7 @@ export const MesoWeekBlock = ({
           data-week={week.weekNumber}
           data-state={state}
           aria-current={state === 'current' ? 'step' : undefined}
-          className={`flex flex-col gap-2 rounded-lg border border-slate-200 p-4 text-sm shadow-sm transition-colors duration-200 ease-out ${STATE_STYLES[state]}`}
+          className={`flex flex-col gap-2 rounded-lg border p-4 text-sm shadow-sm transition-colors duration-200 ease-out motion-reduce:transition-none ${STATE_STYLES[state]}`}
         >
           <header className="flex items-baseline justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide">
@@ -80,12 +81,13 @@ export const MesoWeekBlock = ({
           </header>
           <p className="text-lg font-semibold leading-tight">{week.weeklyTargetKm.toFixed(1)} km</p>
           {week.isDeloadWeek ? (
-            <span
+            <Badge
+              variant="secondary"
               data-testid="meso-week-deload-flag"
-              className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-900"
+              className="text-[11px] font-semibold uppercase tracking-wide"
             >
               Deload week
-            </span>
+            </Badge>
           ) : null}
           {week.weekSummary.trim().length > 0 ? (
             <p className="text-xs leading-snug opacity-90">{week.weekSummary}</p>

@@ -302,8 +302,12 @@ test('register → complete six-topic onboarding → navigate to /', async ({ pa
   await expect(page.getByTestId('onboarding-chat')).toBeVisible()
   await expect(page.getByTestId('single-select-turn-input')).toBeVisible()
 
-  // Topic 1 — PrimaryGoal: pick the first radio and submit.
-  await page.locator('input[type="radio"]').first().check()
+  // Topic 1 — PrimaryGoal: pick the first radio and submit. The single-select
+  // input renders Radix `RadioGroup` options as `button[role="radio"]`, so the
+  // selection targets the accessible role rather than a native
+  // `input[type="radio"]` (Radix's only `input[type="radio"]` is a hidden,
+  // `pointer-events:none` bubble input that Playwright `.check()` cannot act on).
+  await page.getByRole('radio').first().check()
   await page.getByRole('button', { name: /send/i }).click()
 
   // After the first server Ask (TargetEvent / date input) lands, the

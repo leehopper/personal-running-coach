@@ -33,9 +33,9 @@ export const TOPIC_LABELS: Record<OnboardingTopic, string> = {
 // for richer animations elsewhere; segment colour shifts are simple enough
 // that a CSS transition is the lighter-weight implementation.
 export const SEGMENT_STYLES: Record<TopicSegmentState, string> = {
-  completed: 'bg-slate-900 text-slate-50 border-slate-900',
-  current: 'bg-slate-50 text-slate-900 border-slate-900 ring-2 ring-slate-900/20',
-  pending: 'bg-slate-50 text-slate-500 border-slate-200',
+  completed: 'bg-primary text-primary-foreground border-primary',
+  current: 'bg-background text-foreground border-primary ring-2 ring-primary/20',
+  pending: 'bg-muted text-muted-foreground border-border',
 }
 
 /**
