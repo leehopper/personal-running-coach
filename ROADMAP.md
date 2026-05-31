@@ -2,9 +2,10 @@
 
 **Current cycle:** MVP-0 + Adaptation Loop — `docs/plans/mvp-0-cycle/cycle-plan.md`
 **Active slice:** None active — between sub-projects. Slice 2 (Workout Logging) was decomposed 2026-05-18 into **2a Frontend Visual Foundation** (palette + semantic design tokens, light/dark, Tailwind v4 `@theme`, shadcn/ui install, typography/spacing scale, surface migration) and **2b Workout Logging proper** (data model, endpoints, `ContextAssembler` extension, log form / today's card / history list). **Sub-project 2a is complete — merged 2026-05-30** across PRs #111–#114 (foundation → contrast-gate → auth/onboarding migration → home/settings + dark-mode toggle), spec `docs/specs/15-spec-slice-2a-frontend-foundation/`. Slices 0, 1, and 1B are also complete and merged.
-**Next step:** Brainstorm sub-project **2b (Workout Logging)** in a fresh session — requirements at `docs/plans/mvp-0-cycle/slice-2-logging.md` (it carries the open spec questions + three Slice 1 carry-forwards: Wolverine LLM-failure error policy, canonical `WorkoutLog.Metrics` JSONB key constants, eval-cache invalidation on prompt-template edit). Write the spec under `docs/specs/` after the brainstorm.
+**Next step:** Brainstorm sub-project **2b (Workout Logging)** in a fresh session, then write the spec under `docs/specs/`. **Pre-spec research is done** — Batch 28 (R-077–R-080) is integrated, locking DEC-072–075 and resolving all three Slice 1 carry-forwards (Wolverine LLM-failure policy → DEC-073, canonical `WorkoutLog.Metrics` keys → DEC-072, eval-cache invalidation → DEC-074). The brainstorm now focuses on the remaining **product/UX** questions only (WorkoutLog↔prescribed-workout relationship, post-log flow, history pagination, raw-vs-summary history) — see `docs/plans/mvp-0-cycle/slice-2-logging.md` § Research resolutions.
 **Blockers:** None.
 
+**Slice 2b pre-spec decisions:** DEC-072 (`WorkoutLog.Metrics` open `jsonb` bag + single-sourced canonical keys + first EF `ValueConverter`, R-077/R-080-P2), DEC-073 (synchronous LLM-failure policy: SDK-only retry + `Kind=Error` envelope, R-078), DEC-074 (eval-cache↔prompt SHA-256 sentinel, R-080-P1), DEC-075 (logging-form conventions, R-079). Batch 28; load-bearing claims independently re-verified before lock.
 **Slice 2a decision:** DEC-070 (frontend design-token architecture — two-tier Catppuccin hybrid tokens + shadcn/ui on Tailwind v4 + class-based dark mode, R-075).
 **Slice 1B decisions:** DEC-066 (OpenAPI → TS+Zod codegen, R-071), DEC-067 (Marten upcasting, R-072), DEC-068 (error boundary, R-073), DEC-069 (client OTel, R-074).
 **Slice 1 decisions:** DEC-057 through DEC-064 — see decision log.
@@ -20,7 +21,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - **"What should I work on?"** → active cycle plan (pointer above).
 - **"What's the active slice doing?"** → active slice spec under `docs/specs/` (pointer in cycle plan's Status section, once a slice is underway).
 - **"How does X work?"** → `docs/planning/{topic}.md` + the relevant module under `backend/src/RunCoach.Api/Modules/` or `frontend/src/app/modules/`.
-- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-070).
+- **"Why was X decided?"** → `docs/decisions/decision-log.md` (DEC-001 through DEC-075).
 - **"Has this been researched?"** → `docs/research/research-queue.md` + `docs/research/artifacts/`.
 - **"What are the rules for code changes?"** → root `CLAUDE.md`, `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `REVIEW.md` files (root / backend / frontend).
 - **"I found an unknown — can I just pick one and move on?"** → No. See `CLAUDE.md` § Research Protocol and the active cycle plan's "When Agents Encounter Unknowns" section.
@@ -38,7 +39,7 @@ Agents arriving cold should resolve intent to a file before reading:
 - Safety & legal: `docs/planning/safety-and-legal.md`
 - Self-optimization: `docs/planning/self-optimization.md`
 - Unit system design: `docs/planning/unit-system-design.md`
-- Decision log: `docs/decisions/decision-log.md` (70 entries)
+- Decision log: `docs/decisions/decision-log.md` (75 entries)
 - Feature backlog: `docs/features/backlog.md`
 - Research queue & artifacts: `docs/research/research-queue.md`, `docs/research/artifacts/`
 - POC roadmap (historical framing, superseded by cycle plans): `docs/planning/poc-roadmap.md`
