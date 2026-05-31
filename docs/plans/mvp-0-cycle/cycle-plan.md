@@ -20,14 +20,14 @@ This status block is the single source of truth for "where are we?" — mirrored
 
 ### Slice 2a — post-merge verification
 
-Slice 2a merged 2026-05-30 across PRs #111–#114 (foundation → contrast-gate → auth/onboarding migration → home/settings + dark-mode toggle), in dependency order. Close-out status:
+Slice 2a merged 2026-05-30 across PRs #111–#114 (foundation → contrast-gate → auth/onboarding migration → home/settings + dark-mode toggle), in dependency order. Close-out status — **all verified**:
 
 - [x] Four `slice-2a-*` branches pushed; four stacked PRs opened, reviewed, and merged in dependency order. The R-075 integrate commit `fbe80c4` rode in via the foundation PR (#111).
 - [x] **`check-contrast` passes on the fully-integrated `main`** — all 28 semantic foreground/background pairs clear their WCAG thresholds (`npm run check-contrast`, 2026-05-30). The gate runs in pre-commit + CI.
 - [x] Frontend type-check + unit suite green on integrated `main` — `tsc -b` clean, **367/367 Vitest tests** pass across 35 files.
 - [x] Worktrees torn down and the four merged local `slice-2a-*` branches deleted; no stray Vite dev server (port 5234 clear) or leftover `git` processes.
 - [x] Slice 2a marked complete in this Status block and `ROADMAP.md`, with a Cycle History row added.
-- [ ] **Playwright E2E (`npm run e2e`) on `main`** — needs the full stack up (Postgres + backend API on `https://localhost:5001` + Vite); folded into the post-merge manual stability run. The 5 onboarding specs assert `data-testid` selectors the colour-only migration preserved. This is the one open item; everything else above is verified.
+- [x] **Playwright E2E (`npm run e2e`) — 12/12 specs pass** against the host-run stack (Postgres + backend API on `https://localhost:5001` + Vite, 2026-05-30): error-boundary, theme, auth, onboarding, plan-render, regenerate-plan. Onboarding/plan responses are stubbed via Playwright `route` interception (real backend only for `register`), so the run makes no Anthropic calls. The colour-only migration preserved every `data-testid` selector and flow.
 
 ---
 
