@@ -1,5 +1,7 @@
 > **Research artifact — Batch 28d · R-080 (two-part).** Commissioned via the RunCoach research protocol; prompt at `docs/research/prompts/batch-28d-meai-evalcache-prompt-binding-and-healthkit-keys.md`. Deep-web-research output landed & integrated 2026-05-31 (queue → Integrated). **Part 1** (eval-cache ↔ prompt binding) locks **DEC-074**; **Part 2** (HealthKit/Strava canonical key reconciliation) feeds the `WorkoutMetricKeys` list in **DEC-072**. The prompt was a single two-part brief; the research came back as two documents, concatenated below under their part headers. Verbatim research output follows.
 
+> **Errata (2026-05-31).** In Part 2 (HealthKit identifier table + the weather-condition note), the HealthKit humidity metadata key is written as `HKMetadataKeyHumidity`. The correct identifier is **`HKMetadataKeyWeatherHumidity`** (`HKQuantity` in percent). Confirmed against `HKMetadata.h` (verification claim C12g) and locked in **DEC-072**. The body below is preserved verbatim.
+
 ---
 
 # Part 1 — Eval-cache ↔ prompt-template binding (M.E.AI.Evaluation 10.6.0)

@@ -1,5 +1,7 @@
 > **Research artifact — Batch 28c · R-079.** Commissioned via the RunCoach research protocol; prompt at `docs/research/prompts/batch-28c-react19-progressive-disclosure-logging-form-zod-v4.md`. Deep-web-research output landed & integrated 2026-05-31 (queue → Integrated). Feeds the Slice 2b frontend spec; reusable conventions locked as **DEC-075**. NOTE: the research agent's original H1 mislabeled this "R-076"; corrected to R-079 below. Verbatim research output follows.
 
+> **Errata (2026-05-31).** §SQ2 ("Zod v4 breaking changes that bite here") states Zod v4 "added `.safeExtend()` / `.safeOmit()`." **`.safeOmit()` does not exist** — Zod v4 added only `.safeExtend()` (no `.safeOmit()`/`.safePick()`/`.safePartial()`). The correct guidance: `.pick()`/`.omit()`/`.partial()` throw on object schemas containing refinements, so derive sub-schemas **before** refining (or rebuild via `z.object(schema.shape)`). Confirmed empirically against the repo's zod 4.4.3 (verification claim C16b) and locked in **DEC-075**. The body below is preserved verbatim.
+
 ---
 
 # R-079 — Workout-Logging Form & Heterogeneous History List: Canonical 2026 Frontend Patterns
