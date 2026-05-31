@@ -48,6 +48,7 @@ Agents arriving cold should resolve intent to a file before reading:
 ## MVP Milestones
 
 - **MVP-0 (personal validation):** Onboarding + plan generation + workout logging + adaptation loop. Builder uses it on own runs. **Currently building** — see cycle plan.
+  - **Live end-to-end validation pass — gated after Slice 3 (Adaptation Loop).** CI and the local suite exercise every LLM surface in **Replay mode** against the committed eval cache (zero real API calls), so the live coaching path is never proven by automated tests. Once Slice 3 lands the full **onboard → plan → log → adapt** loop, do a real end-to-end run: bring up the Path B host-run stack (`docker compose up -d postgres redis` + `dotnet run` API + Vite, per `CONTRIBUTING.md`), point `Anthropic:ApiKey` (the `runcoach-api` user-secrets store, **not** `runcoach-api-tests`) at a **funded** Anthropic account, and drive the whole flow in the browser. This is the point where testing the full flow is genuinely meaningful, and it backstops the stub/Replay gap — proven necessary by the Wolverine 6 onboarding 500 (DEC-071 / PR #129) that surfaced only under a live turn. Re-run the full pass at MVP-0 close after Slice 4 (open conversation) completes the loop.
 - **MVP-1 (friends / testers):** Adds proactive coaching + Apple Health integration. The adaptive differentiator becomes externally visible.
 
 ---
