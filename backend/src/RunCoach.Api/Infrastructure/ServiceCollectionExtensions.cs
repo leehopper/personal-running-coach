@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Options;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Prompts;
@@ -43,21 +42,18 @@ public static class ServiceCollectionExtensions
         // Coaching module — scoped services (per-request lifetime).
         services.AddScoped<ICoachingLlm, ClaudeCoachingLlm>();
 
-        // ContextAssembler exposes two public constructors — a 3-arg legacy
-        // form for plan-only tests and a 6-arg onboarding-aware form. The
-        // default container's "most-resolvable parameters" heuristic picked
-        // the 3-arg constructor at runtime in this project, leaving
-        // `_sanitizer` null and breaking `ComposeForOnboardingAsync` with an
-        // InvalidOperationException on every onboarding turn. Explicit
-        // factory registration locks the production path to the 6-arg
-        // constructor regardless of constructor-selection quirks.
-        services.AddScoped<IContextAssembler>(sp => new ContextAssembler(
-            sp.GetRequiredService<IPromptStore>(),
-            sp.GetRequiredService<TimeProvider>(),
-            sp.GetRequiredService<IPromptSanitizer>(),
-            sp.GetRequiredService<IHostEnvironment>(),
-            sp.GetRequiredService<IOptions<PromptStoreSettings>>(),
-            sp.GetRequiredService<ILogger<ContextAssembler>>()));
+        // ContextAssembler's 3-arg legacy constructor is `internal` (test-only via
+        // InternalsVisibleTo); the public surface is the single 6-arg
+        // onboarding-aware constructor, so the container unambiguously selects it
+        // from a plain implementation-type registration. This MUST stay a type
+        // registration, not an `sp => new ContextAssembler(...)` lambda factory:
+        // Wolverine 6 handler codegen (ServiceLocationPolicy.NotAllowed, DEC-071)
+        // cannot statically construct an opaque Scoped lambda factory, falls back
+        // to service location, and rejects it — breaking the OnboardingTurnHandler
+        // chain with an HTTP 500 on every onboarding turn. The no-opaque-factory
+        // rule is guarded by WolverineCodegenCompositionTests; correct 6-arg
+        // constructor selection is guarded by ContextAssemblerDiResolutionTests.
+        services.AddScoped<IContextAssembler, ContextAssembler>();
 
         // Prompt-injection sanitizer (Slice 1 § Unit 6 / DEC-059 / R-068).
         // Stateless layered sanitizer — singleton-safe; the pattern catalog
