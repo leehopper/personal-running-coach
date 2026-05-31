@@ -2784,4 +2784,37 @@ T01.1 implementation surfaced two divergences from this DEC's estimates. (1) The
 
 ---
 
+## DEC-076: WorkoutLog ↔ prescribed-workout linkage — snapshot-on-log, not a foreign key (Slice 2b)
+
+**Date:** 2026-05-31
+**Category:** Backend / Data model / Event sourcing
+**Status:** Accepted — locked for the Slice 2b spec; the linkage pattern is reused by Slice 3 adaptation and Slice 4 conversation.
+**Drives:** The `WorkoutLog` EF entity shape, the create/query endpoints, and how Slice 3's deterministic deviation engine recovers what was prescribed.
+**Cites:** Slice 2b pre-spec brainstorm + codebase verification (2026-05-31); `docs/plans/mvp-0-cycle/slice-2-logging.md` § Brainstorm resolutions (A).
+**Builds on:** DEC-060 (logs are external facts; handlers emit events, projections own EF state), DEC-072 (`WorkoutLog` columns + `jsonb` metrics).
+**Supersedes:** the cycle-plan "Data Model" line `WorkoutLog … optional FK to PlannedWorkoutId (matches a prescribed workout in the Marten projection)` — a 2026-04-19 assumption that predated the finding that prescribed workouts have no stable identity.
+
+**Decision:**
+
+- **The link is a captured snapshot, not a foreign key.** `WorkoutLog` (EF Core, tenanted, treated as an immutable historical fact) carries a **nullable, server-authoritative `Prescription` snapshot** populated at create time: the originating `SourcePlanId`, the `(WeekNumber, DayOfWeek)` coordinate that located the prescription, and a **frozen copy** of the prescribed `WorkoutType` / `TargetDistance` / `TargetDuration` / `TargetPace`. The snapshot is written **server-side** from the live plan (the "Log" action originates on the today card, so the coordinate is in hand) — client-supplied prescribed values are never trusted.
+- **Off-plan runs are first-class.** A run not on the plan logs with the whole snapshot null. `read-by-planned-workout` = query on `(SourcePlanId, WeekNumber, DayOfWeek)`.
+- **No synthetic workout id is minted.** Prescribed workouts are not given a stable id in the plan event or projection.
+- **Date fields.** Split the cycle-plan's single `LoggedAt` into `OccurredOn` (the run's calendar date — the matching anchor) and a `CreatedOn` audit field; a run may be logged on a later day.
+
+**Rationale:** durability comes from the frozen copy, not a key. Three verified mechanics force this:
+
+1. **Prescriptions have no stable identity or date.** A persisted `WorkoutOutput` is addressed only by `(PlanId, weekNumber 1-based, dayOfWeek 0–6)`; the `MicroWorkout.WorkoutId` record is dead code; an id cannot be added to `WorkoutOutput` itself without leaking into the Anthropic constrained-decoding schema as a required field.
+2. **Regeneration is whole-plan into a new stream.** Each regenerate mints a new `PlanId` and re-emits the entire macro/meso/micro tree; the prior stream is retained indefinitely (no deletion/archival code exists). P2's workouts are freshly generated with **no identity continuity** to P1's — so a minted id could not span a regeneration anyway, and a live FK would point at a target that can be regenerated out from under it. The retained-old-stream property already makes the captured `(SourcePlanId, week, day)` coordinate permanently dereferenceable.
+3. **Slice 3's deviation engine is deterministic prescribed-vs-actual** and must compare against the prescription **as it stood when the run happened**. Because adaptation regenerates the plan, re-resolving "the prescription" from the current plan later compares against an already-adapted target — only a snapshot captured at log time is point-in-time correct.
+
+A minted workout id buys **no durability** (point 2), **no uniqueness** (the coordinate already uniquely addresses a slot — one `WorkoutOutput` per day), and **no reorder-stability** (matching is by `dayOfWeek` value, not array position), while costing the injection of server data into the otherwise-verbatim-LLM-output projection and coupling EF identity to the Marten event layer (which `backend/CLAUDE.md` warns against). It stays purely additive later if a real need (e.g. multiple workouts per day) appears.
+
+**Verified (2026-05-31, codebase pass):** `WorkoutOutput` has no id/date (only `DayOfWeek`); `MicroWorkout.WorkoutId` unreferenced in production; regeneration mints a new `PlanId` + new stream with the prior retained (zero stream-deletion calls in `backend/src`); plan generation has a single micro-emit site (`PlanGenerationService` → `FirstMicroCycleCreated`) where a snapshot/id could be sourced; the deviation engine's prescribed-vs-actual inputs are a requirements-level commitment (cycle-plan + `self-optimization.md`), not yet implemented.
+
+**Alternatives considered:** **Hard FK to a minted per-workout id** (the "hybrid") — rejected for MVP-0: real cross-cutting change (new id-bearing event payload + upcasting + projection + wire DTO + hand-maintained frontend type + codegen) for a key that adds no durability/uniqueness/stability; revisit only if two-a-days or first-class prescribed-workout entities arrive. **Coordinate-only, no snapshot** — rejected: Slice 3 would re-load a possibly-regenerated plan to recover prescribed targets, the exact point-in-time bug the snapshot prevents. **Pure date-match, no stored reference** — rejected: loses provenance after regeneration.
+
+**Open (impl-time):** exact snapshot field names/types and whether `Prescription` is an EF owned type vs flat columns; how the create endpoint receives the coordinate (explicit `(planId, week, day)` in the request vs derived server-side from "today"); confirm the snapshot survives the `WorkoutSummary`/assembler-input reshape that DEC-072's metrics bag also touches.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
