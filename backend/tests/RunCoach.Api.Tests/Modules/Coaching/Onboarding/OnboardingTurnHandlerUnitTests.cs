@@ -511,6 +511,7 @@ public class OnboardingTurnHandlerUnitTests
                 Warnings = string.Empty,
             },
             GeneratedAt: generatedAt,
+            PlanStartDate: PlanCalendar.StartOfTrainingWeek(DateOnly.FromDateTime(generatedAt.UtcDateTime)),
             PromptVersion: "v1",
             ModelId: "test-model",
             PreviousPlanId: null);

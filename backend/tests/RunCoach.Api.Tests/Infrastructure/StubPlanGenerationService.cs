@@ -74,6 +74,7 @@ public sealed class StubPlanGenerationService : IPlanGenerationService
             userId,
             BuildMacro(goal),
             generatedAt,
+            PlanStartDate: PlanCalendar.StartOfTrainingWeek(DateOnly.FromDateTime(generatedAt.UtcDateTime)),
             PromptVersion: "coaching-v1",
             ModelId: "claude-sonnet-4-5",
             PreviousPlanId: previousPlanId);

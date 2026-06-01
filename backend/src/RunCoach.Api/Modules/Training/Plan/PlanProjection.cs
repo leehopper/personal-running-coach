@@ -59,6 +59,7 @@ public sealed partial class PlanProjection : SingleStreamProjection<PlanProjecti
             PlanId = @event.PlanId,
             UserId = @event.UserId,
             GeneratedAt = @event.GeneratedAt,
+            PlanStartDate = @event.PlanStartDate,
             PromptVersion = @event.PromptVersion,
             ModelId = @event.ModelId,
             PreviousPlanId = @event.PreviousPlanId,

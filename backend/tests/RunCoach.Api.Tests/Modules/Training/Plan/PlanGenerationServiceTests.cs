@@ -137,6 +137,44 @@ public sealed class PlanGenerationServiceTests
         generated.PromptVersion.Should().Be("v1");
         generated.ModelId.Should().Be("test-model-id");
         generated.GeneratedAt.Should().Be(Now);
+
+        // PlanStartDate anchors to the Sunday opening the generation week.
+        // Now is 2026-04-25 (a Saturday); the preceding Sunday is 2026-04-19.
+        generated.PlanStartDate.Should().Be(new DateOnly(2026, 4, 19));
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_AnchorsPlanStartDateToGenerationWeekSunday()
+    {
+        // Arrange — generate on Wednesday 2026-06-10; week 1, day 0 anchors to the
+        // preceding Sunday 2026-06-07 (slice-2b Unit 1 / DEC-076).
+        var generationDate = new DateTimeOffset(2026, 6, 10, 9, 30, 0, TimeSpan.Zero);
+        var (sut, llm, _) = CreateSut(generationDate);
+        ConfigureLlmHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        sequence.Macro.PlanStartDate.Should().Be(new DateOnly(2026, 6, 7));
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_Regenerate_ReanchorsPlanStartDateToRegenerationWeek()
+    {
+        // Arrange — regenerating on Tuesday 2026-06-23 re-anchors week 1 to that
+        // week's Sunday 2026-06-21; the regenerate flow shares this construction site.
+        var regenerationDate = new DateTimeOffset(2026, 6, 23, 18, 0, 0, TimeSpan.Zero);
+        var (sut, llm, _) = CreateSut(regenerationDate);
+        ConfigureLlmHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: PreviousPlanId, TestContext.Current.CancellationToken);
+
+        // Assert
+        sequence.Macro.PlanStartDate.Should().Be(new DateOnly(2026, 6, 21));
     }
 
     [Fact]
@@ -497,7 +535,8 @@ public sealed class PlanGenerationServiceTests
         actual.IsDeloadCandidate.Should().BeFalse();
     }
 
-    private static (PlanGenerationService Sut, ICoachingLlm Llm, IContextAssembler Assembler) CreateSut()
+    private static (PlanGenerationService Sut, ICoachingLlm Llm, IContextAssembler Assembler) CreateSut(
+        DateTimeOffset? now = null)
     {
         var assembler = Substitute.For<IContextAssembler>();
         assembler
@@ -535,7 +574,7 @@ public sealed class PlanGenerationServiceTests
         });
 
         var timeProvider = Substitute.For<TimeProvider>();
-        timeProvider.GetUtcNow().Returns(Now);
+        timeProvider.GetUtcNow().Returns(now ?? Now);
 
         var sut = new PlanGenerationService(
             assembler,

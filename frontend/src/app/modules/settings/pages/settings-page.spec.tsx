@@ -52,6 +52,7 @@ const buildPlanStub = (overrides: Partial<PlanProjectionDto> = {}): PlanProjecti
   planId: 'plan-1',
   userId: 'user-1',
   generatedAt: '2026-04-25T15:00:00.000Z',
+  planStartDate: '2026-04-19',
   previousPlanId: null,
   promptVersion: 'coaching-v1',
   modelId: 'claude-sonnet-4-6',

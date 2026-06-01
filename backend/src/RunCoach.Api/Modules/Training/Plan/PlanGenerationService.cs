@@ -288,13 +288,18 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             totalUsage = totalUsage.Add(microUsage);
 
             var promptVersion = _promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId);
+            var generatedAt = _timeProvider.GetUtcNow();
 
-            // Assemble the canonical Slice 1 plan event sequence.
+            // Assemble the canonical Slice 1 plan event sequence. PlanStartDate anchors
+            // week 1, day 0 (Sunday) to the start of the generation week so a logged run's
+            // date maps deterministically to a (week, day) slot (slice-2b Unit 1 / DEC-076).
+            // The regenerate flow re-anchors automatically because it shares this site.
             var planGenerated = new PlanGenerated(
                 PlanId: planId,
                 UserId: userId,
                 Macro: macro,
-                GeneratedAt: _timeProvider.GetUtcNow(),
+                GeneratedAt: generatedAt,
+                PlanStartDate: PlanCalendar.StartOfTrainingWeek(DateOnly.FromDateTime(generatedAt.UtcDateTime)),
                 PromptVersion: promptVersion,
                 ModelId: _settings.ModelId,
                 PreviousPlanId: previousPlanId);

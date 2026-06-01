@@ -179,6 +179,12 @@ export interface PlanProjectionDto {
   planId: string
   userId: string
   generatedAt: string
+  /**
+   * The calendar date (ISO `YYYY-MM-DD`) on which the plan's week 1, day 0
+   * (Sunday) begins — the start-of-week of the generation date. Mirrors
+   * `PlanProjectionDto.PlanStartDate` (slice-2b Unit 1 / DEC-076).
+   */
+  planStartDate: string
   previousPlanId: string | null
   promptVersion: string
   modelId: string
