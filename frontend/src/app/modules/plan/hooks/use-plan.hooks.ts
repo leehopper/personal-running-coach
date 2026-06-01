@@ -77,7 +77,7 @@ const resolveLowestPopulatedWeek = (plan: PlanProjectionDto): number => {
 
 /**
  * Returns the 1-based current training week, derived from the plan's calendar
- * anchor (`planStartDate`, DEC-076 / slice-2b Unit 1) relative to `referenceDate`
+ * anchor (`planStartDate`, slice-2b Unit 1) relative to `referenceDate`
  * (today by default): `floor((referenceDate − planStartDate).days / 7) + 1`.
  *
  * The result is clamped into the range of weeks that actually carry a meso

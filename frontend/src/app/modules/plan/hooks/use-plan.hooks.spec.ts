@@ -5,8 +5,8 @@ import { resolveCurrentWeek } from './use-plan.hooks'
 
 // The shared fixture anchors `planStartDate` to Sunday 2026-04-19 with meso
 // templates for weeks 1–4 and micro detail for week 1 only. These specs pin
-// `resolveCurrentWeek` to a date-derived week (DEC-076 / slice-2b Unit 1),
-// passing an explicit reference date so they never depend on the wall clock.
+// `resolveCurrentWeek` to a date-derived week (slice-2b Unit 1), passing an
+// explicit reference date so they never depend on the wall clock.
 
 describe('resolveCurrentWeek', () => {
   it('derives the current week from planStartDate relative to the reference date', () => {
@@ -62,5 +62,43 @@ describe('resolveCurrentWeek', () => {
     // No usable anchor → the defensive heuristic returns the lowest populated
     // micro week (2), not a clamped date-derived value.
     expect(resolveCurrentWeek(plan, new Date(2026, 4, 3))).toBe(2)
+  })
+
+  it('falls back to the lowest populated micro week when the plan carries no meso templates', () => {
+    const plan: PlanProjectionDto = {
+      ...buildPlanFixture(),
+      mesoWeeks: [],
+      microWorkoutsByWeek: {
+        3: { workouts: [] },
+        5: { workouts: [] },
+      },
+    }
+    // No meso templates → firstWeek/lastWeek are undefined → date derivation is
+    // impossible, so the heuristic returns the lowest populated micro week (3)
+    // regardless of the (valid) planStartDate and reference date.
+    expect(resolveCurrentWeek(plan, new Date(2026, 4, 3))).toBe(3)
+  })
+
+  it('falls back to the first meso template week when the anchor is malformed and no micro weeks are populated', () => {
+    const plan: PlanProjectionDto = {
+      ...buildPlanFixture(),
+      planStartDate: 'not-a-date',
+      microWorkoutsByWeek: {},
+    }
+    // Malformed anchor → fallback; no populated micro week → the heuristic
+    // returns the first meso template week (1) from the fixture’s weeks 1–4.
+    expect(resolveCurrentWeek(plan, new Date(2026, 4, 3))).toBe(1)
+  })
+
+  it('falls back to week 1 when the plan has neither meso templates nor populated micro weeks', () => {
+    const plan: PlanProjectionDto = {
+      ...buildPlanFixture(),
+      mesoWeeks: [],
+      microWorkoutsByWeek: {},
+    }
+    // Neither anchor-derivable (no templates) nor any populated week → the
+    // final `?? 1` guard returns week 1 so the home surface still renders a
+    // defined week without throwing.
+    expect(resolveCurrentWeek(plan, new Date(2026, 4, 3))).toBe(1)
   })
 })
