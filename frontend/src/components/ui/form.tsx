@@ -130,6 +130,10 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
   return (
     <p
       data-slot="form-message"
+      // role="alert" announces validation errors assertively to screen readers
+      // the moment the message mounts (carry-in #560) — the hand-rolled
+      // onboarding inputs already carry this; the shared message now matches.
+      role="alert"
       id={formMessageId}
       className={cn('text-sm text-destructive', className)}
       {...props}

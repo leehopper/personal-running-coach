@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import { describe, expect, it, vi } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
@@ -108,6 +109,18 @@ describe('App', () => {
     // Initial auth slice status === 'unknown' → RequireAuth shows the
     // loading fallback.
     expect(screen.getByRole('status')).toBeInTheDocument()
+  })
+
+  it('mounts the toast region so app-wide toasts render (pre-stages PR6b success toast)', async () => {
+    getOnboardingStateMock.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+    render(<App />)
+
+    act(() => {
+      toast.success('Workout logged')
+    })
+
+    expect(await screen.findByText('Workout logged')).toBeInTheDocument()
+    toast.dismiss()
   })
 })
 
