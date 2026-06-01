@@ -2,6 +2,7 @@ import { type ReactElement } from 'react'
 import { Provider } from 'react-redux'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Toaster } from '@/components/ui/sonner'
 import { store } from './app.store'
 import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
 import { AppErrorBoundary } from '~/error-boundary/app-error-boundary'
@@ -189,6 +190,11 @@ export const App = () => {
           <AppShell />
         </BrowserRouter>
       </AppErrorBoundary>
+      {/* Single app-wide toast outlet. Mounted as a sibling *outside* the
+          error boundary so a render-time throw in the route tree cannot
+          unmount it, and toasts (e.g. the slice-2b log success) still surface
+          on the recovery card. `Toaster` mirrors the `.dark` class itself. */}
+      <Toaster />
     </Provider>
   )
 }

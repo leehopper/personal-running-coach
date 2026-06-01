@@ -43,13 +43,26 @@ export const usePlan = (): UsePlanReturn => {
   }
 }
 
+const DAY_MS = 86_400_000
+
 /**
- * Returns the 1-based current week derived from the projection. Returns the
- * lowest-numbered populated week in `microWorkoutsByWeek`, falling back to
- * the first meso template's week number when no micro workouts are present,
- * and finally to week 1 if neither is available.
+ * Parse an ISO `YYYY-MM-DD` plan start date into a UTC-midnight epoch, or
+ * `undefined` when the string is absent or malformed. UTC midnight keeps the
+ * day-count subtraction free of DST artefacts.
  */
-export const resolveCurrentWeek = (plan: PlanProjectionDto): number => {
+const parsePlanStartUtc = (planStartDate: string): number | undefined => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(planStartDate)
+  if (match === null) return undefined
+  const utc = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return Number.isNaN(utc) ? undefined : utc
+}
+
+/**
+ * The pre-anchor heuristic, retained as a defensive fallback for streams that
+ * carry no usable `planStartDate`: the lowest-numbered populated week in
+ * `microWorkoutsByWeek`, then the first meso template's week, then week 1.
+ */
+const resolveLowestPopulatedWeek = (plan: PlanProjectionDto): number => {
   const populatedWeeks = Object.keys(plan.microWorkoutsByWeek)
     .map((key) => Number.parseInt(key, 10))
     .filter((value) => Number.isFinite(value) && value >= 1)
@@ -58,10 +71,50 @@ export const resolveCurrentWeek = (plan: PlanProjectionDto): number => {
   if (firstPopulated !== undefined) {
     return firstPopulated
   }
-  // Fall back to the first meso template's week number when no micro
-  // workouts are present (defensive path for a partially-projected stream).
   const firstMeso = plan.mesoWeeks.find((week) => week.weekNumber >= 1)
   return firstMeso?.weekNumber ?? 1
+}
+
+/**
+ * Returns the 1-based current training week, derived from the plan's calendar
+ * anchor (`planStartDate`, slice-2b Unit 1) relative to `referenceDate`
+ * (today by default): `floor((referenceDate − planStartDate).days / 7) + 1`.
+ *
+ * The result is clamped into the range of weeks that actually carry a meso
+ * template, so the caller always lands on a renderable week — a date before the
+ * plan starts resolves to its first week, a date past the generated weeks to its
+ * last. When `planStartDate` is missing or malformed (or no templates exist),
+ * it falls back to the legacy lowest-populated-week heuristic so the surface
+ * still renders a defined week without throwing.
+ *
+ * `referenceDate` is injectable purely for deterministic tests; production
+ * callers omit it and get the current date.
+ */
+export const resolveCurrentWeek = (
+  plan: PlanProjectionDto,
+  referenceDate: Date = new Date(),
+): number => {
+  const templateWeeks = plan.mesoWeeks
+    .map((week) => week.weekNumber)
+    .filter((value) => Number.isFinite(value) && value >= 1)
+    .sort((left, right) => left - right)
+
+  const planStartUtc = parsePlanStartUtc(plan.planStartDate)
+  const firstWeek = templateWeeks[0]
+  const lastWeek = templateWeeks[templateWeeks.length - 1]
+  if (planStartUtc === undefined || firstWeek === undefined || lastWeek === undefined) {
+    return resolveLowestPopulatedWeek(plan)
+  }
+
+  const referenceUtc = Date.UTC(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    referenceDate.getDate(),
+  )
+  const elapsedDays = Math.floor((referenceUtc - planStartUtc) / DAY_MS)
+  const dateDerivedWeek = Math.floor(elapsedDays / 7) + 1
+
+  return Math.min(Math.max(dateDerivedWeek, firstWeek), lastWeek)
 }
 
 /**

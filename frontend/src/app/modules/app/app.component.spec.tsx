@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import { describe, expect, it, vi } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
@@ -34,6 +35,24 @@ const { getOnboardingStateMock } = vi.hoisted(() => ({
 
 vi.mock('~/api/onboarding.api', () => ({
   useGetOnboardingStateQuery: () => getOnboardingStateMock(),
+}))
+
+// `useGlobalErrorReporter` is called unconditionally at the top of `AppShell`,
+// inside `<AppErrorBoundary>`. Mocking it lets one test force a render-time
+// throw from there to exercise the boundary catch; it is a noop by default so
+// every other `<App>` render is unaffected.
+const { useGlobalErrorReporterMock } = vi.hoisted(() => ({
+  useGlobalErrorReporterMock: vi.fn(),
+}))
+
+vi.mock('~/error-boundary/use-global-error-reporter', () => ({
+  useGlobalErrorReporter: () => useGlobalErrorReporterMock(),
+}))
+
+// Keep the boundary's fire-and-forget client-error report from attempting a
+// real network call when the throw path runs under jsdom.
+vi.mock('~/error-boundary/report-client-error', () => ({
+  reportClientError: vi.fn(),
 }))
 
 import { App } from './app.component'
@@ -108,6 +127,60 @@ describe('App', () => {
     // Initial auth slice status === 'unknown' → RequireAuth shows the
     // loading fallback.
     expect(screen.getByRole('status')).toBeInTheDocument()
+  })
+
+  it('mounts the toast region so app-wide toasts render (pre-stages PR6b success toast)', async () => {
+    getOnboardingStateMock.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+    render(<App />)
+
+    act(() => {
+      toast.success('Workout logged')
+    })
+
+    expect(await screen.findByText('Workout logged')).toBeInTheDocument()
+    toast.dismiss()
+  })
+
+  it('keeps the toast outlet mounted when a render-time throw is caught by the error boundary', async () => {
+    getOnboardingStateMock.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+    // React logs the caught render error to console.error — silence it so the
+    // intentional throw does not leak to the test console.
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // Force a render-time throw *inside* AppErrorBoundary (AppShell calls this
+    // hook unconditionally) so the boundary catches it and swaps in the
+    // recovery card. The <Toaster> is a sibling mounted *outside* the boundary,
+    // so it must survive the catch and still surface app-wide toasts. The throw
+    // must be consistent across React 19's concurrent attempt *and* its
+    // synchronous-recovery retry, otherwise React treats it as a recoverable
+    // error instead of routing it to the boundary — so use mockImplementation,
+    // not mockImplementationOnce. AppShell is unmounted once the fallback takes
+    // over, so the hook is not called again and there is no throw loop.
+    useGlobalErrorReporterMock.mockImplementation(() => {
+      throw new Error('render boom')
+    })
+
+    try {
+      render(<App />)
+
+      // The boundary's recovery card replaced the route tree...
+      expect(
+        await screen.findByRole('heading', { name: /something went wrong/i }),
+      ).toBeInTheDocument()
+
+      // ...and a toast fired afterwards still appears, proving the Toaster was
+      // not unmounted by the boundary catch (distinct text avoids colliding
+      // with the prior toast spec's global sonner state).
+      act(() => {
+        toast.success('Logged during recovery')
+      })
+      expect(await screen.findByText('Logged during recovery')).toBeInTheDocument()
+    } finally {
+      // Always restore — a failed assertion above must not leak the throwing
+      // mock or the console spy into later tests.
+      toast.dismiss()
+      useGlobalErrorReporterMock.mockReset()
+      consoleErrorSpy.mockRestore()
+    }
   })
 })
 
