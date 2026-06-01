@@ -159,24 +159,28 @@ describe('App', () => {
       throw new Error('render boom')
     })
 
-    render(<App />)
+    try {
+      render(<App />)
 
-    // The boundary's recovery card replaced the route tree...
-    expect(
-      await screen.findByRole('heading', { name: /something went wrong/i }),
-    ).toBeInTheDocument()
+      // The boundary's recovery card replaced the route tree...
+      expect(
+        await screen.findByRole('heading', { name: /something went wrong/i }),
+      ).toBeInTheDocument()
 
-    // ...and a toast fired afterwards still appears, proving the Toaster was
-    // not unmounted by the boundary catch (distinct text avoids colliding with
-    // the prior toast spec's global sonner state).
-    act(() => {
-      toast.success('Logged during recovery')
-    })
-    expect(await screen.findByText('Logged during recovery')).toBeInTheDocument()
-
-    toast.dismiss()
-    useGlobalErrorReporterMock.mockReset()
-    consoleErrorSpy.mockRestore()
+      // ...and a toast fired afterwards still appears, proving the Toaster was
+      // not unmounted by the boundary catch (distinct text avoids colliding
+      // with the prior toast spec's global sonner state).
+      act(() => {
+        toast.success('Logged during recovery')
+      })
+      expect(await screen.findByText('Logged during recovery')).toBeInTheDocument()
+    } finally {
+      // Always restore — a failed assertion above must not leak the throwing
+      // mock or the console spy into later tests.
+      toast.dismiss()
+      useGlobalErrorReporterMock.mockReset()
+      consoleErrorSpy.mockRestore()
+    }
   })
 })
 
