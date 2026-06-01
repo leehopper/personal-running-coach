@@ -461,6 +461,10 @@ describe('check-contrast script (integration)', () => {
       const stdout = execFileSync(tsxBin, [scriptRel, ...(cssPathArg ? [cssPathArg] : [])], {
         cwd: frontendRoot,
         encoding: 'utf8',
+        // Pipe (not inherit) the child's stderr so the deliberate token-regression
+        // case's `[FAIL]` lines land in `error.stderr` for the assertions below
+        // instead of leaking to the test console.
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
       return { status: 0, stdout, stderr: '' }
     } catch (error) {
