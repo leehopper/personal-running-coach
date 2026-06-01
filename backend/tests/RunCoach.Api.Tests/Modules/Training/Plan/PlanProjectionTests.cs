@@ -21,6 +21,9 @@ public sealed class PlanProjectionTests
 
     private static readonly DateTimeOffset Now = new(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
 
+    // 2026-04-19 is the Sunday opening the week that contains Now (2026-04-25, a Saturday).
+    private static readonly DateOnly PlanStartDate = new(2026, 4, 19);
+
     private static readonly Guid PlanId = new("22222222-2222-2222-2222-222222222222");
 
     private static readonly Guid UserId = new("11111111-1111-1111-1111-111111111111");
@@ -35,6 +38,7 @@ public sealed class PlanProjectionTests
         var expectedPlanId = PlanId;
         var expectedUserId = UserId;
         var expectedGeneratedAt = Now;
+        var expectedPlanStartDate = PlanStartDate;
         var expectedPromptVersion = PromptVersion;
         var expectedModelId = ModelId;
         var generated = new PlanGenerated(
@@ -42,6 +46,7 @@ public sealed class PlanProjectionTests
             expectedUserId,
             expectedMacro,
             expectedGeneratedAt,
+            expectedPlanStartDate,
             expectedPromptVersion,
             expectedModelId,
             PreviousPlanId: null);
@@ -53,6 +58,7 @@ public sealed class PlanProjectionTests
         actual.PlanId.Should().Be(expectedPlanId);
         actual.UserId.Should().Be(expectedUserId);
         actual.GeneratedAt.Should().Be(expectedGeneratedAt);
+        actual.PlanStartDate.Should().Be(expectedPlanStartDate);
         actual.PromptVersion.Should().Be(expectedPromptVersion);
         actual.ModelId.Should().Be(expectedModelId);
         actual.PreviousPlanId.Should().BeNull();
@@ -72,6 +78,7 @@ public sealed class PlanProjectionTests
             UserId,
             BuildMacro(),
             Now,
+            PlanStartDate,
             PromptVersion,
             ModelId,
             PreviousPlanId: expectedPreviousPlanId);
@@ -293,6 +300,7 @@ public sealed class PlanProjectionTests
             UserId,
             BuildMacro(),
             Now,
+            PlanStartDate,
             PromptVersion,
             ModelId,
             PreviousPlanId: null);

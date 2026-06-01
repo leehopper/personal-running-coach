@@ -389,6 +389,7 @@ export type PlanProjectionDto = {
   planId: string
   userId: string
   generatedAt: string
+  planStartDate: string
   previousPlanId?: string | null
   promptVersion: string
   modelId: string

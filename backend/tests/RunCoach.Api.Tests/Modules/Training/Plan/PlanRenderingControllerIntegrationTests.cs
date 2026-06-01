@@ -130,6 +130,7 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
         actual!.PlanId.Should().Be(planId);
         actual.UserId.Should().Be(userId);
         actual.GeneratedAt.Should().Be(PlanGeneratedAt);
+        actual.PlanStartDate.Should().Be(new DateOnly(2026, 4, 19), because: "PlanGeneratedAt 2026-04-25 (Saturday) anchors to the preceding Sunday");
         actual.PromptVersion.Should().Be("coaching-v1");
         actual.ModelId.Should().Be("claude-sonnet-4-5");
         actual.PreviousPlanId.Should().BeNull();
@@ -150,6 +151,7 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
             PlanId = planId,
             UserId = userId,
             GeneratedAt = PlanGeneratedAt,
+            PlanStartDate = new DateOnly(2026, 4, 19),
             PromptVersion = "coaching-v1",
             ModelId = "claude-sonnet-4-5",
             PreviousPlanId = null,
@@ -516,6 +518,7 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
             userId,
             BuildMacro(),
             PlanGeneratedAt,
+            PlanStartDate: PlanCalendar.StartOfTrainingWeek(DateOnly.FromDateTime(PlanGeneratedAt.UtcDateTime)),
             PromptVersion: "coaching-v1",
             ModelId: "claude-sonnet-4-5",
             PreviousPlanId: null);

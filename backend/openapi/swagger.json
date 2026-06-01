@@ -1333,6 +1333,7 @@
           "microWorkoutsByWeek",
           "modelId",
           "planId",
+          "planStartDate",
           "promptVersion",
           "userId"
         ],
@@ -1349,6 +1350,10 @@
           "generatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "planStartDate": {
+            "type": "string",
+            "format": "date"
           },
           "previousPlanId": {
             "type": "string",

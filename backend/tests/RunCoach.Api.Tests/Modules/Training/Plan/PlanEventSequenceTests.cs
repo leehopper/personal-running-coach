@@ -151,6 +151,7 @@ public sealed class PlanEventSequenceTests
             Warnings = string.Empty,
         },
         GeneratedAt: new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero),
+        PlanStartDate: PlanCalendar.StartOfTrainingWeek(new DateOnly(2026, 5, 1)),
         PromptVersion: "v1",
         ModelId: "test-model",
         PreviousPlanId: null);
