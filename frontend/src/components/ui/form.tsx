@@ -131,9 +131,10 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
     <p
       data-slot="form-message"
       // role="alert" announces validation errors assertively to screen readers
-      // the moment the message mounts (carry-in #560) — the hand-rolled
-      // onboarding inputs already carry this; the shared message now matches.
-      role="alert"
+      // the moment they mount (carry-in #560) — but only when `body` is an
+      // actual field error, never when a consumer renders static children
+      // through this slot, so the semantics stay correct.
+      role={error ? 'alert' : undefined}
       id={formMessageId}
       className={cn('text-sm text-destructive', className)}
       {...props}

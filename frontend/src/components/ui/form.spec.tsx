@@ -40,6 +40,30 @@ const FormMessageHarness = ({ errorMessage }: { errorMessage?: string }) => {
   )
 }
 
+// A harness that renders static children through FormMessage with no field
+// error, exercising the non-error branch where role="alert" must be omitted.
+const FormMessageChildrenHarness = ({ children }: { children: React.ReactNode }) => {
+  const form = useForm<HarnessValues>({ defaultValues: { email: '' } })
+
+  return (
+    <Form {...form}>
+      <FormField
+        control={form.control}
+        name="email"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Email</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage>{children}</FormMessage>
+          </FormItem>
+        )}
+      />
+    </Form>
+  )
+}
+
 describe('FormMessage', () => {
   it('announces a validation error assertively via role="alert" (#560)', async () => {
     render(<FormMessageHarness errorMessage="Email is required" />)
@@ -52,5 +76,12 @@ describe('FormMessage', () => {
     render(<FormMessageHarness />)
 
     expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('renders static children without an alert role when there is no error', () => {
+    render(<FormMessageChildrenHarness>Passwords must match</FormMessageChildrenHarness>)
+
+    const note = screen.getByText('Passwords must match')
+    expect(note).not.toHaveAttribute('role')
   })
 })
