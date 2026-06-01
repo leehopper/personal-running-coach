@@ -109,4 +109,20 @@ public sealed class PlanCalendarTests
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [Fact]
+    public void ResolveSlot_NonSundayPlanStartDate_Throws()
+    {
+        // Arrange — a Wednesday anchor violates the week-1/day-0 = Sunday invariant
+        // that the week/day math relies on. The guard surfaces this loudly instead
+        // of returning a plausible-but-wrong slot (e.g. for a defaulted 0001-01-01).
+        var planStartDate = new DateOnly(2026, 6, 10); // Wednesday
+        var occurredOn = new DateOnly(2026, 6, 10);
+
+        // Act
+        var act = () => PlanCalendar.ResolveSlot(planStartDate, occurredOn, weekCount: 8);
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
 }

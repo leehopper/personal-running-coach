@@ -43,9 +43,7 @@ describe('planApi.regeneratePlan query factory', () => {
   let fetchMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    fetchMock = vi
-      .fn()
-      .mockResolvedValue(jsonResponse({ planId: 'plan-1', status: 'generated' }))
+    fetchMock = vi.fn().mockResolvedValue(jsonResponse({ planId: 'plan-1', status: 'generated' }))
     vi.stubGlobal('fetch', fetchMock)
     vi.stubGlobal('Request', PatchedRequest)
   })
@@ -99,6 +97,7 @@ describe('planApi.getCurrentPlan query factory', () => {
         planId: 'plan-1',
         userId: 'user-1',
         generatedAt: '2026-04-25T15:00:00.000Z',
+        planStartDate: '2026-04-19',
         previousPlanId: null,
         promptVersion: 'coaching-v1',
         modelId: 'claude-sonnet-4-6',

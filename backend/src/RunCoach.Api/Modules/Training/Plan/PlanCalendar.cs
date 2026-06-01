@@ -42,9 +42,24 @@ public static class PlanCalendar
     /// <param name="occurredOn">The date the run actually occurred.</param>
     /// <param name="weekCount">The number of weeks the plan spans (1-based count).</param>
     /// <returns>The resolved slot, or <see langword="null"/> when off-plan.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="weekCount"/> is zero or negative.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="planStartDate"/> is not a Sunday. The week/day math is only
+    /// meaningful against a Sunday anchor (day 0 = Sunday), so a non-Sunday anchor
+    /// would silently yield shifted week boundaries; this guard makes that a loud
+    /// failure rather than a wrong-but-plausible slot. Anchors produced by
+    /// <see cref="StartOfTrainingWeek"/> always satisfy this.
+    /// </exception>
     public static PlanSlot? ResolveSlot(DateOnly planStartDate, DateOnly occurredOn, int weekCount)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(weekCount);
+
+        if (planStartDate.DayOfWeek != DayOfWeek.Sunday)
+        {
+            throw new ArgumentException(
+                $"PlanStartDate must be a Sunday (week 1, day 0); got {planStartDate:O} ({planStartDate.DayOfWeek}).",
+                nameof(planStartDate));
+        }
 
         if (occurredOn < planStartDate)
         {

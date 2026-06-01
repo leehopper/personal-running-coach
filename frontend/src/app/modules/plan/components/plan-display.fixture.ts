@@ -107,6 +107,8 @@ export const buildPlanFixture = (): PlanProjectionDto => ({
   planId: '00000000-0000-0000-0000-00000000abcd',
   userId: '00000000-0000-0000-0000-0000000000aa',
   generatedAt: '2026-04-25T10:00:00Z',
+  // 2026-04-19 is the Sunday opening the week containing generatedAt (a Saturday).
+  planStartDate: '2026-04-19',
   previousPlanId: null,
   promptVersion: 'v1',
   modelId: 'claude-sonnet-test',
