@@ -4,6 +4,7 @@ using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Plan;
+using RunCoach.Api.Modules.Training.Workouts;
 
 namespace RunCoach.Api.Infrastructure;
 
@@ -35,6 +36,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPaceZoneIndexCalculator, PaceZoneIndexCalculator>();
         services.AddSingleton<IPaceZoneCalculator, PaceZoneCalculator>();
         services.AddSingleton<IHeartRateZoneCalculator, HeartRateZoneCalculator>();
+
+        // Training module — workout-log persistence (scoped, shares the request DbContext).
+        services.AddScoped<IWorkoutLogRepository, WorkoutLogRepository>();
 
         // Coaching module — prompt store is singleton (caches templates for app lifetime).
         services.AddSingleton<IPromptStore, YamlPromptStore>();
