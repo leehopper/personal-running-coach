@@ -8,7 +8,7 @@ namespace RunCoach.Api.Modules.Training.Constants;
 /// set and the ergonomic <c>const</c> strings below are kept drift-free against
 /// <see cref="WorkoutMetricKey"/> by <c>WorkoutMetricKeysTests</c>: every key is
 /// the lower-camel form of its enum member name (<see cref="ToWireKey"/>), so
-/// the UI metric-meta map and the LLM context formatter (slice-2b Unit 5) read
+/// the UI metric-meta map and the LLM context formatter read
 /// the same labels and cannot diverge.
 /// </summary>
 public static class WorkoutMetricKeys

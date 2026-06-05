@@ -3,7 +3,7 @@ namespace RunCoach.Api.Modules.Training.Workouts;
 /// <summary>
 /// Data access for <see cref="WorkoutLog"/> rows (slice-2b Unit 2). Pure
 /// persistence — no endpoints, no LLM. Reads are user-scoped; the prescription
-/// coordinate query backs Slice 3's prescribed-vs-actual lookup.
+/// coordinate query backs the prescribed-vs-actual lookup.
 /// </summary>
 public interface IWorkoutLogRepository
 {
@@ -12,7 +12,7 @@ public interface IWorkoutLogRepository
     /// for a controller/service caller but MUST NOT be called from inside a
     /// Wolverine handler body — that would commit the EF write in a separate
     /// transaction from the handler's Marten session and break dual-write
-    /// atomicity (DEC-060). A future plan-adaptation handler (Slice 3) should
+    /// atomicity (DEC-060). A future plan-adaptation handler should
     /// stage the row via the projection pattern, not this method.
     /// </summary>
     Task CreateAsync(WorkoutLog log, CancellationToken ct);

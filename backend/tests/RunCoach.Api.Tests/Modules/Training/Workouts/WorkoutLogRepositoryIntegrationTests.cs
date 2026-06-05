@@ -304,6 +304,70 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
         page1.Concat(page2).Select(w => w.WorkoutLogId).Should().OnlyHaveUniqueItems().And.HaveCount(3);
     }
 
+    [Fact]
+    public async Task GetByUser_ScopesToOwningUser_ExcludesOtherUsersLogs()
+    {
+        // Arrange — two users, with an overlapping OccurredOn date to rule out any
+        // date-based separation masking a missing user filter.
+        var ct = TestContext.Current.CancellationToken;
+        var ownerId = await SeedUserAsync();
+        var otherId = await SeedUserAsync();
+        var ownerOlder = NewLog(ownerId, new DateOnly(2026, 6, 1));
+        var ownerNewer = NewLog(ownerId, new DateOnly(2026, 6, 8));
+        var otherSameDate = NewLog(otherId, new DateOnly(2026, 6, 8)); // shares ownerNewer's date
+        await CreateAsync(ownerOlder, ct);
+        await CreateAsync(ownerNewer, ct);
+        await CreateAsync(otherSameDate, ct);
+
+        // Act
+        var page = await GetByUserAsync(ownerId, cursor: null, limit: 10, ct);
+
+        // Assert — exactly the owner's two logs; the other user's log never leaks in.
+        page.Select(w => w.WorkoutLogId).Should().BeEquivalentTo(
+            new[] { ownerNewer.WorkoutLogId, ownerOlder.WorkoutLogId });
+        page.Should().OnlyContain(w => w.UserId == ownerId);
+    }
+
+    [Fact]
+    public async Task GetByPlannedWorkout_FiltersOnWeekAndDay_ExcludesOtherCoordinates()
+    {
+        // Arrange — same user and plan, two distinct (week, day) coordinates, so the
+        // WeekNumber/DayOfWeek equality arms (not just UserId/SourcePlanId) are exercised.
+        var ct = TestContext.Current.CancellationToken;
+        var userId = await SeedUserAsync();
+        var planId = Guid.NewGuid();
+        var atWeek2Day4 = NewLog(userId, new DateOnly(2026, 6, 13));
+        atWeek2Day4.Prescription = NewPrescription(planId, weekNumber: 2, dayOfWeek: 4);
+        var atWeek3Day1 = NewLog(userId, new DateOnly(2026, 6, 14));
+        atWeek3Day1.Prescription = NewPrescription(planId, weekNumber: 3, dayOfWeek: 1);
+        await CreateAsync(atWeek2Day4, ct);
+        await CreateAsync(atWeek3Day1, ct);
+
+        // Act — query the (2, 4) coordinate only.
+        var matches = await GetByPlannedWorkoutAsync(userId, planId, 2, 4, ct);
+
+        // Assert — the (3, 1) log is excluded; a predicate matching only on
+        // (UserId, SourcePlanId) would wrongly return both.
+        matches.Should().ContainSingle()
+            .Which.WorkoutLogId.Should().Be(atWeek2Day4.WorkoutLogId);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task GetByUser_NonPositiveLimit_ThrowsArgumentOutOfRange(int limit)
+    {
+        // Arrange — the guard runs before any query, so no seeded data is needed.
+        var ct = TestContext.Current.CancellationToken;
+
+        // Act
+        var act = () => GetByUserAsync(Guid.NewGuid(), cursor: null, limit, ct);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>()
+            .WithParameterName(nameof(limit));
+    }
+
     private static WorkoutLog NewLog(
         Guid userId, DateOnly occurredOn, CompletionStatus status = CompletionStatus.Complete)
     {
@@ -321,6 +385,20 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
             ModifiedOn = now,
         };
     }
+
+    private static WorkoutPrescriptionSnapshot NewPrescription(
+        Guid sourcePlanId, int weekNumber, int dayOfWeek) =>
+        new()
+        {
+            SourcePlanId = sourcePlanId,
+            WeekNumber = weekNumber,
+            DayOfWeek = dayOfWeek,
+            WorkoutType = WorkoutType.Tempo,
+            PrescribedDistance = Distance.FromKilometers(10.0),
+            PrescribedDuration = Duration.FromMinutes(50.0),
+            PrescribedPaceFast = Pace.FromSecondsPerKm(280.0),
+            PrescribedPaceSlow = Pace.FromSecondsPerKm(330.0),
+        };
 
     private async Task CreateAsync(WorkoutLog log, CancellationToken ct)
     {
