@@ -31,7 +31,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Act
         await CreateAsync(log, ct);
-        var actual = await GetByIdAsync(log.WorkoutLogId, ct);
+        var actual = await GetByIdAsync(userId, log.WorkoutLogId, ct);
 
         // Assert
         actual.Should().NotBeNull();
@@ -60,7 +60,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Act
         await CreateAsync(log, ct);
-        var actual = await GetByIdAsync(log.WorkoutLogId, ct);
+        var actual = await GetByIdAsync(userId, log.WorkoutLogId, ct);
 
         // Assert — metrics jsonb round-trips by value (key order is not significant).
         actual.Should().NotBeNull();
@@ -88,7 +88,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Act
         await CreateAsync(log, ct);
-        var actual = await GetByIdAsync(log.WorkoutLogId, ct);
+        var actual = await GetByIdAsync(userId, log.WorkoutLogId, ct);
 
         // Assert
         actual.Should().NotBeNull();
@@ -108,7 +108,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Act — Prescription left unset (off-plan).
         await CreateAsync(log, ct);
-        var actual = await GetByIdAsync(log.WorkoutLogId, ct);
+        var actual = await GetByIdAsync(userId, log.WorkoutLogId, ct);
 
         // Assert
         actual.Should().NotBeNull();
@@ -137,7 +137,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Act
         await CreateAsync(log, ct);
-        var matches = await GetByPlannedWorkoutAsync(planId, 2, 4, ct);
+        var matches = await GetByPlannedWorkoutAsync(userId, planId, 2, 4, ct);
 
         // Assert — the coordinate query returns it, and value objects round-trip.
         matches.Should().ContainSingle();
@@ -161,10 +161,60 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
         await CreateAsync(NewLog(userId, new DateOnly(2026, 6, 6)), ct); // off-plan (null prescription)
 
         // Act
-        var matches = await GetByPlannedWorkoutAsync(planId, 2, 4, ct);
+        var matches = await GetByPlannedWorkoutAsync(userId, planId, 2, 4, ct);
 
         // Assert — a null-prescription row must never match a coordinate query.
         matches.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetById_ScopesToOwningUser_OtherUserGetsNull()
+    {
+        // Arrange — owner's log, plus a second unrelated user.
+        var ct = TestContext.Current.CancellationToken;
+        var ownerId = await SeedUserAsync();
+        var otherId = await SeedUserAsync();
+        var log = NewLog(ownerId, new DateOnly(2026, 6, 11));
+        await CreateAsync(log, ct);
+
+        // Act
+        var asOwner = await GetByIdAsync(ownerId, log.WorkoutLogId, ct);
+        var asOther = await GetByIdAsync(otherId, log.WorkoutLogId, ct);
+
+        // Assert — the owner sees it; another user is scoped out even with the real id.
+        asOwner.Should().NotBeNull();
+        asOther.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByPlannedWorkout_ScopesToOwningUser_OtherUserGetsEmpty()
+    {
+        // Arrange — owner's on-plan log at a coordinate, plus a second user.
+        var ct = TestContext.Current.CancellationToken;
+        var ownerId = await SeedUserAsync();
+        var otherId = await SeedUserAsync();
+        var planId = Guid.NewGuid();
+        var log = NewLog(ownerId, new DateOnly(2026, 6, 12));
+        log.Prescription = new WorkoutPrescriptionSnapshot
+        {
+            SourcePlanId = planId,
+            WeekNumber = 3,
+            DayOfWeek = 2,
+            WorkoutType = WorkoutType.Tempo,
+            PrescribedDistance = Distance.FromKilometers(8.0),
+            PrescribedDuration = Duration.FromMinutes(40.0),
+            PrescribedPaceFast = Pace.FromSecondsPerKm(280.0),
+            PrescribedPaceSlow = Pace.FromSecondsPerKm(330.0),
+        };
+        await CreateAsync(log, ct);
+
+        // Act — same coordinate, queried as each user.
+        var asOwner = await GetByPlannedWorkoutAsync(ownerId, planId, 3, 2, ct);
+        var asOther = await GetByPlannedWorkoutAsync(otherId, planId, 3, 2, ct);
+
+        // Assert — the coordinate query never crosses the user boundary.
+        asOwner.Should().ContainSingle();
+        asOther.Should().BeEmpty();
     }
 
     [Fact]
@@ -222,7 +272,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Act
         await CreateAsync(log, ct);
-        var actual = await GetByIdAsync(log.WorkoutLogId, ct);
+        var actual = await GetByIdAsync(userId, log.WorkoutLogId, ct);
 
         // Assert — the non-zero enum values survive the integer column round-trip.
         actual.Should().NotBeNull();
@@ -279,11 +329,11 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
         await repo.CreateAsync(log, ct);
     }
 
-    private async Task<WorkoutLog?> GetByIdAsync(Guid id, CancellationToken ct)
+    private async Task<WorkoutLog?> GetByIdAsync(Guid userId, Guid id, CancellationToken ct)
     {
         using var scope = Factory.Services.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IWorkoutLogRepository>();
-        return await repo.GetByIdAsync(id, ct);
+        return await repo.GetByIdAsync(userId, id, ct);
     }
 
     private async Task<IReadOnlyList<WorkoutLog>> GetByUserAsync(
@@ -295,11 +345,11 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
     }
 
     private async Task<IReadOnlyList<WorkoutLog>> GetByPlannedWorkoutAsync(
-        Guid sourcePlanId, int weekNumber, int dayOfWeek, CancellationToken ct)
+        Guid userId, Guid sourcePlanId, int weekNumber, int dayOfWeek, CancellationToken ct)
     {
         using var scope = Factory.Services.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IWorkoutLogRepository>();
-        return await repo.GetByPlannedWorkoutAsync(sourcePlanId, weekNumber, dayOfWeek, ct);
+        return await repo.GetByPlannedWorkoutAsync(userId, sourcePlanId, weekNumber, dayOfWeek, ct);
     }
 
     private async Task<Guid> SeedUserAsync()

@@ -17,8 +17,12 @@ public interface IWorkoutLogRepository
     /// </summary>
     Task CreateAsync(WorkoutLog log, CancellationToken ct);
 
-    /// <summary>Loads a single log by id, or null if absent.</summary>
-    Task<WorkoutLog?> GetByIdAsync(Guid workoutLogId, CancellationToken ct);
+    /// <summary>
+    /// Loads a single log owned by <paramref name="userId"/>, or null if absent
+    /// or owned by another user. User-scoped at the repository boundary so a row
+    /// can never leak across users even if a caller-side ownership check drifts.
+    /// </summary>
+    Task<WorkoutLog?> GetByIdAsync(Guid userId, Guid workoutLogId, CancellationToken ct);
 
     /// <summary>
     /// Returns a user's logs newest-first (by <c>OccurredOn</c> then id) as a
@@ -32,9 +36,10 @@ public interface IWorkoutLogRepository
         Guid userId, WorkoutLogCursor? cursor, int limit, CancellationToken ct);
 
     /// <summary>
-    /// Returns logs whose prescription snapshot matches the given plan-slot
-    /// coordinate. Off-plan logs (null prescription) never match (DEC-076).
+    /// Returns <paramref name="userId"/>'s logs whose prescription snapshot matches
+    /// the given plan-slot coordinate. Other users' logs and off-plan logs (null
+    /// prescription) never match (DEC-076).
     /// </summary>
     Task<IReadOnlyList<WorkoutLog>> GetByPlannedWorkoutAsync(
-        Guid sourcePlanId, int weekNumber, int dayOfWeek, CancellationToken ct);
+        Guid userId, Guid sourcePlanId, int weekNumber, int dayOfWeek, CancellationToken ct);
 }
