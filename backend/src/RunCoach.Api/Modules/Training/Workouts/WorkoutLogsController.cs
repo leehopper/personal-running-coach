@@ -8,9 +8,11 @@ using RunCoach.Api.Infrastructure;
 namespace RunCoach.Api.Modules.Training.Workouts;
 
 /// <summary>
-/// Slice-2b workout-logging endpoints. Every state-changing route is gated by
-/// both <see cref="AuthPolicies.CookieOrBearer"/> and
-/// <see cref="RequireAntiforgeryTokenAttribute"/> per the repo's DEC-055 contract.
+/// Slice-2b workout-logging endpoints. State-changing routes are gated by both
+/// <see cref="AuthPolicies.CookieOrBearer"/> and
+/// <see cref="RequireAntiforgeryTokenAttribute"/> per the repo's DEC-055 contract;
+/// the read-only history query requires authentication but no antiforgery token (a
+/// safe POST-for-query, DEC-055).
 /// </summary>
 [ApiController]
 [Route("api/v1/workouts/logs")]
@@ -22,6 +24,7 @@ public sealed partial class WorkoutLogsController(
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
     private const string InvalidLogType = "https://runcoach.app/problems/invalid-workout-log";
     private const string InvalidIdempotencyKeyType = "https://runcoach.app/problems/invalid-idempotency-key";
+    private const string InvalidCursorType = "https://runcoach.app/problems/invalid-cursor";
 
     /// <summary>
     /// POST /api/v1/workouts/logs — persist a workout log with a
@@ -84,6 +87,55 @@ public sealed partial class WorkoutLogsController(
         }
     }
 
+    /// <summary>
+    /// POST /api/v1/workouts/logs/query — one newest-first keyset page of the
+    /// authenticated runner's logs (slice-2b Unit 4 / DEC-076 § C). A read, not a
+    /// mutation: authenticated but no antiforgery token (DEC-055). Sort, paging, and
+    /// the page-size limit all execute as a single SQL query; the response carries
+    /// an opaque <c>nextCursor</c> for the next (older) page, or null when last.
+    /// </summary>
+    /// <param name="request">The query body: optional page size and opaque cursor.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>200 with the page; 400 on a malformed cursor; 401 when unauthenticated.</returns>
+    [HttpPost("query")]
+    [ProducesResponseType(typeof(QueryWorkoutLogsResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> QueryLogs(
+        [FromBody] QueryWorkoutLogsRequestDto request,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!TryGetUserId(out var userId))
+        {
+            LogQueryRejectedMissingUser(logger);
+            return MissingUserClaim();
+        }
+
+        WorkoutLogCursor? cursor = null;
+        if (!string.IsNullOrEmpty(request.Cursor))
+        {
+            if (!WorkoutLogCursorCodec.TryDecode(request.Cursor, out var decoded))
+            {
+                // A malformed cursor is client input — reject it at the boundary
+                // rather than paging from a corrupted anchor, mirroring the
+                // empty-idempotency-key guard on the create path.
+                LogQueryRejectedInvalidCursor(logger, userId);
+                return Problem(
+                    type: InvalidCursorType,
+                    title: "Invalid cursor",
+                    detail: "The supplied cursor is malformed; omit it to start from the most recent log.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            cursor = decoded;
+        }
+
+        var page = await service.QueryAsync(userId, cursor, request.Limit, ct);
+        return Ok(page);
+    }
+
     [LoggerMessage(
         Level = LogLevel.Warning,
         Message = "Workout log create rejected: authenticated user id claim was missing or malformed.")]
@@ -99,6 +151,16 @@ public sealed partial class WorkoutLogsController(
         Message = "Workout log create rejected as invalid for user {UserId} with idempotency key {IdempotencyKey}.")]
     private static partial void LogCreateRejectedInvalid(
         ILogger logger, Guid userId, Guid idempotencyKey, Exception exception);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Workout log query rejected: authenticated user id claim was missing or malformed.")]
+    private static partial void LogQueryRejectedMissingUser(ILogger logger);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Workout log query rejected for user {UserId}: the supplied cursor was malformed.")]
+    private static partial void LogQueryRejectedInvalidCursor(ILogger logger, Guid userId);
 
     private bool TryGetUserId(out Guid userId)
     {
