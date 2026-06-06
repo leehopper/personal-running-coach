@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace RunCoach.Api.Modules.Training.Constants;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace RunCoach.Api.Modules.Training.Constants;
 /// set and the ergonomic <c>const</c> strings below are kept drift-free against
 /// <see cref="WorkoutMetricKey"/> by <c>WorkoutMetricKeysTests</c>: every key is
 /// the lower-camel form of its enum member name (<see cref="ToWireKey"/>), so
-/// the UI metric-meta map and the LLM context formatter (slice-2b Unit 5) read
+/// the UI metric-meta map and the LLM context formatter read
 /// the same labels and cannot diverge.
 /// </summary>
 public static class WorkoutMetricKeys
@@ -60,15 +62,19 @@ public static class WorkoutMetricKeys
     public const string StrideLength = "strideLength";
 
     /// <summary>
-    /// Every canonical wire key, documented and reserved. Kept symmetric with
-    /// <see cref="WorkoutMetricKey"/> by <c>WorkoutMetricKeysTests</c>.
+    /// Every canonical wire key, documented and reserved, as an immutable
+    /// <see cref="FrozenSet{T}"/> — tamper-proof at runtime (an
+    /// <see cref="IReadOnlySet{T}"/> over a plain <see cref="HashSet{T}"/> can be
+    /// downcast and mutated) and read-optimized for the membership checks that
+    /// validate the metrics bag. Kept symmetric with <see cref="WorkoutMetricKey"/>
+    /// by <c>WorkoutMetricKeysTests</c>.
     /// </summary>
-    public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
+    public static readonly IReadOnlySet<string> All = new[]
     {
         Rpe, HrAvg, HrMax, Calories, Hrv, SleepScore, RecoveryScore,
         Cadence, ElevationGain, Power, Weather, Terrain, Splits,
         VerticalOscillation, GroundContactTime, StrideLength,
-    };
+    }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>
     /// Derives the wire key for a <see cref="WorkoutMetricKey"/> by lower-casing
@@ -76,8 +82,18 @@ public static class WorkoutMetricKeys
     /// </summary>
     /// <param name="key">The canonical metric key.</param>
     /// <returns>The lower-camel wire string used inside the metrics bag.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="key"/> is not a defined <see cref="WorkoutMetricKey"/> member
+    /// (e.g. an arbitrary integer cast to the enum) — guards against leaking a
+    /// non-canonical key such as <c>"999"</c> into the metrics pipeline.
+    /// </exception>
     public static string ToWireKey(WorkoutMetricKey key)
     {
+        if (!Enum.IsDefined(key))
+        {
+            throw new ArgumentOutOfRangeException(nameof(key), key, "Unknown workout metric key.");
+        }
+
         var name = key.ToString();
         return char.ToLowerInvariant(name[0]) + name[1..];
     }
