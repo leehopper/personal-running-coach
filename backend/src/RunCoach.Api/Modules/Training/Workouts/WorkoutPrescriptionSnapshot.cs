@@ -54,10 +54,10 @@ public sealed record WorkoutPrescriptionSnapshot
     /// Creates a snapshot, validating the prescribed pace bounds are ordered
     /// (fast no slower than slow) at construction so the computed
     /// <see cref="PrescribedPace"/> view can never throw at read time. The
-    /// server-authoritative create path (PR3) sources already-ordered plan paces;
-    /// this factory makes a future inverted-bounds caller fail loudly at the
+    /// server-authoritative create path sources already-ordered plan paces; this
+    /// factory makes a future inverted-bounds caller fail loudly at the
     /// construction site rather than silently persisting a snapshot that throws
-    /// only when later read (deferred PR2-review follow-up).
+    /// only when later read (DEC-076).
     /// </summary>
     public static WorkoutPrescriptionSnapshot Create(
         Guid sourcePlanId,

@@ -82,6 +82,12 @@ public sealed partial class WorkoutLogService(
     private static partial void LogOffPlanNoActivePlan(ILogger logger, Guid userId, DateOnly occurredOn);
 
     [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Plan {PlanId} for user {UserId} has a malformed prescription; logging the run off-plan.")]
+    private static partial void LogMalformedPlanOffPlan(
+        ILogger logger, Guid userId, Guid planId, Exception exception);
+
+    [LoggerMessage(
         Level = LogLevel.Debug,
         Message = "Resolved prescription for user {UserId} from plan {PlanId} at week {WeekNumber} day {DayOfWeek}.")]
     private static partial void LogPrescriptionResolved(
@@ -113,33 +119,50 @@ public sealed partial class WorkoutLogService(
             return null;
         }
 
-        if (PlanCalendar.ResolveSlot(plan.PlanStartDate, occurredOn, plan.Macro.TotalWeeks) is not { } slot)
+        try
         {
+            if (PlanCalendar.ResolveSlot(plan.PlanStartDate, occurredOn, plan.Macro.TotalWeeks) is not { } slot)
+            {
+                return null;
+            }
+
+            if (!plan.MicroWorkoutsByWeek.TryGetValue(slot.WeekNumber, out var micro))
+            {
+                return null;
+            }
+
+            var workout = micro.Workouts.FirstOrDefault(w => w.DayOfWeek == slot.DayOfWeek);
+            if (workout is null)
+            {
+                return null;
+            }
+
+            // Server-authoritative: prescribed values come from the plan slot, never the
+            // client. Fast = harder (lower sec/km) pace, Slow = easy pace (DEC-076).
+            LogPrescriptionResolved(_logger, userId, plan.PlanId, slot.WeekNumber, slot.DayOfWeek);
+            return WorkoutPrescriptionSnapshot.Create(
+                sourcePlanId: plan.PlanId,
+                weekNumber: slot.WeekNumber,
+                dayOfWeek: slot.DayOfWeek,
+                workoutType: workout.WorkoutType,
+                prescribedDistance: Distance.FromKilometers(workout.TargetDistanceKm),
+                prescribedDuration: Duration.FromMinutes(workout.TargetDurationMinutes),
+                prescribedPaceFast: Pace.FromSecondsPerKm(workout.TargetPaceFastSecPerKm),
+                prescribedPaceSlow: Pace.FromSecondsPerKm(workout.TargetPaceEasySecPerKm));
+        }
+        catch (ArgumentException ex)
+        {
+            // The plan slot was located, but its stored prescription is malformed:
+            // a non-Sunday PlanStartDate (ResolveSlot), inverted pace bounds
+            // (WorkoutPrescriptionSnapshot.Create), or a non-positive target pace
+            // (Pace.FromSecondsPerKm) — all from unvalidated LLM plan output, i.e.
+            // server-side data, never the client's request. Treat the run as
+            // off-plan so a legitimate log still persists, and warn for
+            // investigation. Crucially this keeps the fault off the controller's
+            // client-input 400 path, which would otherwise return the wrong status
+            // and leak internal plan state in ex.Message (DEC-076 / DEC-077).
+            LogMalformedPlanOffPlan(_logger, userId, planId, ex);
             return null;
         }
-
-        if (!plan.MicroWorkoutsByWeek.TryGetValue(slot.WeekNumber, out var micro))
-        {
-            return null;
-        }
-
-        var workout = micro.Workouts.FirstOrDefault(w => w.DayOfWeek == slot.DayOfWeek);
-        if (workout is null)
-        {
-            return null;
-        }
-
-        // Server-authoritative: prescribed values come from the plan slot, never the
-        // client. Fast = harder (lower sec/km) pace, Slow = easy pace (DEC-076).
-        LogPrescriptionResolved(_logger, userId, plan.PlanId, slot.WeekNumber, slot.DayOfWeek);
-        return WorkoutPrescriptionSnapshot.Create(
-            sourcePlanId: plan.PlanId,
-            weekNumber: slot.WeekNumber,
-            dayOfWeek: slot.DayOfWeek,
-            workoutType: workout.WorkoutType,
-            prescribedDistance: Distance.FromKilometers(workout.TargetDistanceKm),
-            prescribedDuration: Duration.FromMinutes(workout.TargetDurationMinutes),
-            prescribedPaceFast: Pace.FromSecondsPerKm(workout.TargetPaceFastSecPerKm),
-            prescribedPaceSlow: Pace.FromSecondsPerKm(workout.TargetPaceEasySecPerKm));
     }
 }

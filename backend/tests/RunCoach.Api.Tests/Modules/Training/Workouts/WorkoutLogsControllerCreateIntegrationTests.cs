@@ -297,6 +297,81 @@ public class WorkoutLogsControllerCreateIntegrationTests(RunCoachAppFactory fact
         logs.Should().BeEmpty(because: "a request rejected for a missing antiforgery token must not persist a log");
     }
 
+    [Fact]
+    public async Task Create_WithEmptyIdempotencyKey_Returns400_NoRecordCreated()
+    {
+        // Arrange
+        var ct = TestContext.Current.CancellationToken;
+        var (client, userId, token) = await RegisterLoginAndPrimeAsync();
+
+        // Act — an all-zeros UUID is present (passes JsonRequired) but invalid.
+        var response = await PostLogAsync(client, token, MinimalRequest(Week2Day4, Guid.Empty), ct);
+
+        // Assert
+        response.StatusCode.Should().Be(
+            HttpStatusCode.BadRequest,
+            because: "Guid.Empty must be rejected at the boundary to avoid a shared idempotency slot");
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var logs = await GetByUserAsync(userId, ct);
+        logs.Should().BeEmpty(because: "a request rejected for an empty idempotency key must not persist a log");
+    }
+
+    [Fact]
+    public async Task Create_SameKeyDifferentUsers_EachGetsDistinctLog()
+    {
+        // Arrange — two distinct users posting the SAME idempotency key. The
+        // uniqueness boundary is the composite (UserId, IdempotencyKey) index, so a
+        // shared key across tenants must not collide.
+        var ct = TestContext.Current.CancellationToken;
+        var sharedKey = Guid.NewGuid();
+        var (clientA, userA, tokenA) = await RegisterLoginAndPrimeAsync();
+        var (clientB, userB, tokenB) = await RegisterLoginAndPrimeAsync();
+
+        // Act
+        var responseA = await PostLogAsync(clientA, tokenA, MinimalRequest(Week2Day4, sharedKey), ct);
+        var responseB = await PostLogAsync(clientB, tokenB, MinimalRequest(Week2Day4, sharedKey), ct);
+
+        // Assert
+        responseA.StatusCode.Should().Be(HttpStatusCode.Created);
+        responseB.StatusCode.Should().Be(HttpStatusCode.Created);
+        var bodyA = await responseA.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(cancellationToken: ct);
+        var bodyB = await responseB.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(cancellationToken: ct);
+        bodyB!.WorkoutLogId.Should().NotBe(
+            bodyA!.WorkoutLogId,
+            because: "the idempotency key is scoped per-user; the same key from a different user is a distinct log");
+
+        // Each user's own log is exactly the one they created — no cross-tenant bleed.
+        var logsA = await GetByUserAsync(userA, ct);
+        logsA.Should().ContainSingle().Which.WorkoutLogId.Should().Be(bodyA.WorkoutLogId);
+        var logsB = await GetByUserAsync(userB, ct);
+        logsB.Should().ContainSingle().Which.WorkoutLogId.Should().Be(bodyB.WorkoutLogId);
+    }
+
+    [Fact]
+    public async Task Create_OnDateBeforePlanStart_PersistsOffPlan()
+    {
+        // Arrange — an active plan, but log a run dated before the plan's start
+        // anchor so PlanCalendar.ResolveSlot returns null through the service.
+        var ct = TestContext.Current.CancellationToken;
+        var (client, userId, token) = await RegisterLoginAndPrimeAsync();
+        var planId = Guid.NewGuid();
+        await SeedActivePlanAsync(userId, planId, PlanStart, ct);
+
+        // 2026-05-31 is the Sunday one week before the 2026-06-07 plan start.
+        var beforeStart = PlanStart.AddDays(-7);
+
+        // Act
+        var response = await PostLogAsync(client, token, MinimalRequest(beforeStart), ct);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var body = await response.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(
+            cancellationToken: ct);
+        var persisted = await GetByIdAsync(userId, body!.WorkoutLogId, ct);
+        persisted!.Prescription.Should().BeNull(
+            because: "a run before PlanStartDate resolves off-plan (ResolveSlot returns null)");
+    }
+
     public override async ValueTask DisposeAsync()
     {
         // Plan projection docs + idempotency markers live in Marten's

@@ -21,6 +21,7 @@ public sealed partial class WorkoutLogsController(
 {
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
     private const string InvalidLogType = "https://runcoach.app/problems/invalid-workout-log";
+    private const string InvalidIdempotencyKeyType = "https://runcoach.app/problems/invalid-idempotency-key";
 
     /// <summary>
     /// POST /api/v1/workouts/logs — persist a workout log with a
@@ -48,6 +49,20 @@ public sealed partial class WorkoutLogsController(
             return MissingUserClaim();
         }
 
+        if (request.IdempotencyKey == Guid.Empty)
+        {
+            // JsonRequired enforces presence, not a non-default value. An all-zeros
+            // key would share one (UserId, Guid.Empty) index slot across every
+            // request, so a second distinct run would be swallowed as a replay.
+            // Reject it at the boundary, mirroring PlanRenderingController.Regenerate.
+            LogCreateRejectedEmptyKey(logger, userId);
+            return Problem(
+                type: InvalidIdempotencyKeyType,
+                title: "Invalid idempotency key",
+                detail: "The supplied idempotencyKey must be a non-empty UUID.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         try
         {
             var workoutLogId = await service.CreateAsync(userId, request, ct);
@@ -73,6 +88,11 @@ public sealed partial class WorkoutLogsController(
         Level = LogLevel.Warning,
         Message = "Workout log create rejected: authenticated user id claim was missing or malformed.")]
     private static partial void LogCreateRejectedMissingUser(ILogger logger);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Workout log create rejected for user {UserId}: idempotency key was an empty UUID.")]
+    private static partial void LogCreateRejectedEmptyKey(ILogger logger, Guid userId);
 
     [LoggerMessage(
         Level = LogLevel.Information,
