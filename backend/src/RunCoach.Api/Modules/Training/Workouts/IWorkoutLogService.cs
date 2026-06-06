@@ -18,4 +18,15 @@ public interface IWorkoutLogService
     /// <exception cref="ArgumentException">A request value fails a domain invariant
     /// (e.g. a negative distance/duration or an invalid split).</exception>
     Task<Guid> CreateAsync(Guid userId, CreateWorkoutLogRequestDto request, CancellationToken ct);
+
+    /// <summary>
+    /// Returns one newest-first keyset page of <paramref name="userId"/>'s logs
+    /// (slice-2b Unit 4). <paramref name="cursor"/> is the prior page's tail (null
+    /// for the first page); <paramref name="requestedLimit"/> is clamped
+    /// server-side to a sane page-size bound. The response carries the DB-ordered,
+    /// DB-trimmed page plus the opaque <c>nextCursor</c> for the next (older) page,
+    /// or null when the page is the last one.
+    /// </summary>
+    Task<QueryWorkoutLogsResponseDto> QueryAsync(
+        Guid userId, WorkoutLogCursor? cursor, int? requestedLimit, CancellationToken ct);
 }

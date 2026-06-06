@@ -95,6 +95,16 @@ const injectedRtkApi = api.injectEndpoints({
         body: queryArg.createWorkoutLogRequestDto,
       }),
     }),
+    postApiV1WorkoutsLogsQuery: build.mutation<
+      PostApiV1WorkoutsLogsQueryApiResponse,
+      PostApiV1WorkoutsLogsQueryApiArg
+    >({
+      query: (queryArg) => ({
+        url: `/api/v1/workouts/logs/query`,
+        method: 'POST',
+        body: queryArg.queryWorkoutLogsRequestDto,
+      }),
+    }),
   }),
   overrideExisting: false,
 })
@@ -136,6 +146,10 @@ export type PostApiV1PlanRegenerateApiArg = {
 export type PostApiV1WorkoutsLogsApiResponse = /** status 201 Created */ CreateWorkoutLogResponseDto
 export type PostApiV1WorkoutsLogsApiArg = {
   createWorkoutLogRequestDto: CreateWorkoutLogRequestDto
+}
+export type PostApiV1WorkoutsLogsQueryApiResponse = /** status 200 OK */ QueryWorkoutLogsResponseDto
+export type PostApiV1WorkoutsLogsQueryApiArg = {
+  queryWorkoutLogsRequestDto: QueryWorkoutLogsRequestDto
 }
 export type AuthResponseDto = {
   userId: string
@@ -447,6 +461,26 @@ export type CreateWorkoutLogRequestDto = {
   } | null
   splits?: WorkoutLogSplitDto[] | null
 }
+export type WorkoutLogDto = {
+  workoutLogId: string
+  occurredOn: string
+  distanceMeters: number
+  durationSeconds: number
+  completionStatus: CompletionStatus
+  notes?: string | null
+  metrics?: {
+    [key: string]: any
+  } | null
+  splits?: WorkoutLogSplitDto[] | null
+}
+export type QueryWorkoutLogsResponseDto = {
+  logs: WorkoutLogDto[]
+  nextCursor?: string | null
+}
+export type QueryWorkoutLogsRequestDto = {
+  limit?: number | null
+  cursor?: string | null
+}
 export const {
   useGetApiV1AuthXsrfQuery,
   usePostApiV1AuthRegisterMutation,
@@ -460,4 +494,5 @@ export const {
   useGetApiV1PlanCurrentQuery,
   usePostApiV1PlanRegenerateMutation,
   usePostApiV1WorkoutsLogsMutation,
+  usePostApiV1WorkoutsLogsQueryMutation,
 } = injectedRtkApi

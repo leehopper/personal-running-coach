@@ -22,6 +22,12 @@ public sealed partial class WorkoutLogService(
     TimeProvider timeProvider,
     ILogger<WorkoutLogService> logger) : IWorkoutLogService
 {
+    /// <summary>Default page size applied when a query omits a limit.</summary>
+    private const int DefaultPageSize = 20;
+
+    /// <summary>Maximum page size; larger requested limits are clamped to this.</summary>
+    private const int MaxPageSize = 100;
+
     private readonly RunCoachDbContext _db = db;
     private readonly IWorkoutLogRepository _repository = repository;
     private readonly IDocumentStore _documentStore = documentStore;
@@ -59,6 +65,28 @@ public sealed partial class WorkoutLogService(
         return workoutLogId;
     }
 
+    /// <inheritdoc />
+    public async Task<QueryWorkoutLogsResponseDto> QueryAsync(
+        Guid userId, WorkoutLogCursor? cursor, int? requestedLimit, CancellationToken ct)
+    {
+        var limit = Math.Clamp(requestedLimit ?? DefaultPageSize, 1, MaxPageSize);
+
+        var logs = await _repository.GetByUserAsync(userId, cursor, limit, ct).ConfigureAwait(false);
+
+        // A full page means there may be more, so hand back the tail as the next
+        // cursor; a short or empty page is the last one. Detecting "more" by row
+        // count — rather than fetching limit+1 and trimming — keeps every returned
+        // row exactly as the DB ordered and trimmed it (no app-layer slicing), at
+        // the cost of one extra empty fetch when the total is an exact multiple of
+        // the page size.
+        var nextCursor = logs.Count == limit
+            ? WorkoutLogCursorCodec.Encode(new WorkoutLogCursor(logs[^1].OccurredOn, logs[^1].WorkoutLogId))
+            : null;
+
+        var dtos = logs.Select(MapToDto).ToList();
+        return new QueryWorkoutLogsResponseDto(dtos, nextCursor);
+    }
+
     private static string? SerializeMetrics(IReadOnlyDictionary<string, JsonElement>? metrics) =>
         metrics is { Count: > 0 } ? JsonSerializer.Serialize(metrics) : null;
 
@@ -66,6 +94,30 @@ public sealed partial class WorkoutLogService(
         splits is { Count: > 0 }
             ? splits
                 .Select(s => new WorkoutSplit(
+                    s.Index, s.DistanceMeters, s.DurationSeconds, s.PaceSecPerKm, s.AverageHeartRate))
+                .ToList()
+            : null;
+
+    private static WorkoutLogDto MapToDto(WorkoutLog log) =>
+        new(
+            WorkoutLogId: log.WorkoutLogId,
+            OccurredOn: log.OccurredOn,
+            DistanceMeters: log.Distance.Meters,
+            DurationSeconds: log.Duration.TotalSeconds,
+            CompletionStatus: log.CompletionStatus,
+            Notes: log.Notes,
+            Metrics: DeserializeMetrics(log.Metrics),
+            Splits: MapSplitsToDto(log.Splits));
+
+    private static Dictionary<string, JsonElement>? DeserializeMetrics(string? metrics) =>
+        string.IsNullOrEmpty(metrics)
+            ? null
+            : JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(metrics);
+
+    private static List<WorkoutLogSplitDto>? MapSplitsToDto(IReadOnlyList<WorkoutSplit>? splits) =>
+        splits is { Count: > 0 }
+            ? splits
+                .Select(s => new WorkoutLogSplitDto(
                     s.Index, s.DistanceMeters, s.DurationSeconds, s.PaceSecPerKm, s.AverageHeartRate))
                 .ToList()
             : null;
