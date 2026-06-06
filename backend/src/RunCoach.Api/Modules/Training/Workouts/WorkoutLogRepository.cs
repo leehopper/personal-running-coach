@@ -24,10 +24,10 @@ public sealed partial class WorkoutLogRepository(
     }
 
     /// <inheritdoc />
-    public Task<WorkoutLog?> GetByIdAsync(Guid workoutLogId, CancellationToken ct) =>
+    public Task<WorkoutLog?> GetByIdAsync(Guid userId, Guid workoutLogId, CancellationToken ct) =>
         _db.WorkoutLogs
             .AsNoTracking()
-            .FirstOrDefaultAsync(w => w.WorkoutLogId == workoutLogId, ct);
+            .FirstOrDefaultAsync(w => w.UserId == userId && w.WorkoutLogId == workoutLogId, ct);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<WorkoutLog>> GetByUserAsync(
@@ -54,14 +54,16 @@ public sealed partial class WorkoutLogRepository(
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<WorkoutLog>> GetByPlannedWorkoutAsync(
-        Guid sourcePlanId, int weekNumber, int dayOfWeek, CancellationToken ct)
+        Guid userId, Guid sourcePlanId, int weekNumber, int dayOfWeek, CancellationToken ct)
     {
-        // Comparing the complex-type coordinate columns naturally excludes
-        // off-plan rows: their Prescription columns are NULL, so the equality is
-        // never true (SQL three-valued logic).
+        // User-scoped first as defense-in-depth (a plan id is already per-user, but
+        // the repository must not depend on that). Comparing the complex-type
+        // coordinate columns naturally excludes off-plan rows: their Prescription
+        // columns are NULL, so the equality is never true (SQL three-valued logic).
         return await _db.WorkoutLogs
             .AsNoTracking()
             .Where(w =>
+                w.UserId == userId &&
                 w.Prescription!.SourcePlanId == sourcePlanId &&
                 w.Prescription.WeekNumber == weekNumber &&
                 w.Prescription.DayOfWeek == dayOfWeek)

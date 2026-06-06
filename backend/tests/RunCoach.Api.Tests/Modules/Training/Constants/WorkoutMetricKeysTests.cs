@@ -67,4 +67,18 @@ public class WorkoutMetricKeysTests
         WorkoutMetricKeys.Splits.Should().Be(WorkoutMetricKeys.ToWireKey(WorkoutMetricKey.Splits));
         WorkoutMetricKeys.StrideLength.Should().Be(WorkoutMetricKeys.ToWireKey(WorkoutMetricKey.StrideLength));
     }
+
+    [Fact]
+    public void ToWireKey_UndefinedEnumValue_Throws()
+    {
+        // Arrange — an arbitrary integer cast to the enum, with no defined member.
+        var undefined = (WorkoutMetricKey)999;
+
+        // Act
+        var act = () => WorkoutMetricKeys.ToWireKey(undefined);
+
+        // Assert — guarded so a non-canonical key (e.g. "999") cannot leak downstream.
+        act.Should().Throw<ArgumentOutOfRangeException>()
+            .WithParameterName("key");
+    }
 }
