@@ -8,7 +8,7 @@ namespace RunCoach.Api.Modules.Training.Workouts;
 /// Server-authoritative, point-in-time snapshot of the prescription a logged run
 /// fulfilled (DEC-076). Mapped as an EF Core 10 <b>optional complex type</b>
 /// (table-split to real columns on <c>WorkoutLog</c>, not owned-type or JSON) so
-/// Slice 3's deterministic deviation engine can compare prescribed-vs-actual
+/// a deterministic deviation engine can compare prescribed-vs-actual
 /// without re-resolving a regenerable plan, and so the
 /// <c>(SourcePlanId, WeekNumber, DayOfWeek)</c> coordinate is an indexable query.
 /// A null <c>Prescription</c> on the entity means the run was off-plan.
