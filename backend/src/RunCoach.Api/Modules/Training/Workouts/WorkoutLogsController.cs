@@ -15,7 +15,9 @@ namespace RunCoach.Api.Modules.Training.Workouts;
 [ApiController]
 [Route("api/v1/workouts/logs")]
 [Authorize(Policy = AuthPolicies.CookieOrBearer)]
-public sealed class WorkoutLogsController(IWorkoutLogService service) : ControllerBase
+public sealed partial class WorkoutLogsController(
+    IWorkoutLogService service,
+    ILogger<WorkoutLogsController> logger) : ControllerBase
 {
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
     private const string InvalidLogType = "https://runcoach.app/problems/invalid-workout-log";
@@ -33,6 +35,7 @@ public sealed class WorkoutLogsController(IWorkoutLogService service) : Controll
     [RequireAntiforgeryToken]
     [ProducesResponseType(typeof(CreateWorkoutLogResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CreateLog(
         [FromBody] CreateWorkoutLogRequestDto request,
         CancellationToken ct)
@@ -41,6 +44,7 @@ public sealed class WorkoutLogsController(IWorkoutLogService service) : Controll
 
         if (!TryGetUserId(out var userId))
         {
+            LogCreateRejectedMissingUser(logger);
             return MissingUserClaim();
         }
 
@@ -56,6 +60,7 @@ public sealed class WorkoutLogsController(IWorkoutLogService service) : Controll
             // Domain-invariant violations from value-object construction (negative
             // distance/duration, invalid split) surface as a 400 ProblemDetails
             // rather than an unhandled 500.
+            LogCreateRejectedInvalid(logger, userId, request.IdempotencyKey, ex);
             return Problem(
                 type: InvalidLogType,
                 title: "The workout log request is invalid.",
@@ -63,6 +68,17 @@ public sealed class WorkoutLogsController(IWorkoutLogService service) : Controll
                 statusCode: StatusCodes.Status400BadRequest);
         }
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Workout log create rejected: authenticated user id claim was missing or malformed.")]
+    private static partial void LogCreateRejectedMissingUser(ILogger logger);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Workout log create rejected as invalid for user {UserId} with idempotency key {IdempotencyKey}.")]
+    private static partial void LogCreateRejectedInvalid(
+        ILogger logger, Guid userId, Guid idempotencyKey, Exception exception);
 
     private bool TryGetUserId(out Guid userId)
     {

@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
 using Marten;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
@@ -217,11 +216,13 @@ public class WorkoutLogsControllerCreateIntegrationTests(RunCoachAppFactory fact
 
         // Assert
         first.StatusCode.Should().Be(HttpStatusCode.Created);
-        ((int)second.StatusCode).Should().BeOneOf(
-            StatusCodes.Status200OK, StatusCodes.Status201Created);
+        second.StatusCode.Should().Be(
+            HttpStatusCode.Created, because: "a replayed key still returns the 201 create contract, not 200");
         firstBody.Should().NotBeNull();
         secondBody.Should().NotBeNull();
         secondBody!.WorkoutLogId.Should().Be(firstBody!.WorkoutLogId, because: "a replay returns the original id");
+        secondBody.Should().BeEquivalentTo(
+            firstBody, because: "a replay returns the byte-identical response body, not just a matching id");
 
         var logs = await GetByUserAsync(userId, ct);
         logs.Should().ContainSingle(because: "the replayed key must not create a second row")
@@ -245,8 +246,10 @@ public class WorkoutLogsControllerCreateIntegrationTests(RunCoachAppFactory fact
         var retry = await PostLogAsync(client, token, MinimalRequest(Week2Day4, key), ct);
 
         // Assert
-        ((int)failed.StatusCode).Should().BeGreaterThanOrEqualTo(
-            400, because: "the invalid first attempt must not succeed");
+        failed.StatusCode.Should().Be(
+            HttpStatusCode.BadRequest,
+            because: "an invalid negative distance maps to the documented 400 ProblemDetails, not a 500");
+        failed.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
         retry.StatusCode.Should().Be(HttpStatusCode.Created, because: "the same key with a valid body must still create the log");
         var logs = await GetByUserAsync(userId, ct);
         logs.Should().ContainSingle(because: "exactly one log is persisted across the failed + retried attempts");

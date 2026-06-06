@@ -15,16 +15,18 @@ namespace RunCoach.Api.Modules.Training.Workouts;
 /// plan slot via <see cref="PlanCalendar"/>, snapshots the matched workout
 /// server-side, and persists through the idempotent repository write (DEC-077).
 /// </summary>
-public sealed class WorkoutLogService(
+public sealed partial class WorkoutLogService(
     RunCoachDbContext db,
     IWorkoutLogRepository repository,
     IDocumentStore documentStore,
-    TimeProvider timeProvider) : IWorkoutLogService
+    TimeProvider timeProvider,
+    ILogger<WorkoutLogService> logger) : IWorkoutLogService
 {
     private readonly RunCoachDbContext _db = db;
     private readonly IWorkoutLogRepository _repository = repository;
     private readonly IDocumentStore _documentStore = documentStore;
     private readonly TimeProvider _timeProvider = timeProvider;
+    private readonly ILogger<WorkoutLogService> _logger = logger;
 
     /// <inheritdoc />
     public async Task<Guid> CreateAsync(Guid userId, CreateWorkoutLogRequestDto request, CancellationToken ct)
@@ -52,7 +54,9 @@ public sealed class WorkoutLogService(
             ModifiedOn = now,
         };
 
-        return await _repository.CreateIdempotentAsync(log, ct).ConfigureAwait(false);
+        var workoutLogId = await _repository.CreateIdempotentAsync(log, ct).ConfigureAwait(false);
+        LogWorkoutLogPersisted(_logger, workoutLogId, userId, prescription is not null);
+        return workoutLogId;
     }
 
     private static string? SerializeMetrics(IReadOnlyDictionary<string, JsonElement>? metrics) =>
@@ -65,6 +69,23 @@ public sealed class WorkoutLogService(
                     s.Index, s.DistanceMeters, s.DurationSeconds, s.PaceSecPerKm, s.AverageHeartRate))
                 .ToList()
             : null;
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Persisted workout log {WorkoutLogId} for user {UserId} (on-plan: {OnPlan}).")]
+    private static partial void LogWorkoutLogPersisted(
+        ILogger logger, Guid workoutLogId, Guid userId, bool onPlan);
+
+    [LoggerMessage(
+        Level = LogLevel.Debug,
+        Message = "No active plan for user {UserId}; run on {OccurredOn} resolves off-plan.")]
+    private static partial void LogOffPlanNoActivePlan(ILogger logger, Guid userId, DateOnly occurredOn);
+
+    [LoggerMessage(
+        Level = LogLevel.Debug,
+        Message = "Resolved prescription for user {UserId} from plan {PlanId} at week {WeekNumber} day {DayOfWeek}.")]
+    private static partial void LogPrescriptionResolved(
+        ILogger logger, Guid userId, Guid planId, int weekNumber, int dayOfWeek);
 
     private async Task<WorkoutPrescriptionSnapshot?> ResolvePrescriptionAsync(
         Guid userId, DateOnly occurredOn, CancellationToken ct)
@@ -81,6 +102,7 @@ public sealed class WorkoutLogService(
             .ConfigureAwait(false);
         if (currentPlanId is not { } planId)
         {
+            LogOffPlanNoActivePlan(_logger, userId, occurredOn);
             return null;
         }
 
@@ -109,6 +131,7 @@ public sealed class WorkoutLogService(
 
         // Server-authoritative: prescribed values come from the plan slot, never the
         // client. Fast = harder (lower sec/km) pace, Slow = easy pace (DEC-076).
+        LogPrescriptionResolved(_logger, userId, plan.PlanId, slot.WeekNumber, slot.DayOfWeek);
         return WorkoutPrescriptionSnapshot.Create(
             sourcePlanId: plan.PlanId,
             weekNumber: slot.WeekNumber,

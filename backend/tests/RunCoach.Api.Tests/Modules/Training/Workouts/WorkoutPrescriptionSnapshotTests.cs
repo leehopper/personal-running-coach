@@ -49,4 +49,25 @@ public class WorkoutPrescriptionSnapshotTests
         actual.PrescribedPace.Fast.SecondsPerKm.Should().Be(280.0);
         actual.PrescribedPace.Slow.SecondsPerKm.Should().Be(330.0);
     }
+
+    [Fact]
+    public void Create_WithEqualPaceBounds_ExposesPrescribedPaceRange()
+    {
+        // Arrange / Act — fast == slow (300 s/km): the equality edge of the ordered
+        // guard. The guard uses a strict IsSlowerThan, so equal bounds are valid and
+        // a mistaken strict-< guard would regress here.
+        var actual = WorkoutPrescriptionSnapshot.Create(
+            sourcePlanId: Guid.NewGuid(),
+            weekNumber: 2,
+            dayOfWeek: 4,
+            workoutType: WorkoutType.Tempo,
+            prescribedDistance: Distance.FromKilometers(10.0),
+            prescribedDuration: Duration.FromMinutes(50.0),
+            prescribedPaceFast: Pace.FromSecondsPerKm(300.0),
+            prescribedPaceSlow: Pace.FromSecondsPerKm(300.0));
+
+        // Assert — equal bounds construct without throwing and expose the single pace.
+        actual.PrescribedPace.Fast.SecondsPerKm.Should().Be(300.0);
+        actual.PrescribedPace.Slow.SecondsPerKm.Should().Be(300.0);
+    }
 }
