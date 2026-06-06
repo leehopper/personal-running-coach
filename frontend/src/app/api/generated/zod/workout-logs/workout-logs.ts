@@ -28,34 +28,3 @@ export const PostApiV1WorkoutsLogsBody = zod.strictObject({
 })
 
 export const PostApiV1WorkoutsLogsResponse = zod.void()
-
-export const PostApiV1WorkoutsLogsQueryBody = zod.strictObject({
-  limit: zod.number().nullish(),
-  cursor: zod.string().nullish(),
-})
-
-export const PostApiV1WorkoutsLogsQueryResponse = zod.strictObject({
-  logs: zod.array(
-    zod.strictObject({
-      workoutLogId: zod.uuid(),
-      occurredOn: zod.iso.date(),
-      distanceMeters: zod.number(),
-      durationSeconds: zod.number(),
-      completionStatus: zod.union([zod.literal(0), zod.literal(1), zod.literal(2)]),
-      notes: zod.string().nullish(),
-      metrics: zod.record(zod.string(), zod.unknown()).nullish(),
-      splits: zod
-        .array(
-          zod.strictObject({
-            index: zod.number(),
-            distanceMeters: zod.number(),
-            durationSeconds: zod.number(),
-            paceSecPerKm: zod.number(),
-            averageHeartRate: zod.number().nullish(),
-          }),
-        )
-        .nullish(),
-    }),
-  ),
-  nextCursor: zod.string().nullish(),
-})
