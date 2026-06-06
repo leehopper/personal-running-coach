@@ -20,8 +20,10 @@ namespace RunCoach.Api.Tests.Modules.Training.Workouts;
 /// Integration tests for <c>POST /api/v1/workouts/logs/query</c> (slice-2b Unit 4 /
 /// PR4), one per scenario in <c>history-query-endpoint.feature</c>. Drives the live
 /// HTTP + auth + DB-driven keyset query against the Testcontainers Postgres and
-/// asserts newest-first ordering, keyset paging across a page boundary, user
-/// scoping, and that the sort/limit execute in SQL (DEC-076 § C).
+/// asserts newest-first ordering, keyset paging across a page boundary, the
+/// exact-page-multiple cursor termination, the read projection of a rich log
+/// (notes/metrics/splits), user scoping, and that the sort/limit execute in SQL
+/// (DEC-076 § C).
 /// </summary>
 [Collection("Integration")]
 [Trait("Category", "Integration")]
@@ -86,6 +88,83 @@ public class WorkoutLogsControllerQueryIntegrationTests(RunCoachAppFactory facto
         returned.Select(l => l.WorkoutLogId).Should().OnlyHaveUniqueItems()
             .And.BeEquivalentTo(seededIds);
         returned.Select(l => l.OccurredOn).Should().BeInDescendingOrder();
+    }
+
+    [Fact]
+    public async Task Query_ExactPageMultiple_TerminatesWithEmptyTrailingPage()
+    {
+        // Arrange — four logs at limit 2: the total is an exact multiple of the page size,
+        // so the final full page cannot tell it is last without one more (empty) fetch.
+        var ct = TestContext.Current.CancellationToken;
+        var (client, userId) = await RegisterAndLoginAsync();
+        var seededIds = new List<Guid>();
+        foreach (var day in new[] { 1, 2, 3, 4 })
+        {
+            seededIds.Add(await SeedLogAsync(userId, new DateOnly(2026, 6, day), ct));
+        }
+
+        // Act — two full pages, then a terminal fetch on the second page's cursor.
+        var page1 = await QueryPageAsync(client, new QueryWorkoutLogsRequestDto(Limit: 2, Cursor: null), ct);
+        var page2 = await QueryPageAsync(client, new QueryWorkoutLogsRequestDto(Limit: 2, Cursor: page1.NextCursor), ct);
+        var page3 = await QueryPageAsync(client, new QueryWorkoutLogsRequestDto(Limit: 2, Cursor: page2.NextCursor), ct);
+
+        // Assert — the second full page still hands back a cursor (row count == limit); the
+        // terminal fetch returns zero rows and a null cursor.
+        page1.Logs.Should().HaveCount(2);
+        page2.Logs.Should().HaveCount(2);
+        page1.NextCursor.Should().NotBeNull();
+        page2.NextCursor.Should().NotBeNull(
+            because: "a full final page cannot know it is the last without one more fetch");
+        page3.Logs.Should().BeEmpty();
+        page3.NextCursor.Should().BeNull();
+
+        // Assert — the two full pages cover all four logs exactly once; the empty terminal
+        // page skips and duplicates nothing.
+        var returned = page1.Logs.Concat(page2.Logs).ToList();
+        returned.Select(l => l.WorkoutLogId).Should().OnlyHaveUniqueItems()
+            .And.BeEquivalentTo(seededIds);
+        returned.Select(l => l.OccurredOn).Should().BeInDescendingOrder();
+    }
+
+    [Fact]
+    public async Task Query_RichLog_EchoesNotesMetricsAndSplitsThroughTheReadProjection()
+    {
+        // Arrange — one log carrying every optional field: a freeform note, a metrics jsonb
+        // bag, and two typed splits. Exercises MapToDto / DeserializeMetrics / MapSplitsToDto,
+        // which the empty-seed scenarios never reach.
+        var ct = TestContext.Current.CancellationToken;
+        var (client, userId) = await RegisterAndLoginAsync();
+        const string notes = "Negative split, felt strong on the back half.";
+        var expectedSplits = new[]
+        {
+            new WorkoutLogSplitDto(1, 1000.0, 300.0, 300.0, 138),
+            new WorkoutLogSplitDto(2, 1000.0, 295.0, 295.0, 145),
+        };
+        var logId = await SeedRichLogAsync(
+            userId,
+            new DateOnly(2026, 6, 10),
+            notes,
+            """{"hrAvg":142,"rpe":7}""",
+            [
+                new WorkoutSplit(1, 1000.0, 300.0, 300.0, 138),
+                new WorkoutSplit(2, 1000.0, 295.0, 295.0, 145),
+            ],
+            ct);
+
+        // Act
+        var page = await QueryPageAsync(client, new QueryWorkoutLogsRequestDto(Limit: null, Cursor: null), ct);
+
+        // Assert — the read projection faithfully rehydrates every optional field.
+        var dto = page.Logs.Should().ContainSingle().Which;
+        dto.WorkoutLogId.Should().Be(logId);
+        dto.Notes.Should().Be(notes);
+
+        dto.Metrics.Should().NotBeNull();
+        dto.Metrics!["hrAvg"].GetInt32().Should().Be(142);
+        dto.Metrics["rpe"].GetInt32().Should().Be(7);
+
+        dto.Splits.Should().NotBeNull();
+        dto.Splits!.Should().Equal(expectedSplits);
     }
 
     [Fact]
@@ -298,6 +377,24 @@ public class WorkoutLogsControllerQueryIntegrationTests(RunCoachAppFactory facto
     private async Task<Guid> SeedLogAsync(Guid userId, DateOnly occurredOn, CancellationToken ct)
     {
         var log = NewLog(userId, occurredOn);
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IWorkoutLogRepository>();
+        await repository.CreateAsync(log, ct);
+        return log.WorkoutLogId;
+    }
+
+    private async Task<Guid> SeedRichLogAsync(
+        Guid userId,
+        DateOnly occurredOn,
+        string notes,
+        string metricsJson,
+        IReadOnlyList<WorkoutSplit> splits,
+        CancellationToken ct)
+    {
+        var log = NewLog(userId, occurredOn);
+        log.Notes = notes;
+        log.Metrics = metricsJson;
+        log.Splits = [.. splits];
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IWorkoutLogRepository>();
         await repository.CreateAsync(log, ct);
