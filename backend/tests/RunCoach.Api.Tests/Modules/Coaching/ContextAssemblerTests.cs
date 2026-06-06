@@ -7,6 +7,7 @@ using NSubstitute;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Prompts;
+using RunCoach.Api.Modules.Training.Constants;
 using RunCoach.Api.Modules.Training.Models;
 using RunCoach.Api.Tests.Modules.Training.Profiles;
 
@@ -1522,6 +1523,105 @@ public class ContextAssemblerTests
         // Assert
         await act.Should().ThrowAsync<FileNotFoundException>()
             .WithMessage("*coaching-system*");
+    }
+
+    // ================================================================
+    // Recent logged-workout injection (slice-2b Unit 5 / DEC-076)
+    // ================================================================
+    [Fact]
+    public async Task AssembleAsync_WithRecentLoggedWorkout_RendersNoteAndMetricsInTrainingHistory()
+    {
+        // Arrange — a profile plus one real logged workout carrying a note + metrics.
+        const string loggedNote = "tempo felt controlled, slight headwind";
+        var log = new LoggedWorkoutDetail(
+            new DateOnly(2026, 6, 1),
+            "Tempo",
+            Distance.FromKilometers(8),
+            Duration.FromMinutes(40),
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [WorkoutMetricKeys.HrAvg] = "152",
+                [WorkoutMetricKeys.Rpe] = "7",
+            },
+            loggedNote);
+        var input = BuildLeeInput() with { RecentLoggedWorkouts = [log] };
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — the logged workout's note + metric values reach the training-history block.
+        var history = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        history.Content.Should().Contain(loggedNote);
+        history.Content.Should().Contain("HR 152");
+        history.Content.Should().Contain("RPE 7");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_RecentLoggedWorkoutWithoutEffortSignals_EmitsAbsenceMarker()
+    {
+        // Arrange — a bare log (distance + duration only) surfaces the "(no HR/RPE)" signal.
+        var log = new LoggedWorkoutDetail(
+            new DateOnly(2026, 6, 1),
+            "Easy",
+            Distance.FromKilometers(6),
+            Duration.FromMinutes(36),
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            Notes: null);
+        var input = BuildLeeInput() with { RecentLoggedWorkouts = [log] };
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        var history = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        history.Content.Should().Contain(RecentLogFormatter.NoEffortSignalsMarker);
+    }
+
+    [Fact]
+    public async Task AssembleAsync_ManyLoggedWorkoutsOverBudget_RendersOneLinersAndPreservesCascade()
+    {
+        // Arrange — pin time so the legacy Layer-1/Layer-2 split is deterministic.
+        // A huge conversation forces the overflow cascade; legacy history must
+        // still collapse to weekly summaries (Layer-2), while each logged workout
+        // stays a single compact line (never a multi-line block).
+        var fakeNow = new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);
+        var fakeTime = new FakeTimeProvider(fakeNow);
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store, fakeTime, NullLogger<ContextAssembler>.Instance);
+
+        // Legacy history within the Layer-1 window (collapses to "Week of …" under pressure).
+        var legacy = ImmutableArray.Create(
+            new WorkoutSummary(new DateOnly(2026, 5, 30), "Tempo", 10m, 48, TimeSpan.FromMinutes(4.8), null),
+            new WorkoutSummary(new DateOnly(2026, 5, 28), "Easy", 8m, 44, TimeSpan.FromMinutes(5.5), null));
+
+        var logs = Enumerable.Range(0, 8)
+            .Select(i => new LoggedWorkoutDetail(
+                new DateOnly(2026, 5, 30).AddDays(-i),
+                "Easy",
+                Distance.FromKilometers(8),
+                Duration.FromMinutes(44),
+                new Dictionary<string, string>(StringComparer.Ordinal) { [WorkoutMetricKeys.Rpe] = "5" },
+                $"LOGMARKER{i} steady aerobic effort, nothing notable"))
+            .ToImmutableArray();
+
+        var input = BuildOverflowStep4Input(legacy) with { RecentLoggedWorkouts = logs };
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert
+        var history = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        var lines = history.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        // No multi-line per-workout blocks: each logged workout sits on exactly one line.
+        foreach (var i in Enumerable.Range(0, 8))
+        {
+            lines.Count(l => l.Contains($"LOGMARKER{i}", StringComparison.Ordinal))
+                .Should().Be(1, because: "each logged workout must render as a single compact line");
+        }
+
+        // Layer-2 truncation behaviour preserved: legacy history collapsed to a weekly summary.
+        history.Content.Should().Contain("Week of", because: "the overflow cascade still collapses legacy history");
     }
 
     // ================================================================

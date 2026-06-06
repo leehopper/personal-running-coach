@@ -214,7 +214,7 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         // Build section content for token replacement.
         var startSections = BuildStartSections(input);
-        var middleSections = BuildMiddleSections(input.TrainingHistory);
+        var middleSections = BuildMiddleSections(input.TrainingHistory, input.RecentLoggedWorkouts);
         var endSections = BuildEndSections(input.ConversationHistory, input.CurrentUserMessage);
 
         // Use the static system prompt from YAML (contains zero athlete data).
@@ -579,13 +579,15 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// Builds the MIDDLE sections: training history.
     /// Variable content in the lower attention zone.
     /// </summary>
-    private List<PromptSection> BuildMiddleSections(ImmutableArray<WorkoutSummary> trainingHistory)
+    private List<PromptSection> BuildMiddleSections(
+        ImmutableArray<WorkoutSummary> trainingHistory,
+        ImmutableArray<LoggedWorkoutDetail> recentLogs)
     {
         var sections = new List<PromptSection>();
 
-        if (trainingHistory.Length > 0)
+        if (trainingHistory.Length > 0 || !recentLogs.IsDefaultOrEmpty)
         {
-            sections.Add(BuildTrainingHistorySection(trainingHistory, useLayer2Only: false));
+            sections.Add(BuildTrainingHistorySection(trainingHistory, recentLogs, useLayer2Only: false));
         }
 
         return sections;
@@ -636,11 +638,12 @@ public sealed partial class ContextAssembler : IContextAssembler
         var currentEnd = endSections;
 
         // Step 1: Reduce training history to Layer 2 only (weekly summaries).
-        if (input.TrainingHistory.Length > 0)
+        // Logged workouts stay as compact one-liners — they are not collapsed.
+        if (input.TrainingHistory.Length > 0 || !input.RecentLoggedWorkouts.IsDefaultOrEmpty)
         {
             currentMiddle =
             [
-                BuildTrainingHistorySection(input.TrainingHistory, useLayer2Only: true),
+                BuildTrainingHistorySection(input.TrainingHistory, input.RecentLoggedWorkouts, useLayer2Only: true),
             ];
         }
 
@@ -666,16 +669,17 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         // Step 3: Remove relevant plan context (not used in POC 1, skip).
 
-        // Step 4: Reduce training history to most recent 2 weeks only.
-        if (input.TrainingHistory.Length > 0)
+        // Step 4: Reduce training history to most recent 2 weeks only. Logged
+        // workouts are a bounded recent window already, so they are retained.
+        if (input.TrainingHistory.Length > 0 || !input.RecentLoggedWorkouts.IsDefaultOrEmpty)
         {
             var twoWeeksAgo = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime).AddDays(-14);
             var recentHistory = input.TrainingHistory
                 .Where(w => w.Date >= twoWeeksAgo)
                 .ToImmutableArray();
 
-            currentMiddle = recentHistory.Length > 0
-                ? [BuildTrainingHistorySection(recentHistory, useLayer2Only: true)]
+            currentMiddle = recentHistory.Length > 0 || !input.RecentLoggedWorkouts.IsDefaultOrEmpty
+                ? [BuildTrainingHistorySection(recentHistory, input.RecentLoggedWorkouts, useLayer2Only: true)]
                 : [];
         }
 
@@ -861,48 +865,65 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// </summary>
     private PromptSection BuildTrainingHistorySection(
         ImmutableArray<WorkoutSummary> history,
+        ImmutableArray<LoggedWorkoutDetail> recentLogs,
         bool useLayer2Only)
     {
-        if (history.Length == 0)
+        var hasLogs = !recentLogs.IsDefaultOrEmpty;
+        if (history.Length == 0 && !hasLogs)
         {
             return new PromptSection("training_history", string.Empty, 0);
         }
 
         var sb = new StringBuilder();
-        var sorted = history.OrderByDescending(w => w.Date).ToList();
 
-        if (useLayer2Only)
+        // Recent real logs render first as compact Layer-1 one-liners (newest
+        // first). They are never collapsed into weekly summaries — they are the
+        // high-value detail this block exists to inject (DEC-076).
+        if (hasLogs)
         {
-            // Layer 2: weekly summaries only.
-            var weeks = GroupByWeek(sorted).Take(MaxLayer2Weeks);
-            foreach (var week in weeks)
+            foreach (var log in recentLogs.OrderByDescending(l => l.OccurredOn))
             {
-                sb.AppendLine(FormatWeekSummary(week));
+                sb.AppendLine(RecentLogFormatter.FormatWorkoutDetail(log));
             }
         }
-        else
+
+        if (history.Length > 0)
         {
-            // Layer 1 for recent weeks, Layer 2 for older weeks.
-            var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime);
-            var layer1Cutoff = today.AddDays(-7 * MaxLayer1Weeks);
+            var sorted = history.OrderByDescending(w => w.Date).ToList();
 
-            var recentWorkouts = sorted.Where(w => w.Date >= layer1Cutoff).ToList();
-            var olderWorkouts = sorted.Where(w => w.Date < layer1Cutoff).ToList();
-
-            if (recentWorkouts.Count > 0)
+            if (useLayer2Only)
             {
-                foreach (var workout in recentWorkouts)
-                {
-                    sb.AppendLine(FormatWorkoutDetail(workout));
-                }
-            }
-
-            if (olderWorkouts.Count > 0)
-            {
-                var olderWeeks = GroupByWeek(olderWorkouts).Take(MaxLayer2Weeks);
-                foreach (var week in olderWeeks)
+                // Layer 2: weekly summaries only.
+                var weeks = GroupByWeek(sorted).Take(MaxLayer2Weeks);
+                foreach (var week in weeks)
                 {
                     sb.AppendLine(FormatWeekSummary(week));
+                }
+            }
+            else
+            {
+                // Layer 1 for recent weeks, Layer 2 for older weeks.
+                var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime);
+                var layer1Cutoff = today.AddDays(-7 * MaxLayer1Weeks);
+
+                var recentWorkouts = sorted.Where(w => w.Date >= layer1Cutoff).ToList();
+                var olderWorkouts = sorted.Where(w => w.Date < layer1Cutoff).ToList();
+
+                if (recentWorkouts.Count > 0)
+                {
+                    foreach (var workout in recentWorkouts)
+                    {
+                        sb.AppendLine(FormatWorkoutDetail(workout));
+                    }
+                }
+
+                if (olderWorkouts.Count > 0)
+                {
+                    var olderWeeks = GroupByWeek(olderWorkouts).Take(MaxLayer2Weeks);
+                    foreach (var week in olderWeeks)
+                    {
+                        sb.AppendLine(FormatWeekSummary(week));
+                    }
                 }
             }
         }
