@@ -377,6 +377,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
             WorkoutLogId = Guid.NewGuid(),
             UserId = userId,
             TenantId = userId.ToString(),
+            IdempotencyKey = Guid.NewGuid(),
             OccurredOn = occurredOn,
             Distance = Distance.FromMeters(5000.0),
             Duration = Duration.FromMinutes(25.0),

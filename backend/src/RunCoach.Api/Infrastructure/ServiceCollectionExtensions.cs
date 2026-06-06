@@ -39,6 +39,7 @@ public static class ServiceCollectionExtensions
 
         // Training module — workout-log persistence (scoped, shares the request DbContext).
         services.AddScoped<IWorkoutLogRepository, WorkoutLogRepository>();
+        services.AddScoped<IWorkoutLogService, WorkoutLogService>();
 
         // Coaching module — prompt store is singleton (caches templates for app lifetime).
         services.AddSingleton<IPromptStore, YamlPromptStore>();

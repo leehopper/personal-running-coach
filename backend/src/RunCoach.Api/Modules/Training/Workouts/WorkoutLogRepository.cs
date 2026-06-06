@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using RunCoach.Api.Infrastructure;
 
 namespace RunCoach.Api.Modules.Training.Workouts;
@@ -21,6 +22,37 @@ public sealed partial class WorkoutLogRepository(
         _db.WorkoutLogs.Add(log);
         await _db.SaveChangesAsync(ct);
         LogCreated(_logger, log.WorkoutLogId, log.UserId);
+    }
+
+    /// <inheritdoc />
+    public async Task<Guid> CreateIdempotentAsync(WorkoutLog log, CancellationToken ct)
+    {
+        _db.WorkoutLogs.Add(log);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+            LogCreated(_logger, log.WorkoutLogId, log.UserId);
+            return log.WorkoutLogId;
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation,
+                ConstraintName: WorkoutLogConfiguration.IdempotencyIndexName,
+            })
+        {
+            // Replay: this (user, idempotency key) already produced a log. The failed
+            // SaveChanges auto-rolled-back its own implicit transaction, so the
+            // context's connection is clean for a fresh read; AsNoTracking bypasses
+            // the lingering Added entity (DEC-077 / R-081).
+            var existingId = await _db.WorkoutLogs
+                .AsNoTracking()
+                .Where(w => w.UserId == log.UserId && w.IdempotencyKey == log.IdempotencyKey)
+                .Select(w => w.WorkoutLogId)
+                .SingleAsync(ct);
+            LogIdempotentReplay(_logger, existingId, log.UserId);
+            return existingId;
+        }
     }
 
     /// <inheritdoc />
@@ -74,4 +106,9 @@ public sealed partial class WorkoutLogRepository(
         Level = LogLevel.Debug,
         Message = "Created WorkoutLog {WorkoutLogId} for user {UserId}.")]
     private static partial void LogCreated(ILogger logger, Guid workoutLogId, Guid userId);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Idempotent replay returned existing WorkoutLog {WorkoutLogId} for user {UserId}.")]
+    private static partial void LogIdempotentReplay(ILogger logger, Guid workoutLogId, Guid userId);
 }

@@ -49,4 +49,49 @@ public sealed record WorkoutPrescriptionSnapshot
     /// </summary>
     [NotMapped]
     public PaceRange PrescribedPace => new(PrescribedPaceFast, PrescribedPaceSlow);
+
+    /// <summary>
+    /// Creates a snapshot, validating the prescribed pace bounds are ordered
+    /// (fast no slower than slow) at construction so the computed
+    /// <see cref="PrescribedPace"/> view can never throw at read time. The
+    /// server-authoritative create path (PR3) sources already-ordered plan paces;
+    /// this factory makes a future inverted-bounds caller fail loudly at the
+    /// construction site rather than silently persisting a snapshot that throws
+    /// only when later read (deferred PR2-review follow-up).
+    /// </summary>
+    public static WorkoutPrescriptionSnapshot Create(
+        Guid sourcePlanId,
+        int weekNumber,
+        int dayOfWeek,
+        WorkoutType workoutType,
+        Distance prescribedDistance,
+        Duration prescribedDuration,
+        Pace prescribedPaceFast,
+        Pace prescribedPaceSlow)
+    {
+        // Validate the bounds are ordered (fast no slower than slow) here, at the
+        // construction site, so a malformed pair fails loudly now rather than only
+        // when the computed PrescribedPace view is later read (the PaceRange ctor
+        // throws on inverted bounds). The server-authoritative create path sources
+        // already-ordered plan paces, so this is defense-in-depth.
+        if (prescribedPaceFast.IsSlowerThan(prescribedPaceSlow))
+        {
+            throw new ArgumentException(
+                "PrescribedPaceFast must not be slower than PrescribedPaceSlow. " +
+                $"Fast={prescribedPaceFast.SecondsPerKm:F1} s/km, Slow={prescribedPaceSlow.SecondsPerKm:F1} s/km.",
+                nameof(prescribedPaceFast));
+        }
+
+        return new WorkoutPrescriptionSnapshot
+        {
+            SourcePlanId = sourcePlanId,
+            WeekNumber = weekNumber,
+            DayOfWeek = dayOfWeek,
+            WorkoutType = workoutType,
+            PrescribedDistance = prescribedDistance,
+            PrescribedDuration = prescribedDuration,
+            PrescribedPaceFast = prescribedPaceFast,
+            PrescribedPaceSlow = prescribedPaceSlow,
+        };
+    }
 }

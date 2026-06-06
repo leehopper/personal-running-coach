@@ -18,6 +18,19 @@ public interface IWorkoutLogRepository
     Task CreateAsync(WorkoutLog log, CancellationToken ct);
 
     /// <summary>
+    /// Persists a new log idempotently on its client-supplied
+    /// <see cref="WorkoutLog.IdempotencyKey"/> (DEC-077). On a fresh key, inserts the
+    /// row and returns its id. On a replayed key — a unique-index <c>23505</c> on
+    /// <c>(UserId, IdempotencyKey)</c> — returns the <em>original</em> row's id
+    /// without creating a duplicate. The key and the row commit in one
+    /// <c>SaveChanges</c> (one implicit transaction), so a failed attempt durably
+    /// writes nothing and the key stays reusable. Like <see cref="CreateAsync"/> it
+    /// calls <c>SaveChangesAsync</c> directly and MUST NOT be called from inside a
+    /// Wolverine handler body.
+    /// </summary>
+    Task<Guid> CreateIdempotentAsync(WorkoutLog log, CancellationToken ct);
+
+    /// <summary>
     /// Loads a single log owned by <paramref name="userId"/>, or null if absent
     /// or owned by another user. User-scoped at the repository boundary so a row
     /// can never leak across users even if a caller-side ownership check drifts.

@@ -31,6 +31,15 @@ public class WorkoutLog : ITenanted
     /// <summary>Gets or sets the Marten conjoined-tenancy parity column (DEC-072). Set by the writer to the user id.</summary>
     public string? TenantId { get; set; }
 
+    /// <summary>
+    /// Gets or sets the client-supplied idempotency key (DEC-077). Unique per
+    /// <c>(UserId, IdempotencyKey)</c>; a replayed create returns the original
+    /// row's id instead of inserting a duplicate. The key is a column on the fact
+    /// itself, so it persists iff the row does — a failed create leaves the key
+    /// reusable with no marker to roll back.
+    /// </summary>
+    public Guid IdempotencyKey { get; set; }
+
     /// <summary>Gets or sets the calendar date the run occurred — the prescription-matching anchor (DEC-076).</summary>
     public DateOnly OccurredOn { get; set; }
 
