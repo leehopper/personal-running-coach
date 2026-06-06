@@ -774,6 +774,100 @@
           }
         ]
       }
+    },
+    "/api/v1/workouts/logs": {
+      "post": {
+        "tags": [
+          "WorkoutLogs"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkoutLogRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkoutLogRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkoutLogRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateWorkoutLogResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateWorkoutLogResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateWorkoutLogResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -849,6 +943,76 @@
           },
           "appVersion": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CompletionStatus": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "CreateWorkoutLogRequestDto": {
+        "required": [
+          "completionStatus",
+          "distanceMeters",
+          "durationSeconds",
+          "idempotencyKey",
+          "occurredOn"
+        ],
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "distanceMeters": {
+            "type": "number",
+            "format": "double"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "completionStatus": {
+            "$ref": "#/components/schemas/CompletionStatus"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": { },
+            "nullable": true
+          },
+          "splits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkoutLogSplitDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateWorkoutLogResponseDto": {
+        "required": [
+          "workoutLogId"
+        ],
+        "type": "object",
+        "properties": {
+          "workoutLogId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -1703,6 +1867,39 @@
         },
         "additionalProperties": false
       },
+      "WorkoutLogSplitDto": {
+        "required": [
+          "distanceMeters",
+          "durationSeconds",
+          "index",
+          "paceSecPerKm"
+        ],
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "distanceMeters": {
+            "type": "number",
+            "format": "double"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "paceSecPerKm": {
+            "type": "number",
+            "format": "double"
+          },
+          "averageHeartRate": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "WorkoutOutput": {
         "required": [
           "coachingNotes",
@@ -1858,6 +2055,9 @@
     },
     {
       "name": "PlanRendering"
+    },
+    {
+      "name": "WorkoutLogs"
     }
   ]
 }

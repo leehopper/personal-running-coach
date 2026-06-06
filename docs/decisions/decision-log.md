@@ -2817,4 +2817,31 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 
 ---
 
+## DEC-077: WorkoutLog create-endpoint idempotency — EF-native unique key, not a Marten IdempotencyMarker (Slice 2b)
+
+**Date:** 2026-06-06
+**Category:** Backend / Data model / Idempotency
+**Status:** Accepted — locked for the Slice 2b PR3 create endpoint; **corrects** the 16-spec Unit 3 wording and the `IWorkoutLogRepository.CreateAsync` doc.
+**Drives:** `POST /api/v1/workouts/logs` idempotency; the `WorkoutLog` schema (new `IdempotencyKey` column + unique index) and a new migration.
+**Cites:** R-081 (`batch-29a-efcore-create-endpoint-idempotency.md`); the PR3 mid-implementation investigation (2026-06-05).
+**Builds on / corrects:** DEC-076 (`WorkoutLog` is a pure-EF immutable fact, no Marten stream, no handler), DEC-073 + DEC-060 (the Marten `IdempotencyMarker` is co-transactional **only** inside a Wolverine handler bracket / `EfCore*Projection` apply path), R-069 (no Marten/EF 2PC; the shared-connection participant is projection-only).
+
+**Decision:**
+
+- **EF-native idempotency key.** The create endpoint is idempotent via a client-supplied `Guid` carried as a new `IdempotencyKey` (`Guid`, NOT NULL) column on `WorkoutLog`, protected by a **unique index on `(UserId, IdempotencyKey)`**. The key and the row insert in one `SaveChanges` (one implicit Postgres transaction) — atomic by construction, because the key is a column on the fact rather than a separate marker.
+- **Replay returns the prior id.** On a duplicate the DB raises SQLSTATE `23505` on the idempotency index; the failed `SaveChanges` rolls back its own implicit transaction (clean connection), then a `READ COMMITTED` re-read by `(UserId, IdempotencyKey)` returns the **original** `WorkoutLogId`. The catch is guarded on `PostgresException.SqlState == PostgresErrorCodes.UniqueViolation` **and** `ConstraintName == <idempotency index name>` so any other unique violation (a real bug) still surfaces.
+- **No explicit transaction** is opened (avoids the `25P02` poisoned-transaction trap); the single-`SaveChanges` implicit transaction auto-rolls-back on failure, leaving the connection clean for the re-read.
+- **Failed attempt → key reusable, for free.** The key is persisted iff the row is, so a failed create durably writes nothing and the same key may be retried — the identical "marker rolls back on failure" guarantee the handler path gets from the Wolverine bracket, with strictly less machinery.
+- **NOT a "third store"** (R-069's caveat): no marker document, no response table, no separate read/write/cleanup/transaction — one column + one index on a row already being inserted. The result is a **deliberate two-mechanism split**: Marten-document `IIdempotencyStore` for the Wolverine/LLM handler paths (onboarding/regenerate), EF-native key for the pure-EF `WorkoutLog` path. The uniform contract is the HTTP one ("a POST accepts an idempotency key and is safe to retry"), not a shared storage interface — a generic `IIdempotencyStore` over EF would either reintroduce the dual-write or be a no-op wrapper around a column constraint.
+
+**Rationale:** the spec's "co-transactional Marten IdempotencyMarker pattern" was a provable carry-over from the Marten-**handler** regenerate flow (`16-questions` Q3 only offered "reuse the marker as the regenerate flow does"). It is impossible on a controller→repository→EF path: the Marten marker becomes co-transactional only inside a handler's transaction bracket or an `EfCore*Projection` apply path (R-069), and a separate `DbContext.SaveChangesAsync` + Marten commit is exactly the non-atomic two-connection dual-write R-069 exists to kill. The EF-native key gives first-write-wins idempotency, single-transaction atomicity, immutable-row auditability, and prior-id replay — all the handler-bracket benefits — with one column, one index, one catch block.
+
+**Alternatives considered:** **(B) Wolverine handler co-committing the EF row + Marten marker** — *impossible*: R-069 proved the shared-connection co-commit exists only inside `EfCore*Projection` apply paths, and `CreateAsync` is barred from handler bodies. **(C) event-source `WorkoutLog`** (`WorkoutLogged` + `EfCoreSingleStreamProjection`, the one proven co-transactional path) — *rejected*: it would invent a synthetic stream id DEC-076 found does not exist, run a second persistence model + projection/daemon overhead for an immutable fact with no behavior to aggregate, and buy **no** idempotency benefit over the unique key. **(b) dedicated EF `IdempotencyRecord` table in the same `SaveChanges`** — *deferred*; single-transaction-safe but only justified to replay a byte-identical full HTTP response (Stripe model), not just the id. **(c) `INSERT … ON CONFLICT DO NOTHING`** — *deferred*; never poisons the transaction (best concurrency ergonomics) but EF Core 10 has no first-class API (dotnet/efcore #16949 open; needs raw SQL or `FlexLabs.EntityFrameworkCore.Upsert`); adopt if race/exception volume appears in telemetry.
+
+**Verified (R-081):** re-confirmed the "no 2PC / shared-connection-is-projection-only" claim on the current **Marten 9.x / Wolverine 6.x** pins (Critter Stack 2026 wave, 2026-05-24; Wolverine 6.0 was a dependencies/AOT/cold-start release with no outbox-model change). A unique violation surfaces as `DbUpdateException` whose `InnerException` is `Npgsql.PostgresException` with `SqlState == PostgresErrorCodes.UniqueViolation` (`"23505"`) — **not** `DbUpdateConcurrencyException` (EF never throws that for insert constraint violations).
+
+**Open / deferred:** Stage 3 (full response-body replay → Option (b)) and Option (c) (`ON CONFLICT`) are deferred behind explicit triggers (product needs byte-identical response replay; race-exception rate becomes a telemetry hot path). The EF-generated `AddColumn` column DEFAULT (`Guid.Empty`) is harmless given the app always supplies the key (and the unique index would catch a double-default as a bug). Revisit if `WorkoutLog` ever gains a Wolverine handler or Marten event side effect — the handler-bracket marker then becomes available and may be preferred for consistency.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

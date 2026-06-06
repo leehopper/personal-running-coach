@@ -85,6 +85,16 @@ const injectedRtkApi = api.injectEndpoints({
         body: queryArg.regeneratePlanRequestDto,
       }),
     }),
+    postApiV1WorkoutsLogs: build.mutation<
+      PostApiV1WorkoutsLogsApiResponse,
+      PostApiV1WorkoutsLogsApiArg
+    >({
+      query: (queryArg) => ({
+        url: `/api/v1/workouts/logs`,
+        method: 'POST',
+        body: queryArg.createWorkoutLogRequestDto,
+      }),
+    }),
   }),
   overrideExisting: false,
 })
@@ -122,6 +132,10 @@ export type GetApiV1PlanCurrentApiArg = void
 export type PostApiV1PlanRegenerateApiResponse = /** status 200 OK */ RegeneratePlanResponse
 export type PostApiV1PlanRegenerateApiArg = {
   regeneratePlanRequestDto: RegeneratePlanRequestDto
+}
+export type PostApiV1WorkoutsLogsApiResponse = /** status 201 Created */ CreateWorkoutLogResponseDto
+export type PostApiV1WorkoutsLogsApiArg = {
+  createWorkoutLogRequestDto: CreateWorkoutLogRequestDto
 }
 export type AuthResponseDto = {
   userId: string
@@ -410,6 +424,29 @@ export type RegeneratePlanRequestDto = {
   idempotencyKey: string
   intent: RegenerationIntentRequestDto
 }
+export type CreateWorkoutLogResponseDto = {
+  workoutLogId: string
+}
+export type CompletionStatus = 0 | 1 | 2
+export type WorkoutLogSplitDto = {
+  index: number
+  distanceMeters: number
+  durationSeconds: number
+  paceSecPerKm: number
+  averageHeartRate?: number | null
+}
+export type CreateWorkoutLogRequestDto = {
+  idempotencyKey: string
+  occurredOn: string
+  distanceMeters: number
+  durationSeconds: number
+  completionStatus: CompletionStatus
+  notes?: string | null
+  metrics?: {
+    [key: string]: any
+  } | null
+  splits?: WorkoutLogSplitDto[] | null
+}
 export const {
   useGetApiV1AuthXsrfQuery,
   usePostApiV1AuthRegisterMutation,
@@ -422,4 +459,5 @@ export const {
   usePostApiV1OnboardingAnswersReviseMutation,
   useGetApiV1PlanCurrentQuery,
   usePostApiV1PlanRegenerateMutation,
+  usePostApiV1WorkoutsLogsMutation,
 } = injectedRtkApi

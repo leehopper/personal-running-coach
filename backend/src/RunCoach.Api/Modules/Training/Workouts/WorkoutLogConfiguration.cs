@@ -14,6 +14,15 @@ namespace RunCoach.Api.Modules.Training.Workouts;
 /// </summary>
 internal sealed class WorkoutLogConfiguration : IEntityTypeConfiguration<WorkoutLog>
 {
+    /// <summary>
+    /// Database name of the unique idempotency index on <c>(UserId, IdempotencyKey)</c>
+    /// (DEC-077). Referenced by <see cref="WorkoutLogRepository"/> to recognize a
+    /// replay: a <c>23505</c> whose <c>ConstraintName</c> equals this is the
+    /// idempotency conflict (re-read and return the prior id); any other unique
+    /// violation is a real fault and still surfaces.
+    /// </summary>
+    public const string IdempotencyIndexName = "ix_workoutlog_user_idempotencykey";
+
     public void Configure(EntityTypeBuilder<WorkoutLog> builder)
     {
         // UserId FK to the Identity user; a deleted user cascades their logs away.
@@ -54,5 +63,13 @@ internal sealed class WorkoutLogConfiguration : IEntityTypeConfiguration<Workout
 
         // Supports the newest-first keyset read-by-user.
         builder.HasIndex(w => new { w.UserId, w.OccurredOn, w.WorkoutLogId });
+
+        // Idempotency: one log per (user, client idempotency key). The insert of the
+        // row carries the key, so the unique index is the single serialization point
+        // that yields first-write-wins; a replayed create trips 23505 here (DEC-077).
+        builder
+            .HasIndex(w => new { w.UserId, w.IdempotencyKey })
+            .IsUnique()
+            .HasDatabaseName(IdempotencyIndexName);
     }
 }
