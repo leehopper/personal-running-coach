@@ -87,6 +87,14 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
       className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 bg-background px-4 py-8"
       data-testid="home-page"
     >
+      <div className="flex justify-end">
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/history" data-testid="home-history-link">
+            Workout history
+          </Link>
+        </Button>
+      </div>
+
       {plan.macro === null ? null : (
         <MacroPhaseStrip macro={plan.macro} currentWeek={currentWeek} />
       )}
