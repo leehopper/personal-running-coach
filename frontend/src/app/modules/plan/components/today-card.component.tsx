@@ -1,4 +1,6 @@
 import type { ReactElement } from 'react'
+import { Link } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import type { MesoWeekTemplateDto, MicroWorkoutCardDto } from '~/modules/plan/models/plan.model'
 import {
   DAY_OF_WEEK_LABELS,
@@ -62,6 +64,9 @@ export const TodayCard = ({
           </span>
         </header>
         <MicroWorkoutCard workout={todaysWorkout} emphasized={true} />
+        <Button asChild size="sm" className="self-start" data-testid="today-card-log-action">
+          <Link to="/log">Log run</Link>
+        </Button>
       </section>
     )
   }

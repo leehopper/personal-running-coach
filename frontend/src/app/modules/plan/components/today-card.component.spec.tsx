@@ -1,7 +1,17 @@
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
-import { TodayCard } from './today-card.component'
+import { TodayCard, type TodayCardProps } from './today-card.component'
 import { buildPlanFixture, fixtureWeekOneWorkouts } from './plan-display.fixture'
+
+// TodayCard renders a <Link> in its workout variant, so every render needs a
+// Router context.
+const renderCard = (props: TodayCardProps) =>
+  render(
+    <MemoryRouter>
+      <TodayCard {...props} />
+    </MemoryRouter>,
+  )
 
 describe('TodayCard', () => {
   // Local Sunday April 2026-04-26 = day-of-week 0; test seed dates here
@@ -14,13 +24,11 @@ describe('TodayCard', () => {
 
   it('renders the workout variant when today is a run day', () => {
     const plan = buildPlanFixture()
-    render(
-      <TodayCard
-        currentWeek={plan.mesoWeeks[0]}
-        workouts={fixtureWeekOneWorkouts()}
-        today={monday}
-      />,
-    )
+    renderCard({
+      currentWeek: plan.mesoWeeks[0],
+      workouts: fixtureWeekOneWorkouts(),
+      today: monday,
+    })
     const card = screen.getByTestId('today-card')
     expect(card.dataset.variant).toBe('workout')
     expect(screen.getByRole('heading', { name: 'Easy aerobic shakeout' })).toBeInTheDocument()
@@ -28,15 +36,25 @@ describe('TodayCard', () => {
     expect(inner.dataset.emphasized).toBe('true')
   })
 
+  it('renders a "Log run" action linking to /log in the workout variant', () => {
+    const plan = buildPlanFixture()
+    renderCard({
+      currentWeek: plan.mesoWeeks[0],
+      workouts: fixtureWeekOneWorkouts(),
+      today: monday,
+    })
+    const logAction = screen.getByTestId('today-card-log-action')
+    expect(logAction).toHaveAttribute('href', '/log')
+    expect(logAction).toHaveTextContent(/log run/i)
+  })
+
   it('renders the rest-day variant on a rest slot, calling out the next workout', () => {
     const plan = buildPlanFixture()
-    render(
-      <TodayCard
-        currentWeek={plan.mesoWeeks[0]}
-        workouts={fixtureWeekOneWorkouts()}
-        today={sunday}
-      />,
-    )
+    renderCard({
+      currentWeek: plan.mesoWeeks[0],
+      workouts: fixtureWeekOneWorkouts(),
+      today: sunday,
+    })
     const card = screen.getByTestId('today-card')
     expect(card.dataset.variant).toBe('rest')
     const next = screen.getByTestId('today-card-next-workout')
@@ -44,15 +62,23 @@ describe('TodayCard', () => {
     expect(next.textContent).toMatch(/easy aerobic shakeout/iu)
   })
 
+  it('does not render a Log action in the rest-day variant', () => {
+    const plan = buildPlanFixture()
+    renderCard({
+      currentWeek: plan.mesoWeeks[0],
+      workouts: fixtureWeekOneWorkouts(),
+      today: sunday,
+    })
+    expect(screen.queryByTestId('today-card-log-action')).toBeNull()
+  })
+
   it('renders the rest-day variant when slot is Rest even on a midweek day', () => {
     const plan = buildPlanFixture()
-    render(
-      <TodayCard
-        currentWeek={plan.mesoWeeks[0]}
-        workouts={fixtureWeekOneWorkouts()}
-        today={thursday}
-      />,
-    )
+    renderCard({
+      currentWeek: plan.mesoWeeks[0],
+      workouts: fixtureWeekOneWorkouts(),
+      today: thursday,
+    })
     const card = screen.getByTestId('today-card')
     expect(card.dataset.variant).toBe('rest')
     const next = screen.getByTestId('today-card-next-workout')
@@ -61,13 +87,11 @@ describe('TodayCard', () => {
 
   it('shows interval session details when today is the threshold day', () => {
     const plan = buildPlanFixture()
-    render(
-      <TodayCard
-        currentWeek={plan.mesoWeeks[0]}
-        workouts={fixtureWeekOneWorkouts()}
-        today={wednesday}
-      />,
-    )
+    renderCard({
+      currentWeek: plan.mesoWeeks[0],
+      workouts: fixtureWeekOneWorkouts(),
+      today: wednesday,
+    })
     expect(screen.getByRole('heading', { name: 'Threshold intervals' })).toBeInTheDocument()
   })
 
@@ -76,13 +100,11 @@ describe('TodayCard', () => {
     // contains no dayOfWeek=5 entry, exercising the graceful-degradation branch.
     const friday = new Date(2026, 3, 24) // 2026-04-24 is a Friday
     const plan = buildPlanFixture()
-    render(
-      <TodayCard
-        currentWeek={plan.mesoWeeks[0]}
-        workouts={fixtureWeekOneWorkouts()}
-        today={friday}
-      />,
-    )
+    renderCard({
+      currentWeek: plan.mesoWeeks[0],
+      workouts: fixtureWeekOneWorkouts(),
+      today: friday,
+    })
     const card = screen.getByTestId('today-card')
     expect(card.dataset.variant).toBe('rest')
     expect(screen.getByText('Rest day — recover well.')).toBeInTheDocument()
@@ -94,13 +116,11 @@ describe('TodayCard', () => {
 
   it('contains zero VDOT references in the rendered DOM (trademark rule)', () => {
     const plan = buildPlanFixture()
-    const { container } = render(
-      <TodayCard
-        currentWeek={plan.mesoWeeks[0]}
-        workouts={fixtureWeekOneWorkouts()}
-        today={wednesday}
-      />,
-    )
+    const { container } = renderCard({
+      currentWeek: plan.mesoWeeks[0],
+      workouts: fixtureWeekOneWorkouts(),
+      today: wednesday,
+    })
     expect(container.textContent ?? '').not.toMatch(/vdot/iu)
   })
 })
