@@ -2844,4 +2844,52 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 
 ---
 
+## DEC-078: Slice 3 adaptation triggering & signal — deterministic DEC-012 gate + simplified MVP-0 signal (defers the full load model) (Slice 3)
+
+**Date:** 2026-06-07
+**Category:** Backend / Coaching / Adaptation
+**Status:** Accepted — locked for the Slice 3 spec (`docs/specs/17-spec-slice-3-adaptation/`). Resolves the cycle-plan pragmatic-default-vs-DEC-012 conflict in favor of DEC-012.
+**Drives:** the Slice 3 deviation engine + escalation classifier (Unit 1, PR2) and the orchestration handler (Unit 5, PR5).
+**Cites:** Slice 3 brainstorm + adversarial codebase/decision-log verification (2026-06-07); `00-brainstorm-findings.md` + `01-design.md` in the spec dir.
+**Builds on:** DEC-012 (5-level escalation ladder — the spine). **Supersedes:** the cycle-plan "Pragmatic defaults" line "the LLM always runs on log … no upfront heuristic gating" (`slice-3-adaptation.md:50`).
+
+**Decision:**
+
+- **Deterministic gate per DEC-012.** A pure-C# classifier ALWAYS runs on an on-plan log and resolves the escalation level. **Level 0 (absorb)** and **Level 1 (micro-adjust — a deterministic 1–2 workout swap)** are handled in code with **NO LLM call**; **Level 2 (restructure)** is the first level that invokes the coaching LLM. A null prescription snapshot (off-plan) is a no-op.
+- **Simplified MVP-0 signal.** The escalation trigger is a per-log deviation (band-membership vs the snapshot pace *band* + distance/duration %) plus a cooldown/hysteresis plan-state with asymmetric enter/exit thresholds, so a restructure cannot re-fire until the signal clears — the anti-oscillation DEC-012 exists to provide.
+- **Full load model deferred.** The EWMA / ACWR / CTL / ATL / TSB training-load model + PID dampening that DEC-012's vision implies is NOT built at MVP-0 (no load model ships today; the `context-injection-v1.yaml` `ACWR: {value}` placeholder is removed/neutralized, not filled with fake math). Threshold constants are named, first-pass, calibrated during eval authoring (Unit 6).
+
+**Rationale:** DEC-012 (Final) is explicit that Levels 0–1 are LLM-free, Level 2 is "the first level requiring LLM coaching judgment," and the trigger itself is deterministic ("only EWMA threshold crossings trigger changes, not single data points"). The cycle-plan "always invoke, no gating" default — itself framed as a deferred decision the spec revisits — contradicts this on two axes (it would call the LLM at LLM-free rungs AND drop the anti-oscillation gate) and would hand a crisis/injury "no-change" call to the LLM, violating the deterministic-safety mandate (DEC-019/030). Always-invoke does not even remove the gate — a deterministic safety pre-gate is still required. The simplified signal keeps the DEC-012 structure while bounding MVP-0 scope; ACWR has weak injury-prediction evidence anyway (guardrail, not trigger).
+
+**Alternatives considered:** **(full DEC-012 substrate)** build the complete EWMA/ACWR/CTL/ATL/TSB model + PID now — *deferred*: large net-new scope, over-built for a solo MVP-0 slice. **(always-invoke LLM, return Absorb structurally)** — *rejected*: overrides a Final DEC, drops anti-oscillation, spends an LLM call on the common on-target case, and still needs a deterministic safety pre-gate.
+
+**Open / deferred:** exact L1↔L2 threshold + hysteresis enter/exit constants (calibrate vs the 5 `TestProfiles`); whether the signal/plan-state persists as a small Marten read-model or is recomputed per evaluation; whether a distinct deterministic Level-3 (phase-reconsider) signal surfaces this slice or folds into L2 (default: fold). Full load model + DEC-028/DEC-010 population-clamp enforcement revisited pre-public-release.
+
+---
+
+## DEC-079: Slice 3 adaptation surfaces — high-risk safety subset, Marten-projected ConversationTurn, Pattern-B PlanAdaptationOutput, read-only Explain-the-change panel (Slice 3)
+
+**Date:** 2026-06-07
+**Category:** Backend / Frontend / Coaching / Safety
+**Status:** Accepted — locked for the Slice 3 spec.
+**Drives:** Slice 3 Units 2–4 + 7 (PR3/PR4/PR7); the chat-panel UX; the safety build scope.
+**Cites:** Slice 3 brainstorm + verification (2026-06-07); user audience steer (memory `project_mvp0_audience_and_priorities`).
+**Builds on:** DEC-058 (Pattern B structured output), DEC-060 (handler emits events; projections own state), DEC-073 (synchronous LLM-failure policy — first live here), DEC-019/DEC-030 (deterministic safety tiers + crisis resources), DEC-027 (communication weight by level).
+
+**Decision:**
+
+- **Safety = high-risk subset.** The deterministic SafetyGate ships only the **Red crisis** short-circuit (`988 Suicide & Crisis Lifeline` + `Crisis Text Line: text 741741`, US locale), **Red emergency-referral** (cardiac / hip-groin / pregnancy-bleeding), and **Amber injury / RED-S refuse-to-increase** tiers. The exhaustive DEC-030 pregnancy/youth/chronic keyword taxonomy is deferred to the pre-public-release gate (audience is self + family for the foreseeable future; prioritize a working loop + clean UX over safety breadth — without stripping the cheap, correct crisis short-circuit).
+- **`ConversationTurn` = net-new Marten read-model** (projected from `PlanAdaptedFromLog` + `SafetySignalRaised`), **not** an EF entity — so the explanation commits atomically with the plan change in one Marten transaction (no event without explanation; no double turn on idempotent replay; avoids the DEC-060 two-transaction/no-2PC trap). Supersedes the plain 2-string `Coaching/Models/ConversationTurn.cs` DTO.
+- **`PlanAdaptationOutput` = Pattern B** (DEC-058): one byte-stable schema, `AdaptationKind` discriminator + `SafetyTier` + nullable typed slots, with a post-deserialization validator (exactly-one-slot; `tier != Green ⇒ NetLoadDelta ≤ 0`; load-reducing restructure includes a forward path). Production native `OutputConfig` path inside `ClaudeCoachingLlm` (the `AnthropicStructuredOutputClient` `AsIChatClient` bridge is eval-only).
+- **Adaptation idempotency keyed off `WorkoutLogId`** via a co-transactional Marten `IIdempotencyStore` marker in the handler — a *different* mechanism from the create endpoint's EF-native key (DEC-077). Concurrency via Marten Rich AppendMode stream-version optimistic concurrency.
+- **UX = read-only "Explain-the-change" panel** (OI-5): silent absorb / inline nudge / expandable restructure with a collapsible deterministic before/after diff + a subtle left-edge severity accent (no loud badges); the Red safety turn always renders prominently in full, decoupled from the plan-change level. Blocking responses; accept-as-is (no override UI). Interactive input + streaming + override are Slice 4.
+
+**Rationale:** the adaptation surfaces inherit the locked DECs verbatim (Pattern B, event/projection split, synchronous failure policy, deterministic safety) — the genuine choices were scope (high-risk safety subset over the full taxonomy, per the family-only audience) and ownership (Marten `ConversationTurn` for atomicity with the plan change). The Explain-the-change render is the user's UX choice from a bounded set (vs minimal / full-transparency), aligned with the calm-UX-over-safety-prominence steer.
+
+**Alternatives considered:** **full DEC-030 taxonomy** — *deferred* (populations a solo builder isn't in; gated to pre-public-release). **EF-entity `ConversationTurn`** (symmetric with `WorkoutLog`) — *rejected*: a second non-2PC transaction breaks atomicity with the plan event. **Loud Green/Amber/Red badge + always-on diff** — *rejected*: busier, cuts against the calm-UX steer. **Streaming adaptation responses** — *deferred to Slice 4*.
+
+**Open / deferred:** the `BeforeAfter` diff payload shape (structured per-workout delta vs rendered string — finalize so the frontend renders from structured data, Unit 2); impl-time verifications carried into the spec (Anthropic SDK 12.24.1 exception/raw-header behavior; Marten append-to-existing-stream under Rich concurrency; `PlanProjection` inline-vs-async re-render timing).
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

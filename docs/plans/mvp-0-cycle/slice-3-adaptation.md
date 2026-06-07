@@ -2,6 +2,8 @@
 
 > **Requirements only — not a specification and not an implementation plan.** Captures the "what" at a level that survives implementation discoveries. The "how" is written as a spec in a fresh session at build time. Parent: `docs/plans/mvp-0-cycle/cycle-plan.md`.
 
+> **Resolved 2026-06-07 — spec written.** The brainstorm + adversarial verification resolved the § Open items below; the spec, 7 Gherkin `.feature` files, and the PR strategy live at `docs/specs/17-spec-slice-3-adaptation/` (gitignored, working-tree-only). Decisions: **DEC-078** (triggering) + **DEC-079** (surfaces). Note the **triggering rule resolved to the DEC-012 deterministic gate** (L0 absorb / L1 nudge handled in code with no LLM, L2 restructure = first LLM call) — **not** the "the LLM always runs on log … no upfront heuristic gating" pragmatic default in § Pragmatic defaults below, which **DEC-078 supersedes**. The remaining § Open items are dispositioned in the spec (schema, concurrency, idempotency, UI, streaming = blocking) and its § Open Questions.
+
 ## Purpose
 
 Make the adaptive-coaching differentiator visible. When a user logs a workout that deviates from prescription — quantitatively (distance/duration/HR off) or qualitatively (notes describe a setback, injury, external constraint) — the plan adjusts and the coach explains why. This is the slice that turns the product from "AI plan generator" into "AI coach."
