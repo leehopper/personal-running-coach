@@ -89,11 +89,7 @@ export const WorkoutLogSplits = ({ splits }: WorkoutLogSplitsProps): ReactElemen
                 <td className={dataCellClass}>{formatDuration(split.durationSeconds) ?? '—'}</td>
                 <td className={dataCellClass}>{formatPacePerKm(split.paceSecPerKm) ?? '—/km'}</td>
                 {showHeartRate ? (
-                  <td className={dataCellClass}>
-                    {split.averageHeartRate !== null && split.averageHeartRate !== undefined
-                      ? split.averageHeartRate
-                      : '—'}
-                  </td>
+                  <td className={dataCellClass}>{split.averageHeartRate ?? '—'}</td>
                 ) : null}
               </tr>
             ))}
