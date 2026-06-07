@@ -61,6 +61,12 @@ export type SuggestedInputType = z.infer<typeof suggestedInputTypeSchema>
 export const createWorkoutLogRequestSchema = PostApiV1WorkoutsLogsBody
 export type CreateWorkoutLogRequest = z.infer<typeof createWorkoutLogRequestSchema>
 
+// The create response has no Zod schema to derive from — Swashbuckle emits no
+// 201 body schema, so the generated Zod response is `z.void()`. Re-export the
+// generated RTK *type* (type-only, so the rtk module's runtime self-injection is
+// not pulled in) so the response wire shape stays generated, not hand-mirrored.
+export type { CreateWorkoutLogResponseDto } from './rtk/api'
+
 export const completionStatusSchema = createWorkoutLogRequestSchema.shape.completionStatus
 export type CompletionStatus = z.infer<typeof completionStatusSchema>
 

@@ -1,16 +1,5 @@
 import { apiSlice } from '~/api/api-slice'
-import type { CreateWorkoutLogRequest } from '~/api/generated'
-
-/**
- * Response shape returned by `POST /api/v1/workouts/logs`. Mirrors
- * `RunCoach.Api.Modules.Training.Workouts.CreateWorkoutLogResponseDto`. The
- * server replies `201 Created` with the persisted log's id; the generated Zod
- * response schema is `z.void()` (Swashbuckle emits no 201 body schema), so this
- * hand-mirrored type is the source of truth for the mutation's response generic.
- */
-export interface CreateWorkoutLogResponseDto {
-  workoutLogId: string
-}
+import type { CreateWorkoutLogRequest, CreateWorkoutLogResponseDto } from '~/api/generated'
 
 // Workout-log endpoints are injected into the root `apiSlice` so every request
 // shares the same cookie + antiforgery base query (the X-XSRF-TOKEN header is
