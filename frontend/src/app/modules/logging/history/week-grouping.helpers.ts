@@ -59,6 +59,9 @@ export const groupLogsByIsoWeek = (logs: readonly WorkoutLogDto[]): WorkoutHisto
     if (a.occurredOn !== b.occurredOn) {
       return a.occurredOn < b.occurredOn ? 1 : -1
     }
+    if (a.workoutLogId === b.workoutLogId) {
+      return 0
+    }
     return a.workoutLogId < b.workoutLogId ? 1 : -1
   })
 
