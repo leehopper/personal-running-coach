@@ -69,6 +69,17 @@ export type CreateWorkoutLogRequest = z.infer<typeof createWorkoutLogRequestSche
 // not pulled in) so the response wire shape stays generated, not hand-mirrored.
 export type { CreateWorkoutLogResponseDto } from './rtk/api'
 
+// History read DTOs (slice-2b PR7). These are response/request *types* the
+// history surface consumes; re-exported type-only (same reasoning as
+// `CreateWorkoutLogResponseDto`) so the wire shape stays generated, not
+// hand-mirrored. A backend rename ripples here via `codegen:check` + `tsc`.
+export type {
+  QueryWorkoutLogsRequestDto,
+  QueryWorkoutLogsResponseDto,
+  WorkoutLogDto,
+  WorkoutLogSplitDto,
+} from './rtk/api'
+
 export const completionStatusSchema = createWorkoutLogRequestSchema.shape.completionStatus
 export type CompletionStatus = z.infer<typeof completionStatusSchema>
 

@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiSlice } from '~/api/api-slice'
 import type { CreateWorkoutLogRequest } from '~/api/generated'
-import { workoutLogApi } from './workout-log.api'
+import { workoutLogApi, WORKOUT_HISTORY_PAGE_SIZE } from './workout-log.api'
 
 // Dispatch the endpoint thunk directly with `fetch` stubbed at the global level
 // so the `query: (body) => ({...})` factory actually executes (the page spec
@@ -66,5 +66,61 @@ describe('workoutLogApi.createWorkoutLog query factory', () => {
     expect(request.url).toContain('/api/v1/workouts/logs')
     const sentBody = await request.clone().json()
     expect(sentBody).toEqual(SAMPLE_BODY)
+  })
+})
+
+describe('workoutLogApi.getWorkoutLogHistory pagination contract', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  const historyPage = (logs: Array<Record<string, unknown>>, nextCursor: string | null): Response =>
+    jsonResponse({ logs, nextCursor })
+
+  const sentBody = async (callIndex: number): Promise<Record<string, unknown>> => {
+    const request = fetchMock.mock.calls[callIndex][0] as Request
+    return request.clone().json()
+  }
+
+  beforeEach(() => {
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('Request', PatchedRequest)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('threads the keyset cursor: first page sends cursor null, the next page sends the prior nextCursor', async () => {
+    fetchMock
+      .mockResolvedValueOnce(historyPage([{ workoutLogId: 'w1' }], 'cursor-1'))
+      .mockResolvedValueOnce(historyPage([{ workoutLogId: 'w2' }], null))
+    const store = makeStore()
+
+    // First (newest) page — initialPageParam is null.
+    await store.dispatch(workoutLogApi.endpoints.getWorkoutLogHistory.initiate(undefined))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(await sentBody(0)).toEqual({ limit: WORKOUT_HISTORY_PAGE_SIZE, cursor: null })
+
+    // "Load older": getNextPageParam returns the prior page's nextCursor, threaded
+    // into the next request body.
+    await store.dispatch(
+      workoutLogApi.endpoints.getWorkoutLogHistory.initiate(undefined, { direction: 'forward' }),
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(await sentBody(1)).toEqual({ limit: WORKOUT_HISTORY_PAGE_SIZE, cursor: 'cursor-1' })
+  })
+
+  it('stops paginating once nextCursor is null (getNextPageParam returns undefined)', async () => {
+    fetchMock.mockResolvedValue(historyPage([{ workoutLogId: 'w1' }], null))
+    const store = makeStore()
+
+    await store.dispatch(workoutLogApi.endpoints.getWorkoutLogHistory.initiate(undefined))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // The first page exhausted the cursor, so a forward fetch must be a no-op.
+    await store.dispatch(
+      workoutLogApi.endpoints.getWorkoutLogHistory.initiate(undefined, { direction: 'forward' }),
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

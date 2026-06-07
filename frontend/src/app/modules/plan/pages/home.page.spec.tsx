@@ -121,6 +121,10 @@ describe('HomePage', () => {
     expect(screen.getByTestId('macro-phase-strip')).toBeInTheDocument()
     expect(screen.getByTestId('today-card')).toBeInTheDocument()
     expect(screen.getByTestId('upcoming-list')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /workout history/i })).toHaveAttribute(
+      'href',
+      '/history',
+    )
   })
 
   it('renders the no-plan-yet state on a 404 response', () => {
