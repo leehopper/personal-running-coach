@@ -149,6 +149,12 @@ export const makeDefaultWorkoutLogFormFields = (
  * seconds, present optional metrics into the open `metrics` bag (absent ones
  * omitted entirely — never sent as `0`). The `idempotencyKey` is supplied by the
  * caller so it stays stable across retries of the same logical submit (DEC-077).
+ *
+ * Distance/duration are pass-through, not status-gated: a Skipped workout that
+ * still carries a typed distance/duration sends those values unchanged. The
+ * fields stay rendered on every status (they are never reset or hidden when
+ * Skipped is selected), so this is WYSIWYG — the visible value is what ships.
+ * Only a blank field resolves to the `0` wire fallback.
  */
 export const toCreateWorkoutLogRequest = (
   values: WorkoutLogFormValues,

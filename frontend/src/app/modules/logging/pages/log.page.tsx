@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 
 import { useCreateWorkoutLogMutation } from '~/api/workout-log.api'
+import { reportClientError } from '~/error-boundary/report-client-error'
 import { LogForm } from '~/modules/logging/components/log-form.component'
 import {
   makeDefaultWorkoutLogFormFields,
@@ -43,7 +44,16 @@ const LogPage = () => {
       await createWorkoutLog(toCreateWorkoutLogRequest(values, idempotencyKey)).unwrap()
       toast.success('Workout logged')
       navigate('/', { replace: true })
-    } catch {
+    } catch (error) {
+      // The awaited `.unwrap()` rejection is a *handled* rejection, so neither
+      // `useGlobalErrorReporter` (window `unhandledrejection`) nor
+      // `AppErrorBoundary` (render-phase throw) sees it. Forward it to the
+      // fire-and-forget client error reporter so a "could not save" the user
+      // reports still leaves a diagnostic trail.
+      reportClientError({
+        kind: 'unhandled-rejection',
+        error: error instanceof Error ? error : new Error(String(error)),
+      })
       setFormAlert('We could not save your workout. Please try again in a moment.')
     }
   }

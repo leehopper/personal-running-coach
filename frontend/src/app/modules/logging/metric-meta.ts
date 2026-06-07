@@ -8,7 +8,9 @@
  * contract, so they mirror the backend verbatim. Labels here are UI-facing
  * (e.g. `hrAvg → "Avg HR"`) and are intentionally friendlier than the compact
  * labels the backend `WorkoutMetricKeys.Metadata` uses for LLM one-liners
- * (`"HR"`); the two maps share the same key set, not the same label strings.
+ * (`"HR"`). The frontend map is a subset of the backend `Metadata` key set
+ * (which also reserves `verticalOscillation`, `groundContactTime`,
+ * `strideLength`); the two use different label strings.
  */
 export interface WorkoutMetricMeta {
   /** UI-facing label (e.g. "Avg HR"). */

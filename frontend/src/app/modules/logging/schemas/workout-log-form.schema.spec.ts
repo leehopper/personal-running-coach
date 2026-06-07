@@ -168,4 +168,18 @@ describe('toCreateWorkoutLogRequest', () => {
     expect(body.durationSeconds).toBe(0)
     expect(body.completionStatus).toBe(2)
   })
+
+  it('passes typed distance/duration through for a Skipped workout (WYSIWYG, not zeroed)', () => {
+    // The distance/duration inputs stay rendered when Skipped is selected, so a
+    // typed value remains visible to the user; the mapper ships what they see
+    // rather than silently zeroing it. Pins the deliberate pass-through semantics.
+    const parsed = workoutLogFormSchema.parse(
+      fields({ completionStatus: '2', distanceKm: '5', durationMinutes: '30' }),
+    )
+    const body = toCreateWorkoutLogRequest(parsed, 'idem-1')
+
+    expect(body.distanceMeters).toBe(5000)
+    expect(body.durationSeconds).toBe(1800)
+    expect(body.completionStatus).toBe(2)
+  })
 })

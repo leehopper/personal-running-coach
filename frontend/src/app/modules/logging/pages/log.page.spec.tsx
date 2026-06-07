@@ -9,23 +9,33 @@ import type { CreateWorkoutLogRequest } from '~/api/generated'
 import { toIsoDateOnly } from '~/modules/logging/schemas/workout-log-form.schema'
 
 // vi.mock is hoisted above imports, so the mock fns must come from vi.hoisted.
-const { createWorkoutLogTrigger, createWorkoutLogUnwrap, mutationStateRef, navigateMock } =
-  vi.hoisted(() => {
-    const createWorkoutLogUnwrap = vi.fn()
-    return {
-      createWorkoutLogUnwrap,
-      // Typed via the generic so `mock.calls[0][0]` is a CreateWorkoutLogRequest;
-      // the impl ignores the body (no unused param).
-      createWorkoutLogTrigger: vi.fn<
-        (body: CreateWorkoutLogRequest) => { unwrap: () => Promise<{ workoutLogId: string }> }
-      >(() => ({ unwrap: createWorkoutLogUnwrap })),
-      mutationStateRef: { isLoading: false },
-      navigateMock: vi.fn(),
-    }
-  })
+const {
+  createWorkoutLogTrigger,
+  createWorkoutLogUnwrap,
+  mutationStateRef,
+  navigateMock,
+  reportClientErrorMock,
+} = vi.hoisted(() => {
+  const createWorkoutLogUnwrap = vi.fn()
+  return {
+    createWorkoutLogUnwrap,
+    // Typed via the generic so `mock.calls[0][0]` is a CreateWorkoutLogRequest;
+    // the impl ignores the body (no unused param).
+    createWorkoutLogTrigger: vi.fn<
+      (body: CreateWorkoutLogRequest) => { unwrap: () => Promise<{ workoutLogId: string }> }
+    >(() => ({ unwrap: createWorkoutLogUnwrap })),
+    mutationStateRef: { isLoading: false },
+    navigateMock: vi.fn(),
+    reportClientErrorMock: vi.fn(),
+  }
+})
 
 vi.mock('~/api/workout-log.api', () => ({
   useCreateWorkoutLogMutation: () => [createWorkoutLogTrigger, mutationStateRef],
+}))
+
+vi.mock('~/error-boundary/report-client-error', () => ({
+  reportClientError: reportClientErrorMock,
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -67,6 +77,7 @@ describe('LogPage', () => {
     createWorkoutLogUnwrap.mockResolvedValue({ workoutLogId: 'log-1' })
     mutationStateRef.isLoading = false
     navigateMock.mockReset()
+    reportClientErrorMock.mockReset()
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-00000000abcd')
   })
 
@@ -145,14 +156,21 @@ describe('LogPage', () => {
     expect(createWorkoutLogTrigger.mock.calls[0][0].metrics).toEqual({ hrAvg: 150 })
   })
 
-  it('shows a form-level alert and does not navigate when the create fails', async () => {
-    createWorkoutLogUnwrap.mockRejectedValue(new Error('boom'))
+  it('shows a form-level alert, reports the error, and does not navigate when the create fails', async () => {
+    const failure = new Error('boom')
+    createWorkoutLogUnwrap.mockRejectedValue(failure)
     const { user } = renderPage()
     await fillCoreFields(user)
     await clickSave(user)
 
     expect(await screen.findByTestId('log-form-alert')).toHaveTextContent(/could not save/i)
     expect(navigateMock).not.toHaveBeenCalled()
+    // The handled rejection is invisible to the global reporter + error boundary,
+    // so the submit handler forwards it explicitly (keeps backend failures observable).
+    expect(reportClientErrorMock).toHaveBeenCalledWith({
+      kind: 'unhandled-rejection',
+      error: failure,
+    })
   })
 
   it('reuses the same idempotency key across a retry after a transient failure', async () => {

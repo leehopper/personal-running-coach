@@ -17,9 +17,10 @@
  * schemas. The named-component extractions below pull the sub-schemas via
  * Zod's `.shape` accessor so a backend rename of (say)
  * `OnboardingProgressDto.completedTopics` → `OnboardingProgressDto.completed`
- * surfaces here as a TypeScript error during `npm run codegen:check`. That
- * regression class is exactly what Slice 1 bug #4 shipped undetected and
- * what DEC-066 exists to prevent.
+ * is caught by `codegen:check` as a generated-output drift (git-diff) failure;
+ * the resulting broken `.shape` access then surfaces as a TypeScript error
+ * under `npm run build`. That regression class is exactly what Slice 1 bug #4
+ * shipped undetected and what DEC-066 exists to prevent.
  *
  * Drift is caught bidirectionally for `SuggestedInputType`:
  *   - const ⊆ union: enforced by `satisfies Record<string, SuggestedInputType>`
@@ -56,8 +57,9 @@ export type SuggestedInputType = z.infer<typeof suggestedInputTypeSchema>
 // Workout-log schemas (slice-2b). The create-request body is the drift seam
 // the `/log` form derives from via `.pick().extend()` (DEC-075): the form keeps
 // `occurredOn`'s ISO-date format and `completionStatus`'s `0|1|2` enum honest
-// against the backend contract, and a backend rename surfaces here as a TS
-// error during `npm run codegen:check`.
+// against the backend contract. A backend rename is caught by `codegen:check`
+// as a generated-output drift (git-diff) failure; the resulting broken `.shape`
+// access then surfaces as a TypeScript error under `npm run build`.
 export const createWorkoutLogRequestSchema = PostApiV1WorkoutsLogsBody
 export type CreateWorkoutLogRequest = z.infer<typeof createWorkoutLogRequestSchema>
 
