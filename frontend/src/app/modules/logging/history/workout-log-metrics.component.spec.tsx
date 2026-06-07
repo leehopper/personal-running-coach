@@ -31,6 +31,17 @@ describe('WorkoutLogMetrics', () => {
     expect(screen.queryByText('99')).toBeNull()
   })
 
+  it('renders a metric whose value is 0 (0 is present, not absent)', () => {
+    // `0` is a valid recorded value (a flat run logs elevationGain 0; rpe can be 0)
+    // and must render — `isPresent` treats 0 as present, per the explicit-0-check
+    // convention. A truthiness check would wrongly drop it.
+    render(<WorkoutLogMetrics metrics={{ elevationGain: 0, rpe: 0 }} />)
+    expect(screen.getByText('Elevation gain')).toBeInTheDocument()
+    expect(screen.getByText('0 m')).toBeInTheDocument()
+    expect(screen.getByText('RPE')).toBeInTheDocument()
+    expect(screen.getByText('0')).toBeInTheDocument()
+  })
+
   it('renders nothing when there are no present metrics', () => {
     const { container } = render(<WorkoutLogMetrics metrics={{ hrAvg: null, rpe: undefined }} />)
     expect(container).toBeEmptyDOMElement()

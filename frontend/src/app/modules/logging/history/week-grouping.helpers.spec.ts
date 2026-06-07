@@ -77,4 +77,25 @@ describe('groupLogsByIsoWeek', () => {
   it('returns an empty array for no logs', () => {
     expect(groupLogsByIsoWeek([])).toEqual([])
   })
+
+  it('orders same-day logs by workoutLogId descending (secondary tiebreak)', () => {
+    // Two logs sharing one occurredOn (same ISO week) but with distinct ids exercise
+    // the secondary workoutLogId-desc tiebreak that the date-distinct tests never hit,
+    // mirroring the backend keyset order (occurredOn desc, then workoutLogId desc).
+    const groups = groupLogsByIsoWeek([log('2026-06-03', 'a-id'), log('2026-06-03', 'c-id')])
+    expect(groups).toHaveLength(1)
+    expect(groups[0].logs.map((l) => l.workoutLogId)).toEqual(['c-id', 'a-id'])
+  })
+
+  it('keeps equal-key entries in their original order (equal-key return-0 branch)', () => {
+    // Two entries sharing BOTH occurredOn and workoutLogId exercise the equal-key
+    // `return 0` branch (the comparator-contract fix in 3bcefa1). A non-zero return
+    // here would violate antisymmetry and reorder equal keys; the distinct
+    // distanceMeters make that reordering observable.
+    const first = { ...log('2026-06-03', 'dup-id'), distanceMeters: 1000 }
+    const second = { ...log('2026-06-03', 'dup-id'), distanceMeters: 2000 }
+    const groups = groupLogsByIsoWeek([first, second])
+    expect(groups).toHaveLength(1)
+    expect(groups[0].logs.map((l) => l.distanceMeters)).toEqual([1000, 2000])
+  })
 })
