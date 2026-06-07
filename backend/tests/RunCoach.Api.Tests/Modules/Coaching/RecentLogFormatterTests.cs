@@ -136,6 +136,20 @@ public class RecentLogFormatterTests
     }
 
     [Fact]
+    public void FormatWorkoutDetail_WorkoutTypeWithNewlines_RemainsSingleLine()
+    {
+        // Arrange — a workout type carrying line breaks must not split the entry.
+        var log = Log("Tempo\nintervals\r\nset", 8, 40, Metrics((WorkoutMetricKeys.Rpe, "7")));
+
+        // Act
+        var actual = RecentLogFormatter.FormatWorkoutDetail(log);
+
+        // Assert — collapsed to one line, content preserved in readable form.
+        actual.Should().NotContain("\n").And.NotContain("\r");
+        actual.Should().Contain("Tempo intervals set");
+    }
+
+    [Fact]
     public void FormatWorkoutDetail_EmptyMetricsAndNoNote_EmitsOnlyAbsenceMarkerInMetricsSegment()
     {
         // Arrange — a bare log: distance + duration only.

@@ -50,6 +50,9 @@ namespace RunCoach.Api.Modules.Coaching;
 ///   - <c>UserPreferences.Constraints</c> (user_profile section)
 ///   - <c>RaceGoal.RaceName</c> (goal_state section)
 ///   - <c>WorkoutSummary.Notes</c> (training_history section)
+///   - <c>LoggedWorkoutDetail.Notes</c> (training_history section, via <see cref="RecentLogFormatter"/>)
+///   - free-text <c>LoggedWorkoutDetail.Metrics</c> values, e.g. weather/terrain
+///     (training_history section, via <see cref="RecentLogFormatter"/>)
 ///   - <c>ConversationTurn.UserMessage</c> (conversation_history section)
 ///   - <c>ContextAssemblerInput.CurrentUserMessage</c> (current_user_message section)
 ///
@@ -887,50 +890,64 @@ public sealed partial class ContextAssembler : IContextAssembler
             }
         }
 
-        if (history.Length > 0)
-        {
-            var sorted = history.OrderByDescending(w => w.Date).ToList();
-
-            if (useLayer2Only)
-            {
-                // Layer 2: weekly summaries only.
-                var weeks = GroupByWeek(sorted).Take(MaxLayer2Weeks);
-                foreach (var week in weeks)
-                {
-                    sb.AppendLine(FormatWeekSummary(week));
-                }
-            }
-            else
-            {
-                // Layer 1 for recent weeks, Layer 2 for older weeks.
-                var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime);
-                var layer1Cutoff = today.AddDays(-7 * MaxLayer1Weeks);
-
-                var recentWorkouts = sorted.Where(w => w.Date >= layer1Cutoff).ToList();
-                var olderWorkouts = sorted.Where(w => w.Date < layer1Cutoff).ToList();
-
-                if (recentWorkouts.Count > 0)
-                {
-                    foreach (var workout in recentWorkouts)
-                    {
-                        sb.AppendLine(FormatWorkoutDetail(workout));
-                    }
-                }
-
-                if (olderWorkouts.Count > 0)
-                {
-                    var olderWeeks = GroupByWeek(olderWorkouts).Take(MaxLayer2Weeks);
-                    foreach (var week in olderWeeks)
-                    {
-                        sb.AppendLine(FormatWeekSummary(week));
-                    }
-                }
-            }
-        }
+        AppendLegacyHistory(sb, history, useLayer2Only);
 
         var content = sb.ToString().TrimEnd();
 
         return new PromptSection("training_history", content, EstimateTokens(content));
+    }
+
+    /// <summary>
+    /// Appends the legacy <see cref="WorkoutSummary"/> history to <paramref name="sb"/>:
+    /// Layer-1 per-workout detail for recent weeks and Layer-2 weekly summaries for
+    /// older weeks, or Layer-2 summaries only when <paramref name="useLayer2Only"/> is
+    /// set. No-op when <paramref name="history"/> is empty. Recent logged workouts are
+    /// rendered separately by the caller and are never collapsed here.
+    /// </summary>
+    private void AppendLegacyHistory(
+        StringBuilder sb,
+        ImmutableArray<WorkoutSummary> history,
+        bool useLayer2Only)
+    {
+        if (history.Length == 0)
+        {
+            return;
+        }
+
+        var sorted = history.OrderByDescending(w => w.Date).ToList();
+
+        if (useLayer2Only)
+        {
+            // Layer 2: weekly summaries only.
+            var weeks = GroupByWeek(sorted).Take(MaxLayer2Weeks);
+            foreach (var week in weeks)
+            {
+                sb.AppendLine(FormatWeekSummary(week));
+            }
+
+            return;
+        }
+
+        // Layer 1 for recent weeks, Layer 2 for older weeks.
+        var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime);
+        var layer1Cutoff = today.AddDays(-7 * MaxLayer1Weeks);
+
+        var recentWorkouts = sorted.Where(w => w.Date >= layer1Cutoff).ToList();
+        var olderWorkouts = sorted.Where(w => w.Date < layer1Cutoff).ToList();
+
+        foreach (var workout in recentWorkouts)
+        {
+            sb.AppendLine(FormatWorkoutDetail(workout));
+        }
+
+        if (olderWorkouts.Count > 0)
+        {
+            var olderWeeks = GroupByWeek(olderWorkouts).Take(MaxLayer2Weeks);
+            foreach (var week in olderWeeks)
+            {
+                sb.AppendLine(FormatWeekSummary(week));
+            }
+        }
     }
 
     private PromptSection BuildConversationHistorySection(ImmutableArray<ConversationTurn> turns)

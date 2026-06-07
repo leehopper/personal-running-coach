@@ -80,6 +80,7 @@ public class WorkoutMetricMetadataTests
         WorkoutMetricKeys.Metadata[WorkoutMetricKeys.HrAvg].Label.Should().Be("HR");
         WorkoutMetricKeys.Metadata[WorkoutMetricKeys.HrAvg].Unit.Should().Be(string.Empty);
         WorkoutMetricKeys.Metadata[WorkoutMetricKeys.HrMax].Label.Should().Be("HR max");
+        WorkoutMetricKeys.Metadata[WorkoutMetricKeys.HrMax].Unit.Should().Be(string.Empty);
         WorkoutMetricKeys.Metadata[WorkoutMetricKeys.Rpe].Label.Should().Be("RPE");
         WorkoutMetricKeys.Metadata[WorkoutMetricKeys.Rpe].Unit.Should().Be(string.Empty);
     }

@@ -39,7 +39,7 @@ internal static class RecentLogFormatter
         var fields = new List<string>
         {
             log.OccurredOn.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            log.WorkoutType,
+            ToSingleLine(log.WorkoutType),
             string.Create(CultureInfo.InvariantCulture, $"{FormatKilometers(log.Distance)} km"),
             string.Create(CultureInfo.InvariantCulture, $"{FormatMinutes(log.Duration)} min"),
         };

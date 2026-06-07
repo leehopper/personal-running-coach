@@ -1622,6 +1622,81 @@ public class ContextAssemblerTests
 
         // Layer-2 truncation behaviour preserved: legacy history collapsed to a weekly summary.
         history.Content.Should().Contain("Week of", because: "the overflow cascade still collapses legacy history");
+
+        // The never-reduce-logs trade-off must not silently blow the budget: even
+        // with all eight logged workouts retained at full Layer-1 detail, the
+        // cascade still brings the assembled prompt within TotalTokenBudget.
+        actualPrompt.EstimatedTokenCount.Should().BeLessThanOrEqualTo(
+            TokenBudget,
+            because: "retaining all logged workouts must not push the assembled prompt over budget");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_MultipleLoggedWorkouts_RenderNewestFirst()
+    {
+        // Arrange — two logs with distinct dates, deliberately supplied oldest-first
+        // so a dropped/flipped sort would surface. Ordering depends only on
+        // OccurredOn, so real time in the SUT is irrelevant here.
+        var older = new LoggedWorkoutDetail(
+            new DateOnly(2026, 5, 20),
+            "Easy",
+            Distance.FromKilometers(6),
+            Duration.FromMinutes(36),
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            "OLDERLOG steady");
+        var newer = new LoggedWorkoutDetail(
+            new DateOnly(2026, 6, 1),
+            "Tempo",
+            Distance.FromKilometers(8),
+            Duration.FromMinutes(40),
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            "NEWERLOG controlled");
+        var input = BuildLeeInput() with { RecentLoggedWorkouts = [older, newer] };
+
+        // Act
+        var actualPrompt = await _sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — the newest workout's marker precedes the oldest in the rendered block.
+        var history = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        var newerIndex = history.Content.IndexOf("NEWERLOG", StringComparison.Ordinal);
+        var olderIndex = history.Content.IndexOf("OLDERLOG", StringComparison.Ordinal);
+        newerIndex.Should().BeGreaterThanOrEqualTo(0, because: "the newest logged workout must render");
+        olderIndex.Should().BeGreaterThan(
+            newerIndex,
+            because: "logged workouts render newest-first (OrderByDescending OccurredOn)");
+    }
+
+    [Fact]
+    public async Task AssembleAsync_LoggedWorkoutWithLegacyHistory_RendersBothInLayer1()
+    {
+        // Arrange — pin time so the legacy summary lands in the Layer-1 (per-workout)
+        // window and no overflow cascade triggers, exercising the happy path where
+        // logged workouts and legacy WorkoutSummary history co-exist.
+        var fakeNow = new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);
+        var fakeTime = new FakeTimeProvider(fakeNow);
+        var store = CreateMockPromptStore();
+        var sut = new ContextAssembler(store, fakeTime, NullLogger<ContextAssembler>.Instance);
+
+        var legacy = ImmutableArray.Create(
+            new WorkoutSummary(new DateOnly(2026, 5, 30), "Fartlek", 9m, 47, TimeSpan.FromMinutes(5.1), null));
+        var log = new LoggedWorkoutDetail(
+            new DateOnly(2026, 5, 31),
+            "Tempo",
+            Distance.FromKilometers(8),
+            Duration.FromMinutes(40),
+            new Dictionary<string, string>(StringComparer.Ordinal) { [WorkoutMetricKeys.Rpe] = "7" },
+            "LOGGEDTEMPO controlled");
+        var input = BuildLeeInput() with { TrainingHistory = legacy, RecentLoggedWorkouts = [log] };
+
+        // Act
+        var actualPrompt = await sut.AssembleAsync(input, TestContext.Current.CancellationToken);
+
+        // Assert — the log augments rather than replaces legacy history: both appear.
+        var history = actualPrompt.MiddleSections.First(s => s.Key == "training_history");
+        history.Content.Should().Contain("LOGGEDTEMPO", because: "the logged workout renders");
+        history.Content.Should().Contain(
+            "Fartlek",
+            because: "legacy WorkoutSummary history still renders alongside logged workouts in the Layer-1 path");
     }
 
     // ================================================================
