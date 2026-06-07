@@ -27,9 +27,14 @@ const FormFieldContext = React.createContext<FormFieldContextValue | null>(null)
 const FormField = <
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+  // Third generic forwarded to RHF's Controller so a form whose resolver
+  // transforms values (input ≠ output, e.g. the workout-log form's
+  // string → number coercion, DEC-075) can pass its `control` here. Defaults
+  // to `TFieldValues`, so single-generic forms are unaffected.
+  TTransformedValues = TFieldValues,
 >({
   ...props
-}: ControllerProps<TFieldValues, TName>) => {
+}: ControllerProps<TFieldValues, TName, TTransformedValues>) => {
   return (
     <FormFieldContext.Provider value={{ name: props.name }}>
       <Controller {...props} />

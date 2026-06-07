@@ -33,6 +33,7 @@ import { z } from 'zod'
 
 import { PostApiV1AuthRegisterBody } from './zod/auth/auth'
 import { PostApiV1OnboardingTurnsResponse } from './zod/onboarding/onboarding'
+import { PostApiV1WorkoutsLogsBody } from './zod/workout-logs/workout-logs'
 
 // Auth schemas — migrated piecewise. RegisterRequest is the first; T03.2
 // extends to OnboardingProgressDto + SuggestedInputType.
@@ -51,6 +52,17 @@ export type OnboardingProgressDto = z.infer<typeof onboardingProgressSchema>
 
 export const suggestedInputTypeSchema = PostApiV1OnboardingTurnsResponse.shape.suggestedInputType
 export type SuggestedInputType = z.infer<typeof suggestedInputTypeSchema>
+
+// Workout-log schemas (slice-2b). The create-request body is the drift seam
+// the `/log` form derives from via `.pick().extend()` (DEC-075): the form keeps
+// `occurredOn`'s ISO-date format and `completionStatus`'s `0|1|2` enum honest
+// against the backend contract, and a backend rename surfaces here as a TS
+// error during `npm run codegen:check`.
+export const createWorkoutLogRequestSchema = PostApiV1WorkoutsLogsBody
+export type CreateWorkoutLogRequest = z.infer<typeof createWorkoutLogRequestSchema>
+
+export const completionStatusSchema = createWorkoutLogRequestSchema.shape.completionStatus
+export type CompletionStatus = z.infer<typeof completionStatusSchema>
 
 /**
  * `as const` enum-shaped object paired with {@link SuggestedInputType}
@@ -87,3 +99,26 @@ type _SuggestedInputTypeExhaustive = _SuggestedInputTypeUnionMinusConst extends 
 // Exported to satisfy `noUnusedLocals`; the assignment fails if a new backend
 // variant widens `SuggestedInputType` without a matching entry in the const above.
 export const _suggestedInputTypeExhaustivenessGuard: _SuggestedInputTypeExhaustive = true
+
+/**
+ * `as const` enum-shaped object paired with {@link CompletionStatus} so the
+ * logging form and history surfaces read `CompletionStatus.Complete` instead of
+ * the magic integer `0`. Values mirror the C# `CompletionStatus` enum on the
+ * wire (no `JsonStringEnumConverter`); the Zod union above enforces the same
+ * `0 | 1 | 2` set at the validation seam. Kept in lockstep with the backend by
+ * the same bidirectional guard used for {@link SuggestedInputType}.
+ */
+export const CompletionStatus = {
+  Complete: 0,
+  Partial: 1,
+  Skipped: 2,
+} as const satisfies Record<string, CompletionStatus>
+
+// Exhaustiveness guard — union ⊆ const direction (mirrors the SuggestedInputType
+// guard above): a new backend `completionStatus` literal that widens the
+// Zod-inferred union without a matching const entry resolves this to `never`,
+// failing the build.
+type _CompletionStatusConstMembers = (typeof CompletionStatus)[keyof typeof CompletionStatus]
+type _CompletionStatusUnionMinusConst = Exclude<CompletionStatus, _CompletionStatusConstMembers>
+type _CompletionStatusExhaustive = _CompletionStatusUnionMinusConst extends never ? true : never
+export const _completionStatusExhaustivenessGuard: _CompletionStatusExhaustive = true

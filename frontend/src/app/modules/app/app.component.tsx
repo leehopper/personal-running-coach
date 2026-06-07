@@ -9,6 +9,7 @@ import { AppErrorBoundary } from '~/error-boundary/app-error-boundary'
 import { useGlobalErrorReporter } from '~/error-boundary/use-global-error-reporter'
 import { RequireAuth } from '~/modules/auth/components/require-auth.component'
 import { useAuthBootstrap, useAuthBroadcastListener } from '~/modules/auth/hooks/auth.hooks'
+import { LogPage } from '~/modules/logging/pages/log.page'
 import { OnboardingPage } from '~/modules/onboarding/pages/onboarding.page'
 import { HomePage } from '~/modules/plan/pages/home.page'
 import { SettingsPage } from '~/modules/settings/pages/settings.page'
@@ -154,6 +155,16 @@ const AppShell = () => {
             <RequireAuth>
               <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
                 <HomePage />
+              </OnboardingRedirectGuard>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/log"
+          element={
+            <RequireAuth>
+              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+                <LogPage />
               </OnboardingRedirectGuard>
             </RequireAuth>
           }
