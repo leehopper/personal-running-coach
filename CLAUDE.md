@@ -4,7 +4,7 @@
 
 A solo-developer project building an AI running coach that maintains a persistent adaptive coaching relationship. The AI is the coach — it builds training plans, consumes workout results, and continuously adapts. It does NOT do live workout tracking (that's Garmin/Strava/Apple Health territory).
 
-**Current cycle: MVP-0 + Adaptation Loop.** Slices 0, 1, 1B, and 2a (Frontend Visual Foundation) are complete and merged; Slice 2b (Workout Logging) is next.
+**Current cycle: MVP-0 + Adaptation Loop.** Slices 0, 1, 1B, 2a (Frontend Visual Foundation), and 2b (Workout Logging) are complete and merged; Slice 3 (Adaptation Loop) is next.
 See ROADMAP.md for current status and next steps.
 
 ## Tech Stack
