@@ -319,6 +319,34 @@ public abstract class EvalTestBase : IAsyncDisposable
     }
 
     /// <summary>
+    /// Assembles a full prompt payload from a test profile plus recent logged
+    /// workouts (slice-2b Unit 5), so evals can assert logged notes + metrics
+    /// reach the training-history block.
+    /// </summary>
+    protected async Task<AssembledPrompt> AssembleContextWithLoggedWorkoutsAsync(
+        TestProfile profile,
+        ImmutableArray<LoggedWorkoutDetail> recentLoggedWorkouts,
+        string? userMessage = null,
+        CancellationToken ct = default)
+    {
+        var message = userMessage ?? BuildDefaultUserMessage(profile);
+
+        var input = new ContextAssemblerInput(
+            profile.UserProfile,
+            profile.GoalState,
+            profile.GoalState.CurrentFitnessEstimate,
+            profile.GoalState.CurrentFitnessEstimate.TrainingPaces,
+            profile.TrainingHistory,
+            ImmutableArray<ConversationTurn>.Empty,
+            message)
+        {
+            RecentLoggedWorkouts = recentLoggedWorkouts,
+        };
+
+        return await Assembler.AssembleAsync(input, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Assembles context with conversation history for safety boundary tests.
     /// </summary>
     protected async Task<AssembledPrompt> AssembleContextWithConversationAsync(

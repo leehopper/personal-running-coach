@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Collections.Immutable;
 
 namespace RunCoach.Api.Modules.Training.Constants;
 
@@ -75,6 +76,49 @@ public static class WorkoutMetricKeys
         Cadence, ElevationGain, Power, Weather, Terrain, Splits,
         VerticalOscillation, GroundContactTime, StrideLength,
     }.ToFrozenSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Per-metric display metadata (label + compact-display unit + coaching
+    /// category) for the scalar metrics carried in the open bag. The single
+    /// source the LLM-context formatter (<c>RecentLogFormatter</c>) and the
+    /// frontend metric-meta map read, so prompt and UI labels cannot drift
+    /// (DEC-072 / DEC-076). Keyed by wire key. Excludes <see cref="Splits"/>,
+    /// which is persisted in its own typed column rather than as a scalar bag
+    /// value. Kept drift-free against <see cref="All"/> by
+    /// <c>WorkoutMetricMetadataTests</c>.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, WorkoutMetricMetadata> Metadata =
+        new Dictionary<string, WorkoutMetricMetadata>(StringComparer.Ordinal)
+        {
+            [HrAvg] = new("HR", string.Empty, MetricCategory.Effort),
+            [HrMax] = new("HR max", string.Empty, MetricCategory.Effort),
+            [Rpe] = new("RPE", string.Empty, MetricCategory.Effort),
+            [Cadence] = new("cadence", "spm", MetricCategory.Peripheral),
+            [Power] = new("power", "W", MetricCategory.Peripheral),
+            [ElevationGain] = new("elev gain", "m", MetricCategory.Peripheral),
+            [VerticalOscillation] = new("vert osc", "cm", MetricCategory.Peripheral),
+            [GroundContactTime] = new("GCT", "ms", MetricCategory.Peripheral),
+            [StrideLength] = new("stride", "m", MetricCategory.Peripheral),
+            [Calories] = new("calories", "kcal", MetricCategory.Contextual),
+            [Hrv] = new("HRV", "ms", MetricCategory.Contextual),
+            [SleepScore] = new("sleep", string.Empty, MetricCategory.Contextual),
+            [RecoveryScore] = new("recovery", string.Empty, MetricCategory.Contextual),
+            [Weather] = new("weather", string.Empty, MetricCategory.Contextual),
+            [Terrain] = new("terrain", string.Empty, MetricCategory.Contextual),
+        }.ToFrozenDictionary(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The fixed order in which present scalar metrics render inside a compact
+    /// coaching one-liner: effort signals (HR, RPE) first, then peripheral,
+    /// then contextual. Deterministic so assembled prompts and tests are
+    /// stable across runs. Contains exactly the keys of <see cref="Metadata"/>.
+    /// </summary>
+    public static readonly ImmutableArray<string> DisplayOrder =
+    [
+        HrAvg, HrMax, Rpe,
+        Cadence, Power, ElevationGain, VerticalOscillation, GroundContactTime, StrideLength,
+        Calories, Hrv, SleepScore, RecoveryScore, Weather, Terrain,
+    ];
 
     /// <summary>
     /// Derives the wire key for a <see cref="WorkoutMetricKey"/> by lower-casing

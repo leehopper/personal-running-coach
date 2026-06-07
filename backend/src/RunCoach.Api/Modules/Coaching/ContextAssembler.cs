@@ -50,6 +50,9 @@ namespace RunCoach.Api.Modules.Coaching;
 ///   - <c>UserPreferences.Constraints</c> (user_profile section)
 ///   - <c>RaceGoal.RaceName</c> (goal_state section)
 ///   - <c>WorkoutSummary.Notes</c> (training_history section)
+///   - <c>LoggedWorkoutDetail.Notes</c> (training_history section, via <see cref="RecentLogFormatter"/>)
+///   - free-text <c>LoggedWorkoutDetail.Metrics</c> values, e.g. weather/terrain
+///     (training_history section, via <see cref="RecentLogFormatter"/>)
 ///   - <c>ConversationTurn.UserMessage</c> (conversation_history section)
 ///   - <c>ContextAssemblerInput.CurrentUserMessage</c> (current_user_message section)
 ///
@@ -214,7 +217,7 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         // Build section content for token replacement.
         var startSections = BuildStartSections(input);
-        var middleSections = BuildMiddleSections(input.TrainingHistory);
+        var middleSections = BuildMiddleSections(input.TrainingHistory, input.RecentLoggedWorkouts);
         var endSections = BuildEndSections(input.ConversationHistory, input.CurrentUserMessage);
 
         // Use the static system prompt from YAML (contains zero athlete data).
@@ -579,13 +582,15 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// Builds the MIDDLE sections: training history.
     /// Variable content in the lower attention zone.
     /// </summary>
-    private List<PromptSection> BuildMiddleSections(ImmutableArray<WorkoutSummary> trainingHistory)
+    private List<PromptSection> BuildMiddleSections(
+        ImmutableArray<WorkoutSummary> trainingHistory,
+        ImmutableArray<LoggedWorkoutDetail> recentLogs)
     {
         var sections = new List<PromptSection>();
 
-        if (trainingHistory.Length > 0)
+        if (trainingHistory.Length > 0 || !recentLogs.IsDefaultOrEmpty)
         {
-            sections.Add(BuildTrainingHistorySection(trainingHistory, useLayer2Only: false));
+            sections.Add(BuildTrainingHistorySection(trainingHistory, recentLogs, useLayer2Only: false));
         }
 
         return sections;
@@ -636,11 +641,12 @@ public sealed partial class ContextAssembler : IContextAssembler
         var currentEnd = endSections;
 
         // Step 1: Reduce training history to Layer 2 only (weekly summaries).
-        if (input.TrainingHistory.Length > 0)
+        // Logged workouts stay as compact one-liners — they are not collapsed.
+        if (input.TrainingHistory.Length > 0 || !input.RecentLoggedWorkouts.IsDefaultOrEmpty)
         {
             currentMiddle =
             [
-                BuildTrainingHistorySection(input.TrainingHistory, useLayer2Only: true),
+                BuildTrainingHistorySection(input.TrainingHistory, input.RecentLoggedWorkouts, useLayer2Only: true),
             ];
         }
 
@@ -666,16 +672,17 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         // Step 3: Remove relevant plan context (not used in POC 1, skip).
 
-        // Step 4: Reduce training history to most recent 2 weeks only.
-        if (input.TrainingHistory.Length > 0)
+        // Step 4: Reduce training history to most recent 2 weeks only. Logged
+        // workouts are a bounded recent window already, so they are retained.
+        if (input.TrainingHistory.Length > 0 || !input.RecentLoggedWorkouts.IsDefaultOrEmpty)
         {
             var twoWeeksAgo = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime).AddDays(-14);
             var recentHistory = input.TrainingHistory
                 .Where(w => w.Date >= twoWeeksAgo)
                 .ToImmutableArray();
 
-            currentMiddle = recentHistory.Length > 0
-                ? [BuildTrainingHistorySection(recentHistory, useLayer2Only: true)]
+            currentMiddle = recentHistory.Length > 0 || !input.RecentLoggedWorkouts.IsDefaultOrEmpty
+                ? [BuildTrainingHistorySection(recentHistory, input.RecentLoggedWorkouts, useLayer2Only: true)]
                 : [];
         }
 
@@ -861,14 +868,52 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// </summary>
     private PromptSection BuildTrainingHistorySection(
         ImmutableArray<WorkoutSummary> history,
+        ImmutableArray<LoggedWorkoutDetail> recentLogs,
         bool useLayer2Only)
     {
-        if (history.Length == 0)
+        var hasLogs = !recentLogs.IsDefaultOrEmpty;
+        if (history.Length == 0 && !hasLogs)
         {
             return new PromptSection("training_history", string.Empty, 0);
         }
 
         var sb = new StringBuilder();
+
+        // Recent real logs render first as compact Layer-1 one-liners (newest
+        // first). They are never collapsed into weekly summaries — they are the
+        // high-value detail this block exists to inject (DEC-076).
+        if (hasLogs)
+        {
+            foreach (var log in recentLogs.OrderByDescending(l => l.OccurredOn))
+            {
+                sb.AppendLine(RecentLogFormatter.FormatWorkoutDetail(log));
+            }
+        }
+
+        AppendLegacyHistory(sb, history, useLayer2Only);
+
+        var content = sb.ToString().TrimEnd();
+
+        return new PromptSection("training_history", content, EstimateTokens(content));
+    }
+
+    /// <summary>
+    /// Appends the legacy <see cref="WorkoutSummary"/> history to <paramref name="sb"/>:
+    /// Layer-1 per-workout detail for recent weeks and Layer-2 weekly summaries for
+    /// older weeks, or Layer-2 summaries only when <paramref name="useLayer2Only"/> is
+    /// set. No-op when <paramref name="history"/> is empty. Recent logged workouts are
+    /// rendered separately by the caller and are never collapsed here.
+    /// </summary>
+    private void AppendLegacyHistory(
+        StringBuilder sb,
+        ImmutableArray<WorkoutSummary> history,
+        bool useLayer2Only)
+    {
+        if (history.Length == 0)
+        {
+            return;
+        }
+
         var sorted = history.OrderByDescending(w => w.Date).ToList();
 
         if (useLayer2Only)
@@ -879,37 +924,30 @@ public sealed partial class ContextAssembler : IContextAssembler
             {
                 sb.AppendLine(FormatWeekSummary(week));
             }
+
+            return;
         }
-        else
+
+        // Layer 1 for recent weeks, Layer 2 for older weeks.
+        var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime);
+        var layer1Cutoff = today.AddDays(-7 * MaxLayer1Weeks);
+
+        var recentWorkouts = sorted.Where(w => w.Date >= layer1Cutoff).ToList();
+        var olderWorkouts = sorted.Where(w => w.Date < layer1Cutoff).ToList();
+
+        foreach (var workout in recentWorkouts)
         {
-            // Layer 1 for recent weeks, Layer 2 for older weeks.
-            var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime);
-            var layer1Cutoff = today.AddDays(-7 * MaxLayer1Weeks);
-
-            var recentWorkouts = sorted.Where(w => w.Date >= layer1Cutoff).ToList();
-            var olderWorkouts = sorted.Where(w => w.Date < layer1Cutoff).ToList();
-
-            if (recentWorkouts.Count > 0)
-            {
-                foreach (var workout in recentWorkouts)
-                {
-                    sb.AppendLine(FormatWorkoutDetail(workout));
-                }
-            }
-
-            if (olderWorkouts.Count > 0)
-            {
-                var olderWeeks = GroupByWeek(olderWorkouts).Take(MaxLayer2Weeks);
-                foreach (var week in olderWeeks)
-                {
-                    sb.AppendLine(FormatWeekSummary(week));
-                }
-            }
+            sb.AppendLine(FormatWorkoutDetail(workout));
         }
 
-        var content = sb.ToString().TrimEnd();
-
-        return new PromptSection("training_history", content, EstimateTokens(content));
+        if (olderWorkouts.Count > 0)
+        {
+            var olderWeeks = GroupByWeek(olderWorkouts).Take(MaxLayer2Weeks);
+            foreach (var week in olderWeeks)
+            {
+                sb.AppendLine(FormatWeekSummary(week));
+            }
+        }
     }
 
     private PromptSection BuildConversationHistorySection(ImmutableArray<ConversationTurn> turns)
