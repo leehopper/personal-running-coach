@@ -57,6 +57,24 @@ public sealed record SafetyClassification
                 nameof(category));
         }
 
+        // Enforce the tier-category pairing the enum docs assert: `Crisis` and
+        // `EmergencyReferral` are always Red, `Injury` and `RedS` always Amber.
+        // A mis-paired catalog rule fails construction rather than emitting a
+        // contradictory classification.
+        var validForTier = tier switch
+        {
+            SafetyTier.Red => category is ReferralCategory.Crisis or ReferralCategory.EmergencyReferral,
+            SafetyTier.Amber => category is ReferralCategory.Injury or ReferralCategory.RedS,
+            _ => false,
+        };
+
+        if (!validForTier)
+        {
+            throw new ArgumentException(
+                $"{category} is not a valid referral category for {tier}.",
+                nameof(category));
+        }
+
         return new SafetyClassification(tier, category);
     }
 }

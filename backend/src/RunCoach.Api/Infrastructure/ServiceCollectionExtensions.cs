@@ -40,7 +40,7 @@ public static class ServiceCollectionExtensions
 
         // Training module — deterministic safety gate (Slice 3 Unit 3 / DEC-079).
         // Stateless keyword classifier; the keyword catalog is compiled once at
-        // type-load. Consumed by the Slice 3 adaptation orchestration (PR5).
+        // type-load. Consumed by the Slice 3 adaptation orchestration handler.
         services.AddSingleton<ISafetyGate, SafetyGate>();
 
         // Training module — workout-log persistence (scoped, shares the request DbContext).
@@ -74,7 +74,7 @@ public static class ServiceCollectionExtensions
         // Recent-log free-text sanitizer coverage (Slice 3 Unit 3). Routes
         // LoggedWorkoutDetail notes + free-text metric values through the DEC-059
         // sanitizer before the recent-log prompt path; consumed by the Slice 3/4
-        // WorkoutLog → LoggedWorkoutDetail mapper (PR7).
+        // WorkoutLog → LoggedWorkoutDetail mapper.
         services.AddSingleton<IRecentLogSanitizer, RecentLogSanitizer>();
 
         // Idempotency primitive (DEC-060) — scoped so Wolverine handlers and

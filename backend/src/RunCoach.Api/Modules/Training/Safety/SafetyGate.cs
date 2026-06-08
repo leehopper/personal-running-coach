@@ -73,10 +73,13 @@ public sealed class SafetyGate : ISafetyGate
         }
         catch (RegexMatchTimeoutException)
         {
-            // ReDoS guard: the note text is uncapped in length. Treat a match
-            // timeout as a non-match rather than throwing, preserving the
-            // deterministic, no-throw classification contract.
-            return false;
+            // ReDoS guard: the note text is uncapped in length. A rule the gate
+            // cannot evaluate within the timeout is treated as a match (fail
+            // closed) so it escalates rather than silently dropping a possible
+            // signal. Under-reaction is the hard-failure mode (DEC-079
+            // recall-over-precision); over-reacting on a pathological note is the
+            // lesser evil. Preserves the deterministic, no-throw contract.
+            return true;
         }
     }
 }

@@ -42,7 +42,7 @@ public sealed class RecentLogSanitizer(IPromptSanitizer sanitizer) : IRecentLogS
         IReadOnlyDictionary<string, string> metrics,
         CancellationToken ct)
     {
-        if (!metrics.ContainsKey(WorkoutMetricKeys.Weather) && !metrics.ContainsKey(WorkoutMetricKeys.Terrain))
+        if (!FreeTextMetricKeys.Any(metrics.ContainsKey))
         {
             return metrics;
         }

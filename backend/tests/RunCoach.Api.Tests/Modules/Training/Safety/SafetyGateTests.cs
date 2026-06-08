@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using RunCoach.Api.Modules.Training.Constants;
 using RunCoach.Api.Modules.Training.Safety;
@@ -28,6 +30,13 @@ public sealed class SafetyGateTests
     [InlineData("there's no reason to keep going")]
     [InlineData("I can't go on like this")]
     [InlineData("I just wish I wouldn't wake up tomorrow")]
+
+    // Intent-qualified self-harm: `SG-C08` and `SG-C09` (the negative side of
+    // these rules — "tripped and hurt myself", "cut myself on a branch" — is
+    // covered by the benign theory; these assert the positive escalation).
+    [InlineData("I keep thinking about hurting myself")]
+    [InlineData("I cut myself on purpose after the run")]
+    [InlineData("been cutting myself again")]
     public void Classify_ReturnsRedCrisis_ForCrisisNotes(string notes)
     {
         // Act
@@ -56,6 +65,15 @@ public sealed class SafetyGateTests
     [InlineData("28 weeks pregnant and having contractions tonight")]
     [InlineData("20 weeks along and spotting after the run")]
     [InlineData("I'm expecting and had some bleeding today")]
+
+    // Isolates `SG-E13` (bleeding with no pregnancy marker — every other bleeding
+    // row carries one and matches `SG-E14`/`SG-E15` instead) and the reverse-order
+    // proximity rules `SG-E10`, `SG-E12`, `SG-E15` that the forward-order rows
+    // above never reach (first-match returns on the forward sibling otherwise).
+    [InlineData("heavy vaginal bleeding during the run")]
+    [InlineData("deep pain in the groin after the run")]
+    [InlineData("felt a stabbing in my hip")]
+    [InlineData("bleeding badly, I am 12 weeks pregnant")]
     public void Classify_ReturnsRedEmergencyReferral_ForEmergencyNotes(string notes)
     {
         // Act
@@ -76,6 +94,12 @@ public sealed class SafetyGateTests
     [InlineData("had to cut it short, knee was killing me")]
     [InlineData("couldn't finish, ankle gave out")]
     [InlineData("couldn't run, can't put weight on it")]
+
+    // Isolates the reverse-order proximity rules `SG-I04` (worsening before pain)
+    // and `SG-I06` (pain before run-curtailment) that the forward-order rows above
+    // never reach.
+    [InlineData("it is getting worse, real pain now")]
+    [InlineData("the pain got so bad I had to stop")]
     public void Classify_ReturnsAmberInjury_ForInjuryNotes(string notes)
     {
         // Act
@@ -97,6 +121,12 @@ public sealed class SafetyGateTests
     [InlineData("ate too much so I'll just run it off")]
     [InlineData("ran through the pain like always")]
     [InlineData("felt so guilty about taking a rest day")]
+
+    // `SG-R09` compensatory-exercise positive (the sibling `SG-R08` "run it off"
+    // is already covered above) and the reverse-order proximity rule `SG-R12`
+    // (rest-day before distress).
+    [InlineData("ate too much so I went out to burn it off")]
+    [InlineData("took a rest day and felt so guilty afterwards")]
     public void Classify_ReturnsAmberRedS_ForDisorderedPatternNotes(string notes)
     {
         // Act
@@ -200,5 +230,28 @@ public sealed class SafetyGateTests
 
         // Assert
         actual.Should().Be(SafetyClassification.Green());
+    }
+
+    [Fact]
+    public void Classify_FailsClosed_WhenAGateRuleTimesOut()
+    {
+        // Arrange — a poison rule whose matcher always times out (catastrophic
+        // backtracking on `(a+)+$`), mirroring the `LayeredPromptSanitizer` ReDoS
+        // guard test. A rule the gate cannot evaluate must escalate, not silently
+        // classify Green (DEC-079 recall-over-precision: under-reaction is the
+        // hard-failure mode).
+        var poison = new SafetyKeywordCatalog.SafetyRule(
+            "SG-TEST-TIMEOUT",
+            SafetyTier.Red,
+            ReferralCategory.Crisis,
+            new Regex("(a+)+$", RegexOptions.Compiled, TimeSpan.FromTicks(1)));
+        var gate = new SafetyGate(SafetyKeywordCatalog.ForTesting(ImmutableArray.Create(poison)));
+        var adversarialInput = new string('a', 30) + "!";
+
+        // Act
+        var actual = gate.Classify(adversarialInput, null);
+
+        // Assert — the timed-out rule escalates to its tier (fail closed); no throw.
+        actual.Should().Be(SafetyClassification.Red(ReferralCategory.Crisis));
     }
 }

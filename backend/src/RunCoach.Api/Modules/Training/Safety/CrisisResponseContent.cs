@@ -12,7 +12,7 @@ namespace RunCoach.Api.Modules.Training.Safety;
 /// verbatim by tests.
 /// </summary>
 /// <remarks>
-/// Encodes the persona crisis protocol (coaching-persona.md): acknowledge with
+/// Encodes the persona crisis protocol: acknowledge with
 /// empathy, provide the two crisis resources, normalize help-seeking, never
 /// probe for plans or methods, and do not continue the crisis topic. The full
 /// pre-public-release safety scaffolding (PAR-Q+, expanded taxonomy) is deferred.

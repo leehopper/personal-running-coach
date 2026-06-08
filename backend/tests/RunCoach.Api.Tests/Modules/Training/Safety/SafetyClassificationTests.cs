@@ -69,6 +69,32 @@ public sealed class SafetyClassificationTests
         act.Should().Throw<ArgumentException>();
     }
 
+    [Theory]
+    [InlineData(ReferralCategory.Injury)]
+    [InlineData(ReferralCategory.RedS)]
+    public void Red_Throws_WhenCategoryIsAmberAligned(ReferralCategory category)
+    {
+        // Act
+        var act = () => SafetyClassification.Red(category);
+
+        // Assert — Red is reserved for `Crisis`/`EmergencyReferral`; an
+        // Amber-aligned category must not construct a Red classification.
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Theory]
+    [InlineData(ReferralCategory.Crisis)]
+    [InlineData(ReferralCategory.EmergencyReferral)]
+    public void Amber_Throws_WhenCategoryIsRedAligned(ReferralCategory category)
+    {
+        // Act
+        var act = () => SafetyClassification.Amber(category);
+
+        // Assert — Amber is reserved for `Injury`/`RedS`; a Red-aligned category
+        // must not construct an Amber classification.
+        act.Should().Throw<ArgumentException>();
+    }
+
     [Fact]
     public void Equality_IsByTierAndCategory()
     {
