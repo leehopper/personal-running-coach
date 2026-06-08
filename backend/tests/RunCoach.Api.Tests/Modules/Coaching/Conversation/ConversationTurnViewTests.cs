@@ -14,6 +14,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Conversation;
 /// </summary>
 public sealed class ConversationTurnViewTests
 {
+    private const long EventVersion = 7;
     private static readonly Guid EventId = new("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid WorkoutLogId = new("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static readonly DateTimeOffset CreatedAt = new(2026, 6, 8, 9, 0, 0, TimeSpan.Zero);
@@ -32,7 +33,7 @@ public sealed class ConversationTurnViewTests
             expectedDiff);
 
         // Act
-        var actual = ConversationTurnView.FromAdaptation(EventId, CreatedAt, data);
+        var actual = ConversationTurnView.FromAdaptation(EventId, EventVersion, CreatedAt, data);
 
         // Assert
         actual.TriggeringPlanEventId.Should().Be(EventId);
@@ -45,6 +46,7 @@ public sealed class ConversationTurnViewTests
         actual.Diff.Should().BeSameAs(expectedDiff);
         actual.TriggeringWorkoutLogId.Should().Be(WorkoutLogId);
         actual.CreatedAt.Should().Be(CreatedAt);
+        actual.EventVersion.Should().Be(EventVersion, because: "the turn carries the source event's version as the ordering tiebreaker");
     }
 
     [Fact]
@@ -59,7 +61,7 @@ public sealed class ConversationTurnViewTests
             content);
 
         // Act
-        var actual = ConversationTurnView.FromSafety(EventId, CreatedAt, data);
+        var actual = ConversationTurnView.FromSafety(EventId, EventVersion, CreatedAt, data);
 
         // Assert
         actual.TriggeringPlanEventId.Should().Be(EventId);
@@ -72,5 +74,6 @@ public sealed class ConversationTurnViewTests
         actual.Diff.Should().BeNull(because: "a safety turn carries no plan diff");
         actual.TriggeringWorkoutLogId.Should().Be(WorkoutLogId);
         actual.CreatedAt.Should().Be(CreatedAt);
+        actual.EventVersion.Should().Be(EventVersion, because: "the turn carries the source event's version as the ordering tiebreaker");
     }
 }

@@ -70,8 +70,13 @@ public sealed class ConversationController(
             return Ok(ConversationTurnsResponseDto.Empty);
         }
 
+        // Newest-first. CreatedAt is the Marten event timestamp; two turns appended in
+        // one transaction (EventAppendMode.Rich) share a single transaction_timestamp(),
+        // so the per-stream EventVersion is the deterministic tiebreaker that keeps the
+        // panel order stable rather than relying on the stable-sort's incidental order.
         var turns = log.Turns
             .OrderByDescending(t => t.CreatedAt)
+            .ThenByDescending(t => t.EventVersion)
             .Select(MapTurn)
             .ToArray();
 

@@ -144,7 +144,12 @@ public class ConversationControllerIntegrationTests(RunCoachAppFactory factory)
     [Fact]
     public async Task GetTurns_OtherRunnersPlan_Returns200_WithEmptyTurns()
     {
-        // Arrange — runner A has turns; runner B (the caller) has no active plan.
+        // Arrange — runner A has turns. Runner B (the caller) is pointed at A's plan
+        // id so the request reaches the tenanted Marten LoadAsync with A's stream id:
+        // the real isolation boundary is that B's session (tenant B) cannot load a
+        // ConversationLogView that lives under tenant A. Seeding B with a non-null
+        // CurrentPlanId is deliberate — a null plan id would short-circuit at the
+        // EF guard (already covered by GetTurns_NoActivePlan) before any Marten read.
         var userAId = await SeedUserAsync();
         var planAId = Guid.NewGuid();
         await SeedPlanStreamAsync(userAId, planAId);
@@ -153,7 +158,7 @@ public class ConversationControllerIntegrationTests(RunCoachAppFactory factory)
         await SeedUserProfileAsync(userAId, currentPlanId: planAId);
 
         var userBId = await SeedUserAsync();
-        await SeedUserProfileAsync(userBId, currentPlanId: null);
+        await SeedUserProfileAsync(userBId, currentPlanId: planAId);
         using var client = CreateBearerClient(Factory, MintBearerToken(userBId));
 
         // Act
@@ -163,7 +168,73 @@ public class ConversationControllerIntegrationTests(RunCoachAppFactory factory)
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<ConversationTurnsResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
-        body!.Turns.Should().BeEmpty(because: "the caller has no active plan, so no turns are visible to them");
+        body!.Turns.Should().BeEmpty(
+            because: "conjoined tenancy blocks the caller's session from loading another tenant's conversation log");
+    }
+
+    [Fact]
+    public async Task GetTurns_BearerToken_With_Non_Guid_Sub_Returns_401_Problem()
+    {
+        // Arrange — a validly-signed token whose sub claim does not parse as a Guid
+        // passes the CookieOrBearer middleware but fails the controller's in-action
+        // TryGetUserId, exercising the MissingUserClaim 401 branch the anonymous test
+        // never reaches (it is rejected at middleware before the action runs).
+        using var client = CreateBearerClient(Factory, MintBearerTokenWithRawSub("not-a-guid"));
+
+        // Act
+        var response = await client.GetAsync("/api/v1/conversation/turns", TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+    }
+
+    [Fact]
+    public async Task GetTurns_TurnsSharingCreatedAt_OrderedByEventVersionDescending()
+    {
+        // Arrange — append an adaptation then a safety signal in ONE transaction so
+        // both turns carry the same transaction_timestamp() CreatedAt (EventAppendMode
+        // .Rich). Newest-first must then fall back to the per-stream event version,
+        // deterministically placing the later-appended safety turn first; a
+        // CreatedAt-only stable sort would silently keep append (oldest-first) order.
+        var userId = await SeedUserAsync();
+        var planId = Guid.NewGuid();
+        await SeedPlanStreamAsync(userId, planId);
+        var adaptationLogId = Guid.NewGuid();
+        var safetyLogId = Guid.NewGuid();
+        await AppendAsync(
+            userId,
+            planId,
+            new PlanAdaptedFromLog(
+                adaptationLogId,
+                AdaptationKind.Nudge,
+                EscalationLevel.MicroAdjust,
+                SafetyTier.Green,
+                "First in the transaction.",
+                PlanAdaptationDiff.Empty),
+            new SafetySignalRaised(
+                safetyLogId,
+                SafetyTier.Amber,
+                ReferralCategory.Injury,
+                "Second in the transaction."));
+        await SeedUserProfileAsync(userId, currentPlanId: planId);
+        using var client = CreateBearerClient(Factory, MintBearerToken(userId));
+
+        // Act
+        var response = await client.GetAsync("/api/v1/conversation/turns", TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<ConversationTurnsResponseDto>(
+            cancellationToken: TestContext.Current.CancellationToken);
+        body!.Turns.Should().HaveCount(2);
+        body.Turns[0].CreatedAt.Should().Be(
+            body.Turns[1].CreatedAt,
+            because: "both events were appended in one transaction so they share a CreatedAt");
+        body.Turns[0].TriggeringWorkoutLogId.Should().Be(
+            safetyLogId,
+            because: "the later-appended turn has the higher event version and sorts first under the tie");
+        body.Turns[1].TriggeringWorkoutLogId.Should().Be(adaptationLogId);
     }
 
     /// <inheritdoc />
@@ -200,6 +271,26 @@ public class ConversationControllerIntegrationTests(RunCoachAppFactory factory)
             issuer: RunCoachAppFactory.TestJwtIssuer,
             audience: RunCoachAppFactory.TestJwtAudience,
             claims: [new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())],
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddMinutes(5),
+            signingCredentials: credentials);
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private static string MintBearerTokenWithRawSub(string sub)
+    {
+        // Authenticates the caller (valid signature/issuer/audience) but with a sub
+        // claim that does not parse as a Guid, so the controller's TryGetUserId falls
+        // through to MissingUserClaim() — mirrors the PlanRenderingController template.
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(RunCoachAppFactory.TestJwtSigningKey))
+        {
+            KeyId = RunCoachAppFactory.TestJwtKeyId,
+        };
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(
+            issuer: RunCoachAppFactory.TestJwtIssuer,
+            audience: RunCoachAppFactory.TestJwtAudience,
+            claims: [new Claim(JwtRegisteredClaimNames.Sub, sub)],
             notBefore: DateTime.UtcNow,
             expires: DateTime.UtcNow.AddMinutes(5),
             signingCredentials: credentials);
@@ -244,12 +335,12 @@ public class ConversationControllerIntegrationTests(RunCoachAppFactory factory)
         await session.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
-    private async Task AppendAsync(Guid userId, Guid planId, object @event)
+    private async Task AppendAsync(Guid userId, Guid planId, params object[] events)
     {
         using var scope = Factory.Services.CreateScope();
         var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
         await using var session = store.LightweightSession(userId.ToString());
-        session.Events.Append(planId, @event);
+        session.Events.Append(planId, events);
         await session.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 }

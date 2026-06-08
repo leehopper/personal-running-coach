@@ -45,15 +45,26 @@ public sealed record ConversationTurnView
     public required DateTimeOffset CreatedAt { get; init; }
 
     /// <summary>
+    /// Gets the source event's per-stream Marten version (1-based, strictly increasing
+    /// with append order). The newest-first read orders by <see cref="CreatedAt"/> then
+    /// this — two turns appended in one transaction share a single
+    /// <c>transaction_timestamp()</c> <see cref="CreatedAt"/>, so this version is the
+    /// deterministic tiebreaker that keeps the panel's ordering stable.
+    /// </summary>
+    public required long EventVersion { get; init; }
+
+    /// <summary>
     /// Builds an assistant-adaptation turn from a <see cref="PlanAdaptedFromLog"/>
     /// event and its Marten metadata.
     /// </summary>
     /// <param name="eventId">The Marten event id of the source event.</param>
+    /// <param name="eventVersion">The source event's per-stream Marten version (ordering tiebreaker).</param>
     /// <param name="createdAt">The Marten event timestamp.</param>
     /// <param name="data">The adaptation event payload.</param>
     /// <returns>The projected adaptation turn.</returns>
     public static ConversationTurnView FromAdaptation(
         Guid eventId,
+        long eventVersion,
         DateTimeOffset createdAt,
         PlanAdaptedFromLog data)
     {
@@ -71,6 +82,7 @@ public sealed record ConversationTurnView
             Diff = data.Diff,
             TriggeringWorkoutLogId = data.TriggeringWorkoutLogId,
             CreatedAt = createdAt,
+            EventVersion = eventVersion,
         };
     }
 
@@ -79,11 +91,13 @@ public sealed record ConversationTurnView
     /// its Marten metadata.
     /// </summary>
     /// <param name="eventId">The Marten event id of the source event.</param>
+    /// <param name="eventVersion">The source event's per-stream Marten version (ordering tiebreaker).</param>
     /// <param name="createdAt">The Marten event timestamp.</param>
     /// <param name="data">The safety event payload.</param>
     /// <returns>The projected safety turn.</returns>
     public static ConversationTurnView FromSafety(
         Guid eventId,
+        long eventVersion,
         DateTimeOffset createdAt,
         SafetySignalRaised data)
     {
@@ -101,6 +115,7 @@ public sealed record ConversationTurnView
             Diff = null,
             TriggeringWorkoutLogId = data.TriggeringWorkoutLogId,
             CreatedAt = createdAt,
+            EventVersion = eventVersion,
         };
     }
 }

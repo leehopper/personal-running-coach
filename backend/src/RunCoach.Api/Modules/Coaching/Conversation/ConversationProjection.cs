@@ -60,7 +60,7 @@ public sealed partial class ConversationProjection : SingleStreamProjection<Conv
     /// <param name="view">The conversation log being mutated.</param>
     public static void Apply(IEvent<PlanAdaptedFromLog> @event, ConversationLogView view)
     {
-        Upsert(view, ConversationTurnView.FromAdaptation(@event.Id, @event.Timestamp, @event.Data));
+        Upsert(view, ConversationTurnView.FromAdaptation(@event.Id, @event.Version, @event.Timestamp, @event.Data));
     }
 
     /// <summary>
@@ -72,7 +72,7 @@ public sealed partial class ConversationProjection : SingleStreamProjection<Conv
     /// <param name="view">The conversation log being mutated.</param>
     public static void Apply(IEvent<SafetySignalRaised> @event, ConversationLogView view)
     {
-        Upsert(view, ConversationTurnView.FromSafety(@event.Id, @event.Timestamp, @event.Data));
+        Upsert(view, ConversationTurnView.FromSafety(@event.Id, @event.Version, @event.Timestamp, @event.Data));
     }
 
     private static void Upsert(ConversationLogView view, ConversationTurnView turn)

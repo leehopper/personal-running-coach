@@ -471,6 +471,93 @@ public sealed class PlanProjectionTests
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Apply_PlanAdaptedFromLog_NonPositiveWeekNumber_InWorkoutChange_Throws(int invalidWeekNumber)
+    {
+        // Arrange — Apply validates 1-based week numbers in a SECOND loop over
+        // WorkoutChanges. Carry the invalid week on a WorkoutChange with NO weekly
+        // target changes so this exercises the workout-change loop specifically: a
+        // regression deleting just that loop would otherwise pass undetected.
+        var actualDto = BuildCanonicalDto();
+        var phantom = BuildMicro().Workouts[0];
+        var diff = new PlanAdaptationDiff(
+            [new WorkoutChange(invalidWeekNumber, DayOfWeek: 0, Before: phantom, After: phantom)],
+            []);
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Nudge,
+            EscalationLevel.MicroAdjust,
+            SafetyTier.Green,
+            "n/a",
+            diff);
+
+        // Act
+        var act = () => PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void Apply_PlanAdaptedFromLog_WeeklyTargetChangeForAbsentWeek_LeavesMesoWeeksUnchanged()
+    {
+        // Arrange — a target change for a positive week NOT present in MesoWeeks
+        // (week 5 against the 4-week canonical plan) is silently skipped: the meso
+        // tier is authoritative and the projection never synthesizes a week.
+        var actualDto = BuildCanonicalDto();
+        int[] expectedTargets = [45, 45, 45, 30];
+        var diff = new PlanAdaptationDiff(
+            WorkoutChanges: [],
+            [new WeeklyTargetChange(WeekNumber: 5, BeforeWeeklyTargetKm: 40, AfterWeeklyTargetKm: 35)]);
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Restructure,
+            EscalationLevel.Restructure,
+            SafetyTier.Green,
+            "n/a",
+            diff);
+
+        // Act
+        PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert — no week is synthesized and the absent-week target change is skipped.
+        actualDto.MesoWeeks.Select(w => w.WeekNumber).Should().Equal(1, 2, 3, 4);
+        actualDto.MesoWeeks.Select(w => w.WeeklyTargetKm).Should().Equal(expectedTargets);
+    }
+
+    [Fact]
+    public void Apply_PlanAdaptedFromLog_WorkoutChangeForAbsentDay_AddsWorkoutToMicroWeek()
+    {
+        // Arrange — the canonical week-1 micro carries a single workout on day 0; a
+        // change whose DayOfWeek matches no existing workout takes the add branch
+        // (the null-Before addition WorkoutChange documents — e.g. a workout on a
+        // formerly-rest day) rather than replacing one.
+        var actualDto = BuildCanonicalDto();
+        const int absentDay = 3;
+        var addedWorkout = BuildMicro().Workouts[0] with { DayOfWeek = absentDay, Title = "Added Tempo" };
+        var diff = new PlanAdaptationDiff(
+            [new WorkoutChange(WeekNumber: 1, DayOfWeek: absentDay, Before: null, After: addedWorkout)],
+            []);
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Nudge,
+            EscalationLevel.MicroAdjust,
+            SafetyTier.Green,
+            "Added a tempo on your former rest day.",
+            diff);
+
+        // Act
+        PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert — the original day-0 workout is retained and the new day-3 one is appended.
+        var workouts = actualDto.MicroWorkoutsByWeek[1].Workouts;
+        workouts.Should().HaveCount(2, because: "an absent-day change adds rather than replaces");
+        workouts.Should().ContainSingle(w => w.DayOfWeek == 0);
+        workouts.Single(w => w.DayOfWeek == absentDay).Should().BeEquivalentTo(addedWorkout);
+    }
+
     private static PlanProjectionDto BuildCanonicalDto()
     {
         var dto = PlanProjection.Create(BuildPlanGenerated());

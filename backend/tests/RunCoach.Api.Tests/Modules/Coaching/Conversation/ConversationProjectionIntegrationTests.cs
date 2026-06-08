@@ -219,6 +219,53 @@ public class ConversationProjectionIntegrationTests(RunCoachAppFactory factory)
         replayed.Turns.Should().ContainSingle(t => t.Role == ConversationRole.SystemSafety);
     }
 
+    [Fact]
+    public async Task InvalidPlanAdaptedFromLog_RollsBackBothInlineProjections_Atomically()
+    {
+        // Arrange — a valid plan stream; PlanGenerated has already seeded an empty
+        // conversation log alongside the plan read model.
+        var userId = Guid.NewGuid();
+        var planId = Guid.NewGuid();
+        await SeedPlanStreamAsync(userId, planId);
+        var planBefore = await LoadPlanAsync(userId, planId);
+        var logBefore = await LoadLogAsync(userId, planId);
+        logBefore!.Turns.Should().BeEmpty(because: "no adaptation or safety event has been appended yet");
+
+        // A malformed diff carrying a non-positive (0) week number. PlanProjection.Apply
+        // throws on it; because BOTH inline projections commit in the SAME append
+        // transaction (DEC-060), that throw must roll the whole append back — the plan
+        // read model AND the conversation log stay untouched, not just the plan.
+        var invalid = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Restructure,
+            EscalationLevel.Restructure,
+            SafetyTier.Green,
+            "Malformed diff with a non-positive week.",
+            new PlanAdaptationDiff([], [new WeeklyTargetChange(0, 45, 40)]));
+
+        // Act — append through a real session; SaveChangesAsync runs the inline
+        // projections and must surface the guard as a failed transaction.
+        using var scope = Factory.Services.CreateScope();
+        var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
+        await using var session = store.LightweightSession(userId.ToString());
+        session.Events.Append(planId, invalid);
+        var save = async () => await session.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Assert — the append throws...
+        await save.Should().ThrowAsync<Exception>(
+            because: "the inline plan projection's 1-based-week guard fails the whole append");
+
+        // ...and NEITHER read model mutated.
+        var planAfter = await LoadPlanAsync(userId, planId);
+        planAfter!.MesoWeeks.Should().BeEquivalentTo(
+            planBefore!.MesoWeeks,
+            because: "the rolled-back append leaves the plan read model untouched");
+        planAfter.MicroWorkoutsByWeek.Should().BeEquivalentTo(planBefore.MicroWorkoutsByWeek);
+        var logAfter = await LoadLogAsync(userId, planId);
+        logAfter!.Turns.Should().BeEmpty(
+            because: "the conversation log gains no turn when the co-transaction plan apply throws");
+    }
+
     /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
