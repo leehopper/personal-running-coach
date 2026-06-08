@@ -4,6 +4,7 @@ using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Plan;
+using RunCoach.Api.Modules.Training.Safety;
 using RunCoach.Api.Modules.Training.Workouts;
 
 namespace RunCoach.Api.Infrastructure;
@@ -37,6 +38,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPaceZoneCalculator, PaceZoneCalculator>();
         services.AddSingleton<IHeartRateZoneCalculator, HeartRateZoneCalculator>();
 
+        // Training module — deterministic safety gate (Slice 3 Unit 3 / DEC-079).
+        // Stateless keyword classifier; the keyword catalog is compiled once at
+        // type-load. Consumed by the Slice 3 adaptation orchestration handler.
+        services.AddSingleton<ISafetyGate, SafetyGate>();
+
         // Training module — workout-log persistence (scoped, shares the request DbContext).
         services.AddScoped<IWorkoutLogRepository, WorkoutLogRepository>();
         services.AddScoped<IWorkoutLogService, WorkoutLogService>();
@@ -64,6 +70,12 @@ public static class ServiceCollectionExtensions
         // Stateless layered sanitizer — singleton-safe; the pattern catalog
         // is precompiled once at type-load.
         services.AddSingleton<IPromptSanitizer, LayeredPromptSanitizer>();
+
+        // Recent-log free-text sanitizer coverage (Slice 3 Unit 3). Routes
+        // LoggedWorkoutDetail notes + free-text metric values through the DEC-059
+        // sanitizer before the recent-log prompt path; consumed by the Slice 3/4
+        // WorkoutLog → LoggedWorkoutDetail mapper.
+        services.AddSingleton<IRecentLogSanitizer, RecentLogSanitizer>();
 
         // Idempotency primitive (DEC-060) — scoped so Wolverine handlers and
         // the store share the same `IDocumentSession` instance per request.
