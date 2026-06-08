@@ -1,7 +1,9 @@
 using FluentAssertions;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
+using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Plan.Models;
+using RunCoach.Api.Modules.Training.Safety;
 
 namespace RunCoach.Api.Tests.Modules.Training.Plan;
 
@@ -291,6 +293,169 @@ public sealed class PlanProjectionTests
         actualDto.MesoWeeks.Should().HaveCount(expectedMesoCount);
         actualDto.MicroWorkoutsByWeek.Should().ContainSingle().Which.Key.Should().Be(expectedSingleMicroWeekKey);
         actualDto.MicroWorkoutsByWeek[expectedSingleMicroWeekKey].Workouts.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void Apply_PlanAdaptedFromLog_Restructure_SwapsCurrentWeekWorkout_AndChangesUpcomingMesoTarget()
+    {
+        // Arrange — canonical plan: macro + four meso weeks + week-1 micro detail.
+        var actualDto = BuildCanonicalDto();
+        var originalWorkout = actualDto.MicroWorkoutsByWeek[1].Workouts.Single(w => w.DayOfWeek == 0);
+        var revisedWorkout = originalWorkout with { Title = "Reduced Easy Run", TargetDistanceKm = 5 };
+        var originalWeek2Target = actualDto.MesoWeeks.Single(w => w.WeekNumber == 2).WeeklyTargetKm;
+        var expectedWeek2Target = originalWeek2Target - 10;
+        var diff = new PlanAdaptationDiff(
+            [new WorkoutChange(WeekNumber: 1, DayOfWeek: 0, originalWorkout, revisedWorkout)],
+            [new WeeklyTargetChange(WeekNumber: 2, originalWeek2Target, expectedWeek2Target)]);
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Restructure,
+            EscalationLevel.Restructure,
+            SafetyTier.Green,
+            "Backed off week-2 volume after a rough patch; we build back from there.",
+            diff);
+
+        // Act
+        PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert
+        actualDto.MicroWorkoutsByWeek[1].Workouts.Single(w => w.DayOfWeek == 0)
+            .Should().BeEquivalentTo(revisedWorkout, because: "the restructure swaps the current micro week's workout");
+        actualDto.MesoWeeks.Single(w => w.WeekNumber == 2).WeeklyTargetKm
+            .Should().Be(expectedWeek2Target, because: "the restructure revises the upcoming meso weekly target");
+    }
+
+    [Fact]
+    public void Apply_PlanAdaptedFromLog_RevisesUpcomingMesoTarget_WithoutSynthesizingFutureMicroDetail()
+    {
+        // Arrange — only week 1 carries micro detail today; a restructure that
+        // revises an upcoming meso target must not invent micro weeks (spec non-goal).
+        var actualDto = BuildCanonicalDto();
+        var originalWeek3Target = actualDto.MesoWeeks.Single(w => w.WeekNumber == 3).WeeklyTargetKm;
+        var expectedWeek3Target = originalWeek3Target - 5;
+        var diff = new PlanAdaptationDiff(
+            WorkoutChanges: [],
+            [new WeeklyTargetChange(WeekNumber: 3, originalWeek3Target, expectedWeek3Target)]);
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Restructure,
+            EscalationLevel.Restructure,
+            SafetyTier.Green,
+            "Trimmed week 3 to keep the build sustainable.",
+            diff);
+
+        // Act
+        PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert
+        actualDto.MesoWeeks.Single(w => w.WeekNumber == 3).WeeklyTargetKm
+            .Should().Be(expectedWeek3Target);
+        actualDto.MicroWorkoutsByWeek.Should().ContainSingle()
+            .Which.Key.Should().Be(1, because: "adaptation never synthesizes micro detail for future weeks");
+    }
+
+    [Fact]
+    public void Apply_PlanAdaptedFromLog_Nudge_AppliesCurrentWeekWorkoutChange()
+    {
+        // Arrange
+        var actualDto = BuildCanonicalDto();
+        var original = actualDto.MicroWorkoutsByWeek[1].Workouts.Single(w => w.DayOfWeek == 0);
+        var moved = original with { Title = "Moved Easy Run", TargetDistanceKm = 6 };
+        var diff = new PlanAdaptationDiff([new WorkoutChange(1, 0, original, moved)], []);
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Nudge,
+            EscalationLevel.MicroAdjust,
+            SafetyTier.Green,
+            "Shuffled your easy run so the week still works.",
+            diff);
+
+        // Act
+        PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert
+        actualDto.MicroWorkoutsByWeek[1].Workouts.Single(w => w.DayOfWeek == 0)
+            .Should().BeEquivalentTo(moved);
+    }
+
+    [Fact]
+    public void Apply_PlanAdaptedFromLog_WorkoutChangeForWeekWithoutMicroDetail_IsSkipped()
+    {
+        // Arrange — a workout change targeting week 2 (no micro detail today) must
+        // be skipped, not synthesize a new micro week.
+        var actualDto = BuildCanonicalDto();
+        var phantom = BuildMicro().Workouts[0] with { TargetDistanceKm = 99 };
+        var diff = new PlanAdaptationDiff([new WorkoutChange(WeekNumber: 2, DayOfWeek: 0, Before: null, After: phantom)], []);
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Nudge,
+            EscalationLevel.MicroAdjust,
+            SafetyTier.Green,
+            "n/a",
+            diff);
+
+        // Act
+        PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert
+        actualDto.MicroWorkoutsByWeek.Should().ContainSingle()
+            .Which.Key.Should().Be(1, because: "a change targeting a week with no micro detail must not synthesize one");
+    }
+
+    [Fact]
+    public void Apply_PlanAdaptedFromLog_EmptyDiff_LeavesProjectionUnchanged()
+    {
+        // Arrange
+        var actualDto = BuildCanonicalDto();
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Nudge,
+            EscalationLevel.MicroAdjust,
+            SafetyTier.Green,
+            "Nothing to change.",
+            PlanAdaptationDiff.Empty);
+
+        // Act
+        PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert
+        actualDto.MesoWeeks.Select(w => w.WeeklyTargetKm).Should().Equal(45, 45, 45, 30);
+        actualDto.MicroWorkoutsByWeek[1].Workouts.Single(w => w.DayOfWeek == 0).TargetDistanceKm.Should().Be(8);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Apply_PlanAdaptedFromLog_NonPositiveWeekNumber_Throws(int invalidWeekNumber)
+    {
+        // Arrange — week numbers are 1-based by spec; a malformed diff must fail
+        // the transaction rather than silently corrupt the read model.
+        var actualDto = BuildCanonicalDto();
+        var diff = new PlanAdaptationDiff([], [new WeeklyTargetChange(invalidWeekNumber, 45, 40)]);
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Restructure,
+            EscalationLevel.Restructure,
+            SafetyTier.Green,
+            "n/a",
+            diff);
+
+        // Act
+        var act = () => PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    private static PlanProjectionDto BuildCanonicalDto()
+    {
+        var dto = PlanProjection.Create(BuildPlanGenerated());
+        PlanProjection.Apply(new MesoCycleCreated(1, BuildMeso(1, PhaseType.Base, isDeload: false)), dto);
+        PlanProjection.Apply(new MesoCycleCreated(2, BuildMeso(2, PhaseType.Base, isDeload: false)), dto);
+        PlanProjection.Apply(new MesoCycleCreated(3, BuildMeso(3, PhaseType.Build, isDeload: false)), dto);
+        PlanProjection.Apply(new MesoCycleCreated(4, BuildMeso(4, PhaseType.Build, isDeload: true)), dto);
+        PlanProjection.Apply(new FirstMicroCycleCreated(BuildMicro()), dto);
+        return dto;
     }
 
     private static PlanGenerated BuildPlanGenerated()

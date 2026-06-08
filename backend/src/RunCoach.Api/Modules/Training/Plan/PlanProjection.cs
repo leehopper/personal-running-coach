@@ -1,5 +1,6 @@
 using Marten.Events.Aggregation;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
+using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Plan.Models;
 
 namespace RunCoach.Api.Modules.Training.Plan;
@@ -145,5 +146,124 @@ public sealed partial class PlanProjection : SingleStreamProjection<PlanProjecti
             [1] = @event.Micro,
         };
         dto.MicroWorkoutsByWeek = map;
+    }
+
+    /// <summary>
+    /// Applies a Slice 3 adaptation (DEC-079) to the plan read model: revises meso
+    /// <see cref="MesoWeekOutput.WeeklyTargetKm"/> for upcoming weeks and swaps
+    /// current-week micro workouts from the event's structured
+    /// <see cref="PlanAdaptedFromLog.Diff"/>. Mutates <paramref name="dto"/> in place
+    /// following the established collection-reassign idiom. Per the spec non-goal,
+    /// it never synthesizes micro detail for a week that has none today — a workout
+    /// change targeting an unpopulated week is skipped, a meso target change is not.
+    /// </summary>
+    /// <param name="event">The adaptation event appended to the plan stream.</param>
+    /// <param name="dto">The projection document being mutated.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when any change in the diff carries a non-positive week number. Week
+    /// numbers are 1-based by spec; a malformed value must fail the transaction
+    /// rather than silently corrupt the read model.
+    /// </exception>
+    public static void Apply(PlanAdaptedFromLog @event, PlanProjectionDto dto)
+    {
+        // Validate week numbers across both change sets up front so a malformed
+        // diff fails the whole transaction rather than partially mutating the
+        // read model — same fail-loud contract as Apply(MesoCycleCreated, ...).
+        foreach (var change in @event.Diff.WeeklyTargetChanges)
+        {
+            ThrowIfNonPositiveWeek(change.WeekNumber);
+        }
+
+        foreach (var change in @event.Diff.WorkoutChanges)
+        {
+            ThrowIfNonPositiveWeek(change.WeekNumber);
+        }
+
+        ApplyWeeklyTargetChanges(@event.Diff.WeeklyTargetChanges, dto);
+        ApplyWorkoutChanges(@event.Diff.WorkoutChanges, dto);
+    }
+
+    private static void ApplyWeeklyTargetChanges(
+        IReadOnlyList<WeeklyTargetChange> changes,
+        PlanProjectionDto dto)
+    {
+        if (changes.Count == 0)
+        {
+            return;
+        }
+
+        var weeks = dto.MesoWeeks.ToList();
+        foreach (var change in changes)
+        {
+            var index = weeks.FindIndex(w => w.WeekNumber == change.WeekNumber);
+            if (index >= 0)
+            {
+                weeks[index] = weeks[index] with { WeeklyTargetKm = change.AfterWeeklyTargetKm };
+            }
+
+            // A target change for a week not present in MesoWeeks is skipped — the
+            // meso tier is the authoritative week list; the projection never
+            // synthesizes weeks the plan-generation flow did not emit.
+        }
+
+        dto.MesoWeeks = weeks;
+    }
+
+    private static void ApplyWorkoutChanges(
+        IReadOnlyList<WorkoutChange> changes,
+        PlanProjectionDto dto)
+    {
+        if (changes.Count == 0)
+        {
+            return;
+        }
+
+        var map = new Dictionary<int, MicroWorkoutListOutput>(dto.MicroWorkoutsByWeek);
+        foreach (var group in changes.GroupBy(c => c.WeekNumber))
+        {
+            // Only weeks that already carry micro detail are edited. The
+            // adaptation never synthesizes future micro weeks (DEC-079 / spec
+            // non-goal); today only week 1 is populated, so a change targeting an
+            // unpopulated week is dropped here rather than inventing a week.
+            if (!map.TryGetValue(group.Key, out var micro))
+            {
+                continue;
+            }
+
+            var workouts = micro.Workouts.ToList();
+            foreach (var change in group)
+            {
+                // A removal (null After) is not modeled this slice — skip it.
+                if (change.After is null)
+                {
+                    continue;
+                }
+
+                var workoutIndex = workouts.FindIndex(w => w.DayOfWeek == change.DayOfWeek);
+                if (workoutIndex >= 0)
+                {
+                    workouts[workoutIndex] = change.After;
+                }
+                else
+                {
+                    workouts.Add(change.After);
+                }
+            }
+
+            map[group.Key] = micro with { Workouts = [.. workouts] };
+        }
+
+        dto.MicroWorkoutsByWeek = map;
+    }
+
+    private static void ThrowIfNonPositiveWeek(int weekNumber)
+    {
+        if (weekNumber < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(weekNumber),
+                weekNumber,
+                $"PlanAdaptedFromLog diff week number must be 1-based (got {weekNumber}).");
+        }
     }
 }
