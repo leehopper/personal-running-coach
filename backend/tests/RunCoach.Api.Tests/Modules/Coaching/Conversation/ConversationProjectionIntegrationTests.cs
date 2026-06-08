@@ -78,7 +78,7 @@ public class ConversationProjectionIntegrationTests(RunCoachAppFactory factory)
         turn.TriggeringWorkoutLogId.Should().Be(triggeringLogId);
         turn.TriggeringPlanEventId.Should().NotBeEmpty(because: "the turn links back to its source Marten event id");
         turn.CreatedAt.Should().NotBe(default);
-        turn.Diff.Should().NotBeNull();
+        turn.Diff.Should().BeEquivalentTo(diff, because: "the turn retains the exact structured diff that was appended");
     }
 
     [Fact]

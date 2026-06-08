@@ -141,6 +141,10 @@ public static class MartenConfiguration
         // Conversation read-model (Slice 3 Unit 2, DEC-079) — a second inline
         // single-stream projection over the same per-user Plan stream. Keyed by
         // PlanId so the read endpoint resolves it via the runner's active plan id.
+        // Both inline projections receive each appended event in the SAME Marten
+        // transaction as the append: if either Apply throws (e.g. PlanProjection's
+        // 1-based-week guard), the whole append rolls back and neither read model
+        // mutates — the explanation stays atomic with the plan change (DEC-060).
         opts.Schema.For<ConversationLogView>().Identity(x => x.PlanId);
         opts.Projections.Add(new ConversationProjection(), ProjectionLifecycle.Inline);
 

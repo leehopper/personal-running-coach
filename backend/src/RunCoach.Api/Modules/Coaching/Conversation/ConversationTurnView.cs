@@ -30,7 +30,7 @@ public sealed record ConversationTurnView
     public required SafetyTier SafetyTier { get; init; }
 
     /// <summary>Gets the referral category for a safety turn; <see cref="Safety.ReferralCategory.None"/> otherwise.</summary>
-    public ReferralCategory ReferralCategory { get; init; }
+    public required ReferralCategory ReferralCategory { get; init; }
 
     /// <summary>Gets the adaptation kind for an adaptation turn; null for a safety turn.</summary>
     public AdaptationKind? AdaptationKind { get; init; }

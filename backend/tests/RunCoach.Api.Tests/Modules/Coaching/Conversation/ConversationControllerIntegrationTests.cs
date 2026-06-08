@@ -130,7 +130,9 @@ public class ConversationControllerIntegrationTests(RunCoachAppFactory factory)
         newest.SafetyTier.Should().Be(SafetyTier.Amber);
         newest.ReferralCategory.Should().Be(ReferralCategory.Injury);
         newest.TriggeringWorkoutLogId.Should().Be(safetyLogId);
-        newest.EscalationLevel.Should().BeNull();
+        newest.EscalationLevel.Should().BeNull(because: "a safety turn carries no escalation level");
+        newest.AdaptationKind.Should().BeNull(because: "a safety turn is not an adaptation");
+        newest.Diff.Should().BeNull(because: "a safety turn carries no plan diff");
 
         var oldest = body.Turns[1];
         oldest.Role.Should().Be(ConversationRole.AssistantAdaptation);

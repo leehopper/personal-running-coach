@@ -403,6 +403,30 @@ public sealed class PlanProjectionTests
     }
 
     [Fact]
+    public void Apply_PlanAdaptedFromLog_WorkoutChangeWithNullAfter_LeavesWorkoutUnchanged()
+    {
+        // Arrange — a removal (null After) is not modeled this slice; the existing
+        // workout must remain rather than being dropped.
+        var actualDto = BuildCanonicalDto();
+        var existing = actualDto.MicroWorkoutsByWeek[1].Workouts.Single(w => w.DayOfWeek == 0);
+        var diff = new PlanAdaptationDiff([new WorkoutChange(1, 0, existing, After: null)], []);
+        var adaptation = new PlanAdaptedFromLog(
+            Guid.NewGuid(),
+            AdaptationKind.Nudge,
+            EscalationLevel.MicroAdjust,
+            SafetyTier.Green,
+            "n/a",
+            diff);
+
+        // Act
+        PlanProjection.Apply(adaptation, actualDto);
+
+        // Assert
+        actualDto.MicroWorkoutsByWeek[1].Workouts.Single(w => w.DayOfWeek == 0)
+            .Should().BeEquivalentTo(existing, because: "a null After (removal) is skipped, not applied, this slice");
+    }
+
+    [Fact]
     public void Apply_PlanAdaptedFromLog_EmptyDiff_LeavesProjectionUnchanged()
     {
         // Arrange

@@ -31,6 +31,14 @@ public sealed class PlanAdaptationEventRegistrationTests(RunCoachAppFactory fact
     [MemberData(nameof(AdaptationEventTypes))]
     public void AdaptationEvent_IsRegistered_WithSchemaVersionSuffix(Type adaptationEventType)
     {
+        // Direct list-membership guard — the spec's "fails if either event type is
+        // removed from RegisteredEventTypes." Independent of the EventGraph
+        // round-trip below: dropping the typeof(...) entry fails this assertion
+        // immediately (and the suffix assertion as a backstop).
+        MartenConfiguration.RegisteredEventTypes.Should().Contain(
+            adaptationEventType,
+            because: $"{adaptationEventType.Name} must be listed in RegisteredEventTypes so it is schema-version-tagged (DEC-067)");
+
         // Arrange — bare production-shape store; no session opened.
         using var store = DocumentStore.For(opts =>
         {

@@ -86,6 +86,14 @@ export type {
 // and the structured before/after diff. Re-exported type-only (same reasoning as the
 // workout-log DTOs) so the wire shape stays generated, not hand-mirrored; a backend
 // rename ripples here via `codegen:check` + `tsc`.
+//
+// CAVEAT for PR7: `escalationLevel`, `adaptationKind`, and `diff` are nullable on the
+// backend (null for `role === SystemSafety` safety turns) but the generated type
+// marks them present — the repo-wide `$ref`-property limitation of
+// RequireNonNullablePropertiesSchemaFilter (e.g. MesoDaySlotOutput.workoutType is
+// likewise typed non-null yet null on Rest days). Narrow on `role` and hand-write an
+// accurate discriminated domain model, mirroring `plan/models/plan.model.ts`'s
+// `MesoDaySlot` union — do not read those fields unguarded.
 export type {
   ConversationTurnsResponseDto,
   ConversationTurnDto,

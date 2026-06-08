@@ -21,7 +21,9 @@ public sealed record ConversationLogView
     /// <summary>
     /// Gets or sets the turns in append (chronological) order. The read endpoint
     /// reverses to newest-first. Each turn is keyed by its source event id so a
-    /// projection rebuild yields exactly one entry per event.
+    /// projection rebuild yields exactly one entry per event. Typed
+    /// <see cref="IReadOnlyList{T}"/> (mutated by whole-collection reassignment in
+    /// the projection) for parity with <c>PlanProjectionDto</c>'s read-model idiom.
     /// </summary>
-    public List<ConversationTurnView> Turns { get; set; } = [];
+    public IReadOnlyList<ConversationTurnView> Turns { get; set; } = [];
 }

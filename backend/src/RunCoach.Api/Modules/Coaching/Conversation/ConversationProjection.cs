@@ -79,15 +79,20 @@ public sealed partial class ConversationProjection : SingleStreamProjection<Conv
     {
         // Find-or-replace by the source event id keeps the projection idempotent
         // under replay — re-applying the same event overwrites its single turn
-        // rather than appending a duplicate.
-        var existing = view.Turns.FindIndex(t => t.TriggeringPlanEventId == turn.TriggeringPlanEventId);
+        // rather than appending a duplicate. Mutate by whole-collection reassignment
+        // (the PlanProjection idiom) rather than in-place, since Turns is exposed as
+        // an IReadOnlyList.
+        var turns = view.Turns.ToList();
+        var existing = turns.FindIndex(t => t.TriggeringPlanEventId == turn.TriggeringPlanEventId);
         if (existing >= 0)
         {
-            view.Turns[existing] = turn;
+            turns[existing] = turn;
         }
         else
         {
-            view.Turns.Add(turn);
+            turns.Add(turn);
         }
+
+        view.Turns = turns;
     }
 }
