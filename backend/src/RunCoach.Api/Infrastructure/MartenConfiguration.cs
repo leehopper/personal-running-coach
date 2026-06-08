@@ -13,6 +13,7 @@ using Marten.Storage;
 using Microsoft.EntityFrameworkCore;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Infrastructure.Marten;
+using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Observability;
@@ -68,6 +69,8 @@ public static class MartenConfiguration
         typeof(PlanGenerated),
         typeof(MesoCycleCreated),
         typeof(FirstMicroCycleCreated),
+        typeof(PlanAdaptedFromLog),
+        typeof(SafetySignalRaised),
         typeof(ClientErrorReported),
     ];
 
@@ -134,6 +137,16 @@ public static class MartenConfiguration
 
         opts.Schema.For<PlanProjectionDto>().Identity(x => x.PlanId);
         opts.Projections.Add(new PlanProjection(), ProjectionLifecycle.Inline);
+
+        // Conversation read-model (Slice 3 Unit 2, DEC-079) — a second inline
+        // single-stream projection over the same per-user Plan stream. Keyed by
+        // PlanId so the read endpoint resolves it via the runner's active plan id.
+        // Both inline projections receive each appended event in the SAME Marten
+        // transaction as the append: if either Apply throws (e.g. PlanProjection's
+        // 1-based-week guard), the whole append rolls back and neither read model
+        // mutates — the explanation stays atomic with the plan change (DEC-060).
+        opts.Schema.For<ConversationLogView>().Identity(x => x.PlanId);
+        opts.Projections.Add(new ConversationProjection(), ProjectionLifecycle.Inline);
 
         opts.Projections.Errors.SkipUnknownEvents = true;
 

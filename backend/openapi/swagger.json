@@ -363,6 +363,61 @@
         ]
       }
     },
+    "/api/v1/conversation/turns": {
+      "get": {
+        "tags": [
+          "Conversation"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationTurnsResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationTurnsResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationTurnsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
     "/api/v1/onboarding/turns": {
       "post": {
         "tags": [
@@ -966,6 +1021,15 @@
   },
   "components": {
     "schemas": {
+      "AdaptationKind": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "AuthResponseDto": {
         "required": [
           "email",
@@ -1049,6 +1113,80 @@
         ],
         "type": "integer",
         "format": "int32"
+      },
+      "ConversationRole": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "ConversationTurnDto": {
+        "required": [
+          "adaptationKind",
+          "content",
+          "createdAt",
+          "diff",
+          "escalationLevel",
+          "referralCategory",
+          "role",
+          "safetyTier",
+          "triggeringPlanEventId",
+          "triggeringWorkoutLogId"
+        ],
+        "type": "object",
+        "properties": {
+          "triggeringPlanEventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ConversationRole"
+          },
+          "content": {
+            "type": "string"
+          },
+          "escalationLevel": {
+            "$ref": "#/components/schemas/EscalationLevel"
+          },
+          "safetyTier": {
+            "$ref": "#/components/schemas/SafetyTier"
+          },
+          "referralCategory": {
+            "$ref": "#/components/schemas/ReferralCategory"
+          },
+          "adaptationKind": {
+            "$ref": "#/components/schemas/AdaptationKind"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/PlanAdaptationDiff"
+          },
+          "triggeringWorkoutLogId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConversationTurnsResponseDto": {
+        "required": [
+          "turns"
+        ],
+        "type": "object",
+        "properties": {
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationTurnDto"
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "CreateWorkoutLogRequestDto": {
         "required": [
@@ -1156,6 +1294,17 @@
           "CrossTrain"
         ],
         "type": "string"
+      },
+      "EscalationLevel": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "format": "int32"
       },
       "InjuryHistoryAnswer": {
         "required": [
@@ -1518,6 +1667,28 @@
         ],
         "type": "string"
       },
+      "PlanAdaptationDiff": {
+        "required": [
+          "weeklyTargetChanges",
+          "workoutChanges"
+        ],
+        "type": "object",
+        "properties": {
+          "workoutChanges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkoutChange"
+            }
+          },
+          "weeklyTargetChanges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeeklyTargetChange"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "PlanPhaseOutput": {
         "required": [
           "allowedWorkoutTypes",
@@ -1766,6 +1937,17 @@
         },
         "additionalProperties": false
       },
+      "ReferralCategory": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "RegeneratePlanRequestDto": {
         "required": [
           "idempotencyKey",
@@ -1845,6 +2027,15 @@
           "normalizedValue": { }
         },
         "additionalProperties": false
+      },
+      "SafetyTier": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "format": "int32"
       },
       "SegmentType": {
         "enum": [
@@ -1991,6 +2182,55 @@
           "description": {
             "type": "string",
             "description": "Runner-supplied free-text description of constraints not captured by the day flags (e.g. 'no early mornings')."
+          }
+        },
+        "additionalProperties": false
+      },
+      "WeeklyTargetChange": {
+        "required": [
+          "afterWeeklyTargetKm",
+          "beforeWeeklyTargetKm",
+          "weekNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "weekNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "beforeWeeklyTargetKm": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "afterWeeklyTargetKm": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkoutChange": {
+        "required": [
+          "after",
+          "before",
+          "dayOfWeek",
+          "weekNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "weekNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dayOfWeek": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "before": {
+            "$ref": "#/components/schemas/WorkoutOutput"
+          },
+          "after": {
+            "$ref": "#/components/schemas/WorkoutOutput"
           }
         },
         "additionalProperties": false
@@ -2225,6 +2465,9 @@
     },
     {
       "name": "ClientErrors"
+    },
+    {
+      "name": "Conversation"
     },
     {
       "name": "Onboarding"

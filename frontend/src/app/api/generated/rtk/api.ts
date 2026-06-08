@@ -46,6 +46,12 @@ const injectedRtkApi = api.injectEndpoints({
         body: queryArg.clientErrorRequestDto,
       }),
     }),
+    getApiV1ConversationTurns: build.query<
+      GetApiV1ConversationTurnsApiResponse,
+      GetApiV1ConversationTurnsApiArg
+    >({
+      query: () => ({ url: `/api/v1/conversation/turns` }),
+    }),
     postApiV1OnboardingTurns: build.mutation<
       PostApiV1OnboardingTurnsApiResponse,
       PostApiV1OnboardingTurnsApiArg
@@ -127,6 +133,8 @@ export type PostApiV1ClientErrorsApiResponse = unknown
 export type PostApiV1ClientErrorsApiArg = {
   clientErrorRequestDto: ClientErrorRequestDto
 }
+export type GetApiV1ConversationTurnsApiResponse = /** status 200 OK */ ConversationTurnsResponseDto
+export type GetApiV1ConversationTurnsApiArg = void
 export type PostApiV1OnboardingTurnsApiResponse = /** status 200 OK */ OnboardingTurnResponseDto
 export type PostApiV1OnboardingTurnsApiArg = {
   onboardingTurnRequestDto: OnboardingTurnRequestDto
@@ -194,6 +202,88 @@ export type ClientErrorRequestDto = {
   url: string
   userAgent: string
   appVersion: string
+}
+export type ConversationRole = 0 | 1
+export type EscalationLevel = 0 | 1 | 2 | 3 | 4
+export type SafetyTier = 0 | 1 | 2
+export type ReferralCategory = 0 | 1 | 2 | 3 | 4
+export type AdaptationKind = 0 | 1 | 2
+export type WorkoutType =
+  | 'Easy'
+  | 'LongRun'
+  | 'Tempo'
+  | 'Interval'
+  | 'Repetition'
+  | 'Recovery'
+  | 'CrossTrain'
+export type SegmentType = 'Warmup' | 'Work' | 'Recovery' | 'Cooldown'
+export type IntensityProfile = 'Easy' | 'Moderate' | 'Threshold' | 'VO2Max' | 'Repetition'
+export type WorkoutSegmentOutput = {
+  segmentType: SegmentType
+  /** Duration of this segment in minutes. */
+  durationMinutes: number
+  /** Target pace in seconds per kilometer for this segment. */
+  targetPaceSecPerKm: number
+  intensity: IntensityProfile
+  /** Number of repetitions for interval segments, or 1 for continuous efforts. */
+  repetitions: number
+  /** Coaching notes for this segment, such as effort cues or technique reminders. */
+  notes: string
+}
+export type WorkoutOutput = {
+  /** The day of the week as an integer: 0 = Sunday, 1 = Monday, ..., 6 = Saturday. */
+  dayOfWeek: number
+  workoutType: WorkoutType
+  /** A descriptive title for this workout, such as 'Easy Aerobic Run' or 'Threshold Intervals'. */
+  title: string
+  /** Target total distance for this workout in kilometers. */
+  targetDistanceKm: number
+  /** Target total duration for this workout in minutes. */
+  targetDurationMinutes: number
+  /** Target easy pace in seconds per kilometer for easy portions of this workout. */
+  targetPaceEasySecPerKm: number
+  /** Target fast pace in seconds per kilometer for hard portions of this workout. */
+  targetPaceFastSecPerKm: number
+  /** The structured segments that make up this workout (warmup, work intervals, cooldown, etc.). */
+  segments: WorkoutSegmentOutput[]
+  /** Specific warmup instructions for this workout. */
+  warmupNotes: string
+  /** Specific cooldown instructions for this workout. */
+  cooldownNotes: string
+  /** Coaching notes explaining the purpose and execution guidance for this workout. */
+  coachingNotes: string
+  /** Expected perceived effort on a 1-10 scale, where 1 is very easy and 10 is maximal. */
+  perceivedEffort: number
+}
+export type WorkoutChange = {
+  weekNumber: number
+  dayOfWeek: number
+  before: WorkoutOutput
+  after: WorkoutOutput
+}
+export type WeeklyTargetChange = {
+  weekNumber: number
+  beforeWeeklyTargetKm: number
+  afterWeeklyTargetKm: number
+}
+export type PlanAdaptationDiff = {
+  workoutChanges: WorkoutChange[]
+  weeklyTargetChanges: WeeklyTargetChange[]
+}
+export type ConversationTurnDto = {
+  triggeringPlanEventId: string
+  role: ConversationRole
+  content: string
+  escalationLevel: EscalationLevel
+  safetyTier: SafetyTier
+  referralCategory: ReferralCategory
+  adaptationKind: AdaptationKind
+  diff: PlanAdaptationDiff
+  triggeringWorkoutLogId: string
+  createdAt: string
+}
+export type ConversationTurnsResponseDto = {
+  turns: ConversationTurnDto[]
 }
 export type OnboardingTurnKind = 0 | 1
 export type OnboardingTopic = 0 | 1 | 2 | 3 | 4 | 5
@@ -304,14 +394,6 @@ export type ReviseAnswerRequestDto = {
   normalizedValue: any
 }
 export type PhaseType = 'Base' | 'Build' | 'Peak' | 'Taper' | 'Recovery'
-export type WorkoutType =
-  | 'Easy'
-  | 'LongRun'
-  | 'Tempo'
-  | 'Interval'
-  | 'Repetition'
-  | 'Recovery'
-  | 'CrossTrain'
 export type PlanPhaseOutput = {
   phaseType: PhaseType
   /** The number of weeks in this training phase. */
@@ -369,45 +451,6 @@ export type MesoWeekOutput = {
   saturday: MesoDaySlotOutput
   /** Coaching summary explaining the focus and goals for this training week. */
   weekSummary: string
-}
-export type SegmentType = 'Warmup' | 'Work' | 'Recovery' | 'Cooldown'
-export type IntensityProfile = 'Easy' | 'Moderate' | 'Threshold' | 'VO2Max' | 'Repetition'
-export type WorkoutSegmentOutput = {
-  segmentType: SegmentType
-  /** Duration of this segment in minutes. */
-  durationMinutes: number
-  /** Target pace in seconds per kilometer for this segment. */
-  targetPaceSecPerKm: number
-  intensity: IntensityProfile
-  /** Number of repetitions for interval segments, or 1 for continuous efforts. */
-  repetitions: number
-  /** Coaching notes for this segment, such as effort cues or technique reminders. */
-  notes: string
-}
-export type WorkoutOutput = {
-  /** The day of the week as an integer: 0 = Sunday, 1 = Monday, ..., 6 = Saturday. */
-  dayOfWeek: number
-  workoutType: WorkoutType
-  /** A descriptive title for this workout, such as 'Easy Aerobic Run' or 'Threshold Intervals'. */
-  title: string
-  /** Target total distance for this workout in kilometers. */
-  targetDistanceKm: number
-  /** Target total duration for this workout in minutes. */
-  targetDurationMinutes: number
-  /** Target easy pace in seconds per kilometer for easy portions of this workout. */
-  targetPaceEasySecPerKm: number
-  /** Target fast pace in seconds per kilometer for hard portions of this workout. */
-  targetPaceFastSecPerKm: number
-  /** The structured segments that make up this workout (warmup, work intervals, cooldown, etc.). */
-  segments: WorkoutSegmentOutput[]
-  /** Specific warmup instructions for this workout. */
-  warmupNotes: string
-  /** Specific cooldown instructions for this workout. */
-  cooldownNotes: string
-  /** Coaching notes explaining the purpose and execution guidance for this workout. */
-  coachingNotes: string
-  /** Expected perceived effort on a 1-10 scale, where 1 is very easy and 10 is maximal. */
-  perceivedEffort: number
 }
 export type MicroWorkoutListOutput = {
   /** The list of detailed workout prescriptions for the training week. */
@@ -488,6 +531,7 @@ export const {
   useGetApiV1AuthMeQuery,
   usePostApiV1AuthLogoutMutation,
   usePostApiV1ClientErrorsMutation,
+  useGetApiV1ConversationTurnsQuery,
   usePostApiV1OnboardingTurnsMutation,
   useGetApiV1OnboardingStateQuery,
   usePostApiV1OnboardingAnswersReviseMutation,
