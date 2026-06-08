@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace RunCoach.Api.Modules.Training.Adaptation;
 
 /// <summary>
@@ -8,10 +6,10 @@ namespace RunCoach.Api.Modules.Training.Adaptation;
 /// LLM call; Level 2 (restructure) is the first level that invokes the coaching
 /// LLM. Slice 3 resolves levels 0–2 (a deterministic Level-3 signal is folded into
 /// L2 for MVP-0); Level 4 (plan overhaul, requires explicit user confirmation) is
-/// deferred to Slice 4. Serialized by name so the durable event payload survives
-/// any future member reordering.
+/// deferred to Slice 4. Values are explicitly numbered to the DEC-012 0-indexed
+/// canon so reordering members never shifts the stored/serialized integer encoding
+/// (matching the <see cref="Safety.SafetyTier"/> convention).
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<EscalationLevel>))]
 public enum EscalationLevel
 {
     /// <summary>Level 0 — actuals within band; log only, no plan change, no turn.</summary>

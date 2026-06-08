@@ -80,6 +80,25 @@ export type {
   WorkoutLogSplitDto,
 } from './rtk/api'
 
+// Conversation read DTOs (slice-3 Unit 2, PR3). The read-only "Explain-the-change"
+// panel (PR7) consumes the response envelope + turn shape, the adaptation/safety
+// enums (numeric on the wire — no JsonStringEnumConverter, matching CompletionStatus),
+// and the structured before/after diff. Re-exported type-only (same reasoning as the
+// workout-log DTOs) so the wire shape stays generated, not hand-mirrored; a backend
+// rename ripples here via `codegen:check` + `tsc`.
+export type {
+  ConversationTurnsResponseDto,
+  ConversationTurnDto,
+  ConversationRole,
+  EscalationLevel,
+  SafetyTier,
+  ReferralCategory,
+  AdaptationKind,
+  PlanAdaptationDiff,
+  WorkoutChange,
+  WeeklyTargetChange,
+} from './rtk/api'
+
 export const completionStatusSchema = createWorkoutLogRequestSchema.shape.completionStatus
 export type CompletionStatus = z.infer<typeof completionStatusSchema>
 

@@ -1,15 +1,13 @@
-using System.Text.Json.Serialization;
-
 namespace RunCoach.Api.Modules.Training.Adaptation;
 
 /// <summary>
 /// The kind of plan change an adaptation applied, surfaced to the read-only
 /// "Explain-the-change" panel (DEC-079). Distinct from <see cref="EscalationLevel"/>:
 /// the kind drives how the panel renders the turn (silent / inline / expandable),
-/// while the level records the DEC-012 ladder position. Serialized by name so the
-/// durable event payload survives any future member reordering.
+/// while the level records the DEC-012 ladder position. Values are explicitly
+/// numbered so reordering members never shifts the stored/serialized integer
+/// encoding (matching the <see cref="Safety.SafetyTier"/> convention).
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<AdaptationKind>))]
 public enum AdaptationKind
 {
     /// <summary>No change — the log was absorbed; no event is appended for this kind.</summary>
