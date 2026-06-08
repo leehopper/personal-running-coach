@@ -1,4 +1,5 @@
 using System.Globalization;
+using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Constants;
 using RunCoach.Api.Modules.Training.Models;
 
@@ -74,12 +75,12 @@ internal static class RecentLogFormatter
     /// </summary>
     private static string? FormatPace(Distance distance, Duration duration)
     {
-        if (distance.Kilometers <= 0 || duration.TotalSeconds <= 0)
+        if (PaceDerivation.TryDerive(distance, duration) is not { } pace)
         {
             return null;
         }
 
-        var ts = Pace.FromSecondsPerKm(duration.TotalSeconds / distance.Kilometers).ToTimeSpan();
+        var ts = pace.ToTimeSpan();
         var clock = ts.TotalHours >= 1
             ? ts.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
             : ts.ToString(@"m\:ss", CultureInfo.InvariantCulture);

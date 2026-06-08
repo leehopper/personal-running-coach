@@ -2,6 +2,7 @@ using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Coaching.Sanitization;
+using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Safety;
@@ -42,6 +43,12 @@ public static class ServiceCollectionExtensions
         // Stateless keyword classifier; the keyword catalog is compiled once at
         // type-load. Consumed by the Slice 3 adaptation orchestration handler.
         services.AddSingleton<ISafetyGate, SafetyGate>();
+
+        // Training module — deterministic deviation engine + escalation classifier
+        // (Slice 3 PR2 / Unit 1, DEC-012/DEC-078). Pure, stateless decision layer
+        // consumed by the Slice 3 adaptation orchestration handler (PR5).
+        services.AddSingleton<IDeviationEngine, DeviationEngine>();
+        services.AddSingleton<IEscalationClassifier, EscalationClassifier>();
 
         // Training module — workout-log persistence (scoped, shares the request DbContext).
         services.AddScoped<IWorkoutLogRepository, WorkoutLogRepository>();
