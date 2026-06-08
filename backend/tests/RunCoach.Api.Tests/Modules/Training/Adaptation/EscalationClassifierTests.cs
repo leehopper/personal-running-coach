@@ -199,6 +199,64 @@ public sealed class EscalationClassifierTests
     }
 
     [Fact]
+    public void Classify_PartialLogInBand_UnderPerformsButDoesNotCountAsMissedDay()
+    {
+        // Arrange — a Partial (cut-short) log with in-band pace and on-target distance:
+        // the not-Complete clause of IsUnderPerformance alone drives under-performance,
+        // but a Partial is not a Skipped (missed) day.
+        var partial = Dev(status: CompletionStatus.Partial);
+
+        // Act
+        var actual = _sut.Classify(partial, SafetyTier.Green, AdaptationSignalState.Initial);
+
+        // Assert — scores like a Skipped log, but never advances the consecutive-missed streak.
+        actual.NextState.RollingDeviationScore.Should().BeApproximately(
+            AdaptationThresholds.MinorDeviationStep,
+            1e-6,
+            because: "a Partial log under-performs via the not-Complete clause, like a Skipped one");
+        actual.NextState.ConsecutiveMissedDays.Should().Be(
+            0, because: "only a Skipped log counts toward the consecutive-missed-day streak");
+        actual.EscalationLevel.Should().Be(EscalationLevel.Absorb);
+    }
+
+    [Fact]
+    public void Classify_TwoPartialLogs_AccumulateToMicroAdjust()
+    {
+        // Arrange / Act — two Partial logs accumulate the score exactly like minor deviations,
+        // reaching the micro-adjust threshold without ever touching the missed-day streak.
+        var afterFirst = _sut.Classify(
+            Dev(Day(1), status: CompletionStatus.Partial), SafetyTier.Green, AdaptationSignalState.Initial);
+        var afterSecond = _sut.Classify(
+            Dev(Day(2), status: CompletionStatus.Partial), SafetyTier.Green, afterFirst.NextState);
+
+        // Assert
+        afterFirst.EscalationLevel.Should().Be(
+            EscalationLevel.Absorb, because: "a single Partial log is absorbed below the micro-adjust threshold");
+        afterSecond.EscalationLevel.Should().Be(EscalationLevel.MicroAdjust);
+        afterSecond.NextState.ConsecutiveMissedDays.Should().Be(
+            0, because: "Partial logs never accrue a consecutive-missed-day streak");
+    }
+
+    [Theory]
+    [InlineData(-6.0, 1.0, PlanState.MinorDeviation)] // just beyond the -5% tolerance: under-performs
+    [InlineData(-4.0, 0.0, PlanState.OnTrack)] // just inside the -5% tolerance: absorbed as on target
+    public void Classify_DistanceShortfallAloneAtToleranceBoundary_DrivesUnderPerformance(
+        double distancePct, double expectedScore, PlanState expectedPlanState)
+    {
+        // Arrange — a Complete, in-band log whose only deviation is running short of the prescribed
+        // distance, isolating the distance clause of IsUnderPerformance at the ±tolerance boundary.
+        var log = Dev(distancePct: distancePct);
+
+        // Act
+        var actual = _sut.Classify(log, SafetyTier.Green, AdaptationSignalState.Initial);
+
+        // Assert — a single deviation never reaches micro-adjust; the score and plan-state pin the boundary.
+        actual.EscalationLevel.Should().Be(EscalationLevel.Absorb);
+        actual.NextState.RollingDeviationScore.Should().BeApproximately(expectedScore, 1e-6);
+        actual.NextState.PlanState.Should().Be(expectedPlanState);
+    }
+
+    [Fact]
     public void Classify_NullDeviation_Throws()
     {
         // Act

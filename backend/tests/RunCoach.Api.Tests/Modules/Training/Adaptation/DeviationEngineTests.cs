@@ -163,6 +163,28 @@ public sealed class DeviationEngineTests
         actual!.OccurredOn.Should().Be(occurredOn);
     }
 
+    [Fact]
+    public void Evaluate_PartialLog_DerivesRealPaceFromTruncatedActualsAndCarriesPartialStatus()
+    {
+        // Arrange — a Partial (cut-short) run still has real actuals: band 280-320,
+        // 8 km in 48 min = 360 sec/km (slower than the Slow bound), short of the prescribed 10 km.
+        var snapshot = Snapshot(km: 10, minutes: 50, paceFast: 280, paceSlow: 320, type: WorkoutType.Tempo);
+        var log = Log(km: 8, minutes: 48, prescription: snapshot, status: CompletionStatus.Partial);
+
+        // Act
+        var actual = _sut.Evaluate(log);
+
+        // Assert — unlike Skipped, a Partial is not short-circuited to Unknown; it derives a real pace.
+        actual!.CompletionStatus.Should().Be(CompletionStatus.Partial);
+        actual.PaceBand.Should().Be(
+            PaceBandMembership.SlowerThanSlow,
+            because: "only Skipped forces Unknown; a Partial derives pace from its truncated distance/duration");
+        actual.PaceDeviationSecondsPerKm.Should().BeApproximately(
+            40.0, 1e-6, because: "360 sec/km is 40 sec/km slower than the 320 Slow bound");
+        actual.DistanceDeviationPercent.Should().BeApproximately(
+            -20.0, 1e-6, because: "8 km vs the prescribed 10 km is -20%");
+    }
+
     private static WorkoutLog Log(
         double km,
         double minutes,
