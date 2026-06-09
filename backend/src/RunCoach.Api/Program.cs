@@ -97,6 +97,13 @@ builder.Host.UseWolverine(opts =>
     // stream-collision pair stays in `Marten.Exceptions`, so no inheritance
     // links them and the rule must be registered explicitly; the existing two
     // registrations do not cover it transitively.
+    //
+    // Scope: these are GLOBAL rules. The adaptation evaluation chain registers
+    // its own chain-scoped `ConcurrentUpdateException` rule (bounded retry
+    // against fresh state, then error queue) via
+    // `EvaluateAdaptationHandler.Configure(HandlerChain)`; chain rules are
+    // evaluated before global rules, so first-write-wins routing here keeps
+    // governing the onboarding and regenerate chains only.
     opts.OnException<Marten.Exceptions.ExistingStreamIdCollisionException>().MoveToErrorQueue();
     opts.OnException<Marten.Exceptions.ConcurrentUpdateException>().MoveToErrorQueue();
     opts.OnException<JasperFx.DocumentAlreadyExistsException>().MoveToErrorQueue();
