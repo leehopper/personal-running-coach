@@ -93,11 +93,10 @@ sections:
 
       - key: "computed_metrics"
         source: "Deterministic computation layer"
-        description: "ACWR, volume progression, recent load metrics — all computed by code, not LLM"
+        description: "Volume progression and recent load metrics — all computed by code, not LLM. The full EWMA/ACWR training-load model is deferred (DEC-078); no acute:chronic ratio is computed at MVP-0, so none is injected."
         token_estimate: 200
         required: false
         format: >
-          ACWR (acute:chronic workload ratio): {ACWR value}
           Weekly volume trend: {Recent 4-week volumes}
           Volume change from last week: {Percentage}
 

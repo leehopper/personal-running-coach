@@ -31,15 +31,19 @@ public sealed record CoachingLlmSettings
     public int MaxTokens { get; init; } = 8192;
 
     /// <summary>
-    /// Gets maximum number of retries for failed requests (rate limits, transient errors).
-    /// The Anthropic SDK handles retries with exponential backoff.
-    /// Defaults to 3.
+    /// Gets the maximum number of retries the Anthropic SDK makes for failed requests (rate
+    /// limits, transient 5xx/network errors), with exponential backoff that honors
+    /// <c>Retry-After</c>. <c>MaxRetries = N</c> means up to <c>N + 1</c> attempts. Defaults to
+    /// 2 (3 attempts) per DEC-073, matching the SDK's own default.
     /// </summary>
-    public int MaxRetries { get; init; } = 3;
+    public int MaxRetries { get; init; } = 2;
 
     /// <summary>
-    /// Gets request timeout in seconds. Defaults to 120 seconds (2 minutes)
-    /// to accommodate longer plan generation responses.
+    /// Gets the SDK per-attempt request timeout in seconds. Defaults to 120 seconds (2 minutes):
+    /// this single setting governs every coaching call, and the plan-generation structured-output
+    /// responses routinely need far longer than the ~30s DEC-073 sketched for the adaptation call
+    /// alone — the shared 120s bound deliberately supersedes that figure rather than starving plan
+    /// generation. A timed-out attempt surfaces as a <see cref="TransientCoachingLlmException"/>.
     /// </summary>
     public int TimeoutSeconds { get; init; } = 120;
 

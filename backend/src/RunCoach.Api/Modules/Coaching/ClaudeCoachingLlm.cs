@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Anthropic;
 using Anthropic.Core;
+using Anthropic.Exceptions;
 using Anthropic.Models.Messages;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -36,10 +37,20 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         Converters = { new JsonStringEnumConverter() },
     };
 
+    private const string BusyMessage =
+        "The coaching service is busy right now. Please try again in a moment.";
+
+    private const string UnavailableMessage =
+        "The coaching service is temporarily unavailable. Please try again shortly.";
+
+    private const string RejectedMessage =
+        "The coaching request could not be completed.";
+
     private readonly IAnthropicClient _client;
     private readonly CoachingLlmSettings _settings;
     private readonly ILogger<ClaudeCoachingLlm> _logger;
     private readonly bool _ownsClient;
+    private readonly HttpClient? _httpClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class
@@ -59,12 +70,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
         ValidateSettings(_settings);
 
-        _client = new AnthropicClient(new ClientOptions
-        {
-            ApiKey = _settings.ApiKey,
-            MaxRetries = _settings.MaxRetries,
-            Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds),
-        });
+        (_client, _httpClient) = CreateClientPipeline(_settings, new SocketsHttpHandler());
     }
 
     /// <summary>
@@ -84,6 +90,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         _settings = settings;
         _logger = logger;
         _ownsClient = false;
+        _httpClient = null;
     }
 
     /// <inheritdoc />
@@ -112,7 +119,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             ],
         };
 
-        var response = await _client.Messages.Create(createParams, ct).ConfigureAwait(false);
+        var response = await CreateMessageAsync(createParams, ct).ConfigureAwait(false);
 
         var text = ExtractTextContent(response);
 
@@ -126,12 +133,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             response.Usage.InputTokens,
             response.Usage.OutputTokens);
 
-        if (response.StopReason is { } sr && sr == StopReason.MaxTokens)
-        {
-            throw new InvalidOperationException(
-                "LLM response was truncated (stop_reason=max_tokens). " +
-                "Increase MaxTokens or reduce prompt size.");
-        }
+        ThrowIfTruncated(response);
 
         return text;
     }
@@ -186,7 +188,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             },
         };
 
-        var response = await _client.Messages.Create(createParams, ct).ConfigureAwait(false);
+        var response = await CreateMessageAsync(createParams, ct).ConfigureAwait(false);
 
         var json = ExtractTextContent(response);
 
@@ -200,16 +202,29 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             response.Usage.InputTokens,
             response.Usage.OutputTokens);
 
-        if (response.StopReason is { } sr && sr == StopReason.MaxTokens)
+        ThrowIfTruncated(response);
+
+        // DEC-073 classifies malformed model output as terminal. Constrained decoding makes a
+        // malformed or null payload structurally unreachable in production, but the totality
+        // contract on ICoachingLlm (CoachingLlmException is the only failure surface) must hold
+        // even if that invariant ever breaks.
+        T? result;
+        try
         {
-            throw new InvalidOperationException(
-                "LLM response was truncated (stop_reason=max_tokens). " +
-                "Increase MaxTokens or reduce prompt size.");
+            result = JsonSerializer.Deserialize<T>(json, StructuredOutputSerializerOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new PermanentCoachingLlmException(RejectedMessage, ex);
         }
 
-        var result = JsonSerializer.Deserialize<T>(json, StructuredOutputSerializerOptions)
-            ?? throw new InvalidOperationException(
-                $"Failed to deserialize structured output to {typeof(T).Name}. JSON was a null literal.");
+        if (result is null)
+        {
+            throw new PermanentCoachingLlmException(
+                RejectedMessage,
+                new InvalidOperationException(
+                    $"Failed to deserialize structured output to {typeof(T).Name}. JSON was a null literal."));
+        }
 
         var usage = ExtractUsage(response);
         return (result, usage);
@@ -228,10 +243,45 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        if (_ownsClient && _client is IDisposable disposable)
+        if (_ownsClient)
         {
-            disposable.Dispose();
+            if (_client is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            _httpClient?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Builds the owned <see cref="HttpClient"/> + <see cref="AnthropicClient"/> pair around the
+    /// supplied transport handler. The <see cref="RetryAfterCaptureHandler"/> sits outermost in
+    /// the SDK's HTTP pipeline so it can read the raw <c>Retry-After</c> header (DEC-073) — the
+    /// SDK 12.24.1 exposes no header accessor on its exceptions. The SDK's own bounded retry loop
+    /// wraps this handler; <see cref="HttpClient.Timeout"/> is disabled so the SDK's per-attempt
+    /// timeout (<c>ClientOptions.Timeout</c>, linked to the inbound <see cref="CancellationToken"/>)
+    /// is the sole governor. Single construction seam for the production constructor and the
+    /// stub-transport tests, so the wiring cannot drift between them.
+    /// </summary>
+    internal static (AnthropicClient Client, HttpClient HttpClient) CreateClientPipeline(
+        CoachingLlmSettings settings,
+        HttpMessageHandler transportHandler)
+    {
+        var httpClient = new HttpClient(new RetryAfterCaptureHandler { InnerHandler = transportHandler })
+        {
+            Timeout = Timeout.InfiniteTimeSpan,
+        };
+
+        var client = new AnthropicClient(new ClientOptions
+        {
+            ApiKey = settings.ApiKey,
+            MaxRetries = settings.MaxRetries,
+            Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds),
+            HttpClient = httpClient,
+        });
+
+        return (client, httpClient);
     }
 
     /// <summary>
@@ -342,6 +392,24 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <summary>
+    /// Translates a <c>stop_reason=max_tokens</c> truncation into a
+    /// <see cref="PermanentCoachingLlmException"/>. DEC-073 classifies malformed/incomplete model
+    /// output as terminal: a truncated payload cannot be retried into a complete one at the same
+    /// MaxTokens, and it must not escape <see cref="ICoachingLlm"/> as an untyped exception.
+    /// </summary>
+    private static void ThrowIfTruncated(Message response)
+    {
+        if (response.StopReason is { } sr && sr == StopReason.MaxTokens)
+        {
+            throw new PermanentCoachingLlmException(
+                RejectedMessage,
+                new InvalidOperationException(
+                    "LLM response was truncated (stop_reason=max_tokens). " +
+                    "Increase MaxTokens or reduce prompt size."));
+        }
+    }
+
+    /// <summary>
     /// Validates that required settings are present.
     /// Throws <see cref="InvalidOperationException"/> if the API key is missing.
     /// </summary>
@@ -368,4 +436,69 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Received response from {ModelId}: {ContentLength} chars, stop_reason={StopReason}, input_tokens={InputTokens}, output_tokens={OutputTokens}")]
     private static partial void LogReceivedResponse(ILogger logger, string modelId, int contentLength, string stopReason, long inputTokens, long outputTokens);
+
+    /// <summary>
+    /// Issues the Anthropic <c>messages.create</c> call inside a <see cref="RetryAfterCapture"/>
+    /// scope and translates the SDK 12.24.1 failure surface into the adapter-owned
+    /// <see cref="TransientCoachingLlmException"/> / <see cref="PermanentCoachingLlmException"/>
+    /// (DEC-073) so callers never see an <c>Anthropic.Exceptions</c> type. The SDK has already
+    /// applied its own bounded retries (<see cref="CoachingLlmSettings.MaxRetries"/>) and honored
+    /// <c>Retry-After</c> backoff by the time any of these catches fire. Genuine caller
+    /// cancellation propagates unwrapped and is never reclassified as a service failure; the
+    /// filtered <c>OperationCanceledException</c> catch only fires when the caller's token is NOT
+    /// cancelled — i.e. the SDK's per-attempt timeout (<c>ClientOptions.Timeout</c>), which the
+    /// SDK 12.24.1 surfaces as a raw <see cref="TaskCanceledException"/> from a linked CTS with no
+    /// timeout exception type of its own. Catch order is significant:
+    /// <see cref="AnthropicRateLimitException"/> derives from
+    /// <see cref="Anthropic4xxException"/> which derives from <see cref="AnthropicApiException"/>.
+    /// </summary>
+    private async Task<Message> CreateMessageAsync(MessageCreateParams createParams, CancellationToken ct)
+    {
+        using (RetryAfterCapture.BeginScope())
+        {
+            try
+            {
+                return await _client.Messages.Create(createParams, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+            {
+                // The SDK's per-attempt timeout fired (the caller did not cancel): a hung or
+                // overlong Anthropic call is a transient service failure, not a user cancellation.
+                throw new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, ex);
+            }
+            catch (AnthropicRateLimitException ex)
+            {
+                throw new TransientCoachingLlmException(BusyMessage, RetryAfterCapture.CurrentSeconds, ex);
+            }
+            catch (Anthropic5xxException ex)
+            {
+                throw new TransientCoachingLlmException(UnavailableMessage, RetryAfterCapture.CurrentSeconds, ex);
+            }
+            catch (AnthropicIOException ex)
+            {
+                // Transport failure — no HTTP response, so no Retry-After to read.
+                throw new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, ex);
+            }
+            catch (AnthropicInvalidDataException ex)
+            {
+                throw new PermanentCoachingLlmException(RejectedMessage, ex);
+            }
+            catch (AnthropicApiException ex)
+            {
+                // Remaining HTTP errors: 408/409 land on the non-leaf Anthropic4xxException, so
+                // classify by status rather than leaf type. 408/409/429/5xx are transient (the
+                // SDK would have retried them); 400/401/403/404/422 are permanent.
+                var status = (int)ex.StatusCode;
+                var transient = status is 408 or 409 or 429 || status >= 500;
+                throw transient
+                    ? new TransientCoachingLlmException(UnavailableMessage, RetryAfterCapture.CurrentSeconds, ex)
+                    : new PermanentCoachingLlmException(RejectedMessage, ex);
+            }
+            catch (AnthropicException ex)
+            {
+                // Defensive catch-all for any unmodeled SDK exception (e.g. a bare service error).
+                throw new PermanentCoachingLlmException(RejectedMessage, ex);
+            }
+        }
+    }
 }
