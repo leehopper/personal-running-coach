@@ -3,7 +3,9 @@ using Marten;
 using Marten.Exceptions;
 using Microsoft.Extensions.Logging;
 using RunCoach.Api.Infrastructure.Idempotency;
+using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Adaptation;
+using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Models;
@@ -50,7 +52,14 @@ namespace RunCoach.Api.Modules.Training.Adaptation;
 ///   classify, then route: L0 absorb appends nothing (the state document still
 ///   advances); L1 plans a forward swap via <see cref="MicroAdjustPlanner"/> and
 ///   appends exactly one <see cref="PlanAdaptedFromLog"/> nudge; an unswappable
-///   L1 escalates into the L2 restructure seam.</item>
+///   L1 escalates into the L2 restructure path.</item>
+/// <item>L2 Green/Amber restructure: compose the adaptation prompt, make exactly
+///   ONE structured-output LLM call (DEC-073 — SDK-side retries only), validate via
+///   <see cref="PlanAdaptationOutputValidator"/>, compute the deterministic diff via
+///   <see cref="RestructureDiffCalculator"/>, then append one
+///   <see cref="PlanAdaptedFromLog"/> restructure (plus the scripted Amber
+///   <see cref="SafetySignalRaised"/> referral when the tier is Amber) and advance
+///   the signal state.</item>
 /// <item>The marker records LAST on every committing path so it persists
 ///   atomically with the appends it memoizes.</item>
 /// </list>
@@ -59,6 +68,13 @@ namespace RunCoach.Api.Modules.Training.Adaptation;
 /// Failure semantics: nothing is staged on failure paths. Any uncaught exception
 /// aborts the Wolverine-bracketed Marten transaction, rolling back marker, events,
 /// and state document together, so a retried run re-evaluates against fresh state.
+/// A <em>caught</em> terminal <see cref="CoachingLlmException"/> on the L2 path is
+/// different: the handler returns the <c>Kind=Error</c> envelope normally, so
+/// Wolverine COMMITS the session — which is safe only because the L2 path stages
+/// strictly nothing (no event, no state document, no marker) before the LLM call,
+/// validation, and diff have all succeeded. The committed transaction is therefore
+/// empty: the plan stream is unchanged and the marker stays released for
+/// re-evaluation.
 /// </para>
 /// </remarks>
 public sealed partial class EvaluateAdaptationHandler
@@ -71,6 +87,17 @@ public sealed partial class EvaluateAdaptationHandler
     /// semantics the optimistic-concurrency contract asks for.
     /// </summary>
     internal const int MaxConcurrencyRetries = 3;
+
+    /// <summary>
+    /// User-facing message for the non-retryable envelope when the LLM's proposal
+    /// fails post-decode validation (or is not the restructure the deterministic
+    /// ladder asked for). Mirrors <see cref="PermanentCoachingLlmException"/>
+    /// semantics: retrying the identical request is unlikely to help, the log is
+    /// already saved, and no plan change was applied.
+    /// </summary>
+    private const string RejectedProposalMessage =
+        "The coach proposed a plan change that did not pass safety validation, so your "
+        + "plan was left unchanged. Your workout log is saved.";
 
     // The type is a stateless logical handler container: Wolverine codegen
     // emits a non-static handler stub that calls the static `Handle` method,
@@ -111,6 +138,8 @@ public sealed partial class EvaluateAdaptationHandler
     /// <param name="recentLogSanitizer">DEC-059 free-text sanitizer for the log's note + metric values.</param>
     /// <param name="safetyGate">Deterministic keyword safety classifier; runs before any LLM.</param>
     /// <param name="escalationClassifier">Deterministic DEC-012 escalation ladder.</param>
+    /// <param name="assembler">Context assembler composing the L2 adaptation prompt (sanitized, nonce-spotlighted).</param>
+    /// <param name="llm">Coaching LLM adapter — invoked on the L2 restructure path only.</param>
     /// <param name="idempotency">Idempotency store backed by the same <paramref name="session"/>.</param>
     /// <param name="logger">Logger.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -123,6 +152,8 @@ public sealed partial class EvaluateAdaptationHandler
         IRecentLogSanitizer recentLogSanitizer,
         ISafetyGate safetyGate,
         IEscalationClassifier escalationClassifier,
+        IContextAssembler assembler,
+        ICoachingLlm llm,
         IIdempotencyStore idempotency,
         ILogger<EvaluateAdaptationHandler> logger,
         CancellationToken ct)
@@ -134,6 +165,8 @@ public sealed partial class EvaluateAdaptationHandler
         ArgumentNullException.ThrowIfNull(recentLogSanitizer);
         ArgumentNullException.ThrowIfNull(safetyGate);
         ArgumentNullException.ThrowIfNull(escalationClassifier);
+        ArgumentNullException.ThrowIfNull(assembler);
+        ArgumentNullException.ThrowIfNull(llm);
         ArgumentNullException.ThrowIfNull(idempotency);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -220,10 +253,13 @@ public sealed partial class EvaluateAdaptationHandler
         //     live micro week — deterministic, no LLM. No live micro detail for
         //     the prescribed week, or no valid non-stacking forward swap,
         //     escalates L1 -> L2.
+        // Both the L1 swap and the L2 prompt composition read the live plan
+        // projection; load it once for whichever branch follows.
+        var plan = await session.LoadAsync<PlanProjectionDto>(planId, ct).ConfigureAwait(false);
+
         if (decision.EscalationLevel == EscalationLevel.MicroAdjust)
         {
-            var currentWeek = await LoadLiveMicroWeekAsync(session, planId, snapshot.WeekNumber, ct)
-                .ConfigureAwait(false);
+            var currentWeek = LiveMicroWeek(plan, snapshot.WeekNumber);
             if (currentWeek is not null
                 && MicroAdjustPlanner.TryPlanSwap(currentWeek, snapshot.DayOfWeek, snapshot.WeekNumber, out var diff))
             {
@@ -242,11 +278,24 @@ public sealed partial class EvaluateAdaptationHandler
             }
 
             LogMicroAdjustEscalated(logger, cmd.WorkoutLogId, planId, snapshot.WeekNumber);
-            return RestructureSeam(cmd, decision, safety, logger);
         }
 
         // (10) L2 restructure: the first level that invokes the coaching LLM.
-        return RestructureSeam(cmd, decision, safety, logger);
+        return await RestructureAsync(
+            cmd,
+            planId,
+            plan,
+            snapshot,
+            deviation,
+            detail,
+            decision,
+            safety,
+            session,
+            assembler,
+            llm,
+            idempotency,
+            logger,
+            ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -266,25 +315,138 @@ public sealed partial class EvaluateAdaptationHandler
     }
 
     /// <summary>
-    /// The single L2 seam the LLM restructure path fills (Slice 3 Unit 4/5 —
-    /// compose adaptation prompt, call the LLM, validate, append
-    /// <see cref="PlanAdaptedFromLog"/> + Amber <see cref="SafetySignalRaised"/>,
-    /// then store state and record the marker; a terminal
-    /// <c>CoachingLlmException</c> returns the <c>Kind=Error</c> envelope with
-    /// nothing staged). Until that path lands, a restructure-classified log is
-    /// deliberately left uncommitted: no event, no signal-state advance, and no
-    /// idempotency marker — so the very same log re-evaluates (and restructures)
-    /// once the LLM path exists, instead of being permanently memoized as a
-    /// silent absorb.
+    /// The L2 LLM restructure path (Slice 3 Unit 4/5, DEC-012/DEC-073/DEC-079):
+    /// compose the adaptation prompt, make exactly ONE structured-output call
+    /// against the byte-stable <see cref="AdaptationSchema.Frozen"/> schema
+    /// (no handler-side retry loop — DEC-073 puts bounded retries inside the
+    /// adapter's SDK), validate via <see cref="PlanAdaptationOutputValidator"/>,
+    /// compute the deterministic diff via <see cref="RestructureDiffCalculator"/>,
+    /// and only then stage the event(s) + state + marker.
     /// </summary>
-    private static AdaptationResponseDto RestructureSeam(
+    /// <remarks>
+    /// <para>
+    /// Stage-nothing-before-success is the load-bearing invariant: a caught
+    /// <see cref="CoachingLlmException"/> (and a post-decode validation reject,
+    /// which the handler maps to the same non-retryable envelope — the validator
+    /// is pure, the handler owns the policy) returns normally, so Wolverine
+    /// commits the session. Because every <c>session.Events.Append</c> /
+    /// <c>session.Store</c> / <c>idempotency.Record</c> sits strictly AFTER the
+    /// LLM call, validation, and diff have succeeded, that commit is empty:
+    /// stream unchanged, marker released, the log re-evaluates on retry.
+    /// </para>
+    /// <para>
+    /// An Amber tier additionally appends <see cref="SafetySignalRaised"/> with
+    /// the versioned scripted <see cref="AmberReferralContent"/> for the matched
+    /// category. The referral content source was unpinned by design; the scripted
+    /// per-category route (mirroring the Red-tier
+    /// <see cref="CrisisResponseContent"/> / <see cref="EmergencyResponseContent"/>
+    /// routing) is chosen deliberately over LLM prose so the safety turn stays
+    /// deterministic and safe (DEC-019/DEC-030/DEC-079 — safety is never left to
+    /// LLM self-policing).
+    /// </para>
+    /// </remarks>
+    private static async Task<AdaptationResponseDto> RestructureAsync(
         EvaluateAdaptationCommand cmd,
+        Guid planId,
+        PlanProjectionDto? plan,
+        WorkoutPrescriptionSnapshot snapshot,
+        DeviationResult deviation,
+        LoggedWorkoutDetail detail,
         EscalationDecision decision,
         SafetyClassification safety,
-        ILogger logger)
+        IDocumentSession session,
+        IContextAssembler assembler,
+        ICoachingLlm llm,
+        IIdempotencyStore idempotency,
+        ILogger logger,
+        CancellationToken ct)
     {
-        LogRestructureDeferred(logger, cmd.WorkoutLogId, decision.EscalationLevel, safety.Tier);
-        return AdaptationResponseDto.Adapted(AdaptationKind.Absorb);
+        // An on-plan log whose plan stream has no materialized projection is a
+        // protocol violation; throwing aborts the transaction with nothing staged.
+        if (plan is null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot restructure: no plan projection found for plan {planId}.");
+        }
+
+        var composition = await assembler
+            .ComposeForAdaptationAsync(plan, decision.EscalationLevel, safety.Tier, deviation, detail, ct)
+            .ConfigureAwait(false);
+
+        // Exactly one call, with no handler-side retry loop — DEC-073 places the
+        // bounded retries inside the adapter's SDK. Only the adapter's terminal
+        // failure shapes are caught here; everything else, including
+        // cancellation, propagates and aborts the transaction.
+        PlanAdaptationOutput output;
+        AnthropicUsage usage;
+        try
+        {
+            (output, usage) = await llm
+                .GenerateStructuredAsync<PlanAdaptationOutput>(
+                    composition.SystemPrompt,
+                    composition.UserMessage,
+                    AdaptationSchema.Frozen,
+                    CacheControl.Ephemeral1h,
+                    ct)
+                .ConfigureAwait(false);
+        }
+        catch (CoachingLlmException ex)
+        {
+            LogAdaptationLlmFailed(logger, cmd.WorkoutLogId, planId, ex);
+            return AdaptationResponseDto.FromError(ex);
+        }
+
+        // Post-decode policy (handler-owned): a structurally/safety-invalid
+        // proposal — or a proposal that contradicts the deterministic ladder by
+        // not being a restructure (DEC-079: the deterministic layer decides the
+        // level; the LLM never absorbs a sustained deviation away) — maps to the
+        // same non-retryable Kind=Error envelope with nothing staged.
+        var validation = PlanAdaptationOutputValidator.Validate(output);
+        if (!validation.IsValid || output.AdaptationKind != AdaptationKind.Restructure)
+        {
+            LogRestructureProposalRejected(
+                logger, cmd.WorkoutLogId, planId, validation.Violation, output.AdaptationKind);
+            return AdaptationResponseDto.FromError(
+                new PermanentCoachingLlmException(RejectedProposalMessage, null));
+        }
+
+        // DEC-079: the diff is structured data computed deterministically from
+        // the validated proposal against the projection — never parsed prose.
+        var diff = RestructureDiffCalculator.Calculate(output.RestructurePlan!, plan, snapshot.WeekNumber);
+
+        // Staging begins only now that LLM + validate + diff have all succeeded.
+        session.Events.Append(
+            planId,
+            new PlanAdaptedFromLog(
+                cmd.WorkoutLogId,
+                AdaptationKind.Restructure,
+                EscalationLevel.Restructure,
+                safety.Tier,
+                output.Rationale,
+                diff));
+
+        if (safety.Tier == SafetyTier.Amber)
+        {
+            // Scripted-by-category referral content (see remarks) — GATE-BEFORE-
+            // INCREASE itself is already validator-enforced; the handler trusts it.
+            var content = safety.Category == ReferralCategory.Injury
+                ? AmberReferralContent.InjuryReferral
+                : AmberReferralContent.RedSReferral;
+            session.Events.Append(
+                planId,
+                new SafetySignalRaised(cmd.WorkoutLogId, SafetyTier.Amber, safety.Category, content));
+        }
+
+        session.Store(AdaptationSignalStateDocument.From(planId, decision.NextState));
+        LogRestructureApplied(
+            logger,
+            cmd.WorkoutLogId,
+            planId,
+            usage.InputTokens,
+            usage.OutputTokens,
+            usage.CacheCreationInputTokens,
+            usage.CacheReadInputTokens);
+        return RecordAndReturn(idempotency, cmd.WorkoutLogId, AdaptationKind.Restructure);
     }
 
     /// <summary>
@@ -327,22 +489,15 @@ public sealed partial class EvaluateAdaptationHandler
     }
 
     /// <summary>
-    /// Loads the live micro week for the prescribed week number off the inline
-    /// plan projection. Null when the projection is missing or carries no micro
-    /// detail for that week (only week 1 is materialized at MVP-0) — the caller
-    /// escalates rather than swapping blind.
+    /// Resolves the live micro week for the prescribed week number off the
+    /// already-loaded plan projection. Null when the projection is missing or
+    /// carries no micro detail for that week (only week 1 is materialized at
+    /// MVP-0) — the caller escalates rather than swapping blind.
     /// </summary>
-    private static async Task<IReadOnlyList<WorkoutOutput>?> LoadLiveMicroWeekAsync(
-        IDocumentSession session,
-        Guid planId,
-        int weekNumber,
-        CancellationToken ct)
-    {
-        var plan = await session.LoadAsync<PlanProjectionDto>(planId, ct).ConfigureAwait(false);
-        return plan is not null && plan.MicroWorkoutsByWeek.TryGetValue(weekNumber, out var micro)
+    private static WorkoutOutput[]? LiveMicroWeek(PlanProjectionDto? plan, int weekNumber) =>
+        plan is not null && plan.MicroWorkoutsByWeek.TryGetValue(weekNumber, out var micro)
             ? micro.Workouts
             : null;
-    }
 
     /// <summary>
     /// Renders the deterministic, user-facing one-liner for a nudge from the
@@ -400,11 +555,35 @@ public sealed partial class EvaluateAdaptationHandler
 
     [LoggerMessage(
         EventId = 6,
-        Level = LogLevel.Warning,
-        Message = "Restructure required for workoutLogId={WorkoutLogId} (level={EscalationLevel}, tier={SafetyTier}) but the LLM path is not wired yet; leaving the log un-memoized so it re-evaluates once the path lands")]
-    private static partial void LogRestructureDeferred(
+        Level = LogLevel.Information,
+        Message = "LLM restructure applied workoutLogId={WorkoutLogId} planId={PlanId} inputTokens={InputTokens} outputTokens={OutputTokens} cacheCreationInputTokens={CacheCreationInputTokens} cacheReadInputTokens={CacheReadInputTokens}")]
+    private static partial void LogRestructureApplied(
         ILogger logger,
         Guid workoutLogId,
-        EscalationLevel escalationLevel,
-        SafetyTier safetyTier);
+        Guid planId,
+        long inputTokens,
+        long outputTokens,
+        long cacheCreationInputTokens,
+        long cacheReadInputTokens);
+
+    [LoggerMessage(
+        EventId = 7,
+        Level = LogLevel.Warning,
+        Message = "Adaptation LLM call failed terminally workoutLogId={WorkoutLogId} planId={PlanId}; returning the Kind=Error envelope with nothing staged")]
+    private static partial void LogAdaptationLlmFailed(
+        ILogger logger,
+        Guid workoutLogId,
+        Guid planId,
+        Exception ex);
+
+    [LoggerMessage(
+        EventId = 8,
+        Level = LogLevel.Warning,
+        Message = "Adaptation LLM proposal rejected workoutLogId={WorkoutLogId} planId={PlanId} violation={Violation} proposedKind={ProposedKind}; returning the Kind=Error envelope with nothing staged")]
+    private static partial void LogRestructureProposalRejected(
+        ILogger logger,
+        Guid workoutLogId,
+        Guid planId,
+        PlanAdaptationOutputValidationViolation violation,
+        AdaptationKind proposedKind);
 }

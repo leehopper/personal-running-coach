@@ -1,10 +1,14 @@
 using System.Reflection;
+using System.Text.Json;
 using FluentAssertions;
 using Marten;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using RunCoach.Api.Infrastructure.Idempotency;
+using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Adaptation;
+using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Adaptation;
@@ -21,10 +25,11 @@ namespace RunCoach.Api.Tests.Modules.Training.Adaptation;
 /// <summary>
 /// Unit tests for <see cref="EvaluateAdaptationHandler"/> (Slice 3 § Unit 5):
 /// every deterministic path — idempotent replay, off-plan no-op, Red safety
-/// short-circuit, L0 absorb, L1 nudge, the L1→L2 escalation into the
-/// restructure seam — plus the SeenAsync-first/Record-last marker choreography
-/// and the chain-scoped concurrency policy registration. The LLM restructure
-/// path itself is the T05 seam and is covered only as "stages nothing yet".
+/// short-circuit, L0 absorb, L1 nudge, the L1→L2 escalation — plus the L2 LLM
+/// restructure path (single frozen-schema call, deterministic diff, Amber
+/// dual-append, the DEC-073 error envelope with stage-nothing-on-failure), the
+/// SeenAsync-first/Record-last marker choreography, and the chain-scoped
+/// concurrency policy registration.
 /// </summary>
 public sealed class EvaluateAdaptationHandlerUnitTests
 {
@@ -287,7 +292,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
     }
 
     [Fact]
-    public async Task Handle_MicroAdjust_WithNoForwardSwap_EscalatesToTheRestructureSeam()
+    public async Task Handle_MicroAdjust_WithNoForwardSwap_EscalatesIntoTheLlmRestructure()
     {
         // Arrange — the missed key workout is Saturday's long run with no later
         //   easy day, so TryPlanSwap must fail and the L1 escalates to L2.
@@ -296,7 +301,8 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         var log = BuildLog(snapshot);
         var cmd = CommandFor(log);
         var deviation = harness.StubOnPlan(cmd, log);
-        harness.StubMicroWeek(weekNumber: 1, BuildSwappableWeek());
+        harness.StubPlan(BuildPlan());
+        harness.StubLlm(BuildRestructureOutput());
         harness.Classifier
             .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
             .Returns(MicroAdjustDecision());
@@ -304,24 +310,29 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         // Act
         var actual = await harness.HandleAsync(cmd);
 
-        // Assert — seam behavior until T05: nothing staged at all, so the very
-        //   same log re-evaluates (and restructures) once the LLM path lands.
-        AssertDeferredToSeam(harness, actual);
-        harness.Logger.Entries.Should().Contain(e =>
-            e.Level == LogLevel.Warning && e.Message.Contains("Restructure required"));
+        // Assert — the escalated L1 lands in the LLM restructure path and the
+        //   event records the executed level (Restructure), not the classifier's.
+        actual.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        var adapted = harness.Appended.Should().ContainSingle()
+            .Which.Event.Should().BeOfType<PlanAdaptedFromLog>().Subject;
+        adapted.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        adapted.EscalationLevel.Should().Be(EscalationLevel.Restructure);
     }
 
     [Fact]
-    public async Task Handle_MicroAdjust_WithNoLiveMicroWeek_EscalatesToTheRestructureSeam()
+    public async Task Handle_MicroAdjust_WithNoLiveMicroWeek_EscalatesIntoTheLlmRestructure()
     {
         // Arrange — prescription targets week 2 but only week 1 micro detail is
-        //   materialized at MVP-0: never swap blind, escalate instead.
+        //   materialized at MVP-0: never swap blind, escalate instead. The diff
+        //   then carries no workout change (week 2 has no micro detail to edit)
+        //   but the meso weekly-target edits still apply.
         var harness = new Harness();
         var snapshot = BuildSnapshot(weekNumber: 2, dayOfWeek: 2);
         var log = BuildLog(snapshot);
         var cmd = CommandFor(log);
         var deviation = harness.StubOnPlan(cmd, log);
-        harness.StubMicroWeek(weekNumber: 1, BuildSwappableWeek());
+        harness.StubPlan(BuildPlan());
+        harness.StubLlm(BuildRestructureOutput());
         harness.Classifier
             .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
             .Returns(MicroAdjustDecision());
@@ -330,32 +341,255 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         var actual = await harness.HandleAsync(cmd);
 
         // Assert
-        AssertDeferredToSeam(harness, actual);
+        actual.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        var adapted = harness.Appended.Should().ContainSingle()
+            .Which.Event.Should().BeOfType<PlanAdaptedFromLog>().Subject;
+        adapted.Diff.WorkoutChanges.Should().BeEmpty();
+        adapted.Diff.WeeklyTargetChanges.Should().ContainSingle();
     }
 
     [Fact]
-    public async Task Handle_RestructureDecision_DefersToTheSeamWithNothingStaged()
+    public async Task Handle_RestructureDecision_CallsTheLlmOnceWithTheFrozenSchemaAndAppendsTheDeterministicDiff()
     {
-        // Arrange — classifier-direct L2: the LLM path is T05's; until it lands
-        //   the handler must not memoize the log as a silent absorb.
+        // Arrange — classifier-direct L2 under Green (R05.1 / R05.2).
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot());
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        var output = BuildRestructureOutput();
+        harness.StubLlm(output);
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — exactly ONE LLM call, byte-stable frozen schema + 1h cache
+        //   marker (DEC-073: no handler-side retry loop).
+        await harness.Llm.Received(1).GenerateStructuredAsync<PlanAdaptationOutput>(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Is<IReadOnlyDictionary<string, JsonElement>?>(s => ReferenceEquals(s, AdaptationSchema.Frozen)),
+            CacheControl.Ephemeral1h,
+            Arg.Any<CancellationToken>());
+
+        // The single restructure event carries the LLM rationale verbatim and
+        // the deterministic projection-space diff — never parsed prose.
+        actual.Kind.Should().Be(AdaptationResponseKind.Adapted);
+        actual.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        var (streamId, evt) = harness.Appended.Should().ContainSingle().Subject;
+        streamId.Should().Be(PlanId);
+        var adapted = evt.Should().BeOfType<PlanAdaptedFromLog>().Subject;
+        adapted.TriggeringWorkoutLogId.Should().Be(cmd.WorkoutLogId);
+        adapted.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        adapted.EscalationLevel.Should().Be(EscalationLevel.Restructure);
+        adapted.SafetyTier.Should().Be(SafetyTier.Green);
+        adapted.Rationale.Should().Be(output.Rationale);
+
+        // Diff: the revised Tuesday workout against week 1's live micro week,
+        // plus the week-2 target cut 30 -> 24 (week 3's no-op edit is dropped).
+        var workoutChange = adapted.Diff.WorkoutChanges.Should().ContainSingle().Subject;
+        workoutChange.WeekNumber.Should().Be(1);
+        workoutChange.DayOfWeek.Should().Be(2);
+        workoutChange.Before!.WorkoutType.Should().Be(WorkoutType.Tempo);
+        workoutChange.After!.WorkoutType.Should().Be(WorkoutType.Easy);
+        var targetChange = adapted.Diff.WeeklyTargetChanges.Should().ContainSingle().Subject;
+        targetChange.Should().Be(new WeeklyTargetChange(2, 30, 24));
+
+        // Choreography: append -> state -> marker LAST, all staged post-success.
+        Received.InOrder(() =>
+        {
+            harness.Session.Events.Append(PlanId, Arg.Any<object[]>());
+            harness.Session.Store(Arg.Any<AdaptationSignalStateDocument>());
+            harness.Idempotency.Record(cmd.WorkoutLogId, Arg.Any<AdaptationResponseDto>());
+        });
+    }
+
+    [Theory]
+    [InlineData(ReferralCategory.Injury)]
+    [InlineData(ReferralCategory.RedS)]
+    public async Task Handle_AmberRestructure_AlsoAppendsTheScriptedReferralSignal(ReferralCategory category)
+    {
+        // Arrange — Amber L2 (R05.3): the adaptation event AND the scripted
+        //   referral signal ride the same transaction; the referral content is
+        //   versioned scripted copy routed by category, never LLM prose.
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot());
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.StubLlm(BuildRestructureOutput(tier: SafetyTier.Amber, referralCategory: category));
+        harness.SafetyGate
+            .Classify(Arg.Any<string?>(), Arg.Any<IReadOnlyDictionary<string, string>?>())
+            .Returns(SafetyClassification.Amber(category));
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Amber, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — dual append on the plan stream: restructure + referral.
+        actual.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        harness.Appended.Should().HaveCount(2);
+        var adapted = harness.Appended[0].Event.Should().BeOfType<PlanAdaptedFromLog>().Subject;
+        adapted.SafetyTier.Should().Be(SafetyTier.Amber);
+        var expectedContent = category == ReferralCategory.Injury
+            ? AmberReferralContent.InjuryReferral
+            : AmberReferralContent.RedSReferral;
+        var expectedSignal = new SafetySignalRaised(cmd.WorkoutLogId, SafetyTier.Amber, category, expectedContent);
+        harness.Appended[1].Event.Should().Be(expectedSignal);
+        harness.Idempotency.Received(1).Record(cmd.WorkoutLogId, Arg.Any<AdaptationResponseDto>());
+    }
+
+    [Fact]
+    public async Task Handle_TransientLlmFailure_ReturnsRetryableErrorEnvelopeWithNothingStaged()
+    {
+        // Arrange — DEC-073 (R05.4): the adapter's terminal transient failure
+        //   maps to a retryable Kind=Error envelope carrying the retry hint.
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot());
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.StubLlmThrows(new TransientCoachingLlmException("The coach is briefly unavailable.", 42, null));
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — error envelope over a NORMAL return: Wolverine commits the
+        //   session, so the path must have staged zero writes for "stream
+        //   unchanged / marker released" to hold.
+        actual.Kind.Should().Be(AdaptationResponseKind.Error);
+        actual.AdaptationKind.Should().BeNull();
+        actual.ErrorMessage.Should().Be("The coach is briefly unavailable.");
+        actual.Retryable.Should().BeTrue();
+        actual.RetryAfterSeconds.Should().Be(42);
+        AssertNothingStaged(harness);
+    }
+
+    [Fact]
+    public async Task Handle_PermanentLlmFailure_ReturnsNonRetryableErrorEnvelopeWithNothingStaged()
+    {
+        // Arrange — R05.4: a permanent failure yields a non-retryable envelope.
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot());
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.StubLlmThrows(new PermanentCoachingLlmException("The coach could not process this request.", null));
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert
+        actual.Kind.Should().Be(AdaptationResponseKind.Error);
+        actual.Retryable.Should().BeFalse();
+        actual.RetryAfterSeconds.Should().BeNull();
+        AssertNothingStaged(harness);
+    }
+
+    [Fact]
+    public async Task Handle_ValidatorRejectedOutput_ReturnsNonRetryableErrorEnvelopeWithNothingStaged()
+    {
+        // Arrange — R05.5: a successfully decoded but invariant-violating output
+        //   (both typed slots filled) is the handler's policy call: same
+        //   Kind=Error envelope, append nothing. No second LLM attempt.
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot());
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        var invalid = BuildRestructureOutput() with
+        {
+            NudgePatch = new NudgePatch { WeekNumber = 1, RevisedWorkouts = [] },
+        };
+        harness.StubLlm(invalid);
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert
+        actual.Kind.Should().Be(AdaptationResponseKind.Error);
+        actual.Retryable.Should().BeFalse();
+        AssertNothingStaged(harness);
+        await harness.Llm.Received(1).GenerateStructuredAsync<PlanAdaptationOutput>(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+            Arg.Any<CacheControl?>(),
+            Arg.Any<CancellationToken>());
+        harness.Logger.Entries.Should().Contain(e =>
+            e.Level == LogLevel.Warning && e.Message.Contains("proposal rejected"));
+    }
+
+    [Fact]
+    public async Task Handle_NonRestructureProposal_ReturnsErrorEnvelopeWithNothingStaged()
+    {
+        // Arrange — a structurally valid Absorb proposal still contradicts the
+        //   deterministic ladder (DEC-079: the LLM never absorbs a sustained
+        //   deviation away), so the handler rejects it the same way.
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot());
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.StubLlm(BuildRestructureOutput() with
+        {
+            AdaptationKind = AdaptationKind.Absorb,
+            RestructurePlan = null,
+        });
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert
+        actual.Kind.Should().Be(AdaptationResponseKind.Error);
+        actual.Retryable.Should().BeFalse();
+        AssertNothingStaged(harness);
+    }
+
+    [Fact]
+    public async Task Handle_RestructureWithoutAPlanProjection_ThrowsWithNothingStagedAndNoLlmCall()
+    {
+        // Arrange — an on-plan log whose plan stream has no materialized
+        //   projection is a protocol violation: abort the transaction before
+        //   composing any prompt.
         var harness = new Harness();
         var log = BuildLog(BuildSnapshot());
         var cmd = CommandFor(log);
         var deviation = harness.StubOnPlan(cmd, log);
         harness.Classifier
             .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
-            .Returns(new EscalationDecision(
-                EscalationLevel.Restructure,
-                AdaptationKind.Restructure,
-                AdaptationSignalState.Create(PlanState.NeedsAdjustment, 5.0, 0, new DateOnly(2026, 6, 8))));
+            .Returns(RestructureDecision());
 
         // Act
-        var actual = await harness.HandleAsync(cmd);
+        var act = async () => await harness.HandleAsync(cmd);
 
         // Assert
-        AssertDeferredToSeam(harness, actual);
-        harness.Logger.Entries.Should().Contain(e =>
-            e.Level == LogLevel.Warning && e.Message.Contains("Restructure required"));
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*no plan projection*");
+        AssertNothingStaged(harness);
+        await harness.Llm.DidNotReceiveWithAnyArgs().GenerateStructuredAsync<PlanAdaptationOutput>(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+            Arg.Any<CacheControl?>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -471,12 +705,11 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         actual.Should().BeEquivalentTo(expected);
     }
 
-    private static void AssertDeferredToSeam(Harness harness, AdaptationResponseDto actual)
+    private static void AssertNothingStaged(Harness harness)
     {
-        // Seam contract until T05: respond as a no-change absorb but stage
-        // NOTHING — no event, no signal-state advance, no idempotency marker.
-        actual.Kind.Should().Be(AdaptationResponseKind.Adapted);
-        actual.AdaptationKind.Should().Be(AdaptationKind.Absorb);
+        // The L2 failure contract (DEC-073): stage NOTHING — no event, no
+        // signal-state advance, no idempotency marker — so the committing
+        // (or aborting) transaction leaves the stream and marker untouched.
         harness.Appended.Should().BeEmpty();
         harness.Session.DidNotReceiveWithAnyArgs().Store(Arg.Any<AdaptationSignalStateDocument>());
         harness.Idempotency.DidNotReceiveWithAnyArgs()
@@ -491,6 +724,86 @@ public sealed class EvaluateAdaptationHandlerUnitTests
             EscalationLevel.MicroAdjust,
             AdaptationKind.Nudge,
             AdaptationSignalState.Create(PlanState.MinorDeviation, 2.0, 1, null));
+
+    private static EscalationDecision RestructureDecision() =>
+        new(
+            EscalationLevel.Restructure,
+            AdaptationKind.Restructure,
+            AdaptationSignalState.Create(PlanState.NeedsAdjustment, 5.0, 0, new DateOnly(2026, 6, 8)));
+
+    /// <summary>
+    /// A valid Green restructure proposal: cuts week 2's target 30 -> 24, echoes
+    /// week 3 unchanged (a no-op edit the diff must drop), and revises Tuesday
+    /// (day 2) of the current week into an easy run.
+    /// </summary>
+    private static PlanAdaptationOutput BuildRestructureOutput(
+        SafetyTier tier = SafetyTier.Green,
+        ReferralCategory? referralCategory = null) =>
+        new()
+        {
+            AdaptationKind = AdaptationKind.Restructure,
+            SafetyTier = tier,
+            NudgePatch = null,
+            RestructurePlan = new RestructurePlan
+            {
+                RevisedWeeklyTargets =
+                [
+                    new WeeklyTargetEdit { WeekNumber = 2, WeeklyTargetKm = 24 },
+                    new WeeklyTargetEdit { WeekNumber = 3, WeeklyTargetKm = 35 },
+                ],
+                RevisedCurrentWeekWorkouts = [BuildWorkout(2, WorkoutType.Easy)],
+                ForwardPath = "Hold the reduced volume this week, then ramp back ~10% per week.",
+            },
+            NetLoadDelta = -6,
+            Rationale = "You have missed two key sessions, so I trimmed next week and eased Tuesday.",
+            ReferralCategory = referralCategory,
+        };
+
+    /// <summary>
+    /// The plan projection both L2 paths diff against: week 1 carries the live
+    /// micro detail (the swappable week) and the meso tier has weeks 1-3 at
+    /// 20/30/35 km.
+    /// </summary>
+    private static PlanProjectionDto BuildPlan() =>
+        new()
+        {
+            PlanId = PlanId,
+            MesoWeeks =
+            [
+                BuildMesoWeek(1, 20),
+                BuildMesoWeek(2, 30),
+                BuildMesoWeek(3, 35),
+            ],
+            MicroWorkoutsByWeek = new Dictionary<int, MicroWorkoutListOutput>
+            {
+                [1] = new() { Workouts = BuildSwappableWeek() },
+            },
+        };
+
+    private static MesoWeekOutput BuildMesoWeek(int weekNumber, int weeklyTargetKm)
+    {
+        var rest = new MesoDaySlotOutput
+        {
+            SlotType = DaySlotType.Rest,
+            WorkoutType = null,
+            Notes = string.Empty,
+        };
+        return new MesoWeekOutput
+        {
+            WeekNumber = weekNumber,
+            PhaseType = PhaseType.Base,
+            WeeklyTargetKm = weeklyTargetKm,
+            IsDeloadWeek = false,
+            Sunday = rest,
+            Monday = rest,
+            Tuesday = rest,
+            Wednesday = rest,
+            Thursday = rest,
+            Friday = rest,
+            Saturday = rest,
+            WeekSummary = string.Empty,
+        };
+    }
 
     private static DeviationResult BuildDeviation() =>
         new(
@@ -567,8 +880,8 @@ public sealed class EvaluateAdaptationHandlerUnitTests
 
     /// <summary>
     /// One substitute set per test with the pass-through defaults every path
-    /// shares: idempotency miss, pass-through sanitizer, Green gate, and an
-    /// append-capturing event store.
+    /// shares: idempotency miss, pass-through sanitizer, Green gate, a stubbed
+    /// adaptation prompt composition, and an append-capturing event store.
     /// </summary>
     private sealed class Harness
     {
@@ -580,6 +893,15 @@ public sealed class EvaluateAdaptationHandlerUnitTests
             SafetyGate
                 .Classify(Arg.Any<string?>(), Arg.Any<IReadOnlyDictionary<string, string>?>())
                 .Returns(SafetyClassification.Green());
+            Assembler
+                .ComposeForAdaptationAsync(
+                    Arg.Any<PlanProjectionDto>(),
+                    Arg.Any<EscalationLevel>(),
+                    Arg.Any<SafetyTier>(),
+                    Arg.Any<DeviationResult>(),
+                    Arg.Any<LoggedWorkoutDetail>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(new AdaptationPromptComposition("system prompt", "user message"));
             Session.Events
                 .When(events => events.Append(Arg.Any<Guid>(), Arg.Any<object[]>()))
                 .Do(callInfo =>
@@ -602,6 +924,10 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         public ISafetyGate SafetyGate { get; } = Substitute.For<ISafetyGate>();
 
         public IEscalationClassifier Classifier { get; } = Substitute.For<IEscalationClassifier>();
+
+        public IContextAssembler Assembler { get; } = Substitute.For<IContextAssembler>();
+
+        public ICoachingLlm Llm { get; } = Substitute.For<ICoachingLlm>();
 
         public IIdempotencyStore Idempotency { get; } = Substitute.For<IIdempotencyStore>();
 
@@ -630,16 +956,39 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         }
 
         public void StubMicroWeek(int weekNumber, WorkoutOutput[] week) =>
+            StubPlan(new PlanProjectionDto
+            {
+                PlanId = PlanId,
+                MicroWorkoutsByWeek = new Dictionary<int, MicroWorkoutListOutput>
+                {
+                    [weekNumber] = new() { Workouts = week },
+                },
+            });
+
+        public void StubPlan(PlanProjectionDto plan) =>
             Session
                 .LoadAsync<PlanProjectionDto>(PlanId, Arg.Any<CancellationToken>())
-                .Returns(new PlanProjectionDto
-                {
-                    PlanId = PlanId,
-                    MicroWorkoutsByWeek = new Dictionary<int, MicroWorkoutListOutput>
-                    {
-                        [weekNumber] = new() { Workouts = week },
-                    },
-                });
+                .Returns(plan);
+
+        public void StubLlm(PlanAdaptationOutput output) =>
+            Llm
+                .GenerateStructuredAsync<PlanAdaptationOutput>(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                    Arg.Any<CacheControl?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns((output, AnthropicUsage.Zero));
+
+        public void StubLlmThrows(CoachingLlmException exception) =>
+            Llm
+                .GenerateStructuredAsync<PlanAdaptationOutput>(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                    Arg.Any<CacheControl?>(),
+                    Arg.Any<CancellationToken>())
+                .ThrowsAsync(exception);
 
         public Task<AdaptationResponseDto> HandleAsync(EvaluateAdaptationCommand cmd) =>
             EvaluateAdaptationHandler.Handle(
@@ -650,6 +999,8 @@ public sealed class EvaluateAdaptationHandlerUnitTests
                 Sanitizer,
                 SafetyGate,
                 Classifier,
+                Assembler,
+                Llm,
                 Idempotency,
                 Logger,
                 TestContext.Current.CancellationToken);
