@@ -16,8 +16,13 @@ namespace RunCoach.Api.Modules.Training.Adaptation;
 /// </remarks>
 internal static class AdaptationThresholds
 {
-    /// <summary>Version stamp for this threshold set; bump on any change for audit-replay pinning.</summary>
-    public const string PolicyVersion = "v1.0.0";
+    /// <summary>
+    /// Version stamp for this threshold set; bump on any change for audit-replay
+    /// pinning. v1.1.0: dead-zone semantics locked — the anti-flip-flop guarantee is
+    /// L2-score-only (key-workout-miss L1 fires inside the dead-zone, and the
+    /// consecutive-missed-days hard trigger re-escalates once the cooldown elapses).
+    /// </summary>
+    public const string PolicyVersion = "v1.1.0";
 
     /// <summary>
     /// Distance band tolerance (percent). Actuals within ±this of the prescribed

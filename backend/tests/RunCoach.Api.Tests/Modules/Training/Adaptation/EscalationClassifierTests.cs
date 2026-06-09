@@ -1,17 +1,27 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Safety;
 using RunCoach.Api.Modules.Training.Workouts;
+using RunCoach.Api.Tests.Infrastructure;
 
 namespace RunCoach.Api.Tests.Modules.Training.Adaptation;
 
 /// <summary>
 /// Unit tests for <see cref="EscalationClassifier"/> (Slice 3 PR2 / Unit 1): the
-/// deterministic L0/L1/L2 resolution and the asymmetric enter/exit hysteresis.
+/// deterministic L0/L1/L2 resolution, the asymmetric enter/exit hysteresis, and the
+/// locked dead-zone carve-outs (hard-trigger re-escalation, in-dead-zone key-miss L1,
+/// suppressed-trigger observability logging).
 /// </summary>
 public sealed class EscalationClassifierTests
 {
-    private readonly EscalationClassifier _sut = new();
+    private readonly CapturingLogger<EscalationClassifier> _logger = new();
+    private readonly EscalationClassifier _sut;
+
+    public EscalationClassifierTests()
+    {
+        _sut = new EscalationClassifier(_logger);
+    }
 
     [Fact]
     public void Classify_WithinBandOnGreen_ResolvesToAbsorbWithNoPlanChange()
@@ -148,6 +158,95 @@ public sealed class EscalationClassifierTests
         // Assert
         actual.NextState.PlanState.Should().Be(PlanState.OnTrack);
         actual.EscalationLevel.Should().Be(EscalationLevel.Absorb);
+    }
+
+    [Fact]
+    public void Classify_HardTriggerInDeadZonePostCooldown_ReEscalatesToRestructure()
+    {
+        // Arrange — in the dead-zone: restructure fired Day 1, score above exit but
+        // below enter (1.2 + 1.0 step = 2.2), two missed days already on the streak.
+        var inDeadZone = new AdaptationSignalState(PlanState.NeedsAdjustment, 1.2, 2, Day(1));
+
+        // Act — a third consecutive missed day lands after the 7-day cooldown elapsed.
+        var actual = _sut.Classify(MissedEasy(Day(10)), SafetyTier.Green, inDeadZone);
+
+        // Assert — the hard trigger punches through: a genuinely deteriorating runner
+        // must not be silently absorbed even though the score has not cleared exit.
+        actual.EscalationLevel.Should().Be(EscalationLevel.Restructure);
+        actual.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        actual.NextState.PlanState.Should().Be(PlanState.NeedsAdjustment);
+        actual.NextState.ConsecutiveMissedDays.Should().Be(3);
+        actual.NextState.LastAdaptationOn.Should().Be(
+            Day(10), because: "the re-fired restructure restarts the cooldown window");
+    }
+
+    [Fact]
+    public void Classify_HardTriggerInDeadZoneDuringCooldown_AbsorbsAndLogsSuppression()
+    {
+        // Arrange — same deteriorating streak, but the restructure fired only two days ago.
+        var inDeadZone = new AdaptationSignalState(PlanState.NeedsAdjustment, 1.2, 2, Day(1));
+
+        // Act — the third consecutive missed day lands inside the cooldown.
+        var actual = _sut.Classify(MissedEasy(Day(3)), SafetyTier.Green, inDeadZone);
+
+        // Assert — absorbed (cooldown holds), but the suppression is observable in the log.
+        actual.EscalationLevel.Should().Be(EscalationLevel.Absorb);
+        actual.NextState.PlanState.Should().Be(PlanState.NeedsAdjustment);
+        actual.NextState.ConsecutiveMissedDays.Should().Be(3);
+        var entry = _logger.Entries.Should().ContainSingle().Subject;
+        entry.Level.Should().Be(LogLevel.Information);
+        entry.Message.Should().Contain("suppressed").And.Contain(nameof(EscalationLevel.Restructure));
+    }
+
+    [Fact]
+    public void Classify_MissedKeyWorkoutInsideDeadZone_FiresMicroAdjust()
+    {
+        // Arrange — deep inside the dead-zone: restructure fired Day 1, cooldown active.
+        var inDeadZone = new AdaptationSignalState(PlanState.NeedsAdjustment, 2.0, 0, Day(1));
+
+        // Act — a key workout is missed two days later.
+        var actual = _sut.Classify(MissedKey(Day(3)), SafetyTier.Green, inDeadZone);
+
+        // Assert — the anti-flip-flop guarantee is L2-only: the deterministic L1
+        // reschedule still fires, while the dead-zone state holds for L2 purposes.
+        actual.EscalationLevel.Should().Be(EscalationLevel.MicroAdjust);
+        actual.AdaptationKind.Should().Be(AdaptationKind.Nudge);
+        actual.NextState.PlanState.Should().Be(
+            PlanState.NeedsAdjustment, because: "an L1 nudge must not release the L2 hysteresis dead-zone");
+        actual.NextState.LastAdaptationOn.Should().Be(
+            Day(1), because: "only a restructure restarts the cooldown window");
+    }
+
+    [Fact]
+    public void Classify_ScoreTriggerSuppressedInDeadZone_EmitsObservabilityLog()
+    {
+        // Arrange — score pinned at the cap, restructure fired Day 1 (cooldown active).
+        var inDeadZone = new AdaptationSignalState(
+            PlanState.NeedsAdjustment, AdaptationThresholds.MaxRollingDeviationScore, 0, Day(1));
+
+        // Act — a fresh under-performance keeps the score at the restructure-enter level.
+        var actual = _sut.Classify(MinorUnder(Day(3)), SafetyTier.Green, inDeadZone);
+
+        // Assert — absorbed (no event), with a single source-generated suppression log.
+        actual.EscalationLevel.Should().Be(EscalationLevel.Absorb);
+        var entry = _logger.Entries.Should().ContainSingle().Subject;
+        entry.Level.Should().Be(LogLevel.Information);
+        entry.Message.Should().Contain("suppressed").And.Contain(nameof(EscalationLevel.Restructure));
+    }
+
+    [Fact]
+    public void Classify_DeadZoneAbsorbWithoutWouldBeTrigger_EmitsNoSuppressionLog()
+    {
+        // Arrange — in the dead-zone with the score at the cap.
+        var inDeadZone = new AdaptationSignalState(
+            PlanState.NeedsAdjustment, AdaptationThresholds.MaxRollingDeviationScore, 0, Day(1));
+
+        // Act — an on-target log decays the score below every enter threshold (3.0 → 1.5).
+        var actual = _sut.Classify(OnTarget(Day(3)), SafetyTier.Green, inDeadZone);
+
+        // Assert — plain dead-zone absorb: nothing was suppressed, so nothing is logged.
+        actual.EscalationLevel.Should().Be(EscalationLevel.Absorb);
+        _logger.Entries.Should().BeEmpty();
     }
 
     [Fact]
