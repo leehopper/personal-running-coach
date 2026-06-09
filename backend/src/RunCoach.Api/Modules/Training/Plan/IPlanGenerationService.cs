@@ -26,10 +26,11 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// on its own session.
 /// </para>
 /// <para>
-/// Failure semantics: the Anthropic SDK's <c>MaxRetries</c> (3 by default) covers
-/// transient errors (429, 5xx, network). An unrecoverable failure on any tier
-/// (macro, any of the four meso calls, or micro) propagates as an exception — the
-/// caller's transactional middleware then rolls back the entire Marten transaction
+/// Failure semantics: the Anthropic SDK's <c>MaxRetries</c> (2 by default, i.e. up to
+/// 3 attempts) covers transient errors (429, 5xx, network). An unrecoverable failure on
+/// any tier (macro, any of the four meso calls, or micro) propagates as a
+/// <c>TransientCoachingLlmException</c> / <c>PermanentCoachingLlmException</c> (DEC-073) —
+/// the caller's transactional middleware then rolls back the entire Marten transaction
 /// so no partial Plan stream is persisted, no <c>OnboardingCompleted</c> /
 /// <c>PlanLinkedToUser</c> events are appended, and the EF projection's
 /// <c>RunnerOnboardingProfile.CurrentPlanId</c> stays at its prior value.

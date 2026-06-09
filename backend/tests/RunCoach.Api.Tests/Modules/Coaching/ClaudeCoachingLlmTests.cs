@@ -246,7 +246,7 @@ public class ClaudeCoachingLlmTests
         settings.ApiKey.Should().BeEmpty();
         settings.ModelId.Should().Be("claude-sonnet-4-6");
         settings.MaxTokens.Should().Be(8192);
-        settings.MaxRetries.Should().Be(3);
+        settings.MaxRetries.Should().Be(2, "DEC-073 / the SDK default — MaxRetries=2 means up to 3 attempts");
         settings.TimeoutSeconds.Should().Be(120);
     }
 
