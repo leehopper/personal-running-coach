@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -215,6 +216,51 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
     internal static string GenerateNonce() =>
         RandomNumberGenerator.GetHexString(16, lowercase: true);
 
+    /// <summary>
+    /// Generates the unguessable per-call nonce for the adaptation prompt's
+    /// recent-logs spotlighting section: 16 CSPRNG bytes (128 bits of
+    /// entropy) encoded as base64url (22 chars, unpadded). This is a separate
+    /// generator rather than a widening of <see cref="GenerateNonce"/>: the
+    /// adaptation context template (<c>adaptation.v1.yaml</c>) mandates the
+    /// 16-byte base64url form, while the onboarding-tail delimiters shipped
+    /// with the 8-byte hex form — widening the shared helper would silently
+    /// change the delimiter format already exercised by the onboarding flow,
+    /// so the stronger form is introduced alongside it instead. Generated
+    /// fresh per call, never reused, never derived from user input.
+    /// </summary>
+    internal static string GenerateSpotlightNonce() =>
+        Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(16));
+
+    /// <summary>
+    /// Escapes characters that an LLM could interpret as a section terminator
+    /// in the surrounding spotlighting delimiter (<c>&lt;LABEL&gt;…&lt;/LABEL&gt;</c>).
+    /// Escapes ASCII <c>&amp;</c> / <c>&lt;</c> / <c>&gt;</c> AND a defense-in-depth
+    /// list of bracket-homoglyph code points: fullwidth (U+FF1C/U+FF1E),
+    /// mathematical (U+27E8/U+27E9), single guillemets (U+2039/U+203A) and
+    /// CJK angle brackets (U+3008–U+300B). NFKC normalization would be
+    /// broader but also folds e.g. ① → 1, so we use a surgical replace list.
+    /// Exposed <c>internal</c> (rather than private to the Tier-3 wrap) so the
+    /// adaptation prompt composition path can apply the same escaping to the
+    /// full rendered recent-logs value before substituting it inside its
+    /// nonce-delimited spotlight section — a close-tag attempt anywhere in
+    /// that value must not terminate the section early.
+    /// </summary>
+    internal static string EscapeDelimiterBody(string body) =>
+        body
+            .Replace("&", "&amp;", StringComparison.Ordinal)
+            .Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal)
+            .Replace("＜", "&lt;", StringComparison.Ordinal)
+            .Replace("＞", "&gt;", StringComparison.Ordinal)
+            .Replace("⟨", "&lt;", StringComparison.Ordinal)
+            .Replace("⟩", "&gt;", StringComparison.Ordinal)
+            .Replace("‹", "&lt;", StringComparison.Ordinal)
+            .Replace("›", "&gt;", StringComparison.Ordinal)
+            .Replace("〈", "&lt;", StringComparison.Ordinal)
+            .Replace("〉", "&gt;", StringComparison.Ordinal)
+            .Replace("《", "&lt;", StringComparison.Ordinal)
+            .Replace("》", "&gt;", StringComparison.Ordinal);
+
     private static void StampActivityAttributes(
         Activity? activity,
         PromptSection section,
@@ -369,31 +415,6 @@ public sealed partial class LayeredPromptSanitizer : IPromptSanitizer
             CultureInfo.InvariantCulture,
             $"<{label}>{escapedBody}</{label}>");
     }
-
-    /// <summary>
-    /// Escapes characters that an LLM could interpret as a section terminator
-    /// in the surrounding spotlighting delimiter (<c>&lt;LABEL&gt;…&lt;/LABEL&gt;</c>).
-    /// Escapes ASCII <c>&amp;</c> / <c>&lt;</c> / <c>&gt;</c> AND a defense-in-depth
-    /// list of bracket-homoglyph code points: fullwidth (U+FF1C/U+FF1E),
-    /// mathematical (U+27E8/U+27E9), single guillemets (U+2039/U+203A) and
-    /// CJK angle brackets (U+3008–U+300B). NFKC normalization would be
-    /// broader but also folds e.g. ① → 1, so we use a surgical replace list.
-    /// </summary>
-    private static string EscapeDelimiterBody(string body) =>
-        body
-            .Replace("&", "&amp;", StringComparison.Ordinal)
-            .Replace("<", "&lt;", StringComparison.Ordinal)
-            .Replace(">", "&gt;", StringComparison.Ordinal)
-            .Replace("＜", "&lt;", StringComparison.Ordinal)
-            .Replace("＞", "&gt;", StringComparison.Ordinal)
-            .Replace("⟨", "&lt;", StringComparison.Ordinal)
-            .Replace("⟩", "&gt;", StringComparison.Ordinal)
-            .Replace("‹", "&lt;", StringComparison.Ordinal)
-            .Replace("›", "&gt;", StringComparison.Ordinal)
-            .Replace("〈", "&lt;", StringComparison.Ordinal)
-            .Replace("〉", "&gt;", StringComparison.Ordinal)
-            .Replace("《", "&lt;", StringComparison.Ordinal)
-            .Replace("》", "&gt;", StringComparison.Ordinal);
 
     /// <summary>
     /// PII-free serializable shape for the OTel <c>findings</c> attribute and
