@@ -17,9 +17,8 @@ namespace RunCoach.Api.Modules.Coaching.Adaptation;
 /// <remarks>
 /// <para>
 /// Distinct from the <c>PlanAdaptedFromLog</c> domain event and the deterministic
-/// <c>PlanAdaptationDiff</c>: this is the raw LLM proposal. The orchestration layer
-/// (Slice 3 Unit 5) validates it, applies it to the plan projection, computes the
-/// before/after diff deterministically, and appends the event.
+/// <c>PlanAdaptationDiff</c>: this is the raw LLM proposal, which the orchestration layer
+/// validates, applies to the plan projection, diffs deterministically, and records as the event.
 /// </para>
 /// <para>
 /// Numerical bounds (e.g. weekly-mileage-jump ceilings, the over-performance cap) live

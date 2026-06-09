@@ -7,9 +7,9 @@ namespace RunCoach.Api.Modules.Coaching.Adaptation;
 /// / <see cref="RetryAfterSeconds"/> fields the frontend reads without any SDK dependency.
 /// </summary>
 /// <remarks>
-/// The success-path payload (the adaptation turn / plan re-render signal) is added by the
-/// orchestration layer in Slice 3 Unit 5; this slice ships the error shape and its derivation
-/// from a <see cref="CoachingLlmException"/>.
+/// This type carries the error shape and its derivation from a
+/// <see cref="CoachingLlmException"/>; the success-path payload (the adaptation turn / plan
+/// re-render signal) is owned by the orchestration layer and is outside this type's scope.
 /// </remarks>
 public sealed record AdaptationResponseDto
 {

@@ -577,11 +577,13 @@ public class ClaudeCoachingLlmTests
     }
 
     [Fact]
-    public async Task GenerateStructuredAsync_ThrowsJsonException_WhenResponseIsMalformedJson()
+    public async Task GenerateStructuredAsync_ThrowsPermanent_WhenResponseIsMalformedJson()
     {
         // Arrange — return syntactically invalid JSON that cannot be deserialized.
-        // While constrained decoding prevents this in production, the guard ensures
-        // a clear JsonException propagates if the invariant ever breaks.
+        // While constrained decoding prevents this in production, DEC-073 classifies
+        // malformed model output as terminal, so it must surface as a
+        // PermanentCoachingLlmException (with the JsonException retained as the inner
+        // diagnostic) if the invariant ever breaks.
         _mockMessages
             .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
             .Returns(BuildTextResponse("{ not valid json !!!"));
@@ -591,16 +593,18 @@ public class ClaudeCoachingLlmTests
         // Act & Assert
         await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
                 "system", "user message", TestContext.Current.CancellationToken))
-            .Should().ThrowAsync<JsonException>();
+            .Should().ThrowAsync<PermanentCoachingLlmException>()
+            .WithInnerException<PermanentCoachingLlmException, JsonException>();
     }
 
     [Fact]
-    public async Task GenerateStructuredAsync_ThrowsJsonException_WhenRequiredFieldsAreMissing()
+    public async Task GenerateStructuredAsync_ThrowsPermanent_WhenRequiredFieldsAreMissing()
     {
         // Arrange — return valid JSON that only has total_weeks but is missing
         // goal_description, phases, rationale, and warnings. System.Text.Json
-        // enforces the C# 'required' keyword, so deserialization should throw
-        // JsonException for the missing required properties.
+        // enforces the C# 'required' keyword, so deserialization throws JsonException
+        // for the missing required properties — which DEC-073 translates to a
+        // PermanentCoachingLlmException.
         _mockMessages
             .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
             .Returns(BuildTextResponse("""{"total_weeks": 12}"""));
@@ -610,16 +614,17 @@ public class ClaudeCoachingLlmTests
         // Act & Assert
         await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
                 "system", "user message", TestContext.Current.CancellationToken))
-            .Should().ThrowAsync<JsonException>();
+            .Should().ThrowAsync<PermanentCoachingLlmException>()
+            .WithInnerException<PermanentCoachingLlmException, JsonException>();
     }
 
     [Fact]
-    public async Task GenerateStructuredAsync_ThrowsInvalidOperationException_WhenJsonIsNullLiteral()
+    public async Task GenerateStructuredAsync_ThrowsPermanent_WhenJsonIsNullLiteral()
     {
         // Arrange — return the JSON literal "null", which deserializes to null
         // for reference types. While constrained decoding makes this structurally
         // unreachable in production, the guard prevents silent null propagation
-        // if the invariant ever breaks.
+        // if the invariant ever breaks — surfaced as a terminal DEC-073 failure.
         _mockMessages
             .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
             .Returns(BuildTextResponse("null"));
@@ -627,10 +632,11 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act & Assert
-        await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
+        var thrown = await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
                 "system", "user message", TestContext.Current.CancellationToken))
-            .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*null literal*");
+            .Should().ThrowAsync<PermanentCoachingLlmException>();
+        thrown.Which.InnerException.Should().BeOfType<InvalidOperationException>()
+            .Which.Message.Should().Contain("null literal");
     }
 
     [Fact]
@@ -648,9 +654,10 @@ public class ClaudeCoachingLlmTests
     }
 
     [Fact]
-    public async Task GenerateAsync_ThrowsInvalidOperationException_WhenStopReasonIsMaxTokens()
+    public async Task GenerateAsync_ThrowsPermanent_WhenStopReasonIsMaxTokens()
     {
-        // Arrange
+        // Arrange — a max_tokens truncation is terminal under DEC-073: retrying at the same
+        // MaxTokens cannot yield a complete payload.
         _mockMessages
             .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
             .Returns(BuildTextResponse("truncated content", "max_tokens"));
@@ -658,13 +665,13 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act & Assert
-        await sut.Invoking(s => s.GenerateAsync("system", "user message", TestContext.Current.CancellationToken))
-            .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*truncated*max_tokens*");
+        var thrown = await sut.Invoking(s => s.GenerateAsync("system", "user message", TestContext.Current.CancellationToken))
+            .Should().ThrowAsync<PermanentCoachingLlmException>();
+        thrown.Which.InnerException!.Message.Should().Match("*truncated*max_tokens*");
     }
 
     [Fact]
-    public async Task GenerateStructuredAsync_ThrowsInvalidOperationException_WhenStopReasonIsMaxTokens()
+    public async Task GenerateStructuredAsync_ThrowsPermanent_WhenStopReasonIsMaxTokens()
     {
         // Arrange
         var jsonResponse = JsonSerializer.Serialize(
@@ -685,10 +692,10 @@ public class ClaudeCoachingLlmTests
         var sut = CreateSut();
 
         // Act & Assert
-        await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
+        var thrown = await sut.Invoking(s => s.GenerateStructuredAsync<MacroPlanOutput>(
                 "system", "user message", TestContext.Current.CancellationToken))
-            .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*truncated*max_tokens*");
+            .Should().ThrowAsync<PermanentCoachingLlmException>();
+        thrown.Which.InnerException!.Message.Should().Match("*truncated*max_tokens*");
     }
 
     [Fact]

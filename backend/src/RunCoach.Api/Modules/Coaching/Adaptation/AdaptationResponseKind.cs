@@ -2,9 +2,8 @@ namespace RunCoach.Api.Modules.Coaching.Adaptation;
 
 /// <summary>
 /// Discriminator for the flat adaptation response envelope. Values are explicitly numbered for
-/// stable JSON wire encoding. The orchestration layer (Slice 3 Unit 5) adds the success-path
-/// payload for <see cref="Adapted"/>; <see cref="Error"/> is the DEC-073 terminal-failure shape
-/// that ships here.
+/// stable JSON wire encoding. <see cref="Error"/> is the DEC-073 terminal-failure shape; the
+/// success-path payload accompanying <see cref="Adapted"/> is owned by the orchestration layer.
 /// </summary>
 public enum AdaptationResponseKind
 {

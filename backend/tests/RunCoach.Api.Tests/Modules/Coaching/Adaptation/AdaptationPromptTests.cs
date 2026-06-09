@@ -12,7 +12,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Adaptation;
 /// DeviationResult, and the resolved EscalationLevel; recent-log notes (user-controlled) are
 /// framed in SECTION_NAME spotlighting delimiters per R-068 / DEC-059. The dot-named
 /// <c>adaptation.v1.yaml</c> + the <c>adaptation</c> active version let the orchestration
-/// layer (Unit 5) load it through the prompt store the same way coaching-system loads.
+/// layer load it through the prompt store the same way coaching-system loads.
 /// </summary>
 public sealed class AdaptationPromptTests
 {
@@ -24,38 +24,58 @@ public sealed class AdaptationPromptTests
     [Fact]
     public void AdaptationV1Yaml_FileExists()
     {
-        File.Exists(PromptFilePath).Should().BeTrue(
-            $"the adaptation prompt file must exist at '{PromptFilePath}'");
+        // Arrange
+        var promptFilePath = PromptFilePath;
+
+        // Act
+        var actualExists = File.Exists(promptFilePath);
+
+        // Assert
+        actualExists.Should().BeTrue($"the adaptation prompt file must exist at '{promptFilePath}'");
     }
 
     [Fact]
     public void AdaptationV1Yaml_ContainsNoVdotTrademark()
     {
+        // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
 
-        promptText.Contains("vdot", StringComparison.OrdinalIgnoreCase).Should().BeFalse(
+        // Act
+        var actualContainsTrademark = promptText.Contains("vdot", StringComparison.OrdinalIgnoreCase);
+
+        // Assert
+        actualContainsTrademark.Should().BeFalse(
             "the adaptation prompt must not reference the trademarked term VDOT (DEC-042 / NOTICE)");
     }
 
     [Fact]
     public void AdaptationV1Yaml_UsesDanielsGilbertVocabulary()
     {
+        // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
 
-        var hasGenericVocab = promptText.Contains("Daniels-Gilbert zones", StringComparison.Ordinal)
+        // Act
+        var actualHasGenericVocab = promptText.Contains("Daniels-Gilbert zones", StringComparison.Ordinal)
             || promptText.Contains("pace-zone index", StringComparison.Ordinal);
 
-        hasGenericVocab.Should().BeTrue(
+        // Assert
+        actualHasGenericVocab.Should().BeTrue(
             "the adaptation prompt must use 'Daniels-Gilbert zones' or 'pace-zone index' for pace methodology");
     }
 
     [Fact]
     public void AdaptationV1Yaml_DefinesSystemPromptAndContextTemplateBlocks()
     {
+        // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
 
-        promptText.Should().Contain("static_system_prompt:", "the adaptation prompt must define a cacheable system block");
-        promptText.Should().Contain("context_template:", "the adaptation prompt must define a context template for per-call injection");
+        // Act
+        var actualHasSystemBlock = promptText.Contains("static_system_prompt:", StringComparison.Ordinal);
+        var actualHasContextTemplate = promptText.Contains("context_template:", StringComparison.Ordinal);
+
+        // Assert
+        actualHasSystemBlock.Should().BeTrue("the adaptation prompt must define a cacheable system block");
+        actualHasContextTemplate.Should().BeTrue("the adaptation prompt must define a context template for per-call injection");
     }
 
     [Theory]
@@ -66,10 +86,14 @@ public sealed class AdaptationPromptTests
     [InlineData("{{safety_tier}}")]
     public void AdaptationV1Yaml_ContextTemplateConsumesAdaptationInputs(string token)
     {
+        // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
-        var contextBlock = GetAnchorBlock(promptText, "context_template:");
 
-        contextBlock.Should().Contain(
+        // Act
+        var actualContextBlock = GetAnchorBlock(promptText, "context_template:");
+
+        // Assert
+        actualContextBlock.Should().Contain(
             token,
             $"the context_template must consume {token} (ContextAssembler context + DeviationResult + resolved EscalationLevel)");
     }
@@ -77,15 +101,18 @@ public sealed class AdaptationPromptTests
     [Fact]
     public void AdaptationV1Yaml_FramesUserControlledRecentLogsInSpotlightingDelimiter()
     {
+        // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
-        var contextBlock = GetAnchorBlock(promptText, "context_template:");
 
-        // Recent-log notes/metrics are user-controlled free text that reaches an LLM which can
-        // change a plan — they must land inside a nonce-framed SECTION_NAME boundary (R-068).
-        contextBlock.Should().Contain(
+        // Act
+        var actualContextBlock = GetAnchorBlock(promptText, "context_template:");
+
+        // Assert — recent-log notes/metrics are user-controlled free text that reaches an LLM
+        // which can change a plan; they must land inside a nonce-framed SECTION_NAME boundary (R-068).
+        actualContextBlock.Should().Contain(
             "<SECTION_NAME id=\"{{recent_logs_nonce}}\">",
             "the context_template must open a nonce-framed SECTION_NAME around the user-controlled recent logs");
-        contextBlock.Should().Contain(
+        actualContextBlock.Should().Contain(
             "</SECTION_NAME>",
             "the context_template must close every SECTION_NAME tag opened around user-controlled content");
     }
@@ -93,20 +120,23 @@ public sealed class AdaptationPromptTests
     [Fact]
     public void AdaptationV1Yaml_CarriesDataHandlingDirective()
     {
+        // Arrange
         var promptText = File.ReadAllText(PromptFilePath);
 
-        var hasDirective = promptText.Contains("data_handling", StringComparison.Ordinal)
+        // Act
+        var actualHasDirective = promptText.Contains("data_handling", StringComparison.Ordinal)
             && promptText.Contains("SECTION_NAME", StringComparison.Ordinal);
 
-        hasDirective.Should().BeTrue(
+        // Assert
+        actualHasDirective.Should().BeTrue(
             "the adaptation prompt must carry the R-068 / DEC-059 data_handling directive referencing SECTION_NAME delimiters");
     }
 
     [Fact]
     public async Task AdaptationV1Yaml_LoadsThroughThePromptStore()
     {
-        // Proves the dot-naming convention + the registered active version so the
-        // orchestration layer (Unit 5) can resolve it via GetActiveVersion/GetPromptAsync.
+        // Arrange — proves the dot-naming convention + the registered active version so the
+        // orchestration layer can resolve it via GetActiveVersion/GetPromptAsync.
         var promptsDir = Path.GetDirectoryName(PromptFilePath)!;
         var settings = new PromptStoreSettings
         {
@@ -115,12 +145,14 @@ public sealed class AdaptationPromptTests
         };
         var store = new YamlPromptStore(settings, promptsDir, NullLogger<YamlPromptStore>.Instance);
 
-        var activeVersion = store.GetActiveVersion(PromptId);
-        var template = await store.GetPromptAsync(PromptId, activeVersion, TestContext.Current.CancellationToken);
+        // Act
+        var actualActiveVersion = store.GetActiveVersion(PromptId);
+        var actualTemplate = await store.GetPromptAsync(PromptId, actualActiveVersion, TestContext.Current.CancellationToken);
 
-        activeVersion.Should().Be(PromptVersion);
-        template.StaticSystemPrompt.Should().NotBeNullOrWhiteSpace();
-        template.ContextTemplate.Should().NotBeNullOrWhiteSpace();
+        // Assert
+        actualActiveVersion.Should().Be(PromptVersion);
+        actualTemplate.StaticSystemPrompt.Should().NotBeNullOrWhiteSpace();
+        actualTemplate.ContextTemplate.Should().NotBeNullOrWhiteSpace();
     }
 
     private static string GetAnchorBlock(string promptText, string anchor)

@@ -2,9 +2,10 @@ namespace RunCoach.Api.Modules.Coaching;
 
 /// <summary>
 /// Base type for the only exceptions <see cref="ICoachingLlm"/> surfaces to callers under
-/// DEC-073 (first live in Slice 3). The adapter translates every Anthropic SDK failure into
-/// one of the two concrete subtypes so callers never take a dependency on SDK exception types
-/// and can branch on retryability alone.
+/// DEC-073 (first live in Slice 3). The adapter translates every Anthropic SDK failure — and
+/// every post-response failure (per-attempt timeout, <c>max_tokens</c> truncation, malformed
+/// structured output) — into one of the two concrete subtypes so callers never take a dependency
+/// on SDK exception types and can branch on retryability alone.
 /// </summary>
 public abstract class CoachingLlmException : Exception
 {

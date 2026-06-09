@@ -13,35 +13,22 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Adaptation;
 /// </summary>
 public sealed class AdaptationResponseDtoTests
 {
-    [Fact]
-    public void FromError_MapsTransientWithRetryAfter_ToRetryableErrorEnvelope()
+    [Theory]
+    [InlineData(30, 30)]
+    [InlineData(null, null)]
+    public void FromError_MapsTransient_ToRetryableErrorEnvelope(int? retryAfterSeconds, int? expectedRetryAfterSeconds)
     {
         // Arrange
-        var exception = new TransientCoachingLlmException("busy", retryAfterSeconds: 30, innerException: null);
+        var exception = new TransientCoachingLlmException("busy", retryAfterSeconds, innerException: null);
 
         // Act
-        var envelope = AdaptationResponseDto.FromError(exception);
+        var actualEnvelope = AdaptationResponseDto.FromError(exception);
 
         // Assert
-        envelope.Kind.Should().Be(AdaptationResponseKind.Error);
-        envelope.Retryable.Should().BeTrue();
-        envelope.RetryAfterSeconds.Should().Be(30);
-        envelope.ErrorMessage.Should().Be("busy");
-    }
-
-    [Fact]
-    public void FromError_MapsTransientWithoutRetryAfter_ToRetryableErrorWithNullDelay()
-    {
-        // Arrange
-        var exception = new TransientCoachingLlmException("unreachable", retryAfterSeconds: null, innerException: null);
-
-        // Act
-        var envelope = AdaptationResponseDto.FromError(exception);
-
-        // Assert
-        envelope.Kind.Should().Be(AdaptationResponseKind.Error);
-        envelope.Retryable.Should().BeTrue();
-        envelope.RetryAfterSeconds.Should().BeNull();
+        actualEnvelope.Kind.Should().Be(AdaptationResponseKind.Error);
+        actualEnvelope.Retryable.Should().BeTrue();
+        actualEnvelope.RetryAfterSeconds.Should().Be(expectedRetryAfterSeconds);
+        actualEnvelope.ErrorMessage.Should().Be("busy");
     }
 
     [Fact]
@@ -51,20 +38,22 @@ public sealed class AdaptationResponseDtoTests
         var exception = new PermanentCoachingLlmException("rejected", innerException: null);
 
         // Act
-        var envelope = AdaptationResponseDto.FromError(exception);
+        var actualEnvelope = AdaptationResponseDto.FromError(exception);
 
         // Assert
-        envelope.Kind.Should().Be(AdaptationResponseKind.Error);
-        envelope.Retryable.Should().BeFalse();
-        envelope.RetryAfterSeconds.Should().BeNull();
-        envelope.ErrorMessage.Should().Be("rejected");
+        actualEnvelope.Kind.Should().Be(AdaptationResponseKind.Error);
+        actualEnvelope.Retryable.Should().BeFalse();
+        actualEnvelope.RetryAfterSeconds.Should().BeNull();
+        actualEnvelope.ErrorMessage.Should().Be("rejected");
     }
 
     [Fact]
     public void FromError_ThrowsArgumentNullException_WhenExceptionIsNull()
     {
+        // Arrange + Act
         var act = () => AdaptationResponseDto.FromError(null!);
 
+        // Assert
         act.Should().Throw<ArgumentNullException>();
     }
 }

@@ -39,8 +39,11 @@ public sealed record CoachingLlmSettings
     public int MaxRetries { get; init; } = 2;
 
     /// <summary>
-    /// Gets request timeout in seconds. Defaults to 120 seconds (2 minutes)
-    /// to accommodate longer plan generation responses.
+    /// Gets the SDK per-attempt request timeout in seconds. Defaults to 120 seconds (2 minutes):
+    /// this single setting governs every coaching call, and the plan-generation structured-output
+    /// responses routinely need far longer than the ~30s DEC-073 sketched for the adaptation call
+    /// alone — the shared 120s bound deliberately supersedes that figure rather than starving plan
+    /// generation. A timed-out attempt surfaces as a <see cref="TransientCoachingLlmException"/>.
     /// </summary>
     public int TimeoutSeconds { get; init; } = 120;
 

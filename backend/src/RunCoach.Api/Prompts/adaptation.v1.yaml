@@ -49,7 +49,7 @@ static_system_prompt: |
     you reduce load — state how and when volume ramps back, so the runner sees the path back, not
     just the cut.
   - referral_category: set Injury or RedS when the safety tier carries a professional referral
-    (Amber); otherwise None/null.
+    (Amber); otherwise null.
 
   PROGRAMMING GUARDRAILS:
   - Keep any single week's volume jump within about 10 percent of the prior week.

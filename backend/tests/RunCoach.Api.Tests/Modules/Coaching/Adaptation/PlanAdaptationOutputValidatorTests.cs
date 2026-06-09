@@ -108,6 +108,36 @@ public sealed class PlanAdaptationOutputValidatorTests
         result.Violation.Should().Be(PlanAdaptationOutputValidationViolation.SlotKindMismatch);
     }
 
+    [Fact]
+    public void Validate_ReturnsSlotKindMismatch_WhenNudgeKindFillsNoSlot()
+    {
+        // Arrange — discriminator says nudge but the nudge slot is empty: a realistic LLM
+        // failure shape (kind emitted, slot left null) this validator exists to reject.
+        var output = BuildAbsorb() with { AdaptationKind = AdaptationKind.Nudge };
+
+        // Act
+        var result = PlanAdaptationOutputValidator.Validate(output);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Violation.Should().Be(PlanAdaptationOutputValidationViolation.SlotKindMismatch);
+    }
+
+    [Fact]
+    public void Validate_ReturnsSlotKindMismatch_ForUnknownAdaptationKind()
+    {
+        // Arrange — an out-of-range discriminator must fall to the default switch arm. This is
+        // deserializable in practice: JsonStringEnumConverter accepts integer values by default.
+        var output = BuildAbsorb() with { AdaptationKind = (AdaptationKind)99 };
+
+        // Act
+        var result = PlanAdaptationOutputValidator.Validate(output);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Violation.Should().Be(PlanAdaptationOutputValidationViolation.SlotKindMismatch);
+    }
+
     [Theory]
     [InlineData(SafetyTier.Amber)]
     [InlineData(SafetyTier.Red)]
