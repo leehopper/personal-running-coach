@@ -1030,6 +1030,43 @@
         "type": "integer",
         "format": "int32"
       },
+      "AdaptationResponseDto": {
+        "required": [
+          "adaptationKind",
+          "kind",
+          "retryable"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/AdaptationResponseKind"
+          },
+          "adaptationKind": {
+            "$ref": "#/components/schemas/AdaptationKind"
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdaptationResponseKind": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "AuthResponseDto": {
         "required": [
           "email",
@@ -1238,6 +1275,7 @@
       },
       "CreateWorkoutLogResponseDto": {
         "required": [
+          "adaptation",
           "workoutLogId"
         ],
         "type": "object",
@@ -1245,6 +1283,9 @@
           "workoutLogId": {
             "type": "string",
             "format": "uuid"
+          },
+          "adaptation": {
+            "$ref": "#/components/schemas/AdaptationResponseDto"
           }
         },
         "additionalProperties": false

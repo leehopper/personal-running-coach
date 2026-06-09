@@ -481,8 +481,17 @@ export type RegeneratePlanRequestDto = {
   idempotencyKey: string
   intent: RegenerationIntentRequestDto
 }
+export type AdaptationResponseKind = 0 | 1
+export type AdaptationResponseDto = {
+  kind: AdaptationResponseKind
+  adaptationKind: AdaptationKind
+  errorMessage?: string | null
+  retryable: boolean
+  retryAfterSeconds?: number | null
+}
 export type CreateWorkoutLogResponseDto = {
   workoutLogId: string
+  adaptation: AdaptationResponseDto
 }
 export type CompletionStatus = 0 | 1 | 2
 export type WorkoutLogSplitDto = {
