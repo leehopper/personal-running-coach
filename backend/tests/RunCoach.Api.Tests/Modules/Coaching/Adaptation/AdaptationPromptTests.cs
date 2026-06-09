@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using RunCoach.Api.Modules.Coaching.Prompts;
@@ -128,7 +129,15 @@ public sealed class AdaptationPromptTests
         anchorStart.Should().BeGreaterThanOrEqualTo(
             0,
             because: $"the adaptation prompt must define a '{anchor}' block — without it, structural assertions can't proceed");
-        return promptText[anchorStart..];
+
+        // Bound the returned text to this top-level YAML block so a token assertion cannot pass
+        // on a match that lives in a later section. The block runs from the anchor key to the
+        // next top-level key (a newline immediately followed by a non-whitespace, column-0
+        // character) or EOF; block-scalar content lines are all indented, so only a sibling
+        // top-level key terminates the block.
+        var remainder = promptText[anchorStart..];
+        var nextTopLevelKey = Regex.Match(remainder, @"\n(?=\S)");
+        return nextTopLevelKey.Success ? remainder[..nextTopLevelKey.Index] : remainder;
     }
 
     private static string ResolvePromptFile()
