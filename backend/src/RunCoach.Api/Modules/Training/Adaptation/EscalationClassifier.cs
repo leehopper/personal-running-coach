@@ -11,8 +11,8 @@ namespace RunCoach.Api.Modules.Training.Adaptation;
 /// anti-flip-flop guarantee is L2-only: inside the dead-zone a missed key workout
 /// still earns an L1 micro-adjust, and a fresh consecutive-missed-days hard trigger
 /// re-escalates once the cooldown has elapsed. Pure and stateless — no LLM, no I/O
-/// beyond suppressed-trigger observability logging; the L2 restructure is where PR5
-/// hands off to the LLM.
+/// beyond suppressed-trigger observability logging; the L2 restructure is where
+/// <see cref="EvaluateAdaptationHandler"/> hands off to the coaching LLM.
 /// </summary>
 public sealed partial class EscalationClassifier(ILogger<EscalationClassifier> logger) : IEscalationClassifier
 {
@@ -57,10 +57,7 @@ public sealed partial class EscalationClassifier(ILogger<EscalationClassifier> l
             // deteriorating runner must not be silently absorbed.
             if (!cooldownActive && newStreak >= AdaptationThresholds.ConsecutiveMissedDaysForRestructure)
             {
-                return new EscalationDecision(
-                    EscalationLevel.Restructure,
-                    AdaptationKind.Restructure,
-                    new AdaptationSignalState(PlanState.NeedsAdjustment, newScore, newStreak, deviation.OccurredOn));
+                return Restructure(newScore, newStreak, deviation.OccurredOn);
             }
 
             // The anti-flip-flop guarantee is L2-only: a missed key workout still
@@ -96,14 +93,12 @@ public sealed partial class EscalationClassifier(ILogger<EscalationClassifier> l
         }
 
         // L2 restructure: sustained under-performance crossing the enter threshold, or a
-        // run of consecutive missed days. This is where PR5 hands off to the LLM.
+        // run of consecutive missed days. This is where EvaluateAdaptationHandler hands
+        // off to the coaching LLM.
         if (newScore >= AdaptationThresholds.RestructureEnterScore
             || newStreak >= AdaptationThresholds.ConsecutiveMissedDaysForRestructure)
         {
-            return new EscalationDecision(
-                EscalationLevel.Restructure,
-                AdaptationKind.Restructure,
-                new AdaptationSignalState(PlanState.NeedsAdjustment, newScore, newStreak, deviation.OccurredOn));
+            return Restructure(newScore, newStreak, deviation.OccurredOn);
         }
 
         // L1 micro-adjust: a single reschedulable missed/moved key workout, or accumulated
@@ -128,6 +123,19 @@ public sealed partial class EscalationClassifier(ILogger<EscalationClassifier> l
 
     private static EscalationDecision Absorb(AdaptationSignalState state) =>
         new(EscalationLevel.Absorb, AdaptationKind.Absorb, state);
+
+    /// <summary>
+    /// Fire a restructure now and stamp the adaptation date. Both restructure
+    /// triggers — the enter-threshold crossing and the dead-zone
+    /// consecutive-missed-days hard trigger — resolve to this same decision
+    /// (<see cref="PlanState.NeedsAdjustment"/>, <c>LastAdaptationOn</c> = the log's
+    /// day), so the two call sites cannot silently diverge.
+    /// </summary>
+    private static EscalationDecision Restructure(double newScore, int newStreak, DateOnly occurredOn) =>
+        new(
+            EscalationLevel.Restructure,
+            AdaptationKind.Restructure,
+            new AdaptationSignalState(PlanState.NeedsAdjustment, newScore, newStreak, occurredOn));
 
     [LoggerMessage(
         Level = LogLevel.Information,
