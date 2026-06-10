@@ -8,7 +8,8 @@ namespace RunCoach.Api.Tests.Modules.Training.Adaptation;
 /// factory at the persistence rehydration boundary (Slice 3 Unit 5, DEC-078
 /// resolution) — and for <see cref="AdaptationSignalStateDocument"/>'s round-trip
 /// through it. The rules under test: clamp the rolling score into
-/// [0, MaxRollingDeviationScore], reject a negative missed-day streak, and reject
+/// [0, MaxRollingDeviationScore], reject an undefined <see cref="PlanState"/>
+/// encoding, reject a negative missed-day streak, and reject
 /// <see cref="PlanState.NeedsAdjustment"/> paired with a null LastAdaptationOn
 /// (which would silently disable the cooldown half of the hysteresis).
 /// </summary>
@@ -90,6 +91,21 @@ public sealed class AdaptationSignalStateFactoryTests
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("consecutiveMissedDays");
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(3)]
+    [InlineData(int.MaxValue)]
+    public void Create_UndefinedPlanState_Throws(int storedEncoding)
+    {
+        // Act — the enum persists as its numeric encoding, so a drifted or
+        // hand-edited row can carry a value no PlanState member maps to.
+        var act = () => AdaptationSignalState.Create((PlanState)storedEncoding, 0.0, 0, null);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>()
+            .WithParameterName("planState");
     }
 
     [Fact]

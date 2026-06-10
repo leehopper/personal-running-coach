@@ -40,7 +40,11 @@ public sealed record AdaptationSignalState(
     /// or schema-drifted row fails loudly (or is clamped back into band) at load time
     /// instead of silently corrupting the hysteresis math downstream.
     /// </summary>
-    /// <param name="planState">The plan-state in the hysteresis machine.</param>
+    /// <param name="planState">
+    /// The plan-state in the hysteresis machine. Must be a defined
+    /// <see cref="PlanState"/> member: the enum persists as its numeric encoding,
+    /// so a drifted document can carry a value no member maps to.
+    /// </param>
     /// <param name="rollingDeviationScore">
     /// The rolling deviation accumulator; clamped into
     /// [0, <see cref="AdaptationThresholds.MaxRollingDeviationScore"/>] — the same
@@ -61,8 +65,9 @@ public sealed record AdaptationSignalState(
     /// </param>
     /// <returns>A validated <see cref="AdaptationSignalState"/>.</returns>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// Thrown when <paramref name="rollingDeviationScore"/> is NaN or
-    /// <paramref name="consecutiveMissedDays"/> is negative.
+    /// Thrown when <paramref name="planState"/> is not a defined
+    /// <see cref="PlanState"/> member, <paramref name="rollingDeviationScore"/>
+    /// is NaN, or <paramref name="consecutiveMissedDays"/> is negative.
     /// </exception>
     /// <exception cref="ArgumentException">
     /// Thrown when <paramref name="planState"/> is
@@ -75,6 +80,17 @@ public sealed record AdaptationSignalState(
         int consecutiveMissedDays,
         DateOnly? lastAdaptationOn)
     {
+        // The enum persists as its numeric encoding, so a drifted or hand-edited
+        // document can carry a value no PlanState member maps to; reject it here
+        // rather than hand the classifier a state outside its transition table.
+        if (!Enum.IsDefined(planState))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(planState),
+                planState,
+                "PlanState must be a defined plan-state value.");
+        }
+
         // NaN slips through Math.Clamp unchanged (every IEEE comparison against it
         // is false), so reject it explicitly rather than let it poison the
         // threshold comparisons the classifier runs on every evaluation.
