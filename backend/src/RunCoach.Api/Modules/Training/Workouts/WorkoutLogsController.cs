@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Marten.Exceptions;
+using JasperFx.Events;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -228,12 +228,20 @@ public sealed partial class WorkoutLogsController(
                 new EvaluateAdaptationCommand(workoutLogId, userId),
                 ct);
         }
-        catch (ConcurrentUpdateException ex)
+        catch (EventStreamUnexpectedMaxEventIdException ex)
         {
             // The handler retries a lost stream-version race a bounded number of
             // times before the conflict escapes here. The log row is already
             // committed, so the create must still answer 201 — the conflict maps
             // to a generic retryable Kind=Error envelope instead of a 5xx.
+            //
+            // The catch targets `EventStreamUnexpectedMaxEventIdException` (a
+            // `JasperFx.ConcurrencyException`) because that is what a lost Rich
+            // append-mode race on the existing plan stream actually throws:
+            // Marten transforms the loser's (stream id, version) unique violation
+            // into this type. `Marten.Exceptions.ConcurrentUpdateException` is a
+            // different, unrelated hierarchy (session-level write collisions) and
+            // never fires for this conflict.
             LogAdaptationDispatchConflicted(logger, workoutLogId, userId, ex);
             return new AdaptationResponseDto
             {

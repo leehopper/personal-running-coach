@@ -1,6 +1,6 @@
 using System.Globalization;
+using JasperFx.Events;
 using Marten;
-using Marten.Exceptions;
 using Microsoft.Extensions.Logging;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
@@ -110,13 +110,13 @@ public sealed partial class EvaluateAdaptationHandler
     /// <summary>
     /// Wolverine chain-configuration hook, discovered by convention and applied
     /// once at startup before code generation. Scopes the adaptation-specific
-    /// concurrency policy to THIS message type only: a
-    /// <see cref="ConcurrentUpdateException"/> (two adaptation evaluations racing
-    /// appends on the same plan stream under Rich append mode) retries inline a
-    /// bounded number of times, then dead-letters. Chain rules are evaluated
-    /// before the globally registered rules, so the global first-write-wins
-    /// dead-letter routing (DEC-057) keeps governing the onboarding and
-    /// regenerate chains untouched.
+    /// concurrency policy to THIS message type only: an
+    /// <see cref="EventStreamUnexpectedMaxEventIdException"/> (two adaptation
+    /// evaluations racing appends on the same plan stream under Rich append mode)
+    /// retries inline a bounded number of times, then dead-letters. Chain rules
+    /// are evaluated before the globally registered rules, so the global
+    /// first-write-wins dead-letter routing (DEC-057) keeps governing the
+    /// onboarding and regenerate chains untouched.
     /// </summary>
     /// <param name="chain">The handler chain for <see cref="EvaluateAdaptationCommand"/>.</param>
     public static void Configure(HandlerChain chain)
@@ -305,11 +305,22 @@ public sealed partial class EvaluateAdaptationHandler
     /// (constructing a real <c>HandlerChain</c> requires Wolverine's internal
     /// handler graph).
     /// </summary>
+    /// <remarks>
+    /// The rule targets <see cref="EventStreamUnexpectedMaxEventIdException"/>
+    /// because that is the exception a lost Rich-append-mode race on an EXISTING
+    /// plan stream actually surfaces as: the loser's commit violates the events
+    /// table's (stream id, version) uniqueness and Marten transforms that Postgres
+    /// error into this type (a <see cref="JasperFx.ConcurrencyException"/>
+    /// subclass). <c>Marten.Exceptions.ConcurrentUpdateException</c> deliberately
+    /// does NOT appear here: it sits outside the <c>JasperFx.ConcurrencyException</c>
+    /// hierarchy and is raised for session-level write collisions, not for this
+    /// append conflict — a rule keyed on it never fires for the adaptation race.
+    /// </remarks>
     /// <param name="policies">The failure-policy surface to register on.</param>
     internal static void ConfigureFailureRules(IWithFailurePolicies policies)
     {
         ArgumentNullException.ThrowIfNull(policies);
-        policies.OnException<ConcurrentUpdateException>()
+        policies.OnException<EventStreamUnexpectedMaxEventIdException>()
             .RetryTimes(MaxConcurrencyRetries)
             .Then.MoveToErrorQueue();
     }

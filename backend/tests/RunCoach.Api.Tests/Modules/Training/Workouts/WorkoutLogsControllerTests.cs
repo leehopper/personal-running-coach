@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using FluentAssertions;
-using Marten.Exceptions;
+using JasperFx.Events;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -100,15 +100,19 @@ public class WorkoutLogsControllerTests
     public async Task CreateLog_ConcurrencyConflictEscapesDispatch_MapsToRetryableErrorEnvelope()
     {
         // Arrange — the one known failure shape that escapes the handler's bounded
-        // retries. The log row is already committed, so the boundary maps it to a
-        // generic retryable Kind=Error envelope instead of a 5xx.
+        // retries: the stream-version conflict a lost Rich-append-mode race
+        // actually throws (`EventStreamUnexpectedMaxEventIdException`, a
+        // `JasperFx.ConcurrencyException`). The log row is already committed, so
+        // the boundary maps it to a generic retryable Kind=Error envelope instead
+        // of a 5xx.
         var userId = Guid.NewGuid();
         var workoutLogId = Guid.NewGuid();
         var (controller, _, bus) = CreateController(userId, workoutLogId);
         bus.InvokeForTenantAsync<AdaptationResponseDto>(
                 Arg.Any<string>(), Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
             .Returns<Task<AdaptationResponseDto>>(_ =>
-                throw new ConcurrentUpdateException(new InvalidOperationException("stream version conflict")));
+                throw new EventStreamUnexpectedMaxEventIdException(
+                    Guid.NewGuid(), aggregateType: null, expected: 12, actual: 13));
         var ct = TestContext.Current.CancellationToken;
 
         // Act
