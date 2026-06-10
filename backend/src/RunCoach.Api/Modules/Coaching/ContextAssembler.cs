@@ -367,13 +367,15 @@ public sealed partial class ContextAssembler : IContextAssembler
         var template = await _promptStore.GetPromptAsync(AdaptationPromptId, activeVersion, ct).ConfigureAwait(false);
         var systemPrompt = template.StaticSystemPrompt.TrimEnd();
 
-        // The triggering log's note and free-text metric values pass through
-        // the DEC-059 sanitizer before rendering, then the FULL rendered line
-        // is delimiter-escaped so nothing in it — including metric values the
-        // sanitizer does not cover — can close the SECTION_NAME spotlight
-        // early. Sanitizer-wrapped note bodies therefore receive a second
-        // escaping pass; that double escape is intentional defense-in-depth
-        // (a benign "&" renders as "&amp;amp;"), never a containment gap.
+        // This method is the SINGLE sanitization owner for the adaptation prompt;
+        // callers pass the RAW triggering log (the handler sanitizes a separate copy
+        // for the safety gate, never this one). The note and free-text metric values
+        // pass through the DEC-059 sanitizer once here, then the FULL rendered line is
+        // delimiter-escaped so nothing in it — including metric values the sanitizer
+        // does not cover — can close the SECTION_NAME spotlight early. Sanitizer-
+        // wrapped note bodies therefore receive a second escaping pass; that double
+        // escape is intentional defense-in-depth (a benign "&" renders as
+        // "&amp;amp;"), never a containment gap.
         var sanitizedLog = await _recentLogSanitizer.SanitizeAsync(triggeringLog, ct).ConfigureAwait(false);
         var recentLogs = LayeredPromptSanitizer.EscapeDelimiterBody(
             RecentLogFormatter.FormatWorkoutDetail(sanitizedLog));
@@ -381,6 +383,8 @@ public sealed partial class ContextAssembler : IContextAssembler
         // The escalation level, safety tier, and deviation numbers are
         // rendered verbatim for echo-back — the LLM never recomputes or
         // re-classifies them. The nonce is fresh per call (R-068 / DEC-059).
+        // The runner-profile block the spec lists as a prompt input is deliberately
+        // omitted at MVP-0 (DEC-080); the adaptation template defines no profile token.
         var tokens = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["plan_context"] = BuildAdaptationPlanContext(plan),

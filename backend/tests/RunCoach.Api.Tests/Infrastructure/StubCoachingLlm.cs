@@ -19,8 +19,7 @@ namespace RunCoach.Api.Tests.Infrastructure;
 /// The class must be <c>public</c>: Wolverine's codegen service-locates internal
 /// types and silently falls back to scope-based DI for the whole chain, which
 /// resolves a different <c>IDocumentSession</c> for the idempotency store than
-/// the one Wolverine commits and breaks same-session idempotency (see
-/// <c>backend/CLAUDE.md</c> § Wolverine Handler Integration Coverage).
+/// the one Wolverine commits and breaks same-session idempotency.
 /// </para>
 /// <para>
 /// Wolverine bakes the concrete registration into its generated handler code at

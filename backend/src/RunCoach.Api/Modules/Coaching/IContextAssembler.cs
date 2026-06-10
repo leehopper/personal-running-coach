@@ -97,7 +97,9 @@ public interface IContextAssembler
     /// level / safety tier / deviation summary (echo-back only — the LLM
     /// never computes deviation math or re-classifies safety), and the
     /// triggering logged workout inside a nonce-delimited spotlight section
-    /// per R-068 / DEC-059.
+    /// per R-068 / DEC-059. At MVP-0 the runner-profile block is deliberately
+    /// omitted (DEC-080): the composition renders plan context, escalation level,
+    /// safety tier, deviation summary, and the triggering log only.
     /// </summary>
     /// <param name="plan">
     /// The current plan projection. The current micro week's detailed
@@ -118,12 +120,13 @@ public interface IContextAssembler
     /// verbatim so the LLM performs no deviation math.
     /// </param>
     /// <param name="triggeringLog">
-    /// The logged workout that triggered the adaptation. Its note and
-    /// free-text metric values are sanitized inside the assembler via
+    /// The logged workout that triggered the adaptation, passed RAW (unsanitized):
+    /// this method is the single sanitization owner for the adaptation prompt. Its
+    /// note and free-text metric values are sanitized inside the assembler via
     /// <c>IRecentLogSanitizer</c> (R-068 / DEC-059), and the rendered line is
-    /// delimiter-escaped before being placed in the nonce-delimited
-    /// recent-logs section. The full recent-logs window is a later unit —
-    /// this composes the triggering log plus plan-week context only.
+    /// delimiter-escaped before being placed in the nonce-delimited recent-logs
+    /// section. At MVP-0 this composes the triggering log plus plan-week context
+    /// only; the recent-logs section carries a single log.
     /// </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The composed adaptation prompt — system + user message.</returns>

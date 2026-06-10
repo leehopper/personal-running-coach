@@ -2892,4 +2892,23 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 
 ---
 
+## DEC-080: Slice 3 adaptation orchestration — deliberate MVP-0 scope reductions from the local spec (single-call validator reject, profile-less adaptation prompt) (Slice 3)
+
+**Date:** 2026-06-10
+**Category:** Backend / Coaching / Adaptation
+**Status:** Accepted — records two intentional divergences of the shipped `EvaluateAdaptationHandler` / `ContextAssembler.ComposeForAdaptationAsync` (PR5) from the local Slice 3 spec (`docs/specs/17-spec-slice-3-adaptation/`, gitignored), surfaced by the PR #169 deep review.
+**Drives:** What the adaptation orchestration handler does on a validator-rejected LLM proposal, and which context blocks the adaptation prompt renders, at MVP-0.
+**Builds on:** DEC-073 (synchronous LLM-failure policy — SDK-only retry), DEC-078/DEC-079 (Slice 3 adaptation), the `project_mvp0_audience_and_priorities` steer (self + family; working loop + clean UX over breadth).
+
+**Decision:**
+
+- **Validator-rejected proposals are terminal with zero re-prompts.** The L2 restructure path makes exactly ONE structured-output call; a post-decode validation reject (or a non-restructure proposal, or a safety-tier echo mismatch) maps straight to the non-retryable `Kind=Error` envelope with nothing staged. The local spec's `01-design.md` line "one re-prompt with constraint feedback on validator reject before terminal failure" and the `17-spec` GATE-BEFORE-INCREASE "re-prompted once, else terminal" wording are **deliberately not implemented** at MVP-0. DEC-073 governs only transport-level SDK retries (429/5xx); it does not mandate a validator-reject re-prompt, and a constrained-decoding reject on a frozen schema is unlikely to be fixed by an identical second call. The committed unit test `Handle_ValidatorRejectedOutput_…` pins "no second LLM attempt."
+- **The adaptation prompt omits the runner-profile block at MVP-0.** `ComposeForAdaptationAsync` renders plan context, escalation level, safety tier, deviation summary, and the (single) triggering log only. The spec lists "profile + plan projection + recent logs" as the prompt context; the runner-profile block and the full recent-logs window are deferred. The `adaptation.v1.yaml` template (landed PR4) defines no profile token, so adding it is a template + eval-cache re-record change, not in PR5's scope.
+
+**Rationale:** both are scope reductions, not behavior bugs — the deep review correctly flagged that neither was recorded in a decision. The re-prompt buys a second chance on a recoverable reject but costs an extra LLM round-trip and complexity for a failure mode that is rare on a frozen schema and already surfaces a clean "try again" envelope; defer it. The profile block is a genuine prompt-quality gap but is bounded by the PR4 template and the eval-recording funded-key step; revisit during Unit 6 eval calibration when prompt context is tuned against the five `TestProfiles`.
+
+**Open / deferred:** revisit the single re-prompt and the profile/recent-logs prompt context during Slice 3 Unit 6 eval authoring (calibrate against the five `TestProfiles`); both are pre-public-release candidates if eval scores show under-reaction on recoverable rejects or weak personalization.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*

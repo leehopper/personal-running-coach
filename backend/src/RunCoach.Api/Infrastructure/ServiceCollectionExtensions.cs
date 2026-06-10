@@ -61,16 +61,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICoachingLlm, ClaudeCoachingLlm>();
 
         // ContextAssembler's 3-arg legacy constructor is `internal` (test-only via
-        // InternalsVisibleTo); the public surface is the single 6-arg
-        // onboarding-aware constructor, so the container unambiguously selects it
-        // from a plain implementation-type registration. This MUST stay a type
-        // registration, not an `sp => new ContextAssembler(...)` lambda factory:
-        // Wolverine 6 handler codegen (ServiceLocationPolicy.NotAllowed, DEC-071)
-        // cannot statically construct an opaque Scoped lambda factory, falls back
-        // to service location, and rejects it — breaking the OnboardingTurnHandler
-        // chain with an HTTP 500 on every onboarding turn. The no-opaque-factory
-        // rule is guarded by WolverineCodegenCompositionTests; correct 6-arg
-        // constructor selection is guarded by ContextAssemblerDiResolutionTests.
+        // InternalsVisibleTo); the public surface is the single 7-arg
+        // onboarding-aware constructor (6 required dependencies + an optional
+        // IRecentLogSanitizer that resolves from the registered singleton for the
+        // adaptation flow), so the container unambiguously selects it from a plain
+        // implementation-type registration. This MUST stay a type registration, not
+        // an `sp => new ContextAssembler(...)` lambda factory: Wolverine 6 handler
+        // codegen (ServiceLocationPolicy.NotAllowed, DEC-071) cannot statically
+        // construct an opaque Scoped lambda factory, falls back to service location,
+        // and rejects it — breaking the OnboardingTurnHandler chain with an HTTP 500
+        // on every onboarding turn. The no-opaque-factory rule is guarded by
+        // WolverineCodegenCompositionTests; correct 7-arg constructor selection is
+        // guarded by ContextAssemblerDiResolutionTests.
         services.AddScoped<IContextAssembler, ContextAssembler>();
 
         // Prompt-injection sanitizer (Slice 1 § Unit 6 / DEC-059 / R-068).
