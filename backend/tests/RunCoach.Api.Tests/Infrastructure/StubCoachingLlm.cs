@@ -111,8 +111,10 @@ public sealed class StubCoachingLlm : ICoachingLlm
         var outcome = behavior();
         if (outcome is not T typed)
         {
+            // A null-returning script lands here too; report it as "null" instead
+            // of tripping over outcome.GetType() while building the diagnostic.
             throw new InvalidOperationException(
-                $"StubCoachingLlm behavior produced {outcome.GetType().Name} but the caller "
+                $"StubCoachingLlm behavior produced {outcome?.GetType().Name ?? "null"} but the caller "
                 + $"requested {typeof(T).Name}; script a matching structured output.");
         }
 
