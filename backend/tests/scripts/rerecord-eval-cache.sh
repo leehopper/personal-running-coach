@@ -10,8 +10,8 @@ set -euo pipefail
 # Usage: ./backend/tests/scripts/rerecord-eval-cache.sh
 # Requires: Anthropic API key configured via dotnet user-secrets
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BACKEND_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+BACKEND_DIR="$(realpath "$SCRIPT_DIR/../..")"
 CACHE_DIR="$BACKEND_DIR/tests/eval-cache"
 
 echo "=== Eval Cache Re-Recording (DEC-039) ==="
@@ -19,7 +19,7 @@ echo ""
 
 # Step 0: Verify API key is available in the TEST project's user-secrets
 # (The test project has UserSecretsId=runcoach-api-tests, separate from the API project's runcoach-api)
-echo "[1/5] Checking API key..."
+echo "[1/6] Checking API key..."
 TEST_PROJECT="$BACKEND_DIR/tests/RunCoach.Api.Tests"
 if ! dotnet user-secrets list --project "$TEST_PROJECT" 2>/dev/null | grep -q "Anthropic:ApiKey"; then
     if [ -n "$ANTHROPIC_API_KEY" ]; then
@@ -35,12 +35,22 @@ else
 fi
 
 # Step 1: Delete existing cache
-echo "[2/5] Deleting existing cache at $CACHE_DIR..."
+echo "[2/6] Deleting existing cache at $CACHE_DIR..."
 rm -rf "$CACHE_DIR"
 echo "  Deleted."
 
-# Step 2: Record fresh
-echo "[3/5] Recording fresh eval responses (this calls the Anthropic API)..."
+# Step 2: Regenerate the DEC-074 prompt-hash sentinel manifest BEFORE recording.
+# The Record run below loads EvalTestBase, whose static constructor verifies the
+# committed manifest against the current Prompts/*.yaml — after a prompt edit
+# (the exact drift this script remediates) a stale manifest would fail every
+# eval test and abort the script under pipefail before recording anything. The
+# manifest records the prompt contents this cache is recorded against, so
+# writing it first is also semantically correct.
+echo "[3/6] Regenerating prompt-hash manifest (DEC-074)..."
+bash "$SCRIPT_DIR/check-prompt-hashes.sh" --write
+
+# Step 3: Record fresh
+echo "[4/6] Recording fresh eval responses (this calls the Anthropic API)..."
 cd "$BACKEND_DIR"
 # Invoke the test binary directly — matches the lefthook dotnet-test pattern.
 # xunit v3's native CLI accepts `-trait "Category=Eval"` as the inclusion
@@ -49,8 +59,8 @@ dotnet build RunCoach.slnx --no-restore >/dev/null
 EVAL_CACHE_MODE=Record "$BACKEND_DIR/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests" -trait "Category=Eval"
 echo "  Recording complete."
 
-# Step 3: Post-process TTL to 9999-12-31
-echo "[4/5] Extending TTL on all entry.json files..."
+# Step 4: Post-process TTL to 9999-12-31
+echo "[5/6] Extending TTL on all entry.json files..."
 PATCHED=0
 while IFS= read -r -d '' entry_file; do
     if command -v python3 &>/dev/null; then
@@ -71,14 +81,8 @@ with open('$entry_file', 'w') as f:
 done < <(find "$CACHE_DIR" -name "entry.json" -print0)
 echo "  Patched $PATCHED entry.json files."
 
-# Step 3b: Regenerate the DEC-074 prompt-hash sentinel manifest so the committed
-# cache and the manifest always move together (the manifest records the prompt
-# contents this cache was recorded against).
-echo "[4b/5] Regenerating prompt-hash manifest (DEC-074)..."
-bash "$SCRIPT_DIR/check-prompt-hashes.sh" --write
-
-# Step 4: Verify Replay mode works
-echo "[5/5] Verifying Replay mode with new fixtures..."
+# Step 5: Verify Replay mode works
+echo "[6/6] Verifying Replay mode with new fixtures..."
 EVAL_CACHE_MODE=Replay "$BACKEND_DIR/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests" -trait "Category=Eval"
 echo ""
 echo "=== Done. Cache is fresh and TTL-extended. ==="

@@ -19,8 +19,8 @@ set -euo pipefail
 
 export LC_ALL=C
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BACKEND_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+BACKEND_DIR="$(realpath "$SCRIPT_DIR/../..")"
 PROMPTS_DIR="$BACKEND_DIR/src/RunCoach.Api/Prompts"
 MANIFEST="$PROMPTS_DIR/.prompt-hashes.sha256"
 
