@@ -105,6 +105,24 @@ public sealed class PlanAdaptationSchemaStabilityTests
     }
 
     [Fact]
+    public void Frozen_ContainsNoReference_SoAnthropicAcceptsTheSchema()
+    {
+        // Arrange — PlanAdaptationOutput uses WorkoutOutput[] in two slots
+        // (nudge_patch.revised_workouts + restructure_plan.revised_current_week_workouts),
+        // so JsonSchemaExporter emits a $ref into #/properties for the second.
+        // Anthropic constrained decoding rejects a $ref that is not under
+        // $defs/definitions with HTTP 400 — AnthropicSchemaSanitizer inlines it.
+        // Regression guard for the PR6 live-eval finding.
+        var serialized = SerializeDictionaryToCanonicalJson(AdaptationSchema.Frozen);
+        var json = Encoding.UTF8.GetString(serialized);
+
+        // Act + Assert
+        json.Should().NotContain(
+            "\"$ref\":",
+            because: "Anthropic rejects a $ref not under $defs/definitions with HTTP 400 (output_config.format.schema)");
+    }
+
+    [Fact]
     public void Frozen_HasObjectShape_WithPropertiesAndAdditionalPropertiesFalse()
     {
         AdaptationSchema.Frozen.Should().ContainKey("properties");

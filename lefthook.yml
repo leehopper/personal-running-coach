@@ -19,6 +19,17 @@ pre-commit:
     eval-cache-dedup:
       glob: "**/eval-cache/**"
       run: bash backend/tests/scripts/clean-eval-cache-duplicates.sh
+    check-prompt-hashes:
+      # DEC-074: prompt ↔ eval-cache sentinel. A staged edit to a coaching
+      # prompt YAML must move with a re-recorded eval cache + regenerated
+      # manifest (the manifest records the prompt contents the committed cache
+      # was recorded against). Read-only check (no stage_fixed) — remediation
+      # is `rerecord-eval-cache.sh`. The glob lists the repo-relative Prompts
+      # path because lefthook matches `glob` against the repo-relative staged
+      # path (`root` only sets the run CWD). The EvalTestBase static-ctor
+      # backstop covers `--no-verify` and CI.
+      glob: "backend/src/RunCoach.Api/Prompts/*.yaml"
+      run: bash backend/tests/scripts/check-prompt-hashes.sh
     eslint:
       root: "frontend/"
       glob: "*.{ts,tsx}"

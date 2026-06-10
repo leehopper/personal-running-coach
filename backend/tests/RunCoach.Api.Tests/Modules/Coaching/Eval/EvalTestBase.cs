@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Anthropic;
@@ -50,6 +52,11 @@ public abstract class EvalTestBase : IAsyncDisposable
 {
     private const string EvalResultsDir = "eval-results";
 
+    /// <summary>
+    /// Filename of the committed DEC-074 prompt-hash sentinel manifest under the prompts directory.
+    /// </summary>
+    private const string PromptHashManifestFileName = ".prompt-hashes.sha256";
+
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
         WriteIndented = true,
@@ -60,6 +67,18 @@ public abstract class EvalTestBase : IAsyncDisposable
     private readonly CoachingLlmSettings _settings;
     private readonly ReportingConfiguration? _sonnetReportingConfig;
     private readonly ReportingConfiguration? _haikuReportingConfig;
+
+    /// <summary>
+    /// DEC-074 backstop: recompute the prompt YAML hashes once per test run and
+    /// fail fast if they drift from the committed manifest. This is the CI /
+    /// <c>--no-verify</c> safety net for the glob-scoped <c>check-prompt-hashes</c>
+    /// lefthook hook — a prompt edited without a cache re-record fails the whole
+    /// eval suite here, mirroring the Replay cache-miss it would otherwise cause.
+    /// </summary>
+    static EvalTestBase()
+    {
+        VerifyPromptHashManifest();
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EvalTestBase"/> class.
@@ -189,12 +208,8 @@ public abstract class EvalTestBase : IAsyncDisposable
     /// <summary>
     /// Gets the absolute path for the eval results output directory.
     /// </summary>
-    public static string GetOutputDirectory()
-    {
-        var assemblyDir = Path.GetDirectoryName(typeof(EvalTestBase).Assembly.Location)!;
-        var backendDir = Path.GetFullPath(Path.Combine(assemblyDir, "..", "..", "..", "..", ".."));
-        return Path.Combine(backendDir, "tests", EvalResultsDir);
-    }
+    public static string GetOutputDirectory() =>
+        Path.Combine(GetBackendDirectory(), "tests", EvalResultsDir);
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -237,6 +252,80 @@ public abstract class EvalTestBase : IAsyncDisposable
         }
 
         return hasApiKey ? EvalCacheMode.Record : EvalCacheMode.Replay;
+    }
+
+    /// <summary>
+    /// Gets the absolute path to the backend root, resolved by walking up from the
+    /// test assembly location (bin/Debug/net10.0 → backend).
+    /// </summary>
+    internal static string GetBackendDirectory()
+    {
+        var assemblyDir = Path.GetDirectoryName(typeof(EvalTestBase).Assembly.Location)!;
+        return Path.GetFullPath(Path.Combine(assemblyDir, "..", "..", "..", "..", ".."));
+    }
+
+    /// <summary>
+    /// Gets the absolute path to the versioned coaching-prompt directory.
+    /// </summary>
+    internal static string GetPromptsDirectory() =>
+        Path.Combine(GetBackendDirectory(), "src", "RunCoach.Api", "Prompts");
+
+    /// <summary>
+    /// Recomputes the DEC-074 prompt-hash manifest text from the current
+    /// <c>Prompts/*.yaml</c> files. Byte-compatible with
+    /// <c>check-prompt-hashes.sh</c>: one <c>"&lt;lowercase hex&gt;  &lt;filename&gt;\n"</c>
+    /// line per YAML, filename-sorted ordinally, with a trailing newline.
+    /// </summary>
+    /// <returns>The canonical manifest text.</returns>
+    internal static string ComputePromptHashManifest()
+    {
+        var dir = GetPromptsDirectory();
+        var builder = new StringBuilder();
+        var fileNames = Directory.GetFiles(dir, "*.yaml")
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .OrderBy(name => name, StringComparer.Ordinal);
+
+        foreach (var name in fileNames)
+        {
+            var hash = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(Path.Combine(dir, name))));
+            builder.Append(hash).Append("  ").Append(name).Append('\n');
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// DEC-074 backstop core: compares the computed manifest text against the
+    /// committed one and throws on drift. Tolerates CRLF and trailing-newline
+    /// differences (the script and the C# computation may disagree on those
+    /// across platforms) but nothing else — the comparison is ordinal.
+    /// Extracted from the static-constructor path so the throw branches are
+    /// directly testable.
+    /// </summary>
+    /// <param name="computedManifest">The manifest text recomputed from the current prompt files.</param>
+    /// <param name="committedManifest">The committed manifest text, or <c>null</c> when the manifest file is missing.</param>
+    /// <param name="manifestPath">The manifest path, for the missing-manifest error message.</param>
+    /// <exception cref="InvalidOperationException">The manifest is missing or has drifted.</exception>
+    internal static void VerifyManifest(string computedManifest, string? committedManifest, string manifestPath)
+    {
+        if (committedManifest is null)
+        {
+            throw new InvalidOperationException(
+                $"DEC-074: prompt-hash manifest missing ({manifestPath}). "
+                + "Run backend/tests/scripts/rerecord-eval-cache.sh.");
+        }
+
+        var actual = computedManifest.Replace("\r\n", "\n").TrimEnd('\n');
+        var committed = committedManifest.Replace("\r\n", "\n").TrimEnd('\n');
+
+        if (!string.Equals(actual, committed, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "DEC-074: a prompt under Prompts/ changed but the committed eval cache was not "
+                + "re-recorded — the cache no longer matches the prompt contents. "
+                + "Fix: run backend/tests/scripts/rerecord-eval-cache.sh.");
+        }
     }
 
     /// <summary>
@@ -377,11 +466,16 @@ public abstract class EvalTestBase : IAsyncDisposable
         return ValueTask.CompletedTask;
     }
 
+    private static void VerifyPromptHashManifest()
+    {
+        var manifestPath = Path.Combine(GetPromptsDirectory(), PromptHashManifestFileName);
+        var committed = File.Exists(manifestPath) ? File.ReadAllText(manifestPath) : null;
+        VerifyManifest(ComputePromptHashManifest(), committed, manifestPath);
+    }
+
     private static YamlPromptStore CreatePromptStore()
     {
-        var assemblyDir = Path.GetDirectoryName(typeof(EvalTestBase).Assembly.Location)!;
-        var backendDir = Path.GetFullPath(Path.Combine(assemblyDir, "..", "..", "..", "..", ".."));
-        var promptsDir = Path.Combine(backendDir, "src", "RunCoach.Api", "Prompts");
+        var promptsDir = GetPromptsDirectory();
 
         var settings = new PromptStoreSettings
         {
@@ -394,12 +488,8 @@ public abstract class EvalTestBase : IAsyncDisposable
         return new YamlPromptStore(settings, promptsDir, NullLogger<YamlPromptStore>.Instance);
     }
 
-    private static string GetCacheStoragePath(string clientName)
-    {
-        var assemblyDir = Path.GetDirectoryName(typeof(EvalTestBase).Assembly.Location)!;
-        var backendDir = Path.GetFullPath(Path.Combine(assemblyDir, "..", "..", "..", "..", ".."));
-        return Path.Combine(backendDir, "tests", "eval-cache", clientName);
-    }
+    private static string GetCacheStoragePath(string clientName) =>
+        Path.Combine(GetBackendDirectory(), "tests", "eval-cache", clientName);
 
     private static ReportingConfiguration CreateReplayConfig(
         string clientName,

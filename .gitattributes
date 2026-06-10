@@ -1,2 +1,9 @@
 # Eval cache response data files are binary (LLM response payloads)
 backend/tests/eval-cache/**/*.data binary
+
+# DEC-074: pin the coaching-prompt YAMLs and the SHA-256 sentinel manifest to LF
+# so the prompt-hash sentinel (check-prompt-hashes.sh + the EvalTestBase
+# static-ctor backstop) computes byte-identical hashes on every platform and the
+# bash raw compare never diverges from the C# CRLF-normalized compare.
+backend/src/RunCoach.Api/Prompts/*.yaml text eol=lf
+backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256 text eol=lf
