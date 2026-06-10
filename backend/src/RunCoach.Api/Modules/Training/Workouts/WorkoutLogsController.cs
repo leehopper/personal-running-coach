@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using JasperFx;
 using JasperFx.Events;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
@@ -55,11 +56,15 @@ public sealed partial class WorkoutLogsController(
     /// </para>
     /// <para>
     /// An adaptation failure never fails the create. The handler maps terminal
-    /// coaching-LLM failures to a <c>Kind=Error</c> envelope itself; the one known
-    /// failure shape that escapes the dispatch — a stream-version conflict that
-    /// exhausts the handler's bounded retries — is caught here and mapped to a
-    /// generic retryable <c>Kind=Error</c> envelope, still 201. Anything else is a
-    /// genuine server fault and propagates as a 5xx.
+    /// coaching-LLM failures to a <c>Kind=Error</c> envelope itself; the two known
+    /// concurrency surfaces of a lost race that escape the dispatch — a
+    /// stream-version conflict that exhausts the handler's bounded retries
+    /// (event-appending paths) and a duplicate idempotency-marker insert
+    /// (<c>DocumentAlreadyExistsException</c>, the marker-only absorb/off-plan/Red
+    /// paths) — are caught here and mapped to a generic retryable <c>Kind=Error</c>
+    /// envelope, still 201; the client's "try again" then replays the winner's
+    /// committed adaptation via the idempotency marker. Anything else is a genuine
+    /// server fault and propagates as a 5xx.
     /// </para>
     /// </remarks>
     /// <param name="request">The create-workout-log request body.</param>
@@ -228,20 +233,32 @@ public sealed partial class WorkoutLogsController(
                 new EvaluateAdaptationCommand(workoutLogId, userId),
                 ct);
         }
-        catch (EventStreamUnexpectedMaxEventIdException ex)
+        catch (Exception ex) when (
+            ex is EventStreamUnexpectedMaxEventIdException or DocumentAlreadyExistsException)
         {
-            // The handler retries a lost stream-version race a bounded number of
-            // times before the conflict escapes here. The log row is already
-            // committed, so the create must still answer 201 — the conflict maps
-            // to a generic retryable Kind=Error envelope instead of a 5xx.
+            // A lost adaptation race a bounded number of retries could not resolve
+            // escapes here. The log row is already committed, so the create must
+            // still answer 201 — the conflict maps to a generic retryable
+            // Kind=Error envelope instead of a 5xx, and the client's "try again"
+            // replays the winner's committed adaptation via the idempotency marker.
             //
-            // The catch targets `EventStreamUnexpectedMaxEventIdException` (a
-            // `JasperFx.ConcurrencyException`) because that is what a lost Rich
-            // append-mode race on the existing plan stream actually throws:
-            // Marten transforms the loser's (stream id, version) unique violation
-            // into this type. `Marten.Exceptions.ConcurrentUpdateException` is a
-            // different, unrelated hierarchy (session-level write collisions) and
-            // never fires for this conflict.
+            // Two surfaces are caught, both meaning "the other evaluation won":
+            // - `EventStreamUnexpectedMaxEventIdException` (a `JasperFx.ConcurrencyException`):
+            //   the event-appending paths' lost Rich-append-mode race — Marten
+            //   transforms the loser's (stream id, version) unique violation into
+            //   this type. The chain-scoped retry normally replays the winner's
+            //   marker instead, so this only fires when the conflict outlives the
+            //   bounded retries.
+            // - `DocumentAlreadyExistsException`: the marker-only paths (off-plan
+            //   no-op, L0 absorb, Red short-circuit) stage just the WorkoutLogId-keyed
+            //   marker; a concurrent duplicate's `Insert` loses the race and surfaces
+            //   this. It is NOT retried by the chain rule (keyed solely on the
+            //   stream-version exception), so it would otherwise 5xx the create.
+            //
+            // `Marten.Exceptions.ConcurrentUpdateException` is deliberately NOT
+            // caught: the signal-state document has no optimistic concurrency (its
+            // Store is last-write-wins), so that surface is unreachable for this
+            // command — a catch for it would be dead code.
             LogAdaptationDispatchConflicted(logger, workoutLogId, userId, ex);
             return new AdaptationResponseDto
             {
