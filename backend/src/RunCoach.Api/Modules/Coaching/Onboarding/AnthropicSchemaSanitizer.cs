@@ -178,7 +178,10 @@ public static class AnthropicSchemaSanitizer
 
                 var target = ResolvePointer(root, pointer)
                     ?? throw new InvalidOperationException($"Unresolvable $ref '{pointer}' in schema.");
-                var inlined = ResolveNode(target.DeepClone(), root, activePointers);
+
+                // ResolveNode is a pure rebuilder — it never mutates its input —
+                // so the still-attached target can be passed directly.
+                var inlined = ResolveNode(target, root, activePointers);
                 activePointers.Remove(pointer);
 
                 // Carry any sibling keywords on the $ref node (e.g. an injected

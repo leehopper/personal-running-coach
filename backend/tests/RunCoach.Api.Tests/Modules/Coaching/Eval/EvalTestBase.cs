@@ -296,6 +296,39 @@ public abstract class EvalTestBase : IAsyncDisposable
     }
 
     /// <summary>
+    /// DEC-074 backstop core: compares the computed manifest text against the
+    /// committed one and throws on drift. Tolerates CRLF and trailing-newline
+    /// differences (the script and the C# computation may disagree on those
+    /// across platforms) but nothing else — the comparison is ordinal.
+    /// Extracted from the static-constructor path so the throw branches are
+    /// directly testable.
+    /// </summary>
+    /// <param name="computedManifest">The manifest text recomputed from the current prompt files.</param>
+    /// <param name="committedManifest">The committed manifest text, or <c>null</c> when the manifest file is missing.</param>
+    /// <param name="manifestPath">The manifest path, for the missing-manifest error message.</param>
+    /// <exception cref="InvalidOperationException">The manifest is missing or has drifted.</exception>
+    internal static void VerifyManifest(string computedManifest, string? committedManifest, string manifestPath)
+    {
+        if (committedManifest is null)
+        {
+            throw new InvalidOperationException(
+                $"DEC-074: prompt-hash manifest missing ({manifestPath}). "
+                + "Run backend/tests/scripts/rerecord-eval-cache.sh.");
+        }
+
+        var actual = computedManifest.Replace("\r\n", "\n").TrimEnd('\n');
+        var committed = committedManifest.Replace("\r\n", "\n").TrimEnd('\n');
+
+        if (!string.Equals(actual, committed, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "DEC-074: a prompt under Prompts/ changed but the committed eval cache was not "
+                + "re-recorded — the cache no longer matches the prompt contents. "
+                + "Fix: run backend/tests/scripts/rerecord-eval-cache.sh.");
+        }
+    }
+
+    /// <summary>
     /// Builds the full user message text from the assembled prompt sections.
     /// </summary>
     protected static string BuildUserMessageFromSections(AssembledPrompt assembled)
@@ -436,24 +469,8 @@ public abstract class EvalTestBase : IAsyncDisposable
     private static void VerifyPromptHashManifest()
     {
         var manifestPath = Path.Combine(GetPromptsDirectory(), PromptHashManifestFileName);
-
-        if (!File.Exists(manifestPath))
-        {
-            throw new InvalidOperationException(
-                $"DEC-074: prompt-hash manifest missing ({manifestPath}). "
-                + "Run backend/tests/scripts/rerecord-eval-cache.sh.");
-        }
-
-        var actual = ComputePromptHashManifest().Replace("\r\n", "\n").TrimEnd('\n');
-        var committed = File.ReadAllText(manifestPath).Replace("\r\n", "\n").TrimEnd('\n');
-
-        if (!string.Equals(actual, committed, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "DEC-074: a prompt under Prompts/ changed but the committed eval cache was not "
-                + "re-recorded — the cache no longer matches the prompt contents. "
-                + "Fix: run backend/tests/scripts/rerecord-eval-cache.sh.");
-        }
+        var committed = File.Exists(manifestPath) ? File.ReadAllText(manifestPath) : null;
+        VerifyManifest(ComputePromptHashManifest(), committed, manifestPath);
     }
 
     private static YamlPromptStore CreatePromptStore()

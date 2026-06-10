@@ -276,6 +276,145 @@ public sealed class AnthropicSchemaSanitizerTests
     }
 
     [Fact]
+    public void ResolveReferences_SiblingKeywordsWinOverTheInlinedTarget()
+    {
+        // Arrange — the $ref node carries its own description (the way an injected
+        // [Description] sibling rides a JsonSchemaExporter $ref); the target has a
+        // competing description that must lose.
+        var node = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["primary"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["title"] = "Primary",
+                    ["description"] = "original",
+                },
+                ["mirror"] = new JsonObject
+                {
+                    ["$ref"] = "#/properties/primary",
+                    ["description"] = "overridden",
+                },
+            },
+        };
+
+        // Act
+        var result = AnthropicSchemaSanitizer.ResolveReferences(node);
+
+        // Assert — siblings win; non-conflicting target keys are still carried.
+        var mirror = result!.AsObject()["properties"]!.AsObject()["mirror"]!.AsObject();
+        mirror.ContainsKey("$ref").Should().BeFalse();
+        mirror["description"]!.GetValue<string>().Should().Be(
+            "overridden", "a keyword on the $ref node overrides the same keyword on the inlined target");
+        mirror["title"]!.GetValue<string>().Should().Be("Primary");
+    }
+
+    [Fact]
+    public void ResolveReferences_ResolvesARefNestedInsideASiblingValue()
+    {
+        // Arrange — the sibling's value itself contains a $ref, which must be
+        // resolved rather than copied verbatim into the inlined object.
+        var node = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["primary"] = new JsonObject { ["type"] = "object", ["title"] = "Primary" },
+                ["other"] = new JsonObject { ["type"] = "string", ["title"] = "Other" },
+                ["mirror"] = new JsonObject
+                {
+                    ["$ref"] = "#/properties/primary",
+                    ["items"] = new JsonObject { ["$ref"] = "#/properties/other" },
+                },
+            },
+        };
+
+        // Act
+        var result = AnthropicSchemaSanitizer.ResolveReferences(node);
+
+        // Assert — the materialized schema is reference-free and the nested ref was inlined.
+        JsonSerializer.Serialize(result).Should().NotContain("\"$ref\":");
+        var items = result!.AsObject()["properties"]!.AsObject()["mirror"]!.AsObject()["items"]!.AsObject();
+        items["title"]!.GetValue<string>().Should().Be("Other");
+    }
+
+    [Fact]
+    public void ResolveReferences_ResolvesAnArrayIndexPointerSegment()
+    {
+        // Arrange — a pointer through an array index, the shape an anyOf-wrapped
+        // nullable type produces.
+        var node = new JsonObject
+        {
+            ["type"] = "object",
+            ["anyOf"] = new JsonArray
+            {
+                new JsonObject { ["type"] = "string", ["title"] = "First" },
+            },
+            ["properties"] = new JsonObject
+            {
+                ["choice"] = new JsonObject { ["$ref"] = "#/anyOf/0" },
+            },
+        };
+
+        // Act
+        var result = AnthropicSchemaSanitizer.ResolveReferences(node);
+
+        // Assert
+        var choice = result!.AsObject()["properties"]!.AsObject()["choice"]!.AsObject();
+        choice.ContainsKey("$ref").Should().BeFalse();
+        choice["title"]!.GetValue<string>().Should().Be("First", "the array-index segment must resolve");
+    }
+
+    [Theory]
+    [InlineData("a/b", "#/properties/a~1b", "Slash")]
+    [InlineData("a~b", "#/properties/a~0b", "Tilde")]
+    public void ResolveReferences_UnescapesJsonPointerEscapeSequences(
+        string propertyName, string refPointer, string expectedTitle)
+    {
+        // Arrange — RFC 6901 escaping: ~1 -> /, ~0 -> ~ (in that order).
+        var node = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                [propertyName] = new JsonObject { ["type"] = "string", ["title"] = expectedTitle },
+                ["mirror"] = new JsonObject { ["$ref"] = refPointer },
+            },
+        };
+
+        // Act
+        var result = AnthropicSchemaSanitizer.ResolveReferences(node);
+
+        // Assert
+        var mirror = result!.AsObject()["properties"]!.AsObject()["mirror"]!.AsObject();
+        mirror["title"]!.GetValue<string>().Should().Be(expectedTitle);
+    }
+
+    [Theory]
+    [InlineData("#/properties/missing")]
+    [InlineData("https://example.com/schema.json#/Foo")]
+    public void ResolveReferences_ThrowsOnAnUnresolvablePointer(string refPointer)
+    {
+        // Arrange — a dangling local pointer and an external pointer are both unresolvable.
+        var node = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["broken"] = new JsonObject { ["$ref"] = refPointer },
+            },
+        };
+
+        // Act
+        var act = () => AnthropicSchemaSanitizer.ResolveReferences(node);
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Unresolvable $ref*");
+    }
+
+    [Fact]
     public void ResolveReferences_ThrowsOnARecursiveRef()
     {
         // Arrange — a self-referential schema cannot be inlined (or expressed for
