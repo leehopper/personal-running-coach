@@ -233,6 +233,88 @@ public sealed class AnthropicSchemaSanitizerTests
         serialized.Should().Contain("\"name\":");
     }
 
+    [Fact]
+    public void ResolveReferences_LeavesARefFreeSchemaUntouched()
+    {
+        // Arrange — no $ref anywhere.
+        var node = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject { ["name"] = new JsonObject { ["type"] = "string" } },
+        };
+
+        // Act
+        var result = AnthropicSchemaSanitizer.ResolveReferences(node);
+
+        // Assert — the original reference is returned, so ref-free schemas stay byte-stable.
+        result.Should().BeSameAs(node);
+    }
+
+    [Fact]
+    public void ResolveReferences_InlinesALocalRefIntoACopyOfItsTarget()
+    {
+        // Arrange — `mirror` references `primary` the way JsonSchemaExporter refs a
+        // type used twice (e.g. WorkoutOutput in two adaptation slots).
+        var node = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["primary"] = new JsonObject { ["type"] = "object", ["title"] = "Primary" },
+                ["mirror"] = new JsonObject { ["$ref"] = "#/properties/primary" },
+            },
+        };
+
+        // Act
+        var result = AnthropicSchemaSanitizer.ResolveReferences(node);
+
+        // Assert — `mirror` is now a full inline copy, no $ref survives.
+        var properties = result.Should().BeOfType<JsonObject>().Subject["properties"]!.AsObject();
+        var mirror = properties["mirror"]!.AsObject();
+        mirror.ContainsKey("$ref").Should().BeFalse("Anthropic rejects a $ref into #/properties");
+        mirror["title"]!.GetValue<string>().Should().Be("Primary", "the referenced target was inlined");
+    }
+
+    [Fact]
+    public void ResolveReferences_ThrowsOnARecursiveRef()
+    {
+        // Arrange — a self-referential schema cannot be inlined (or expressed for
+        // constrained decoding).
+        var node = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject { ["self"] = new JsonObject { ["$ref"] = "#" } },
+        };
+
+        // Act
+        var act = () => AnthropicSchemaSanitizer.ResolveReferences(node);
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Recursive $ref*");
+    }
+
+    [Fact]
+    public void ToDictionary_InlinesRefs_SoTheMaterializedSchemaIsReferenceFree()
+    {
+        // Arrange
+        var node = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["primary"] = new JsonObject { ["type"] = "object", ["title"] = "Primary" },
+                ["mirror"] = new JsonObject { ["$ref"] = "#/properties/primary" },
+            },
+        };
+
+        // Act
+        var dict = AnthropicSchemaSanitizer.ToDictionary(node);
+
+        // Assert
+        var serialized = JsonSerializer.Serialize(dict);
+        serialized.Should().NotContain("\"$ref\":", "the shipped schema must be reference-free for Anthropic");
+    }
+
     private static JsonObject BuildIdempotencyFixture()
     {
         // A reasonably representative schema fragment with forbidden keys at multiple depths.

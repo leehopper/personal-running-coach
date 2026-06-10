@@ -63,6 +63,36 @@ public static class AnthropicSchemaSanitizer
     };
 
     /// <summary>
+    /// Resolves every local <c>$ref</c> by inlining the referenced subschema, so
+    /// the shipped schema contains no references. <c>System.Text.Json.JsonSchemaExporter</c>
+    /// emits a <c>$ref</c> with a JSON Pointer into <c>#/properties/...</c> for any
+    /// type used more than once (e.g. <c>WorkoutOutput</c> in two adaptation slots),
+    /// but Anthropic constrained decoding rejects references that are not under
+    /// <c>$defs</c>/<c>definitions</c> with HTTP 400 (<c>invalid_request_error</c>).
+    /// Inlining sidesteps that entirely. Returns the original node untouched when it
+    /// contains no <c>$ref</c> (the common case), so ref-free schemas — and their
+    /// recorded eval-cache keys — are byte-stable.
+    /// </summary>
+    /// <param name="root">The root schema node.</param>
+    /// <returns>A reference-free schema node (the original node if it had no refs).</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when a <c>$ref</c> is unresolvable or recursive (a recursive schema
+    /// cannot be expressed for constrained decoding).
+    /// </exception>
+    public static JsonNode? ResolveReferences(JsonNode? root)
+    {
+        if (root is null || !ContainsRef(root))
+        {
+            return root;
+        }
+
+        var rootObject = root as JsonObject
+            ?? throw new InvalidOperationException("Cannot resolve $ref against a non-object schema root.");
+
+        return ResolveNode(root, rootObject, new HashSet<string>(StringComparer.Ordinal));
+    }
+
+    /// <summary>
     /// Recursively strips forbidden keywords from a parsed schema node tree.
     /// Mutates the node in place. Returns the same node for fluent chaining.
     /// </summary>
@@ -116,14 +146,124 @@ public static class AnthropicSchemaSanitizer
     /// </exception>
     public static IReadOnlyDictionary<string, JsonElement> ToDictionary(JsonNode? node)
     {
-        Sanitize(node);
+        var resolved = ResolveReferences(node);
+        Sanitize(resolved);
 
-        if (node is null)
+        if (resolved is null)
         {
             throw new InvalidOperationException("Cannot materialize a null schema node to a dictionary.");
         }
 
-        return node.Deserialize<Dictionary<string, JsonElement>>()
+        return resolved.Deserialize<Dictionary<string, JsonElement>>()
             ?? throw new InvalidOperationException("Failed to deserialize sanitized schema to a dictionary.");
+    }
+
+    private static bool ContainsRef(JsonNode? node) => node switch
+    {
+        JsonObject obj => obj.ContainsKey("$ref") || obj.Any(kvp => ContainsRef(kvp.Value)),
+        JsonArray array => array.Any(ContainsRef),
+        _ => false,
+    };
+
+    private static JsonNode? ResolveNode(JsonNode? node, JsonObject root, HashSet<string> activePointers)
+    {
+        switch (node)
+        {
+            case JsonObject obj when TryGetRefPointer(obj, out var pointer):
+                if (!activePointers.Add(pointer))
+                {
+                    throw new InvalidOperationException(
+                        $"Recursive $ref '{pointer}' cannot be inlined for Anthropic constrained decoding.");
+                }
+
+                var target = ResolvePointer(root, pointer)
+                    ?? throw new InvalidOperationException($"Unresolvable $ref '{pointer}' in schema.");
+                var inlined = ResolveNode(target.DeepClone(), root, activePointers);
+                activePointers.Remove(pointer);
+
+                // Carry any sibling keywords on the $ref node (e.g. an injected
+                // description) onto the inlined object — siblings win.
+                if (inlined is JsonObject inlinedObject)
+                {
+                    foreach (var sibling in obj.Where(kvp => kvp.Key != "$ref"))
+                    {
+                        inlinedObject[sibling.Key] = ResolveNode(sibling.Value, root, activePointers);
+                    }
+                }
+
+                return inlined;
+
+            case JsonObject obj:
+                var rebuilt = new JsonObject();
+                foreach (var kvp in obj)
+                {
+                    rebuilt[kvp.Key] = ResolveNode(kvp.Value, root, activePointers);
+                }
+
+                return rebuilt;
+
+            case JsonArray array:
+                var rebuiltArray = new JsonArray();
+                foreach (var item in array)
+                {
+                    rebuiltArray.Add(ResolveNode(item, root, activePointers));
+                }
+
+                return rebuiltArray;
+
+            default:
+                return node?.DeepClone();
+        }
+    }
+
+    private static bool TryGetRefPointer(JsonObject obj, out string pointer)
+    {
+        if (obj.TryGetPropertyValue("$ref", out var refNode)
+            && refNode is JsonValue refValue
+            && refValue.TryGetValue(out string? value)
+            && value is not null)
+        {
+            pointer = value;
+            return true;
+        }
+
+        pointer = string.Empty;
+        return false;
+    }
+
+    private static JsonNode? ResolvePointer(JsonObject root, string pointer)
+    {
+        if (pointer is "#" or "#/")
+        {
+            return root;
+        }
+
+        if (!pointer.StartsWith("#/", StringComparison.Ordinal))
+        {
+            // Only local pointers are supported; an external/relative ref is unresolvable here.
+            return null;
+        }
+
+        JsonNode? current = root;
+        foreach (var rawSegment in pointer[2..].Split('/'))
+        {
+            // JSON Pointer unescaping: ~1 -> /, ~0 -> ~ (order matters).
+            var segment = rawSegment.Replace("~1", "/", StringComparison.Ordinal)
+                .Replace("~0", "~", StringComparison.Ordinal);
+
+            switch (current)
+            {
+                case JsonObject obj when obj.TryGetPropertyValue(segment, out var child):
+                    current = child;
+                    break;
+                case JsonArray array when int.TryParse(segment, out var index) && index >= 0 && index < array.Count:
+                    current = array[index];
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        return current;
     }
 }
