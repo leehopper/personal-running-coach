@@ -14,6 +14,10 @@ namespace RunCoach.Api.Modules.Training.Workouts;
 /// the tenant-scoped Marten <see cref="PlanProjectionDto"/>, maps the run's date to a
 /// plan slot via <see cref="PlanCalendar"/>, snapshots the matched workout
 /// server-side, and persists through the idempotent repository write (DEC-077).
+/// Pure persistence: no LLM call sits on this path (DEC-073) — the synchronous
+/// adaptation dispatch happens in <see cref="WorkoutLogsController.CreateLog"/>
+/// AFTER <see cref="CreateAsync"/> has committed, so the relational write is
+/// never inside the Wolverine handler's Marten transaction.
 /// </summary>
 public sealed partial class WorkoutLogService(
     RunCoachDbContext db,

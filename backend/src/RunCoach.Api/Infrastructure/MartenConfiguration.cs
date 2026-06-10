@@ -17,6 +17,7 @@ using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Observability;
+using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Plan.Models;
 using Wolverine.Marten;
@@ -147,6 +148,14 @@ public static class MartenConfiguration
         // mutates — the explanation stays atomic with the plan change (DEC-060).
         opts.Schema.For<ConversationLogView>().Identity(x => x.PlanId);
         opts.Projections.Add(new ConversationProjection(), ProjectionLifecycle.Inline);
+
+        // Per-plan adaptation signal state (Slice 3 Unit 5, DEC-078 resolution) —
+        // a directly-stored document, not a projection: the evaluation handler
+        // loads it, runs the deterministic classifier, and stores the next state
+        // on the SAME session as its event appends so the write is co-transactional
+        // with the events. Identity comes from the `Identity` attribute on its
+        // `PlanId`; tenancy from the `AllDocumentsAreMultiTenanted` policy above.
+        opts.Schema.For<AdaptationSignalStateDocument>();
 
         opts.Projections.Errors.SkipUnknownEvents = true;
 

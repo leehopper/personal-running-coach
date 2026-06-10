@@ -7,14 +7,24 @@ namespace RunCoach.Api.Modules.Coaching.Adaptation;
 /// / <see cref="RetryAfterSeconds"/> fields the frontend reads without any SDK dependency.
 /// </summary>
 /// <remarks>
-/// This type carries the error shape and its derivation from a
-/// <see cref="CoachingLlmException"/>; the success-path payload (the adaptation turn / plan
-/// re-render signal) is owned by the orchestration layer and is outside this type's scope.
+/// The success-path payload is deliberately lean: <see cref="Kind"/> plus the resolved
+/// <see cref="AdaptationKind"/>. Panel data (the adaptation turn, the before/after diff) flows
+/// through the plan + conversation read models, which the frontend refetches by invalidating its
+/// query tags after every successful log create — no create-response coupling (Slice 3 § Unit 7).
 /// </remarks>
 public sealed record AdaptationResponseDto
 {
     /// <summary>Gets the discriminator: <see cref="AdaptationResponseKind.Adapted"/> or <see cref="AdaptationResponseKind.Error"/>.</summary>
     public required AdaptationResponseKind Kind { get; init; }
+
+    /// <summary>
+    /// Gets the resolved plan-change kind when <see cref="Kind"/> is
+    /// <see cref="AdaptationResponseKind.Adapted"/>; null on <see cref="AdaptationResponseKind.Error"/>.
+    /// <see cref="Training.Adaptation.AdaptationKind.Absorb"/> covers every no-plan-change outcome
+    /// (off-plan, on-target, and the Red safety short-circuit — the safety turn itself surfaces via
+    /// the conversation read model).
+    /// </summary>
+    public Training.Adaptation.AdaptationKind? AdaptationKind { get; init; }
 
     /// <summary>
     /// Gets the user-facing error message when <see cref="Kind"/> is
@@ -34,6 +44,18 @@ public sealed record AdaptationResponseDto
     /// advertised via <c>Retry-After</c>; null otherwise.
     /// </summary>
     public int? RetryAfterSeconds { get; init; }
+
+    /// <summary>
+    /// Builds the <c>Kind=Adapted</c> success envelope for the given resolved plan-change kind.
+    /// </summary>
+    /// <param name="adaptationKind">The plan-change kind the evaluation resolved.</param>
+    /// <returns>A <c>Kind=Adapted</c> envelope.</returns>
+    public static AdaptationResponseDto Adapted(Training.Adaptation.AdaptationKind adaptationKind) =>
+        new()
+        {
+            Kind = AdaptationResponseKind.Adapted,
+            AdaptationKind = adaptationKind,
+        };
 
     /// <summary>
     /// Builds the <c>Kind=Error</c> envelope from a terminal <see cref="CoachingLlmException"/>:

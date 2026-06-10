@@ -8,8 +8,13 @@ using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Coaching.Prompts;
+using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Models;
+using RunCoach.Api.Modules.Training.Plan.Models;
+using RunCoach.Api.Modules.Training.Safety;
 using IPromptSanitizer = RunCoach.Api.Modules.Coaching.Sanitization.IPromptSanitizer;
+using IRecentLogSanitizer = RunCoach.Api.Modules.Coaching.Sanitization.IRecentLogSanitizer;
+using LayeredPromptSanitizer = RunCoach.Api.Modules.Coaching.Sanitization.LayeredPromptSanitizer;
 using SanitizationPromptSection = RunCoach.Api.Modules.Coaching.Sanitization.PromptSection;
 
 namespace RunCoach.Api.Modules.Coaching;
@@ -40,6 +45,11 @@ namespace RunCoach.Api.Modules.Coaching;
 ///   <see cref="RegenerationIntent.FreeText"/> before constructing the intent (see the
 ///   record's XML doc). The captured profile snapshot is rendered from the same
 ///   already-validated onboarding slots and is not re-sanitized.
+/// - <see cref="ComposeForAdaptationAsync"/> — sanitizes the triggering log's note and
+///   free-text metric values via <c>IRecentLogSanitizer</c>, delimiter-escapes the full
+///   rendered line, and places it inside a nonce-delimited spotlight section per
+///   R-068 / DEC-059. Plan, escalation, safety-tier, and deviation inputs are
+///   deterministic/validated values and are not re-sanitized.
 /// - <see cref="AssembleAsync"/> (legacy plan-generation path) — does NOT sanitize. Before
 ///   wiring it to a user-facing endpoint, add prompt-injection sanitization for these
 ///   user-controlled free-text fields:
@@ -106,6 +116,11 @@ public sealed partial class ContextAssembler : IContextAssembler
     internal const string CoachingPromptId = "coaching-system";
 
     /// <summary>
+    /// The prompt ID used to look up the adaptation system prompt in the store.
+    /// </summary>
+    internal const string AdaptationPromptId = "adaptation";
+
+    /// <summary>
     /// Filename of the onboarding system prompt YAML loaded directly off
     /// disk by <see cref="ComposeForOnboardingAsync"/>. This file uses the
     /// <c>{id}-{version}.yaml</c> convention rather than the prompt store's
@@ -131,6 +146,7 @@ public sealed partial class ContextAssembler : IContextAssembler
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<ContextAssembler> _logger;
     private readonly IPromptSanitizer? _sanitizer;
+    private readonly IRecentLogSanitizer? _recentLogSanitizer;
     private readonly Lazy<Task<string>>? _onboardingSystemPromptCache;
 
     /// <summary>
@@ -148,13 +164,21 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// <param name="environment">Host environment used to resolve the prompts content root.</param>
     /// <param name="promptSettings">Prompt-store settings — used to resolve the prompts base directory.</param>
     /// <param name="logger">Logger instance.</param>
+    /// <param name="recentLogSanitizer">
+    /// Recent-log sanitizer for the adaptation flow (Slice 3 § Unit 5).
+    /// Declared as a trailing optional parameter so existing construction
+    /// sites stay source-compatible; the production container injects the
+    /// registered singleton. <see cref="ComposeForAdaptationAsync"/> throws
+    /// when constructed without one.
+    /// </param>
     public ContextAssembler(
         IPromptStore promptStore,
         TimeProvider timeProvider,
         IPromptSanitizer sanitizer,
         IHostEnvironment environment,
         IOptions<PromptStoreSettings> promptSettings,
-        ILogger<ContextAssembler> logger)
+        ILogger<ContextAssembler> logger,
+        IRecentLogSanitizer? recentLogSanitizer = null)
     {
         ArgumentNullException.ThrowIfNull(promptStore);
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -167,6 +191,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         _timeProvider = timeProvider;
         _logger = logger;
         _sanitizer = sanitizer;
+        _recentLogSanitizer = recentLogSanitizer;
 
         var basePath = Path.Combine(environment.ContentRootPath, promptSettings.Value.BasePath);
         var onboardingFilePath = Path.Combine(basePath, OnboardingPromptFileName);
@@ -200,6 +225,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         _timeProvider = timeProvider;
         _logger = logger;
         _sanitizer = null;
+        _recentLogSanitizer = null;
         _onboardingSystemPromptCache = null;
     }
 
@@ -307,6 +333,71 @@ public sealed partial class ContextAssembler : IContextAssembler
         var userMessage = BuildPlanGenerationUserMessage(profileSnapshot, intent);
 
         return new PlanGenerationPromptComposition(
+            SystemPrompt: systemPrompt,
+            UserMessage: userMessage);
+    }
+
+    /// <inheritdoc />
+    public async Task<AdaptationPromptComposition> ComposeForAdaptationAsync(
+        PlanProjectionDto plan,
+        EscalationLevel escalationLevel,
+        SafetyTier safetyTier,
+        DeviationResult deviation,
+        LoggedWorkoutDetail triggeringLog,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(deviation);
+        ArgumentNullException.ThrowIfNull(triggeringLog);
+
+        if (_recentLogSanitizer is null)
+        {
+            throw new InvalidOperationException(
+                "ContextAssembler was constructed without an IRecentLogSanitizer. " +
+                "Supply one via the public constructor for the adaptation flow.");
+        }
+
+        ct.ThrowIfCancellationRequested();
+
+        // System prompt comes from the versioned adaptation YAML so the bytes
+        // are identical across adaptation calls for a given prompt version —
+        // the calling service pairs this block with Anthropic prompt caching
+        // (DEC-047 / R-067).
+        var activeVersion = _promptStore.GetActiveVersion(AdaptationPromptId);
+        var template = await _promptStore.GetPromptAsync(AdaptationPromptId, activeVersion, ct).ConfigureAwait(false);
+        var systemPrompt = template.StaticSystemPrompt.TrimEnd();
+
+        // This method is the SINGLE sanitization owner for the adaptation prompt;
+        // callers pass the RAW triggering log (the handler sanitizes a separate copy
+        // for the safety gate, never this one). The note and free-text metric values
+        // pass through the DEC-059 sanitizer once here, then the FULL rendered line is
+        // delimiter-escaped so nothing in it — including metric values the sanitizer
+        // does not cover — can close the SECTION_NAME spotlight early. Sanitizer-
+        // wrapped note bodies therefore receive a second escaping pass; that double
+        // escape is intentional defense-in-depth (a benign "&" renders as
+        // "&amp;amp;"), never a containment gap.
+        var sanitizedLog = await _recentLogSanitizer.SanitizeAsync(triggeringLog, ct).ConfigureAwait(false);
+        var recentLogs = LayeredPromptSanitizer.EscapeDelimiterBody(
+            RecentLogFormatter.FormatWorkoutDetail(sanitizedLog));
+
+        // The escalation level, safety tier, and deviation numbers are
+        // rendered verbatim for echo-back — the LLM never recomputes or
+        // re-classifies them. The nonce is fresh per call (R-068 / DEC-059).
+        // The runner-profile block the spec lists as a prompt input is deliberately
+        // omitted at MVP-0 (DEC-080); the adaptation template defines no profile token.
+        var tokens = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["plan_context"] = BuildAdaptationPlanContext(plan),
+            ["escalation_level"] = escalationLevel.ToString(),
+            ["safety_tier"] = safetyTier.ToString(),
+            ["deviation_summary"] = BuildDeviationSummary(deviation),
+            ["recent_logs"] = recentLogs,
+            ["recent_logs_nonce"] = LayeredPromptSanitizer.GenerateSpotlightNonce(),
+        };
+
+        var userMessage = PromptRenderer.Render(template.ContextTemplate, tokens).TrimEnd();
+
+        return new AdaptationPromptComposition(
             SystemPrompt: systemPrompt,
             UserMessage: userMessage);
     }
@@ -519,6 +610,78 @@ public sealed partial class ContextAssembler : IContextAssembler
         var json = System.Text.Json.JsonSerializer.Serialize(value, value.GetType(), OnboardingSlotSerializerOptions);
         sb.AppendLine(CultureInfo.InvariantCulture, $"  {label}: {json}");
     }
+
+    /// <summary>
+    /// Renders the plan-context block for the adaptation prompt: the plan
+    /// anchor date, the meso weekly volume targets, and the detailed workouts
+    /// of each populated micro week (week 1 is the only week carrying daily
+    /// detail at MVP-0). Every value is a deterministic projection or
+    /// validated structured output — no runner free text enters this block.
+    /// </summary>
+    private static string BuildAdaptationPlanContext(PlanProjectionDto plan)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Plan start date: {plan.PlanStartDate:yyyy-MM-dd} (week 1, day 0 = Sunday)");
+
+        if (plan.MesoWeeks.Count > 0)
+        {
+            sb.AppendLine("Meso weekly targets:");
+            foreach (var week in plan.MesoWeeks)
+            {
+                var deload = week.IsDeloadWeek ? " (deload)" : string.Empty;
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  Week {week.WeekNumber} ({week.PhaseType}): {week.WeeklyTargetKm} km{deload}");
+            }
+        }
+
+        foreach (var (weekNumber, workouts) in plan.MicroWorkoutsByWeek.OrderBy(kv => kv.Key))
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Week {weekNumber} daily workouts:");
+            foreach (var workout in workouts.Workouts)
+            {
+                sb.AppendLine(
+                    CultureInfo.InvariantCulture,
+                    $"  {(DayOfWeek)workout.DayOfWeek} | {workout.WorkoutType} | {workout.Title} | {workout.TargetDistanceKm} km | {workout.TargetDurationMinutes} min | easy {FormatSecondsPerKm(workout.TargetPaceEasySecPerKm)}/km, fast {FormatSecondsPerKm(workout.TargetPaceFastSecPerKm)}/km");
+            }
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Renders the deterministic deviation measurement as the adaptation
+    /// prompt's deviation summary. Numbers are formatted verbatim from
+    /// <see cref="DeviationResult"/> — the LLM consumes them as supplied and
+    /// performs no deviation math.
+    /// </summary>
+    private static string BuildDeviationSummary(DeviationResult deviation)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Logged on: {deviation.OccurredOn:yyyy-MM-dd}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Completion: {deviation.CompletionStatus}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Key workout: {(deviation.IsKeyWorkout ? "yes" : "no")}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Distance deviation: {FormatSignedPercent(deviation.DistanceDeviationPercent)} vs prescribed");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Duration deviation: {FormatSignedPercent(deviation.DurationDeviationPercent)} vs prescribed");
+        sb.Append(FormatPaceBandLine(deviation));
+        return sb.ToString();
+    }
+
+    private static string FormatSignedPercent(double percent) =>
+        percent.ToString("+0.#;-0.#;0", CultureInfo.InvariantCulture) + "%";
+
+    private static string FormatPaceBandLine(DeviationResult deviation) => deviation.PaceBand switch
+    {
+        PaceBandMembership.InsideBand => "Pace: inside the prescribed band",
+        PaceBandMembership.FasterThanFast => string.Create(
+            CultureInfo.InvariantCulture,
+            $"Pace: {Math.Abs(deviation.PaceDeviationSecondsPerKm):0.#} sec/km faster than the band's fast bound"),
+        PaceBandMembership.SlowerThanSlow => string.Create(
+            CultureInfo.InvariantCulture,
+            $"Pace: {Math.Abs(deviation.PaceDeviationSecondsPerKm):0.#} sec/km slower than the band's slow bound"),
+        _ => "Pace: no pace signal for this log",
+    };
+
+    private static string FormatSecondsPerKm(int secondsPerKm) =>
+        FormatTimeSpan(TimeSpan.FromSeconds(secondsPerKm));
 
     /// <summary>
     /// Loads the onboarding system prompt YAML from disk. Parses the

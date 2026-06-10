@@ -8,10 +8,12 @@ namespace RunCoach.Api.Tests.Modules.Coaching;
 
 /// <summary>
 /// Regression guard for the DI registration of <see cref="IContextAssembler"/>.
-/// <see cref="ContextAssembler"/> exposes two public constructors — a 3-arg legacy
-/// form and a 6-arg onboarding-aware form. The default DI container's
-/// "most-resolvable parameters" heuristic silently picked the 3-arg constructor at
-/// runtime in this project's service graph, leaving <c>_sanitizer</c> null and
+/// <see cref="ContextAssembler"/> has two constructors — a 3-arg legacy form (now
+/// <c>internal</c>, test-only via InternalsVisibleTo) and the public 7-arg
+/// onboarding-aware form (6 required dependencies + an optional IRecentLogSanitizer
+/// for the adaptation flow). The default DI container's "most-resolvable parameters"
+/// heuristic once silently picked the 3-arg constructor in this project's service
+/// graph, leaving <c>_sanitizer</c> null and
 /// breaking <see cref="IContextAssembler.ComposeForOnboardingAsync"/> with an
 /// InvalidOperationException on every onboarding turn. Existing integration tests
 /// did not catch the regression because they stub <see cref="IContextAssembler"/>
@@ -43,9 +45,9 @@ public sealed class ContextAssemblerDiResolutionTests : IClassFixture<RunCoachAp
         };
 
         // Act + Assert: ComposeForOnboardingAsync must not throw the sentinel
-        // exception that fires when the 3-arg constructor was used. Any other
-        // exception (e.g., prompts file IO) is acceptable here; we only fail on
-        // the precise DI-misconfiguration signature.
+        // exception that fires when the 3-arg constructor was used (it leaves
+        // _sanitizer null). Any other exception (e.g., prompts file IO) is acceptable
+        // here; we only fail on the precise DI-misconfiguration signature.
         Func<Task> act = () =>
             assembler.ComposeForOnboardingAsync(
                 view,
@@ -55,7 +57,7 @@ public sealed class ContextAssemblerDiResolutionTests : IClassFixture<RunCoachAp
 
         await act.Should()
             .NotThrowAsync<InvalidOperationException>(
-                because: "the 6-arg ContextAssembler constructor must win DI resolution so " +
+                because: "the 7-arg ContextAssembler constructor must win DI resolution so " +
                          "_sanitizer + _onboardingSystemPromptCache are both non-null per Slice 1 § Unit 1");
     }
 }

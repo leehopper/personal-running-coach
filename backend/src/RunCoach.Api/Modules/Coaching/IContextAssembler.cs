@@ -1,5 +1,9 @@
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
+using RunCoach.Api.Modules.Training.Adaptation;
+using RunCoach.Api.Modules.Training.Models;
+using RunCoach.Api.Modules.Training.Plan.Models;
+using RunCoach.Api.Modules.Training.Safety;
 
 namespace RunCoach.Api.Modules.Coaching;
 
@@ -81,6 +85,57 @@ public interface IContextAssembler
     Task<PlanGenerationPromptComposition> ComposeForPlanGenerationAsync(
         OnboardingView profileSnapshot,
         RegenerationIntent? intent,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Composes the system prompt + user message for a Level-2 adaptation
+    /// (restructure) call (Slice 3 § Unit 5 / DEC-012). The system prompt is
+    /// loaded from the versioned adaptation prompt YAML and is byte-stable
+    /// per version (cacheable prefix — the calling service pairs it with
+    /// prompt caching at call time). The user message renders the adaptation
+    /// context template tokens: plan context, the deterministic escalation
+    /// level / safety tier / deviation summary (echo-back only — the LLM
+    /// never computes deviation math or re-classifies safety), and the
+    /// triggering logged workout inside a nonce-delimited spotlight section
+    /// per R-068 / DEC-059. At MVP-0 the runner-profile block is deliberately
+    /// omitted (DEC-080): the composition renders plan context, escalation level,
+    /// safety tier, deviation summary, and the triggering log only.
+    /// </summary>
+    /// <param name="plan">
+    /// The current plan projection. The current micro week's detailed
+    /// workouts and the meso weekly volume targets are rendered as plan
+    /// context (week 1 is the only week carrying daily detail at MVP-0).
+    /// </param>
+    /// <param name="escalationLevel">
+    /// The DEC-012 ladder level the deterministic escalation classifier
+    /// resolved before this call.
+    /// </param>
+    /// <param name="safetyTier">
+    /// The safety tier the deterministic safety gate resolved before this
+    /// call. Rendered for echo-back only — the prompt instructs the LLM to
+    /// echo it, never to re-decide it.
+    /// </param>
+    /// <param name="deviation">
+    /// The deterministic deviation measurement; its numbers are rendered
+    /// verbatim so the LLM performs no deviation math.
+    /// </param>
+    /// <param name="triggeringLog">
+    /// The logged workout that triggered the adaptation, passed RAW (unsanitized):
+    /// this method is the single sanitization owner for the adaptation prompt. Its
+    /// note and free-text metric values are sanitized inside the assembler via
+    /// <c>IRecentLogSanitizer</c> (R-068 / DEC-059), and the rendered line is
+    /// delimiter-escaped before being placed in the nonce-delimited recent-logs
+    /// section. At MVP-0 this composes the triggering log plus plan-week context
+    /// only; the recent-logs section carries a single log.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The composed adaptation prompt — system + user message.</returns>
+    Task<AdaptationPromptComposition> ComposeForAdaptationAsync(
+        PlanProjectionDto plan,
+        EscalationLevel escalationLevel,
+        SafetyTier safetyTier,
+        DeviationResult deviation,
+        LoggedWorkoutDetail triggeringLog,
         CancellationToken ct = default);
 
     /// <summary>
