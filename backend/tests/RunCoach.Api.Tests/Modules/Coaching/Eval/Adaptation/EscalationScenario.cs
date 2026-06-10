@@ -13,7 +13,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval.Adaptation;
 /// five <c>TestProfiles</c> (Unit 6 calibration).
 /// </summary>
 /// <param name="Id">Stable scenario identifier (e.g. "restructure.priya.sustained-miss").</param>
-/// <param name="Category">The reporting category (mirrors the ground-truth level).</param>
+/// <param name="Category">The reporting category (derived from the ground-truth level by the <c>AdaptationScenarioLibrary.Classify</c> factory).</param>
 /// <param name="ProfileName">The <c>TestProfiles</c> key (sarah / lee / maria / james / priya).</param>
 /// <param name="SafetyTier">The safety tier in force (Green for pure classification scenarios).</param>
 /// <param name="ExpectedLevel">The ground-truth escalation level for the final step.</param>

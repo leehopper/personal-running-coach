@@ -31,8 +31,7 @@ internal static class EscalationScenarioRunner
     private static readonly Guid PlanId = Guid.Parse("9e7c0c00-0000-4000-8000-00000000ada9");
 
     /// <summary>
-    /// Runs the scenario and returns the resolved final level, the non-absorb
-    /// event count, and the per-step levels.
+    /// Runs the scenario and returns the resolved final level and the per-step levels.
     /// </summary>
     /// <param name="profile">The runner profile whose pace zones ground the prescriptions.</param>
     /// <param name="scenario">The scenario to run.</param>
@@ -44,7 +43,6 @@ internal static class EscalationScenarioRunner
 
         var state = AdaptationSignalState.Initial;
         var levels = new List<EscalationLevel>(scenario.Steps.Count);
-        var eventCount = 0;
 
         foreach (var step in scenario.Steps)
         {
@@ -71,13 +69,9 @@ internal static class EscalationScenarioRunner
 
             state = decision.NextState;
             levels.Add(decision.EscalationLevel);
-            if (decision.EscalationLevel != EscalationLevel.Absorb)
-            {
-                eventCount++;
-            }
         }
 
-        return new EscalationScenarioRun(levels[^1], eventCount, levels);
+        return new EscalationScenarioRun(levels[^1], levels);
     }
 
     private static WorkoutLog BuildLog(
@@ -143,6 +137,11 @@ internal static class EscalationScenarioRunner
             // Slightly longer and decisively faster than the fast bound.
             DeviationIntent.OverPerform =>
                 (NominalPrescribedKm * 1.05, MinutesFor(NominalPrescribedKm * 1.05, fasterThanFast), CompletionStatus.Complete),
+
+            // ~3% long at an in-band pace near the fast bound — beats the prescription
+            // within the easy-day over-performance cap.
+            DeviationIntent.OverPerformInCap =>
+                (NominalPrescribedKm * 1.03, MinutesFor(NominalPrescribedKm * 1.03, fast.SecondsPerKm + 5.0), CompletionStatus.Complete),
 
             // Skipped entirely.
             DeviationIntent.Missed =>

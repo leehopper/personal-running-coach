@@ -75,6 +75,45 @@ public sealed partial class Dec074PromptHashSentinelTests
         ReadManifest(promptsDir).Should().NotContain($"{editedHash}  {AdaptationPromptFileName}");
     }
 
+    [Fact]
+    public void Backstop_Throws_OnASingleLineOfDrift()
+    {
+        // Arrange — one hash line differs between computed and committed.
+        var committed = $"{new string('a', 64)}  adaptation.v1.yaml\n{new string('b', 64)}  coaching-system.v1.yaml\n";
+        var computed = $"{new string('a', 64)}  adaptation.v1.yaml\n{new string('c', 64)}  coaching-system.v1.yaml\n";
+
+        // Act
+        var act = () => EvalTestBase.VerifyManifest(computed, committed, "manifest-path");
+
+        // Assert — the drift branch fires (the silent-pass DEC-074 exists to prevent).
+        act.Should().Throw<InvalidOperationException>().WithMessage("*not*re-recorded*");
+    }
+
+    [Fact]
+    public void Backstop_DoesNotThrow_OnLineEndingOrTrailingNewlineOnlyDifferences()
+    {
+        // Arrange — same hashes, but CRLF line endings and an extra trailing newline.
+        var computed = $"{new string('a', 64)}  adaptation.v1.yaml\n{new string('b', 64)}  coaching-system.v1.yaml\n";
+        var committed = computed.Replace("\n", "\r\n") + "\r\n";
+
+        // Act
+        var act = () => EvalTestBase.VerifyManifest(computed, committed, "manifest-path");
+
+        // Assert — normalization swallows platform noise without masking real drift.
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Backstop_Throws_WhenTheCommittedManifestIsMissing()
+    {
+        // Act — a null committed manifest models the missing-file branch.
+        var act = () => EvalTestBase.VerifyManifest(
+            $"{new string('a', 64)}  adaptation.v1.yaml\n", committedManifest: null, manifestPath: "manifest-path");
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>().WithMessage("*manifest missing*manifest-path*");
+    }
+
     private static string ReadManifest(string promptsDir) =>
         File.ReadAllText(Path.Combine(promptsDir, ".prompt-hashes.sha256"));
 

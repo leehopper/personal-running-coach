@@ -115,6 +115,55 @@ public sealed class AdaptationValidatorEvalTests
     }
 
     [Fact]
+    public void EvalConstraint_RecoveryRampBackToRecentlyHeldBaseline_IsClean()
+    {
+        // Arrange — the restructure cut to 32km from a recently-held 40km; the ramp
+        // back (32 -> 36 -> 40, +12.5% and +11.1%) exceeds +10% week-over-week but
+        // never exceeds the recently-held baseline — re-acclimatization, not novel load.
+        var plan = new RestructurePlan
+        {
+            RevisedWeeklyTargets =
+            [
+                new WeeklyTargetEdit { WeekNumber = 1, WeeklyTargetKm = 32 },
+                new WeeklyTargetEdit { WeekNumber = 2, WeeklyTargetKm = 36 },
+                new WeeklyTargetEdit { WeekNumber = 3, WeeklyTargetKm = 40 },
+            ],
+            RevisedCurrentWeekWorkouts = [],
+            ForwardPath = "Rebuild to the held volume over two weeks.",
+        };
+
+        // Act
+        var violations = AdaptationConstraintEvaluator.Evaluate(plan, baselineWeeklyKm: 40);
+
+        // Assert — the recovery-ramp exemption admits the rebuild.
+        violations.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EvalConstraint_RampPastTheRecentlyHeldBaseline_IsFlagged()
+    {
+        // Arrange — week 2 grows past the 40km recently-held baseline (36 -> 48km):
+        // beyond the baseline the exemption ends and the +10% rate limit applies.
+        var plan = new RestructurePlan
+        {
+            RevisedWeeklyTargets =
+            [
+                new WeeklyTargetEdit { WeekNumber = 1, WeeklyTargetKm = 36 },
+                new WeeklyTargetEdit { WeekNumber = 2, WeeklyTargetKm = 48 },
+            ],
+            RevisedCurrentWeekWorkouts = [],
+            ForwardPath = "Ramp back gradually.",
+        };
+
+        // Act
+        var violations = AdaptationConstraintEvaluator.Evaluate(plan, baselineWeeklyKm: 40);
+
+        // Assert
+        violations.Should().ContainSingle()
+            .Which.Should().Contain("Week 2").And.Contain("ceiling");
+    }
+
+    [Fact]
     public void EvalConstraint_RestructureWithinTenPercentRamp_IsClean()
     {
         // Arrange — a compliant ramp: 40 -> 44 (+10%) -> 48 (+~9%).

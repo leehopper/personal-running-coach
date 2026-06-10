@@ -29,4 +29,11 @@ internal enum DeviationIntent
 
     /// <summary>Skipped entirely — under-performs and counts toward the consecutive-missed streak.</summary>
     Missed = 6,
+
+    /// <summary>
+    /// Beat the prescription on the over side within the ~2–3% cap (slightly long,
+    /// pace in-band near the fast bound) — the Unit 6 easy-day over-performance
+    /// scenario; absorbed with no upgrade.
+    /// </summary>
+    OverPerformInCap = 7,
 }

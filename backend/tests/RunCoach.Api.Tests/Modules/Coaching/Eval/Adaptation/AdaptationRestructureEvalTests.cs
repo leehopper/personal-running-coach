@@ -89,6 +89,14 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
         output.SafetyTier.Should().Be(SafetyTier.Green, because: "the LLM must echo the deterministic gate tier");
         output.RestructurePlan.Should().NotBeNull();
 
+        // The volume-ramp guardrail constrained decoding cannot enforce: revised
+        // weekly targets may rebuild toward the recently-held baseline freely, but
+        // any growth past it is capped at +10% week-over-week.
+        var constraintViolations = AdaptationConstraintEvaluator.Evaluate(
+            output.RestructurePlan!, BaselineWeeklyKm(profileName));
+        constraintViolations.Should().BeEmpty(
+            because: "the restructure proposal must honor the eval-side mileage-ramp guardrail");
+
         // Communication judge: every rationale criterion must pass.
         verdict.OverallScore.Should().Be(1.0m, because: "the rationale must meet every communication criterion");
         verdict.Criteria.Should().AllSatisfy(c =>
@@ -97,6 +105,18 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
         // Trademark guard on the LLM-authored copy.
         output.Rationale.Should().NotContainEquivalentOf("VDOT");
     }
+
+    /// <summary>
+    /// The weekly volume (km) the profile held before the restructure cut — the
+    /// Week 1 meso target stated in the scenario's plan context below. This is the
+    /// recovery-ramp baseline for <see cref="AdaptationConstraintEvaluator"/>.
+    /// </summary>
+    private static int BaselineWeeklyKm(string profileName) => profileName switch
+    {
+        "lee" => 40,
+        "priya" => 60,
+        _ => throw new ArgumentOutOfRangeException(nameof(profileName), profileName, "No adaptation baseline for this profile."),
+    };
 
     private static async Task<(string System, string User)> BuildAdaptationPromptAsync(
         string profileName, CancellationToken ct)

@@ -22,25 +22,26 @@ internal static class AdaptationScenarioLibrary
     /// </summary>
     internal static IReadOnlyList<EscalationScenario> ClassificationScenarios { get; } =
     [
-        Classify("absorb.sarah.ontarget-easy", AdaptationEvalCategory.Absorb, "sarah", EscalationLevel.Absorb, Step(Easy, OnTarget, 0)),
-        Classify("absorb.lee.ontarget-tempo", AdaptationEvalCategory.Absorb, "lee", EscalationLevel.Absorb, Step(Tempo, OnTarget, 0)),
-        Classify("absorb.maria.within-tolerance-easy", AdaptationEvalCategory.Absorb, "maria", EscalationLevel.Absorb, Step(Easy, WithinTolerance, 0)),
-        Classify("absorb.james.ontarget-easy", AdaptationEvalCategory.Absorb, "james", EscalationLevel.Absorb, Step(Easy, OnTarget, 0)),
-        Classify("absorb.lee.single-minor-slow", AdaptationEvalCategory.Absorb, "lee", EscalationLevel.Absorb, Step(Easy, MinorSlow, 0)),
-        Classify("absorb.priya.overperform-tempo", AdaptationEvalCategory.Absorb, "priya", EscalationLevel.Absorb, Step(Tempo, OverPerform, 0)),
-        Classify("absorb.maria.overperform-interval", AdaptationEvalCategory.Absorb, "maria", EscalationLevel.Absorb, Step(Interval, OverPerform, 0)),
-        Classify("nudge.lee.missed-tempo", AdaptationEvalCategory.Nudge, "lee", EscalationLevel.MicroAdjust, Step(Tempo, Missed, 0)),
-        Classify("nudge.maria.missed-interval", AdaptationEvalCategory.Nudge, "maria", EscalationLevel.MicroAdjust, Step(Interval, Missed, 0)),
-        Classify("nudge.priya.missed-longrun", AdaptationEvalCategory.Nudge, "priya", EscalationLevel.MicroAdjust, Step(LongRun, Missed, 0)),
-        Classify("nudge.lee.two-minor-slow", AdaptationEvalCategory.Nudge, "lee", EscalationLevel.MicroAdjust, Step(Easy, MinorSlow, 0), Step(Easy, MinorSlow, 2)),
-        Classify("nudge.maria.two-partial", AdaptationEvalCategory.Nudge, "maria", EscalationLevel.MicroAdjust, Step(Easy, Partial, 0), Step(Easy, Partial, 2)),
-        Classify("nudge.sarah.two-short", AdaptationEvalCategory.Nudge, "sarah", EscalationLevel.MicroAdjust, Step(Easy, ShortDistance, 0), Step(Easy, ShortDistance, 2)),
-        Classify("restructure.lee.three-minor-slow", AdaptationEvalCategory.Restructure, "lee", EscalationLevel.Restructure, Step(Easy, MinorSlow, 0), Step(Easy, MinorSlow, 2), Step(Easy, MinorSlow, 4)),
-        Classify("restructure.maria.three-missed", AdaptationEvalCategory.Restructure, "maria", EscalationLevel.Restructure, Step(Easy, Missed, 0), Step(Easy, Missed, 1), Step(Easy, Missed, 2)),
-        Classify("restructure.priya.sustained-decline", AdaptationEvalCategory.Restructure, "priya", EscalationLevel.Restructure, Step(Tempo, MinorSlow, 0), Step(Interval, MinorSlow, 2), Step(Tempo, MinorSlow, 4)),
-        Classify("restructure.james.three-missed-easy", AdaptationEvalCategory.Restructure, "james", EscalationLevel.Restructure, Step(Easy, Missed, 0), Step(Easy, Missed, 1), Step(Easy, Missed, 2)),
-        Classify("restructure.sarah.three-short", AdaptationEvalCategory.Restructure, "sarah", EscalationLevel.Restructure, Step(Easy, ShortDistance, 0), Step(Easy, ShortDistance, 2), Step(Easy, ShortDistance, 4)),
-        Classify("restructure.maria.mixed-decline", AdaptationEvalCategory.Restructure, "maria", EscalationLevel.Restructure, Step(Tempo, Missed, 0), Step(Easy, MinorSlow, 2), Step(Easy, MinorSlow, 4)),
+        Classify("absorb.sarah.ontarget-easy", "sarah", EscalationLevel.Absorb, Step(Easy, OnTarget, 0)),
+        Classify("absorb.lee.ontarget-tempo", "lee", EscalationLevel.Absorb, Step(Tempo, OnTarget, 0)),
+        Classify("absorb.maria.within-tolerance-easy", "maria", EscalationLevel.Absorb, Step(Easy, WithinTolerance, 0)),
+        Classify("absorb.james.ontarget-easy", "james", EscalationLevel.Absorb, Step(Easy, OnTarget, 0)),
+        Classify("absorb.lee.single-minor-slow", "lee", EscalationLevel.Absorb, Step(Easy, MinorSlow, 0)),
+        Classify("absorb.priya.overperform-tempo", "priya", EscalationLevel.Absorb, Step(Tempo, OverPerform, 0)),
+        Classify("absorb.maria.overperform-interval", "maria", EscalationLevel.Absorb, Step(Interval, OverPerform, 0)),
+        Classify("absorb.sarah.overperform-easy", "sarah", EscalationLevel.Absorb, Step(Easy, OverPerformInCap, 0)),
+        Classify("nudge.lee.missed-tempo", "lee", EscalationLevel.MicroAdjust, Step(Tempo, Missed, 0)),
+        Classify("nudge.maria.missed-interval", "maria", EscalationLevel.MicroAdjust, Step(Interval, Missed, 0)),
+        Classify("nudge.priya.missed-longrun", "priya", EscalationLevel.MicroAdjust, Step(LongRun, Missed, 0)),
+        Classify("nudge.lee.two-minor-slow", "lee", EscalationLevel.MicroAdjust, Step(Easy, MinorSlow, 0), Step(Easy, MinorSlow, 2)),
+        Classify("nudge.maria.two-partial", "maria", EscalationLevel.MicroAdjust, Step(Easy, Partial, 0), Step(Easy, Partial, 2)),
+        Classify("nudge.sarah.two-short", "sarah", EscalationLevel.MicroAdjust, Step(Easy, ShortDistance, 0), Step(Easy, ShortDistance, 2)),
+        Classify("restructure.lee.three-minor-slow", "lee", EscalationLevel.Restructure, Step(Easy, MinorSlow, 0), Step(Easy, MinorSlow, 2), Step(Easy, MinorSlow, 4)),
+        Classify("restructure.maria.three-missed", "maria", EscalationLevel.Restructure, Step(Easy, Missed, 0), Step(Easy, Missed, 1), Step(Easy, Missed, 2)),
+        Classify("restructure.priya.sustained-decline", "priya", EscalationLevel.Restructure, Step(Tempo, MinorSlow, 0), Step(Interval, MinorSlow, 2), Step(Tempo, MinorSlow, 4)),
+        Classify("restructure.james.three-missed-easy", "james", EscalationLevel.Restructure, Step(Easy, Missed, 0), Step(Easy, Missed, 1), Step(Easy, Missed, 2)),
+        Classify("restructure.sarah.three-short", "sarah", EscalationLevel.Restructure, Step(Easy, ShortDistance, 0), Step(Easy, ShortDistance, 2), Step(Easy, ShortDistance, 4)),
+        Classify("restructure.maria.mixed-decline", "maria", EscalationLevel.Restructure, Step(Tempo, Missed, 0), Step(Easy, MinorSlow, 2), Step(Easy, MinorSlow, 4)),
     ];
 
     /// <summary>
@@ -59,13 +60,34 @@ internal static class AdaptationScenarioLibrary
         new("safety.green.strong-session", "sarah", "Felt strong and smooth the whole way, legs felt fresh.", SafetyTier.Green, ReferralCategory.None),
     ];
 
+    /// <summary>
+    /// Builds a classification scenario. The reporting category is derived from
+    /// the ground-truth level so a mis-authored entry can never silently
+    /// mis-bucket a report row (or inflate the safety-gate denominator), and a
+    /// zero-step scenario fails loudly here instead of inside the runner.
+    /// </summary>
     private static EscalationScenario Classify(
         string id,
-        AdaptationEvalCategory category,
         string profileName,
         EscalationLevel expectedLevel,
-        params EscalationScenarioStep[] steps) =>
-        new(id, category, profileName, SafetyTier.Green, expectedLevel, steps);
+        params EscalationScenarioStep[] steps)
+    {
+        if (steps.Length == 0)
+        {
+            throw new ArgumentException($"Scenario '{id}' has no steps; scenario mis-authored.", nameof(steps));
+        }
+
+        var category = expectedLevel switch
+        {
+            EscalationLevel.Absorb => AdaptationEvalCategory.Absorb,
+            EscalationLevel.MicroAdjust => AdaptationEvalCategory.Nudge,
+            EscalationLevel.Restructure => AdaptationEvalCategory.Restructure,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(expectedLevel), expectedLevel, $"Scenario '{id}' targets a level outside the classification ladder."),
+        };
+
+        return new(id, category, profileName, SafetyTier.Green, expectedLevel, steps);
+    }
 
     private static EscalationScenarioStep Step(
         RunCoach.Api.Modules.Coaching.Models.Structured.WorkoutType workoutType,

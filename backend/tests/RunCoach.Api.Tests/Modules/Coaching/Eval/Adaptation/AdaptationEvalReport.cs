@@ -5,7 +5,8 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval.Adaptation;
 /// (Unit 6): per-category pass-rates (absorb/nudge/restructure/safety), the
 /// safety pass-rate that gates the PR (≥ 95%, DEC-079), and whether any scenario
 /// hard-failed (an under-reaction / missed safety signal). The accumulated rows
-/// and aggregates serialize into the committed eval-results proof artifact.
+/// and aggregates serialize into the eval-results proof artifact (working-tree
+/// only; <c>eval-results/</c> is gitignored).
 /// </summary>
 internal sealed class AdaptationEvalReport
 {

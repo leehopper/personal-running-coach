@@ -9,8 +9,8 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval.Adaptation;
 /// through the asymmetric scorer into one report, then enforces the suite-level
 /// gates: no hard fails (under-reactions / missed safety signals), a safety
 /// pass-rate ≥ 95% (DEC-079), and a per-category pass-rate for absorb / nudge /
-/// restructure / safety. The full report is written to the committed
-/// eval-results proof artifact.
+/// restructure / safety. The full report is written to the eval-results proof
+/// artifact (working-tree only; <c>eval-results/</c> is gitignored).
 /// </summary>
 [Trait("Category", "Eval")]
 public sealed class AdaptationEvalSuiteTests
