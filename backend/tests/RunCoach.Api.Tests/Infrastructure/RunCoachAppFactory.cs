@@ -9,6 +9,7 @@ using Npgsql;
 using Respawn;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Infrastructure.Idempotency;
+using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Training.Plan;
 using Testcontainers.PostgreSql;
 
@@ -241,6 +242,21 @@ public sealed class RunCoachAppFactory : WebApplicationFactory<Program>, IAsyncL
         {
             services.RemoveAll<IPlanGenerationService>();
             services.AddScoped<IPlanGenerationService, StubPlanGenerationService>();
+
+            // Replace the production `ICoachingLlm` registration with the
+            // deterministic test stub. MANDATORY, not an optimization: the Slice 3
+            // `EvaluateAdaptationHandler` chain injects `ICoachingLlm`, the
+            // workout-log create flow dispatches that chain unconditionally, and
+            // the test host has no `Anthropic:ApiKey` — without this swap,
+            // Wolverine codegen / DI constructs the real `ClaudeCoachingLlm`
+            // against missing config. The stub must be public and registered as a
+            // concrete implementation type (same constraints as
+            // `StubPlanGenerationService` above); per-test behavior is scripted
+            // via `StubCoachingLlm`'s static surface because Wolverine bakes this
+            // registration into generated code at host boot. Zero real Anthropic
+            // calls happen in the integration tier.
+            services.RemoveAll<ICoachingLlm>();
+            services.AddScoped<ICoachingLlm, StubCoachingLlm>();
 
             // Remove the production-registered `IdempotencySweeper` IHostedService so the
             // real-clock sweeper doesn't race the fake-time markers seeded by
