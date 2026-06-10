@@ -71,9 +71,15 @@ with open('$entry_file', 'w') as f:
 done < <(find "$CACHE_DIR" -name "entry.json" -print0)
 echo "  Patched $PATCHED entry.json files."
 
+# Step 3b: Regenerate the DEC-074 prompt-hash sentinel manifest so the committed
+# cache and the manifest always move together (the manifest records the prompt
+# contents this cache was recorded against).
+echo "[4b/5] Regenerating prompt-hash manifest (DEC-074)..."
+bash "$SCRIPT_DIR/check-prompt-hashes.sh" --write
+
 # Step 4: Verify Replay mode works
 echo "[5/5] Verifying Replay mode with new fixtures..."
 EVAL_CACHE_MODE=Replay "$BACKEND_DIR/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests" -trait "Category=Eval"
 echo ""
 echo "=== Done. Cache is fresh and TTL-extended. ==="
-echo "Next: git add backend/tests/eval-cache/ && git commit"
+echo "Next: git add backend/tests/eval-cache/ backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256 && git commit"
