@@ -1,5 +1,7 @@
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using FluentAssertions;
+using JasperFx;
 using JasperFx.Events;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -113,6 +115,41 @@ public class WorkoutLogsControllerTests
             .Returns<Task<AdaptationResponseDto>>(_ =>
                 throw new EventStreamUnexpectedMaxEventIdException(
                     Guid.NewGuid(), aggregateType: null, expected: 12, actual: 13));
+        var ct = TestContext.Current.CancellationToken;
+
+        // Act
+        var actual = await controller.CreateLog(ValidRequest(), ct);
+
+        // Assert — still 201; the envelope reports the saved log + retryable error.
+        var created = actual.Should().BeOfType<CreatedResult>().Subject;
+        created.StatusCode.Should().Be(StatusCodes.Status201Created);
+        var body = created.Value.Should().BeOfType<CreateWorkoutLogResponseDto>().Subject;
+        body.WorkoutLogId.Should().Be(workoutLogId);
+        body.Adaptation.Kind.Should().Be(AdaptationResponseKind.Error);
+        body.Adaptation.Retryable.Should().BeTrue();
+        body.Adaptation.ErrorMessage.Should().NotBeNullOrWhiteSpace();
+        body.Adaptation.AdaptationKind.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateLog_DuplicateMarkerConflictEscapesDispatch_MapsToRetryableErrorEnvelope()
+    {
+        // Arrange — the marker-only adaptation paths (off-plan no-op, L0 absorb, Red
+        // short-circuit) stage just the WorkoutLogId-keyed idempotency marker; a
+        // concurrent duplicate's Insert loses the race and surfaces
+        // DocumentAlreadyExistsException. The chain-scoped retry is keyed only on the
+        // stream-version conflict, so this surface escapes the dispatch — the create
+        // must still answer 201 with a retryable envelope rather than 5xx. (The
+        // instance is created without its constructor: only the catch's type match
+        // and the 201-envelope mapping are under test.)
+        var userId = Guid.NewGuid();
+        var workoutLogId = Guid.NewGuid();
+        var (controller, _, bus) = CreateController(userId, workoutLogId);
+        var conflict = (DocumentAlreadyExistsException)RuntimeHelpers.GetUninitializedObject(
+            typeof(DocumentAlreadyExistsException));
+        bus.InvokeForTenantAsync<AdaptationResponseDto>(
+                Arg.Any<string>(), Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
+            .Returns<Task<AdaptationResponseDto>>(_ => throw conflict);
         var ct = TestContext.Current.CancellationToken;
 
         // Act

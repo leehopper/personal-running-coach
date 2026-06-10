@@ -326,14 +326,15 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
     public async Task Create_AmberRestructure_AppendsAdaptationAndSafetySignal()
     {
         // Arrange — the same L2-crossing deviation as the Green restructure, with
-        // an injury note the gate classifies Amber. The scripted proposal reduces
-        // load (NetLoadDelta below zero) so GATE-BEFORE-INCREASE validation passes.
+        // an injury note the gate classifies Amber. The scripted proposal echoes the
+        // Amber tier the gate assigned (echo integrity) and reduces load (NetLoadDelta
+        // below zero) so GATE-BEFORE-INCREASE validation passes.
         var ct = TestContext.Current.CancellationToken;
         var (client, userId, token) = await RegisterLoginAndPrimeAsync();
         var planId = Guid.NewGuid();
         await SeedActivePlanAsync(userId, planId, ct);
         await SeedSignalStateAsync(userId, planId, rollingScore: 2.0, ct);
-        StubCoachingLlm.UseStructuredBehavior(CannedRestructureOutput);
+        StubCoachingLlm.UseStructuredBehavior(() => CannedRestructureOutput() with { SafetyTier = SafetyTier.Amber });
 
         // Act
         var response = await PostLogAsync(
@@ -522,17 +523,24 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
         StubCoachingLlm.StructuredCallCount.Should().Be(
             2, because: "both handlers must have reached the LLM seam before either committed");
 
-        // Exactly one adaptation results: one append won; the loser either
-        // surfaced a recognized optimistic-concurrency conflict (and rolled back
-        // in full) or replayed the winner's committed envelope — never a second
-        // committed adaptation.
-        var envelopes = outcomes.Where(o => o.Envelope is not null).Select(o => o.Envelope!).ToList();
-        envelopes.Should().NotBeEmpty(because: "at least the winning invocation returns its envelope");
+        // The bounded retry — keyed on the exception the race actually throws
+        // (EventStreamUnexpectedMaxEventIdException, the d0bfd4a fix) — is the
+        // mechanism that turns the loser's lost append into a graceful replay: the
+        // winner commits its marker BEFORE the loser retries, so the loser's retry
+        // hits SeenAsync and returns the replayed envelope rather than escaping as a
+        // conflict. Were the rule re-keyed to the wrong exception, the retry would
+        // never fire and the loser would throw — so assert BOTH invocations resolved
+        // to the winner's committed restructure envelope with NO conflict escaping,
+        // not merely that "at least one" returned.
+        outcomes.Should().OnlyContain(
+            o => o.Conflict == null,
+            because: "the bounded retry deterministically resolves the loser to the replayed envelope");
+        var envelopes = outcomes.Select(o => o.Envelope!).ToList();
+        envelopes.Should().HaveCount(2);
         envelopes.Should().AllSatisfy(envelope =>
         {
             envelope.Kind.Should().Be(AdaptationResponseKind.Adapted);
-            envelope.AdaptationKind.Should().Be(
-                AdaptationKind.Restructure);
+            envelope.AdaptationKind.Should().Be(AdaptationKind.Restructure);
         });
 
         var events = await FetchPlanEventsAsync(userId, planId, ct);
@@ -683,8 +691,11 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
     /// <summary>
     /// The scripted, validator-passing restructure proposal: a pure load reduction
     /// (week 2 from 45 km to 40 km, negative net delta, forward path present) so it
-    /// passes GATE-BEFORE-INCREASE under both Green and Amber tiers and produces a
-    /// non-empty deterministic diff against the seeded plan.
+    /// passes GATE-BEFORE-INCREASE and produces a non-empty deterministic diff against
+    /// the seeded plan. It echoes the Green tier; a non-Green-gate scenario must
+    /// override <c>SafetyTier</c> to the gate's tier (the handler rejects an echoed
+    /// tier that diverges from the deterministic gate), e.g.
+    /// <c>CannedRestructureOutput() with { SafetyTier = SafetyTier.Amber }</c>.
     /// </summary>
     private static PlanAdaptationOutput CannedRestructureOutput() =>
         new()

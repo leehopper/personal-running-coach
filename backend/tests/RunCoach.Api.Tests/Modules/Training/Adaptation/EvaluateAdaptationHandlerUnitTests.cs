@@ -638,6 +638,182 @@ public sealed class EvaluateAdaptationHandlerUnitTests
     }
 
     [Fact]
+    public async Task Handle_ScoreDrivenMicroAdjustOnACompletedLog_AbsorbsWithNoSwapNoEscalationNoLlm()
+    {
+        // Arrange — the classifier fires L1 on accumulated under-performance, but the
+        //   triggering log is a COMPLETED (slow) key workout: there is no missed
+        //   session to reschedule. A swap WOULD be available on this day, yet the
+        //   handler must absorb deterministically — never swap a completed workout
+        //   (a false "you missed" nudge) nor escalate a 2.0-score signal into the LLM
+        //   restructure reserved for the 3.0 crossing.
+        var harness = new Harness();
+        var snapshot = BuildSnapshot(weekNumber: 1, dayOfWeek: 2);
+        var log = BuildLog(snapshot, notes: "felt sluggish but finished");
+        var cmd = CommandFor(log);
+        harness.StubLog(cmd, log);
+        var deviation = new DeviationResult(
+            OccurredOn: new DateOnly(2026, 6, 9),
+            CompletionStatus: CompletionStatus.Complete,
+            IsKeyWorkout: true,
+            DistanceDeviationPercent: 0.0,
+            DurationDeviationPercent: 10.0,
+            PaceBand: PaceBandMembership.SlowerThanSlow,
+            PaceDeviationSecondsPerKm: 25.0);
+        harness.DeviationEngine.Evaluate(log).Returns(deviation);
+        harness.Session
+            .LoadAsync<AdaptationSignalStateDocument>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns((AdaptationSignalStateDocument?)null);
+        harness.StubMicroWeek(weekNumber: 1, BuildSwappableWeek());
+        var nextState = AdaptationSignalState.Create(PlanState.MinorDeviation, 2.0, 0, null);
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(new EscalationDecision(EscalationLevel.MicroAdjust, AdaptationKind.Nudge, nextState));
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — absorbed: no event, no LLM, state advanced, marker recorded.
+        actual.Kind.Should().Be(AdaptationResponseKind.Adapted);
+        actual.AdaptationKind.Should().Be(AdaptationKind.Absorb);
+        harness.Appended.Should().BeEmpty();
+        await harness.Llm.DidNotReceiveWithAnyArgs().GenerateStructuredAsync<PlanAdaptationOutput>(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+            Arg.Any<CacheControl?>(),
+            Arg.Any<CancellationToken>());
+        harness.Session.Received(1).Store(Arg.Is<AdaptationSignalStateDocument>(d =>
+            d.PlanId == PlanId && d.ToState() == nextState));
+        harness.Idempotency.Received(1).Record(cmd.WorkoutLogId, Arg.Any<AdaptationResponseDto>());
+    }
+
+    [Fact]
+    public async Task Handle_EscalatedMicroAdjust_StampsRestructureStateAndComposesWithRestructureLevel()
+    {
+        // Arrange — a missed key workout whose week has no live micro detail escalates
+        //   L1 -> L2. The persisted state must ENTER NeedsAdjustment with
+        //   LastAdaptationOn stamped (so the cooldown/dead-zone hysteresis engages),
+        //   NOT the classifier's MicroAdjust NextState (MinorDeviation, date null),
+        //   and the prompt must echo the EXECUTED Restructure level.
+        var harness = new Harness();
+        var snapshot = BuildSnapshot(weekNumber: 2, dayOfWeek: 2);
+        var log = BuildLog(snapshot);
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.StubLlm(BuildRestructureOutput());
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(MicroAdjustDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — restructure executed...
+        actual.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+
+        // ...the prompt echoed the executed Restructure level (not MicroAdjust)...
+        await harness.Assembler.Received(1).ComposeForAdaptationAsync(
+            Arg.Any<PlanProjectionDto>(),
+            EscalationLevel.Restructure,
+            Arg.Any<SafetyTier>(),
+            Arg.Any<DeviationResult>(),
+            Arg.Any<LoggedWorkoutDetail>(),
+            Arg.Any<CancellationToken>());
+
+        // ...and the persisted state entered NeedsAdjustment with the date stamped.
+        var expectedState = AdaptationSignalState.Create(
+            PlanState.NeedsAdjustment, 2.0, 1, deviation.OccurredOn);
+        harness.Session.Received(1).Store(Arg.Is<AdaptationSignalStateDocument>(d =>
+            d.PlanId == PlanId && d.ToState() == expectedState));
+    }
+
+    [Fact]
+    public async Task Handle_LlmEchoesADifferentTierThanTheGate_RejectsTheProposalWithNothingStaged()
+    {
+        // Arrange — GATE-BEFORE-INCREASE must key off the deterministic gate, never
+        //   the LLM's echoed tier. An Amber gate with an echoed-Green proposal
+        //   carrying a positive load delta PASSES the validator (Green permits an
+        //   increase) but must be rejected: trusting the echo would commit a load
+        //   increase under a tier the gate never assigned.
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot());
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.SafetyGate
+            .Classify(Arg.Any<string?>(), Arg.Any<IReadOnlyDictionary<string, string>?>())
+            .Returns(SafetyClassification.Amber(ReferralCategory.Injury));
+        harness.StubLlm(BuildRestructureOutput() with { NetLoadDelta = 5 });
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Amber, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert
+        actual.Kind.Should().Be(AdaptationResponseKind.Error);
+        actual.Retryable.Should().BeFalse();
+        AssertNothingStaged(harness);
+        harness.Logger.Entries.Should().Contain(e =>
+            e.Level == LogLevel.Warning && e.Message.Contains("echo mismatch"));
+    }
+
+    [Fact]
+    public async Task Handle_RestructurePath_SanitizesViaTheAssemblerOnly_PassingTheRawDetail()
+    {
+        // Arrange — the handler sanitizes a SEPARATE copy for the safety gate and
+        //   passes the RAW triggering log to the assembler, which owns the single
+        //   sanitization pass for the prompt. Pre-sanitizing here too would
+        //   double-wrap and triple-escape the note the LLM sees.
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot(), notes: "raw note");
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.StubLlm(BuildRestructureOutput());
+        harness.Sanitizer.Transform = detail => detail with { Notes = "SANITIZED" };
+        LoggedWorkoutDetail? assemblerInput = null;
+        harness.Assembler
+            .ComposeForAdaptationAsync(
+                Arg.Any<PlanProjectionDto>(),
+                Arg.Any<EscalationLevel>(),
+                Arg.Any<SafetyTier>(),
+                Arg.Any<DeviationResult>(),
+                Arg.Do<LoggedWorkoutDetail>(d => assemblerInput = d),
+                Arg.Any<CancellationToken>())
+            .Returns(new AdaptationPromptComposition("system prompt", "user message"));
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        await harness.HandleAsync(cmd);
+
+        // Assert — the gate scanned the sanitized copy; the assembler received the
+        //   RAW note and runs its own single sanitization pass.
+        harness.SafetyGate.Received(1).Classify(
+            "SANITIZED", Arg.Any<IReadOnlyDictionary<string, string>?>());
+        assemblerInput.Should().NotBeNull();
+        assemblerInput!.Notes.Should().Be("raw note");
+    }
+
+    [Theory]
+    [InlineData("not json at all")]
+    [InlineData("[1, 2, 3]")]
+    [InlineData("""{"rpe": 7""")]
+    public void ToDisplayMetrics_MalformedStoredMetrics_ThrowsJsonException(string metricsJson)
+    {
+        // The API owns this column (DEC-072); a stored value that is not a JSON
+        // object is data corruption and MUST fail loudly rather than silently
+        // skipping the safety-gate scan of its free-text values.
+        Action act = () => WorkoutMetricsProjection.ToDisplayMetrics(metricsJson);
+
+        act.Should().Throw<JsonException>();
+    }
+
+    [Fact]
     public void ConfigureFailureRules_RegistersExactlyOneBoundedRetryRule()
     {
         // Arrange — R04.7: the adaptation chain retries stream-version
