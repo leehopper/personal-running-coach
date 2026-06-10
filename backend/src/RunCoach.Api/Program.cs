@@ -99,8 +99,8 @@ builder.Host.UseWolverine(opts =>
     // registrations do not cover it transitively.
     //
     // Scope: these are GLOBAL rules. The adaptation evaluation chain registers
-    // its own chain-scoped `ConcurrentUpdateException` rule (bounded retry
-    // against fresh state, then error queue) via
+    // its own chain-scoped `EventStreamUnexpectedMaxEventIdException` rule
+    // (bounded retry against fresh state, then error queue) via
     // `EvaluateAdaptationHandler.Configure(HandlerChain)`; chain rules are
     // evaluated before global rules, so first-write-wins routing here keeps
     // governing the onboarding and regenerate chains only.

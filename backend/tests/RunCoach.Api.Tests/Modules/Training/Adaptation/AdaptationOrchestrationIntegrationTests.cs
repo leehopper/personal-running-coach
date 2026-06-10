@@ -31,8 +31,8 @@ namespace RunCoach.Api.Tests.Modules.Training.Adaptation;
 /// drives the LIVE pipeline — HTTP create + auth + antiforgery, or
 /// <c>IMessageBus.InvokeForTenantAsync</c> for the concurrency race — never
 /// <c>EvaluateAdaptationHandler.Handle</c> directly, so Wolverine's transactional
-/// middleware, the chain-scoped <c>ConcurrentUpdateException</c> retry policy, and
-/// both inline Marten projections are all under test. The coaching LLM is the
+/// middleware, the chain-scoped <c>EventStreamUnexpectedMaxEventIdException</c>
+/// retry policy, and both inline Marten projections are all under test. The coaching LLM is the
 /// deterministic <see cref="StubCoachingLlm"/> swapped in by
 /// <see cref="RunCoachAppFactory"/>; restructure scenarios script its outcome and
 /// assert the exact call count (zero real Anthropic calls in this tier).
@@ -912,14 +912,14 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
             // in full without a second adaptation:
             // - `EventStreamUnexpectedMaxEventIdException` (a `JasperFx.ConcurrencyException`):
             //   Marten Rich append mode detected the stream version moved — this is
-            //   what the race actually throws today. NOTE: it is NOT a
-            //   `Marten.Exceptions.ConcurrentUpdateException`, so neither the
-            //   handler chain's bounded-retry rule nor the controller's conflict
-            //   catch currently matches it — the loser dead-letters/rethrows
-            //   instead of retrying into the winner's marker.
-            // - `ConcurrentUpdateException`: the type the chain policy retries; kept
-            //   so the test keeps passing once the policy and the thrown type are
-            //   aligned (the retry then replays the winner's envelope instead).
+            //   what the race actually throws. The chain-scoped policy retries it
+            //   (bounded), so the loser normally re-runs, hits the winner's
+            //   idempotency marker, and returns the replayed envelope instead of
+            //   throwing; this catch only sees it if the conflict escapes the
+            //   bounded retries.
+            // - `ConcurrentUpdateException`: kept defensively for Marten's
+            //   non-stream document-update conflict surface (e.g. the signal-state
+            //   document), which is outside the stream-append exception hierarchy.
             // - `DocumentAlreadyExistsException`: the duplicate WorkoutLogId-keyed
             //   marker insert, when the marker conflict surfaces before the
             //   stream-version conflict.
