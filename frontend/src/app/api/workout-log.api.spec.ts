@@ -4,22 +4,14 @@ import { apiSlice } from '~/api/api-slice'
 import type { CreateWorkoutLogRequest } from '~/api/generated'
 import { conversationApi } from './conversation.api'
 import { planApi } from './plan.api'
+import { clearXsrfCookie, PatchedRequest, seedXsrfCookie } from './test-helpers'
 import { workoutLogApi, WORKOUT_HISTORY_PAGE_SIZE } from './workout-log.api'
 
 // Dispatch the endpoint thunk directly with `fetch` stubbed at the global level
 // so the `query: (body) => ({...})` factory actually executes (the page spec
-// mocks the hook and never reaches the factory). Mirrors plan.api.spec.ts.
-const OriginalRequest = globalThis.Request
-class PatchedRequest extends OriginalRequest {
-  constructor(input: RequestInfo | URL, init?: RequestInit) {
-    if (typeof input === 'string' && input.startsWith('/')) {
-      super(new URL(input, 'https://localhost:5173').toString(), init)
-      return
-    }
-    super(input, init)
-  }
-}
-
+// mocks the hook and never reaches the factory). The `PatchedRequest` jsdom
+// relative-URL workaround and the XSRF cookie seed/clear pair are shared via
+// `test-helpers.ts`.
 const jsonResponse = (body: Record<string, unknown>, status = 200): Response =>
   new Response(JSON.stringify(body), {
     status,
@@ -51,12 +43,12 @@ describe('workoutLogApi.createWorkoutLog query factory', () => {
     // Mirror the booted runtime: the antiforgery cookie is present, so the
     // base query's lazy XSRF seed (base-query.ts) stays quiet and the
     // mutation is the only request the factory assertions see.
-    document.cookie = '__Host-Xsrf-Request=test-xsrf; path=/; Secure'
+    seedXsrfCookie()
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
-    document.cookie = '__Host-Xsrf-Request=; path=/; Secure; max-age=0'
+    clearXsrfCookie()
   })
 
   it('issues a POST to /api/v1/workouts/logs with the supplied body', async () => {
@@ -156,12 +148,12 @@ describe('createWorkoutLog cache invalidation (spec 17 § Unit 7)', () => {
     // Mirror the booted runtime: the antiforgery cookie is present, so the
     // base query's lazy XSRF seed (base-query.ts) stays quiet and the
     // call counts below track only the plan/conversation/create requests.
-    document.cookie = '__Host-Xsrf-Request=test-xsrf; path=/; Secure'
+    seedXsrfCookie()
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
-    document.cookie = '__Host-Xsrf-Request=; path=/; Secure; max-age=0'
+    clearXsrfCookie()
   })
 
   it('refetches subscribed Plan and Conversation queries after a successful create', async () => {
@@ -176,12 +168,46 @@ describe('createWorkoutLog cache invalidation (spec 17 § Unit 7)', () => {
 
     await store.dispatch(workoutLogApi.endpoints.createWorkoutLog.initiate(SAMPLE_BODY))
 
-    // `invalidatesTags: ['WorkoutLog', 'Plan', 'Conversation']` fires on the
-    // fulfilled mutation; both subscribed queries refetch in the same
-    // interaction — the plan re-renders and the panel picks up the new turn.
+    // The `invalidatesTags` callback returns the tags only when `error` is
+    // undefined; both subscribed queries refetch in the same interaction —
+    // the plan re-renders and the panel picks up the new turn.
     await vi.waitFor(() => {
       expect(callsTo('/api/v1/plan/current')).toBe(2)
       expect(callsTo('/api/v1/conversation/turns')).toBe(2)
     })
+  })
+
+  it('does not refetch Plan or Conversation when the create fails', async () => {
+    // RTK Query applies a *static* `invalidatesTags` array on rejected-with-value
+    // mutations too, so the callback form must return `[]` on error. A failed
+    // create must not refetch the plan view or replay a stale panel.
+    fetchMock.mockImplementation((input: Request) => {
+      if (input.url.includes('/api/v1/conversation/turns')) {
+        return Promise.resolve(jsonResponse({ turns: [] }))
+      }
+      if (input.url.includes('/api/v1/plan/current')) {
+        return Promise.resolve(jsonResponse({ planId: 'plan-1' }))
+      }
+      // The create rejects with a 400 (e.g. an antiforgery failure) — a
+      // rejected-with-value base-query error, not a thrown exception.
+      return Promise.resolve(jsonResponse({ title: 'bad request' }, 400))
+    })
+    const store = makeStore()
+
+    await store.dispatch(planApi.endpoints.getCurrentPlan.initiate(undefined))
+    await store.dispatch(conversationApi.endpoints.getConversationTurns.initiate(undefined))
+    expect(callsTo('/api/v1/plan/current')).toBe(1)
+    expect(callsTo('/api/v1/conversation/turns')).toBe(1)
+
+    const result = await store.dispatch(
+      workoutLogApi.endpoints.createWorkoutLog.initiate(SAMPLE_BODY),
+    )
+    expect('error' in result).toBe(true)
+
+    // Give any (incorrect) invalidation a chance to fire before asserting the
+    // counts held — the failed create must leave both subscriptions untouched.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(callsTo('/api/v1/plan/current')).toBe(1)
+    expect(callsTo('/api/v1/conversation/turns')).toBe(1)
   })
 })

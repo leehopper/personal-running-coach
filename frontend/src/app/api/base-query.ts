@@ -9,7 +9,10 @@ import { loggedOut } from '~/modules/auth/store/auth.slice'
 // The SPA-readable half of the antiforgery double-submit pair (DEC-054).
 // Backend source of truth: `AuthCookieNames.AntiforgeryRequest`. The
 // HttpOnly companion cookie `__Host-Xsrf` is unreadable here by design.
-const XSRF_COOKIE_NAME = '__Host-Xsrf-Request'
+// Exported so the api-layer specs seed the cookie through the same constant
+// rather than re-hardcoding the literal (a rename here would otherwise leave
+// the test seeds silently inert).
+export const XSRF_COOKIE_NAME = '__Host-Xsrf-Request'
 const XSRF_HEADER_NAME = 'X-XSRF-TOKEN'
 
 // Reads the single cookie segment whose name matches XSRF_COOKIE_NAME and

@@ -3,21 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiSlice } from '~/api/api-slice'
 import type { ConversationTurnsResponseDto } from '~/modules/coaching/models/conversation.model'
 import { conversationApi } from './conversation.api'
+import { PatchedRequest } from './test-helpers'
 
 // Dispatch the endpoint thunk directly with `fetch` stubbed at the global level
 // so the `query: () => ({...})` factory actually executes (the page spec mocks
-// the hook and never reaches the factory). Mirrors plan.api.spec.ts.
-const OriginalRequest = globalThis.Request
-class PatchedRequest extends OriginalRequest {
-  constructor(input: RequestInfo | URL, init?: RequestInit) {
-    if (typeof input === 'string' && input.startsWith('/')) {
-      super(new URL(input, 'https://localhost:5173').toString(), init)
-      return
-    }
-    super(input, init)
-  }
-}
-
+// the hook and never reaches the factory). The `PatchedRequest` jsdom
+// relative-URL workaround is shared via `test-helpers.ts`.
 const jsonResponse = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), {
     status,

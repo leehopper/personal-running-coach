@@ -2,10 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BaseQueryApi } from '@reduxjs/toolkit/query'
 import { loggedOut } from '~/modules/auth/store/auth.slice'
 import { baseQueryWith401Handler, rawBaseQuery } from './base-query'
+import { clearXsrfCookie, PatchedRequest, seedXsrfCookie } from './test-helpers'
 
-// The cookie name the SPA reads is the double-submit companion of the
-// HttpOnly backend cookie (DEC-054). Kept in lockstep with `base-query.ts`.
-const XSRF_COOKIE_NAME = '__Host-Xsrf-Request'
 const XSRF_HEADER_NAME = 'X-XSRF-TOKEN'
 
 // BaseQueryApi is a structural contract; tests only exercise `dispatch` and
@@ -50,19 +48,10 @@ const extractRequest = (fetchMock: ReturnType<typeof vi.fn>): Request => {
 // behavior we are exercising is independent of which path/host we use.
 const ABS_URL = 'https://localhost:5173/api/endpoint'
 
-// Helper for seeding the XSRF cookie inside jsdom. jsdom honors Set-Cookie
-// semantics via `document.cookie =` — the `__Host-` prefix additionally
-// requires `Secure` + `Path=/` + no `Domain`; without Secure the cookie jar
-// silently drops the assignment and the next read returns empty. The vitest
-// environment is configured to `https://localhost:5173/` so the Secure
-// attribute is honored.
-const setCookie = (name: string, value: string): void => {
-  document.cookie = `${name}=${value}; path=/; Secure`
-}
-
-const clearCookie = (name: string): void => {
-  document.cookie = `${name}=; path=/; Secure; max-age=0`
-}
+// `seedXsrfCookie` / `clearXsrfCookie` (shared via `test-helpers.ts`) seed the
+// `__Host-`-prefixed cookie with `Secure` + `Path=/` so jsdom honors the
+// write (without `Secure` the cookie jar silently drops it). The vitest
+// environment is pinned to `https://localhost:5173/` so `Secure` is honored.
 
 describe('rawBaseQuery', () => {
   let fetchMock: ReturnType<typeof vi.fn>
@@ -70,12 +59,12 @@ describe('rawBaseQuery', () => {
   beforeEach(() => {
     fetchMock = vi.fn().mockResolvedValue(okResponse())
     vi.stubGlobal('fetch', fetchMock)
-    clearCookie(XSRF_COOKIE_NAME)
+    clearXsrfCookie()
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
-    clearCookie(XSRF_COOKIE_NAME)
+    clearXsrfCookie()
   })
 
   describe('credentials: "include" is set on every call', () => {
@@ -94,7 +83,7 @@ describe('rawBaseQuery', () => {
 
   describe('X-XSRF-TOKEN header on mutation verbs', () => {
     beforeEach(() => {
-      setCookie(XSRF_COOKIE_NAME, 'xsrf-plain-value')
+      seedXsrfCookie('xsrf-plain-value')
     })
 
     it.each(['POST', 'PUT', 'PATCH', 'DELETE'] as const)(
@@ -109,7 +98,7 @@ describe('rawBaseQuery', () => {
 
   describe('X-XSRF-TOKEN header NOT added on GET', () => {
     it('omits the XSRF header on GET requests even when the cookie is present', async () => {
-      setCookie(XSRF_COOKIE_NAME, 'xsrf-plain-value')
+      seedXsrfCookie('xsrf-plain-value')
       await rawBaseQuery({ url: ABS_URL, method: 'GET' }, makeApi('query'), {})
       const request = extractRequest(fetchMock)
       expect(request.headers.get(XSRF_HEADER_NAME)).toBeNull()
@@ -130,7 +119,7 @@ describe('rawBaseQuery', () => {
       // encodeURIComponent / decodeURIComponent round-trips.
       const decoded = 'CfDJ8+abc/def=='
       const encoded = encodeURIComponent(decoded)
-      setCookie(XSRF_COOKIE_NAME, encoded)
+      seedXsrfCookie(encoded)
 
       await rawBaseQuery({ url: ABS_URL, method: 'POST' }, makeApi('mutation'), {})
       const request = extractRequest(fetchMock)
@@ -152,7 +141,7 @@ describe('rawBaseQuery', () => {
     // right posture is to drop the token and let the backend's antiforgery
     // filter 400 the request with a proper `ProblemDetails` response.
     it('returns null from the helper (omits the header) when the cookie holds invalid percent-encoding', async () => {
-      setCookie(XSRF_COOKIE_NAME, 'broken%ZZ')
+      seedXsrfCookie('broken%ZZ')
       await rawBaseQuery({ url: ABS_URL, method: 'POST' }, makeApi('mutation'), {})
       const request = extractRequest(fetchMock)
       expect(request.headers.get(XSRF_HEADER_NAME)).toBeNull()
@@ -198,18 +187,8 @@ describe('baseQueryWith401Handler — lazy antiforgery seed', () => {
   let fetchMock: ReturnType<typeof vi.fn>
 
   // The seed call uses a relative `/v1/auth/xsrf` joined onto the `/api`
-  // base URL; jsdom's Request constructor rejects relative URLs (see the
-  // ABS_URL note above), so absolutize them the same way the api specs do.
-  const OriginalRequest = globalThis.Request
-  class PatchedRequest extends OriginalRequest {
-    constructor(input: RequestInfo | URL, init?: RequestInit) {
-      if (typeof input === 'string' && input.startsWith('/')) {
-        super(new URL(input, 'https://localhost:5173').toString(), init)
-        return
-      }
-      super(input, init)
-    }
-  }
+  // base URL; jsdom's Request constructor rejects relative URLs, so the shared
+  // `PatchedRequest` absolutizes them against the jsdom origin.
 
   const requestedUrls = (): string[] => fetchMock.mock.calls.map((call) => (call[0] as Request).url)
 
@@ -219,19 +198,19 @@ describe('baseQueryWith401Handler — lazy antiforgery seed', () => {
         // Model the backend's 204 + Set-Cookie: the browser would store the
         // pair; jsdom does not honor Set-Cookie from fetch, so write the
         // SPA-readable half directly.
-        setCookie(XSRF_COOKIE_NAME, 'seeded-by-lazy-call')
+        seedXsrfCookie('seeded-by-lazy-call')
         return Promise.resolve(new Response(null, { status: 204 }))
       }
       return Promise.resolve(okResponse())
     })
     vi.stubGlobal('fetch', fetchMock)
     vi.stubGlobal('Request', PatchedRequest)
-    clearCookie(XSRF_COOKIE_NAME)
+    clearXsrfCookie()
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
-    clearCookie(XSRF_COOKIE_NAME)
+    clearXsrfCookie()
   })
 
   it('seeds the antiforgery pair before a mutation when the cookie is absent', async () => {
@@ -250,7 +229,7 @@ describe('baseQueryWith401Handler — lazy antiforgery seed', () => {
   })
 
   it('does not re-seed when the cookie is already present', async () => {
-    setCookie(XSRF_COOKIE_NAME, 'already-seeded')
+    seedXsrfCookie('already-seeded')
     await baseQueryWith401Handler({ url: ABS_URL, method: 'POST' }, makeApi('mutation'), {})
 
     const urls = requestedUrls()

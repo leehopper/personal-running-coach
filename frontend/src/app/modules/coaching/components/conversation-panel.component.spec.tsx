@@ -169,19 +169,58 @@ describe('ConversationPanel', () => {
     }
   })
 
-  it('pairs every animated utility with a motion-reduce variant', async () => {
+  it('pairs every animated utility with a motion-reduce override for its family', async () => {
     const user = userEvent.setup()
     render(<ConversationPanel turns={[buildRestructureTurn()]} />)
     await user.click(screen.getByTestId('diff-toggle'))
 
-    const panel = screen.getByTestId('conversation-panel')
-    const animated = [panel, ...panel.querySelectorAll('[class]')].filter((element) => {
-      const classes = element.getAttribute('class') ?? ''
-      return /(?:transition|animate)-(?!none)/.test(classes)
-    })
-    expect(animated.length).toBeGreaterThan(0)
-    for (const element of animated) {
-      expect(element.getAttribute('class') ?? '').toContain('motion-reduce:')
+    type AnimationFamily = 'transition' | 'animate'
+
+    // The animation family a class token belongs to, ignoring any variant
+    // prefix (`data-[state=open]:animate-in` → `animate`) and the `*-none`
+    // disablers themselves.
+    const animationFamily = (token: string): AnimationFamily | null => {
+      const base = token.slice(token.lastIndexOf(':') + 1)
+      if (base === 'transition-none' || base === 'animate-none') return null
+      if (/^transition(?:-|$)/.test(base)) return 'transition'
+      if (/^animate-/.test(base)) return 'animate'
+      return null
     }
+
+    // The family a `motion-reduce:` override neutralises — one
+    // `motion-reduce:transition-none` covers every `transition-*` on the
+    // element, but it does NOT excuse an unpaired `animate-*`.
+    const overrideFamily = (token: string): AnimationFamily | null => {
+      if (!token.startsWith('motion-reduce:')) return null
+      const base = token.slice('motion-reduce:'.length)
+      if (/^transition(?:-|$)/.test(base)) return 'transition'
+      if (/^animate(?:-|$)/.test(base)) return 'animate'
+      return null
+    }
+
+    const panel = screen.getByTestId('conversation-panel')
+    let elementsChecked = 0
+    for (const element of [panel, ...panel.querySelectorAll('[class]')]) {
+      const tokens = (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
+      const animated = new Set<AnimationFamily>()
+      const overridden = new Set<AnimationFamily>()
+      for (const token of tokens) {
+        const family = animationFamily(token)
+        if (family !== null) animated.add(family)
+        const override = overrideFamily(token)
+        if (override !== null) overridden.add(override)
+      }
+      if (animated.size === 0) continue
+      for (const family of animated) {
+        expect(
+          overridden.has(family),
+          `${family} animation on <${element.tagName.toLowerCase()}> lacks a motion-reduce:${family}-* override`,
+        ).toBe(true)
+      }
+      elementsChecked += 1
+    }
+    // Guard against the selector silently matching nothing — a refactor that
+    // drops the animated classes would otherwise make the assertions vacuous.
+    expect(elementsChecked).toBeGreaterThan(0)
   })
 })

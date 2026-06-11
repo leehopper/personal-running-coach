@@ -231,6 +231,18 @@ interface StubState {
   logCreateRequests: number
 }
 
+// Route stubs are method-scoped: each path expects exactly one verb, so a
+// request that arrives with the wrong method (a frontend→API contract
+// regression) is aborted rather than silently served the stub. Returns false
+// when the verb mismatched and the route was already aborted.
+const expectMethod = async (route: Route, method: string): Promise<boolean> => {
+  if (route.request().method() !== method) {
+    await route.abort('failed')
+    return false
+  }
+  return true
+}
+
 const installStubs = async (
   page: Page,
   state: StubState,
@@ -239,6 +251,7 @@ const installStubs = async (
   // Onboarding state stub — Completed from the first request so the home
   // redirect-guard lets `/` and `/log` render without any chat traffic.
   await page.route('**/api/v1/onboarding/state', async (route: Route) => {
+    if (!(await expectMethod(route, 'GET'))) return
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -264,6 +277,7 @@ const installStubs = async (
   // Plan stub — original before the log lands, adapted after. Models the
   // backend's synchronous projection mutation on the create path.
   await page.route('**/api/v1/plan/current', async (route: Route) => {
+    if (!(await expectMethod(route, 'GET'))) return
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -274,6 +288,7 @@ const installStubs = async (
   // Conversation stub — silent before the log lands, one adaptation turn
   // after (newest-first wire order).
   await page.route('**/api/v1/conversation/turns', async (route: Route) => {
+    if (!(await expectMethod(route, 'GET'))) return
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -285,6 +300,7 @@ const installStubs = async (
   // canonical create shape. The deviation/escalation decision itself is
   // backend-owned and integration-tested there (spec 17 § Units 1/5).
   await page.route('**/api/v1/workouts/logs', async (route: Route) => {
+    if (!(await expectMethod(route, 'POST'))) return
     state.logCreateRequests += 1
     state.hasAdapted = true
     await route.fulfill({
