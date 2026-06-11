@@ -2,31 +2,16 @@ import { configureStore } from '@reduxjs/toolkit'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiSlice } from '~/api/api-slice'
 import { planApi } from './plan.api'
+import { clearXsrfCookie, PatchedRequest, seedXsrfCookie } from './test-helpers'
 
 // Build a real store wired to the shared `apiSlice` so the `regeneratePlan`
 // mutation's `query: (body) => ({...})` factory and the `getCurrentPlan`
 // query factory actually execute. The dialog spec mocks
 // `useRegeneratePlanMutation` and so never reaches the factory; this spec
 // dispatches the endpoint thunks directly with `fetch` stubbed at the global
-// level (matching the pattern in `base-query.spec.ts`).
-//
-// `fetchBaseQuery({ baseUrl: '/api' })` joins the relative `baseUrl` with
-// each endpoint's `url` and hands the result to `new Request(...)`. Undici's
-// Request constructor (used by node's fetch in the test environment) rejects
-// relative URLs even when `window.location` is configured, so we wrap
-// `Request` to resolve any leading-slash URL against the jsdom origin
-// (`https://localhost:5173/`) for the duration of these tests.
-const OriginalRequest = globalThis.Request
-class PatchedRequest extends OriginalRequest {
-  constructor(input: RequestInfo | URL, init?: RequestInit) {
-    if (typeof input === 'string' && input.startsWith('/')) {
-      super(new URL(input, 'https://localhost:5173').toString(), init)
-      return
-    }
-    super(input, init)
-  }
-}
-
+// level (matching the pattern in `base-query.spec.ts`). The `PatchedRequest`
+// jsdom relative-URL workaround and the XSRF cookie seed/clear pair are shared
+// via `test-helpers.ts`.
 const jsonResponse = (body: Record<string, unknown>, status = 200): Response =>
   new Response(JSON.stringify(body), {
     status,
@@ -46,10 +31,15 @@ describe('planApi.regeneratePlan query factory', () => {
     fetchMock = vi.fn().mockResolvedValue(jsonResponse({ planId: 'plan-1', status: 'generated' }))
     vi.stubGlobal('fetch', fetchMock)
     vi.stubGlobal('Request', PatchedRequest)
+    // Mirror the booted runtime: the antiforgery cookie is present, so the
+    // base query's lazy XSRF seed (base-query.ts) stays quiet and the
+    // mutation is the only request the factory assertions see.
+    seedXsrfCookie()
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    clearXsrfCookie()
   })
 
   it('issues a POST to /api/v1/plan/regenerate with the supplied body', async () => {

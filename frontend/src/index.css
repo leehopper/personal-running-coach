@@ -151,6 +151,12 @@
   --destructive: var(--ctp-red);
   --destructive-foreground: var(--ctp-destructive-on);
 
+  /* Amber severity accent for the coach panel's left-edge border. Like
+   * --border it is a supplementary, non-text indicator (WCAG 1.4.11
+   * exempt) — the turn's severity is always conveyed by its content and
+   * structure, never by this colour alone. Never use it for text. */
+  --warning: var(--ctp-peach);
+
   /* --border is a decorative divider (WCAG 1.4.11 exempt); --input is a
    * form-control boundary and is held to the 3:1 UI-component rule. */
   --border: var(--ctp-surface1);
@@ -198,6 +204,8 @@
 
   --destructive: var(--ctp-red);
   --destructive-foreground: var(--ctp-destructive-on);
+
+  --warning: var(--ctp-peach);
 
   --border: var(--ctp-surface1);
   --input: var(--ctp-overlay2);
@@ -248,6 +256,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

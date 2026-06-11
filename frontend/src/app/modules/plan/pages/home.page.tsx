@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { ConversationPanel } from '~/modules/coaching/components/conversation-panel.component'
+import { useConversationTurns } from '~/modules/coaching/hooks/use-conversation.hooks'
 import { MacroPhaseStrip } from '~/modules/plan/components/macro-phase-strip.component'
 import { TodayCard } from '~/modules/plan/components/today-card.component'
 import { UpcomingList } from '~/modules/plan/components/upcoming-list.component'
@@ -76,11 +78,18 @@ interface PlanLayoutProps {
  * The `targetEvent`-null / general-fitness path renders a plan whose macro
  * `goalDescription` reflects the absence of a named race — no special-casing
  * required at the page level.
+ *
+ * The read-only "Explain-the-change" panel (spec 17 § Unit 7) sits between
+ * today's workout and the upcoming stack: the coach's explanation refers to
+ * the most recent log, so it reads in today's context before the
+ * forward-looking sections. The conversation query is supplementary — a
+ * failed or empty fetch renders no panel and never blocks the plan view.
  */
 const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
   const currentWeek = resolveCurrentWeek(plan)
   const currentWeekTemplate = findCurrentMesoWeek(plan, currentWeek)
   const currentWeekWorkouts = findCurrentWeekWorkouts(plan, currentWeek)
+  const { turns } = useConversationTurns()
 
   return (
     <main
@@ -102,6 +111,8 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
       {currentWeekTemplate === undefined ? null : (
         <TodayCard currentWeek={currentWeekTemplate} workouts={currentWeekWorkouts} />
       )}
+
+      <ConversationPanel turns={turns} />
 
       <UpcomingList
         currentWeekWorkouts={currentWeekWorkouts}

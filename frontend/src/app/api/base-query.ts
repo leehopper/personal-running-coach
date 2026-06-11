@@ -9,15 +9,19 @@ import { loggedOut } from '~/modules/auth/store/auth.slice'
 // The SPA-readable half of the antiforgery double-submit pair (DEC-054).
 // Backend source of truth: `AuthCookieNames.AntiforgeryRequest`. The
 // HttpOnly companion cookie `__Host-Xsrf` is unreadable here by design.
-const XSRF_COOKIE_NAME = '__Host-Xsrf-Request'
+// Exported so the api-layer specs seed the cookie through the same constant
+// rather than re-hardcoding the literal (a rename here would otherwise leave
+// the test seeds silently inert).
+export const XSRF_COOKIE_NAME = '__Host-Xsrf-Request'
 const XSRF_HEADER_NAME = 'X-XSRF-TOKEN'
 
 // Reads the single cookie segment whose name matches XSRF_COOKIE_NAME and
 // URL-decodes the value. Returns null when the cookie is absent (the
-// app-boot `GET /xsrf` seeds it before any mutation fires) or when the
-// stored value is malformed — a `URIError` from `decodeURIComponent` must
-// not escape into `prepareHeaders` and block every mutation. Splits on
-// `;` with per-segment `trim()` rather than `"; "` to stay robust against
+// app-boot `GET /xsrf` normally seeds it; `baseQueryWith401Handler` seeds
+// it lazily when a mutation outruns the boot call) or when the stored
+// value is malformed — a `URIError` from `decodeURIComponent` must not
+// escape into `prepareHeaders` and block every mutation. Splits on `;`
+// with per-segment `trim()` rather than `"; "` to stay robust against
 // browsers that produce spaceless separators.
 const readXsrfCookie = (): string | null => {
   if (typeof document === 'undefined') return null
@@ -63,6 +67,17 @@ export const baseQueryWith401Handler: BaseQueryFn<
   unknown,
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
+  // Lazy antiforgery seed: the app-boot `GET /xsrf` (`useAuthBootstrap`) is
+  // fire-and-forget, so a fast first submit can reach the server before the
+  // boot seed lands — the mutation then carries no double-submit pair and
+  // the antiforgery filter rejects it with 400. When the SPA-readable
+  // cookie is still absent, seed it inline before the mutation goes out.
+  // The endpoint is an idempotent 204, so racing the boot seed is harmless;
+  // a failed seed falls through and the mutation surfaces the real error.
+  if (api.type === 'mutation' && readXsrfCookie() === null) {
+    await rawBaseQuery({ url: '/v1/auth/xsrf', method: 'GET' }, api, extraOptions)
+  }
+
   const result = await rawBaseQuery(args, api, extraOptions)
   if (result.error?.status === 401) {
     api.dispatch(loggedOut())
