@@ -53,7 +53,7 @@ evaluation per log.
 
 **Finding.** The live macro generation emitted the trademarked term into the
 persisted `plan_generated_v1` event: `Macro.Rationale` reads "Using Daniels'
-Running Formula, your VDOT sits around 38". Existing guards cover the assembled
+Running Formula, your `VDOT` sits around 38". Existing guards cover the assembled
 prompt (ContextAssembler tests) and the adaptation output (PR6 eval guard) — not
 the macro/meso/micro structured outputs' prose fields, and the leak is persisted
 in the event stream and rides the plan projection toward the API surface.
