@@ -25,6 +25,12 @@ export const WORKOUT_HISTORY_PAGE_SIZE = 20
 // provides it, so logging a workout refetches the mounted history list. The
 // client-generated `idempotencyKey` rides inside the create body (DEC-077),
 // exactly like `regeneratePlan`.
+//
+// It also invalidates `Plan` + `Conversation` (spec 17 § Unit 7): a create
+// can synchronously adapt the plan and append an explanation turn, so the
+// home surface's plan view and the "Explain-the-change" panel both refetch
+// in the same interaction. Invalidation fires only on a fulfilled mutation —
+// a failed create refetches nothing.
 export const workoutLogApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     createWorkoutLog: builder.mutation<CreateWorkoutLogResponseDto, CreateWorkoutLogRequest>({
@@ -33,7 +39,7 @@ export const workoutLogApi = apiSlice.injectEndpoints({
         method: 'POST',
         body,
       }),
-      invalidatesTags: ['WorkoutLog'],
+      invalidatesTags: ['WorkoutLog', 'Plan', 'Conversation'],
     }),
     // History over the DB-driven keyset query endpoint (POST is a read here, so
     // no antiforgery token — `base-query.ts` only adds X-XSRF-TOKEN to

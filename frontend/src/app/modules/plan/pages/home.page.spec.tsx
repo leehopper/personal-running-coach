@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildNudgeTurn } from '~/modules/coaching/components/conversation.fixture'
+import type { ConversationTurnsResponseDto } from '~/modules/coaching/models/conversation.model'
 import { buildPlanFixture } from '~/modules/plan/components/plan-display.fixture'
 import type { PlanProjectionDto } from '~/modules/plan/models/plan.model'
 
@@ -12,12 +14,23 @@ interface QueryResult {
   refetch: () => void
 }
 
-const { getCurrentPlanMock } = vi.hoisted(() => ({
+interface ConversationQueryResult {
+  data?: ConversationTurnsResponseDto
+  isLoading: boolean
+  isError: boolean
+}
+
+const { getCurrentPlanMock, getConversationTurnsMock } = vi.hoisted(() => ({
   getCurrentPlanMock: vi.fn<() => QueryResult>(),
+  getConversationTurnsMock: vi.fn<() => ConversationQueryResult>(),
 }))
 
 vi.mock('~/api/plan.api', () => ({
   useGetCurrentPlanQuery: () => getCurrentPlanMock(),
+}))
+
+vi.mock('~/api/conversation.api', () => ({
+  useGetConversationTurnsQuery: () => getConversationTurnsMock(),
 }))
 
 import { HomePage } from './home.page'
@@ -32,6 +45,13 @@ const renderHome = () =>
 describe('HomePage', () => {
   beforeEach(() => {
     getCurrentPlanMock.mockReset()
+    getConversationTurnsMock.mockReset()
+    // Default: no turns yet — the read-only panel renders nothing.
+    getConversationTurnsMock.mockReturnValue({
+      data: { turns: [] },
+      isLoading: false,
+      isError: false,
+    })
   })
 
   afterEach(() => {
@@ -153,6 +173,52 @@ describe('HomePage', () => {
     })
     renderHome()
     expect(screen.getByTestId('home-page-error')).toBeInTheDocument()
+  })
+
+  it('renders the read-only conversation panel between today-card and upcoming-list when turns exist', () => {
+    const nudge = buildNudgeTurn()
+    getCurrentPlanMock.mockReturnValue({
+      data: buildPlanFixture(),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+    getConversationTurnsMock.mockReturnValue({
+      data: { turns: [nudge] },
+      isLoading: false,
+      isError: false,
+    })
+    renderHome()
+
+    const panel = screen.getByTestId('conversation-panel')
+    expect(within(panel).getByTestId('nudge-turn')).toHaveTextContent(nudge.content)
+    // Document order: the coach's explanation reads in today's context,
+    // before the forward-looking upcoming stack.
+    const home = screen.getByTestId('home-page')
+    const order = [...home.querySelectorAll('[data-testid]')].map((node) =>
+      node.getAttribute('data-testid'),
+    )
+    expect(order.indexOf('conversation-panel')).toBeGreaterThan(order.indexOf('today-card'))
+    expect(order.indexOf('conversation-panel')).toBeLessThan(order.indexOf('upcoming-list'))
+  })
+
+  it('renders no conversation panel when the turns query errors (supplementary surface)', () => {
+    getCurrentPlanMock.mockReturnValue({
+      data: buildPlanFixture(),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+    getConversationTurnsMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    })
+    renderHome()
+
+    expect(screen.queryByTestId('conversation-panel')).toBeNull()
+    expect(screen.getByTestId('today-card')).toBeInTheDocument()
+    expect(screen.getByTestId('upcoming-list')).toBeInTheDocument()
   })
 
   it('omits the macro phase strip but still renders today-card and upcoming-list when plan.macro is null', () => {

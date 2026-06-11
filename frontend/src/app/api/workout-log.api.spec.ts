@@ -2,6 +2,8 @@ import { configureStore } from '@reduxjs/toolkit'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiSlice } from '~/api/api-slice'
 import type { CreateWorkoutLogRequest } from '~/api/generated'
+import { conversationApi } from './conversation.api'
+import { planApi } from './plan.api'
 import { workoutLogApi, WORKOUT_HISTORY_PAGE_SIZE } from './workout-log.api'
 
 // Dispatch the endpoint thunk directly with `fetch` stubbed at the global level
@@ -46,10 +48,15 @@ describe('workoutLogApi.createWorkoutLog query factory', () => {
     fetchMock = vi.fn().mockResolvedValue(jsonResponse({ workoutLogId: 'log-1' }, 201))
     vi.stubGlobal('fetch', fetchMock)
     vi.stubGlobal('Request', PatchedRequest)
+    // Mirror the booted runtime: the antiforgery cookie is present, so the
+    // base query's lazy XSRF seed (base-query.ts) stays quiet and the
+    // mutation is the only request the factory assertions see.
+    document.cookie = '__Host-Xsrf-Request=test-xsrf; path=/; Secure'
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    document.cookie = '__Host-Xsrf-Request=; path=/; Secure; max-age=0'
   })
 
   it('issues a POST to /api/v1/workouts/logs with the supplied body', async () => {
@@ -122,5 +129,59 @@ describe('workoutLogApi.getWorkoutLogHistory pagination contract', () => {
       workoutLogApi.endpoints.getWorkoutLogHistory.initiate(undefined, { direction: 'forward' }),
     )
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('createWorkoutLog cache invalidation (spec 17 § Unit 7)', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  const callsTo = (path: string): number =>
+    fetchMock.mock.calls.filter((call) => (call[0] as Request).url.includes(path)).length
+
+  beforeEach(() => {
+    // URL-discriminating stub: a create can synchronously adapt the plan and
+    // append a conversation turn, so the subscribed plan + conversation
+    // queries must refetch after a successful create.
+    fetchMock = vi.fn().mockImplementation((input: Request) => {
+      if (input.url.includes('/api/v1/conversation/turns')) {
+        return Promise.resolve(jsonResponse({ turns: [] }))
+      }
+      if (input.url.includes('/api/v1/plan/current')) {
+        return Promise.resolve(jsonResponse({ planId: 'plan-1' }))
+      }
+      return Promise.resolve(jsonResponse({ workoutLogId: 'log-1' }, 201))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('Request', PatchedRequest)
+    // Mirror the booted runtime: the antiforgery cookie is present, so the
+    // base query's lazy XSRF seed (base-query.ts) stays quiet and the
+    // call counts below track only the plan/conversation/create requests.
+    document.cookie = '__Host-Xsrf-Request=test-xsrf; path=/; Secure'
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    document.cookie = '__Host-Xsrf-Request=; path=/; Secure; max-age=0'
+  })
+
+  it('refetches subscribed Plan and Conversation queries after a successful create', async () => {
+    const store = makeStore()
+
+    // Mount-equivalent subscriptions: home renders the plan view + the
+    // read-only panel, each holding a live query subscription.
+    await store.dispatch(planApi.endpoints.getCurrentPlan.initiate(undefined))
+    await store.dispatch(conversationApi.endpoints.getConversationTurns.initiate(undefined))
+    expect(callsTo('/api/v1/plan/current')).toBe(1)
+    expect(callsTo('/api/v1/conversation/turns')).toBe(1)
+
+    await store.dispatch(workoutLogApi.endpoints.createWorkoutLog.initiate(SAMPLE_BODY))
+
+    // `invalidatesTags: ['WorkoutLog', 'Plan', 'Conversation']` fires on the
+    // fulfilled mutation; both subscribed queries refetch in the same
+    // interaction — the plan re-renders and the panel picks up the new turn.
+    await vi.waitFor(() => {
+      expect(callsTo('/api/v1/plan/current')).toBe(2)
+      expect(callsTo('/api/v1/conversation/turns')).toBe(2)
+    })
   })
 })
