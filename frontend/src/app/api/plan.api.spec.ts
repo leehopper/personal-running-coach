@@ -46,10 +46,15 @@ describe('planApi.regeneratePlan query factory', () => {
     fetchMock = vi.fn().mockResolvedValue(jsonResponse({ planId: 'plan-1', status: 'generated' }))
     vi.stubGlobal('fetch', fetchMock)
     vi.stubGlobal('Request', PatchedRequest)
+    // Mirror the booted runtime: the antiforgery cookie is present, so the
+    // base query's lazy XSRF seed (base-query.ts) stays quiet and the
+    // mutation is the only request the factory assertions see.
+    document.cookie = '__Host-Xsrf-Request=test-xsrf; path=/; Secure'
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    document.cookie = '__Host-Xsrf-Request=; path=/; Secure; max-age=0'
   })
 
   it('issues a POST to /api/v1/plan/regenerate with the supplied body', async () => {

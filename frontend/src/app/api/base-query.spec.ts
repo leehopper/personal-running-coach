@@ -193,3 +193,94 @@ describe('baseQueryWith401Handler', () => {
     expect(dispatch).not.toHaveBeenCalled()
   })
 })
+
+describe('baseQueryWith401Handler — lazy antiforgery seed', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  // The seed call uses a relative `/v1/auth/xsrf` joined onto the `/api`
+  // base URL; jsdom's Request constructor rejects relative URLs (see the
+  // ABS_URL note above), so absolutize them the same way the api specs do.
+  const OriginalRequest = globalThis.Request
+  class PatchedRequest extends OriginalRequest {
+    constructor(input: RequestInfo | URL, init?: RequestInit) {
+      if (typeof input === 'string' && input.startsWith('/')) {
+        super(new URL(input, 'https://localhost:5173').toString(), init)
+        return
+      }
+      super(input, init)
+    }
+  }
+
+  const requestedUrls = (): string[] => fetchMock.mock.calls.map((call) => (call[0] as Request).url)
+
+  beforeEach(() => {
+    fetchMock = vi.fn().mockImplementation((input: Request) => {
+      if (input.url.includes('/api/v1/auth/xsrf')) {
+        // Model the backend's 204 + Set-Cookie: the browser would store the
+        // pair; jsdom does not honor Set-Cookie from fetch, so write the
+        // SPA-readable half directly.
+        setCookie(XSRF_COOKIE_NAME, 'seeded-by-lazy-call')
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      return Promise.resolve(okResponse())
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('Request', PatchedRequest)
+    clearCookie(XSRF_COOKIE_NAME)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    clearCookie(XSRF_COOKIE_NAME)
+  })
+
+  it('seeds the antiforgery pair before a mutation when the cookie is absent', async () => {
+    // The app-boot `GET /xsrf` is fire-and-forget, so a fast first submit
+    // can outrun it; the wrapper must seed inline rather than send the
+    // mutation without the double-submit pair.
+    await baseQueryWith401Handler({ url: ABS_URL, method: 'POST' }, makeApi('mutation'), {})
+
+    const urls = requestedUrls()
+    expect(urls).toHaveLength(2)
+    expect(urls[0]).toContain('/api/v1/auth/xsrf')
+    expect(urls[1]).toBe(ABS_URL)
+    // The mutation that follows the seed carries the freshly-seeded header.
+    const mutationRequest = fetchMock.mock.calls[1][0] as Request
+    expect(mutationRequest.headers.get(XSRF_HEADER_NAME)).toBe('seeded-by-lazy-call')
+  })
+
+  it('does not re-seed when the cookie is already present', async () => {
+    setCookie(XSRF_COOKIE_NAME, 'already-seeded')
+    await baseQueryWith401Handler({ url: ABS_URL, method: 'POST' }, makeApi('mutation'), {})
+
+    const urls = requestedUrls()
+    expect(urls).toEqual([ABS_URL])
+  })
+
+  it('never seeds for queries', async () => {
+    await baseQueryWith401Handler({ url: ABS_URL, method: 'GET' }, makeApi('query'), {})
+
+    const urls = requestedUrls()
+    expect(urls).toEqual([ABS_URL])
+  })
+
+  it('falls through to the mutation when the seed call itself fails', async () => {
+    fetchMock.mockImplementation((input: Request) => {
+      if (input.url.includes('/api/v1/auth/xsrf')) {
+        return Promise.resolve(statusResponse(500))
+      }
+      return Promise.resolve(okResponse())
+    })
+
+    const result = await baseQueryWith401Handler(
+      { url: ABS_URL, method: 'POST' },
+      makeApi('mutation'),
+      {},
+    )
+
+    // The mutation still goes out (and surfaces its own outcome) — a failed
+    // seed must not dead-end the request.
+    expect(requestedUrls()).toHaveLength(2)
+    expect(result.error).toBeUndefined()
+  })
+})
