@@ -640,6 +640,187 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
             2, because: "a released marker means the follow-up invocation re-evaluates");
     }
 
+    // ── Slice 3B F1: the Amber referral surfaces on every escalation path ──
+
+    // F1 scenario A: an on-target first-ever log (no prior signal state) with an
+    // Amber-matching note — the deviation outcome is a no-event L0 absorb, yet
+    // the scripted referral must surface.
+    [Fact]
+    public async Task Create_AmberNoteOnFirstOnTargetLog_SurfacesReferralDespiteAbsorb()
+    {
+        // Arrange
+        var ct = TestContext.Current.CancellationToken;
+        var (client, userId, token) = await RegisterLoginAndPrimeAsync();
+        var planId = Guid.NewGuid();
+        await SeedActivePlanAsync(userId, planId, ct);
+
+        // Act
+        var response = await PostLogAsync(
+            client,
+            token,
+            OnTargetEasyRequest(notes: "Sharp pain in my right knee from about halfway."),
+            ct);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var body = await response.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(
+            cancellationToken: ct);
+        body!.Adaptation.AdaptationKind.Should().Be(
+            AdaptationKind.Absorb,
+            because: "the on-target log itself absorbs — the referral rides alongside, not instead");
+
+        StubCoachingLlm.StructuredCallCount.Should().Be(0, because: "an Amber absorb never reaches the LLM");
+        var events = await FetchPlanEventsAsync(userId, planId, ct);
+        events.Should().HaveCount(SeededStreamLength + 1, because: "exactly the referral was appended");
+        events.OfType<PlanAdaptedFromLog>().Should().BeEmpty(because: "an absorb makes no plan change");
+        var signal = events.OfType<SafetySignalRaised>().Should().ContainSingle().Subject;
+        signal.SafetyTier.Should().Be(SafetyTier.Amber);
+        signal.ReferralCategory.Should().Be(ReferralCategory.Injury);
+        signal.Content.Should().Be(AmberReferralContent.InjuryReferral);
+
+        var turn = (await LoadTurnsAsync(userId, planId, ct)).Should().ContainSingle().Subject;
+        turn.Role.Should().Be(ConversationRole.SystemSafety);
+        turn.SafetyTier.Should().Be(SafetyTier.Amber);
+    }
+
+    // F1 scenario B: a score-driven L1 on a completed log (no missed session to
+    // swap) absorbs deterministically — the referral must ride that absorb.
+    [Fact]
+    public async Task Create_AmberNoteOnScoreDrivenMicroAdjust_SurfacesReferral()
+    {
+        // Arrange — seeded one step shy of the L1 enter score, so this completed
+        // under-performing log lands score-driven L1 (not the L2 crossing).
+        var ct = TestContext.Current.CancellationToken;
+        var (client, userId, token) = await RegisterLoginAndPrimeAsync();
+        var planId = Guid.NewGuid();
+        await SeedActivePlanAsync(userId, planId, ct);
+        await SeedSignalStateAsync(userId, planId, rollingScore: 1.0, ct);
+
+        // Act
+        var response = await PostLogAsync(
+            client,
+            token,
+            UnderPerformingTempoRequest(notes: "Sharp pain in my right knee from about halfway."),
+            ct);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var body = await response.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(
+            cancellationToken: ct);
+        body!.Adaptation.AdaptationKind.Should().Be(
+            AdaptationKind.Absorb,
+            because: "a score-driven L1 on a completed log absorbs — there is no missed session to swap");
+
+        StubCoachingLlm.StructuredCallCount.Should().Be(0, because: "a score-driven L1 absorb never reaches the LLM");
+        var events = await FetchPlanEventsAsync(userId, planId, ct);
+        events.Should().HaveCount(SeededStreamLength + 1, because: "exactly the referral was appended");
+        events.OfType<SafetySignalRaised>().Should().ContainSingle()
+            .Which.Content.Should().Be(AmberReferralContent.InjuryReferral);
+        (await LoadTurnsAsync(userId, planId, ct)).Should().ContainSingle()
+            .Which.Role.Should().Be(ConversationRole.SystemSafety);
+    }
+
+    // F1 scenario C — the live-pass repro: an Amber-matching note inside the
+    // post-restructure cooldown dead-zone previously produced total silence.
+    [Fact]
+    public async Task Create_AmberNoteInsideCooldownDeadZone_SurfacesReferral_NoSecondRestructure()
+    {
+        // Arrange — the crossing log restructures (Green), engaging the cooldown.
+        var ct = TestContext.Current.CancellationToken;
+        var (client, userId, token) = await RegisterLoginAndPrimeAsync();
+        var planId = Guid.NewGuid();
+        await SeedActivePlanAsync(userId, planId, ct);
+        await SeedSignalStateAsync(userId, planId, rollingScore: 2.0, ct);
+        StubCoachingLlm.UseStructuredBehavior(CannedRestructureOutput);
+        var crossing = await PostLogAsync(client, token, UnderPerformingTempoRequest(), ct);
+        crossing.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // Act — an in-zone under-performer whose note trips the injury rule.
+        var amber = await PostLogAsync(
+            client,
+            token,
+            LogRequest(Week1Thursday, 3000.0, 1170.0, notes: "Sharp pain in my left shin, had to stop early."),
+            ct);
+
+        // Assert — the dead-zone hold still suppresses a second restructure...
+        amber.StatusCode.Should().Be(HttpStatusCode.Created);
+        var amberBody = await amber.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(
+            cancellationToken: ct);
+        amberBody!.Adaptation.AdaptationKind.Should().Be(
+            AdaptationKind.Absorb,
+            because: "the cooldown dead-zone suppresses a would-be second restructure");
+        StubCoachingLlm.StructuredCallCount.Should().Be(1, because: "only the crossing log reached the LLM");
+        var events = await FetchPlanEventsAsync(userId, planId, ct);
+        events.OfType<PlanAdaptedFromLog>().Should().ContainSingle(
+            because: "the dead-zone log changes no plan");
+
+        // ...but the referral surfaces instead of the live-pass silence.
+        var signal = events.OfType<SafetySignalRaised>().Should().ContainSingle().Subject;
+        signal.SafetyTier.Should().Be(SafetyTier.Amber);
+        signal.ReferralCategory.Should().Be(ReferralCategory.Injury);
+        var turns = await LoadTurnsAsync(userId, planId, ct);
+        turns.Should().HaveCount(
+            2, because: "the crossing's adaptation turn plus the dead-zone log's referral turn");
+        turns.Should().ContainSingle(t => t.Role == ConversationRole.SystemSafety);
+    }
+
+    // F1 scenario D: a terminal L2 failure COMMITS the referral — the one
+    // deliberate exception to stage-nothing-on-failure — while releasing the
+    // marker; the retried evaluation restructures without a duplicate referral.
+    [Fact]
+    public async Task Create_AmberTerminalLlmFailure_ReferralPersists_RetryDoesNotDuplicate()
+    {
+        // Arrange
+        var ct = TestContext.Current.CancellationToken;
+        var (client, userId, token) = await RegisterLoginAndPrimeAsync();
+        var planId = Guid.NewGuid();
+        await SeedActivePlanAsync(userId, planId, ct);
+        await SeedSignalStateAsync(userId, planId, rollingScore: 2.0, ct);
+        StubCoachingLlm.UseStructuredBehavior(() => throw new PermanentCoachingLlmException(
+            "The coaching request could not be completed.", innerException: null));
+        var request = UnderPerformingTempoRequest(
+            notes: "Sharp pain in my right knee from about halfway.", key: Guid.NewGuid());
+
+        // Act 1 — the failing Amber evaluation.
+        var failed = await PostLogAsync(client, token, request, ct);
+        var failedBody = await failed.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(
+            cancellationToken: ct);
+
+        // Assert 1 — error envelope, yet the referral committed and the marker released.
+        failed.StatusCode.Should().Be(HttpStatusCode.Created);
+        failedBody!.Adaptation.Kind.Should().Be(AdaptationResponseKind.Error);
+        var failedEvents = await FetchPlanEventsAsync(userId, planId, ct);
+        failedEvents.Should().HaveCount(
+            SeededStreamLength + 1,
+            because: "the referral is the one deliberate exception to stage-nothing-on-failure");
+        failedEvents.OfType<SafetySignalRaised>().Should().ContainSingle();
+        failedEvents.OfType<PlanAdaptedFromLog>().Should().BeEmpty();
+        (await LoadTurnsAsync(userId, planId, ct)).Should().ContainSingle()
+            .Which.Role.Should().Be(ConversationRole.SystemSafety);
+        (await LoadDocumentAsync<IdempotencyMarker>(userId, failedBody.WorkoutLogId, ct))
+            .Should().BeNull(because: "the failed evaluation still releases the marker for retry");
+
+        // Act 2 — retry the same create key; the gate re-classifies Amber, so the
+        // canned proposal must echo the Amber tier to pass echo integrity.
+        StubCoachingLlm.UseStructuredBehavior(
+            () => CannedRestructureOutput() with { SafetyTier = SafetyTier.Amber });
+        var retried = await PostLogAsync(client, token, request, ct);
+        var retriedBody = await retried.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(
+            cancellationToken: ct);
+
+        // Assert 2 — the retry restructures; the referral did not double-append.
+        retriedBody!.Adaptation.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        StubCoachingLlm.StructuredCallCount.Should().Be(2, because: "the released marker re-ran the evaluation");
+        var retriedEvents = await FetchPlanEventsAsync(userId, planId, ct);
+        retriedEvents.OfType<SafetySignalRaised>().Should().ContainSingle(
+            because: "the per-log dedupe keeps the retry from double-appending the referral");
+        retriedEvents.OfType<PlanAdaptedFromLog>().Should().ContainSingle();
+        (await LoadTurnsAsync(userId, planId, ct)).Should().HaveCount(
+            2, because: "one referral turn plus one adaptation turn");
+        (await LoadDocumentAsync<IdempotencyMarker>(userId, retriedBody.WorkoutLogId, ct))
+            .Should().NotBeNull(because: "the successful retry recorded its marker");
+    }
+
     /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {

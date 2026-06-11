@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using FluentAssertions;
+using JasperFx.Events;
 using Marten;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -431,17 +432,236 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         // Act
         var actual = await harness.HandleAsync(cmd);
 
-        // Assert — dual append on the plan stream: restructure + referral.
+        // Assert — dual append on the plan stream: the referral stages FIRST
+        //   (hoisted before the escalation branch — slice 3B F1), then the
+        //   restructure event once the LLM + validators succeed.
         actual.AdaptationKind.Should().Be(AdaptationKind.Restructure);
         harness.Appended.Should().HaveCount(2);
-        var adapted = harness.Appended[0].Event.Should().BeOfType<PlanAdaptedFromLog>().Subject;
-        adapted.SafetyTier.Should().Be(SafetyTier.Amber);
         var expectedContent = category == ReferralCategory.Injury
             ? AmberReferralContent.InjuryReferral
             : AmberReferralContent.RedSReferral;
         var expectedSignal = new SafetySignalRaised(cmd.WorkoutLogId, SafetyTier.Amber, category, expectedContent);
-        harness.Appended[1].Event.Should().Be(expectedSignal);
+        harness.Appended[0].Event.Should().Be(expectedSignal);
+        var adapted = harness.Appended[1].Event.Should().BeOfType<PlanAdaptedFromLog>().Subject;
+        adapted.SafetyTier.Should().Be(SafetyTier.Amber);
         harness.Idempotency.Received(1).Record(cmd.WorkoutLogId, Arg.Any<AdaptationResponseDto>());
+    }
+
+    [Theory]
+    [InlineData(ReferralCategory.Injury)]
+    [InlineData(ReferralCategory.RedS)]
+    public async Task Handle_AmberAbsorb_AppendsTheScriptedReferralSignal(ReferralCategory category)
+    {
+        // Arrange — slice 3B F1: an Amber classification must surface the scripted
+        //   referral even when the escalation outcome is a no-event L0 absorb
+        //   (the live-pass repro shape: Amber inside the cooldown dead-zone — an
+        //   Absorb decision from the handler's perspective — produced silence).
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot(), notes: "amber-matching note");
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.SafetyGate
+            .Classify(Arg.Any<string?>(), Arg.Any<IReadOnlyDictionary<string, string>?>())
+            .Returns(SafetyClassification.Amber(category));
+        var nextState = AdaptationSignalState.Create(PlanState.MinorDeviation, 1.0, 0, null);
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Amber, Arg.Any<AdaptationSignalState>())
+            .Returns(new EscalationDecision(EscalationLevel.Absorb, AdaptationKind.Absorb, nextState));
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — the absorb itself stays event-free, but the referral appends.
+        actual.AdaptationKind.Should().Be(AdaptationKind.Absorb);
+        var (streamId, evt) = harness.Appended.Should().ContainSingle().Subject;
+        streamId.Should().Be(PlanId);
+        var expectedContent = category == ReferralCategory.Injury
+            ? AmberReferralContent.InjuryReferral
+            : AmberReferralContent.RedSReferral;
+        evt.Should().Be(new SafetySignalRaised(cmd.WorkoutLogId, SafetyTier.Amber, category, expectedContent));
+
+        // The absorb's signal-state advance and marker choreography are unchanged.
+        harness.Session.Received(1).Store(Arg.Is<AdaptationSignalStateDocument>(d =>
+            d.PlanId == PlanId && d.ToState() == nextState));
+        harness.Idempotency.Received(1).Record(cmd.WorkoutLogId, Arg.Any<AdaptationResponseDto>());
+    }
+
+    [Fact]
+    public async Task Handle_AmberScoreDrivenMicroAdjust_AbsorbsButStillAppendsTheReferral()
+    {
+        // Arrange — a COMPLETED slow key workout rides a score-driven L1 (no
+        //   missed session to swap), which the handler absorbs deterministically.
+        //   Slice 3B F1: the Amber referral must ride that absorb.
+        var harness = new Harness();
+        var snapshot = BuildSnapshot(weekNumber: 1, dayOfWeek: 2);
+        var log = BuildLog(snapshot, notes: "completed, but my shin aches");
+        var cmd = CommandFor(log);
+        harness.StubLog(cmd, log);
+        var deviation = BuildDeviation() with
+        {
+            CompletionStatus = CompletionStatus.Complete,
+            DistanceDeviationPercent = 0.0,
+            DurationDeviationPercent = 10.0,
+            PaceBand = PaceBandMembership.SlowerThanSlow,
+        };
+        harness.DeviationEngine.Evaluate(log).Returns(deviation);
+        harness.Session
+            .LoadAsync<AdaptationSignalStateDocument>(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns((AdaptationSignalStateDocument?)null);
+        harness.StubMicroWeek(weekNumber: 1, BuildSwappableWeek());
+        harness.SafetyGate
+            .Classify(Arg.Any<string?>(), Arg.Any<IReadOnlyDictionary<string, string>?>())
+            .Returns(SafetyClassification.Amber(ReferralCategory.Injury));
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Amber, Arg.Any<AdaptationSignalState>())
+            .Returns(MicroAdjustDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — absorbed (no plan event, no LLM), yet the referral surfaced.
+        actual.AdaptationKind.Should().Be(AdaptationKind.Absorb);
+        var signal = harness.Appended.Should().ContainSingle()
+            .Which.Event.Should().BeOfType<SafetySignalRaised>().Subject;
+        signal.Should().Be(new SafetySignalRaised(
+            cmd.WorkoutLogId, SafetyTier.Amber, ReferralCategory.Injury, AmberReferralContent.InjuryReferral));
+        await harness.Llm.DidNotReceiveWithAnyArgs().GenerateStructuredAsync<PlanAdaptationOutput>(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+            Arg.Any<CacheControl?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_AmberMicroAdjustNudge_AppendsTheReferralAndTheNudge()
+    {
+        // Arrange — a missed key workout with a valid forward swap nudges
+        //   deterministically; slice 3B F1 adds the referral alongside it.
+        var harness = new Harness();
+        var snapshot = BuildSnapshot(weekNumber: 1, dayOfWeek: 2);
+        var log = BuildLog(snapshot, notes: "skipped it, knee pain");
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubMicroWeek(weekNumber: 1, BuildSwappableWeek());
+        harness.SafetyGate
+            .Classify(Arg.Any<string?>(), Arg.Any<IReadOnlyDictionary<string, string>?>())
+            .Returns(SafetyClassification.Amber(ReferralCategory.Injury));
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Amber, Arg.Any<AdaptationSignalState>())
+            .Returns(MicroAdjustDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — referral first (staged before the escalation branch), then the
+        //   nudge event; the nudge carries the gate's Amber tier as before.
+        actual.AdaptationKind.Should().Be(AdaptationKind.Nudge);
+        harness.Appended.Should().HaveCount(2);
+        var signal = harness.Appended[0].Event.Should().BeOfType<SafetySignalRaised>().Subject;
+        signal.TriggeringWorkoutLogId.Should().Be(cmd.WorkoutLogId);
+        signal.Content.Should().Be(AmberReferralContent.InjuryReferral);
+        var adapted = harness.Appended[1].Event.Should().BeOfType<PlanAdaptedFromLog>().Subject;
+        adapted.AdaptationKind.Should().Be(AdaptationKind.Nudge);
+        adapted.SafetyTier.Should().Be(SafetyTier.Amber);
+    }
+
+    [Fact]
+    public async Task Handle_AmberRestructureLlmFailure_StillStagesTheReferralWithTheErrorEnvelope()
+    {
+        // Arrange — slice 3B F1 (user decision 2026-06-11): the referral must not
+        //   depend on restructure success. A terminal LLM failure returns the
+        //   Kind=Error envelope normally, so Wolverine commits the session — and
+        //   the referral, staged before the LLM call, commits with it. The plan
+        //   event, state document, and marker stay un-staged (retry still works).
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot(), notes: "sharp pain in my left shin");
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.SafetyGate
+            .Classify(Arg.Any<string?>(), Arg.Any<IReadOnlyDictionary<string, string>?>())
+            .Returns(SafetyClassification.Amber(ReferralCategory.Injury));
+        harness.StubLlmThrows(new PermanentCoachingLlmException("The coach could not process this request.", null));
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Amber, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — error envelope, yet the referral is the one staged append.
+        actual.Kind.Should().Be(AdaptationResponseKind.Error);
+        actual.Retryable.Should().BeFalse();
+        var signal = harness.Appended.Should().ContainSingle()
+            .Which.Event.Should().BeOfType<SafetySignalRaised>().Subject;
+        signal.TriggeringWorkoutLogId.Should().Be(cmd.WorkoutLogId);
+
+        // Nothing else staged: stream gains only the referral, marker released.
+        harness.Session.DidNotReceiveWithAnyArgs().Store(Arg.Any<AdaptationSignalStateDocument>());
+        harness.Idempotency.DidNotReceiveWithAnyArgs()
+            .Record(Arg.Any<Guid>(), Arg.Any<AdaptationResponseDto>());
+    }
+
+    [Fact]
+    public async Task Handle_AmberReferralAlreadyOnStream_DoesNotDoubleAppend()
+    {
+        // Arrange — the marker-released retry after a terminal L2 failure re-runs
+        //   the evaluation in full; the referral committed by the failed run must
+        //   not append again (slice 3B F1 per-log dedupe).
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot(), notes: "sharp pain in my left shin");
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.StubStream(StreamedSignal(new SafetySignalRaised(
+            cmd.WorkoutLogId, SafetyTier.Amber, ReferralCategory.Injury, AmberReferralContent.InjuryReferral)));
+        harness.SafetyGate
+            .Classify(Arg.Any<string?>(), Arg.Any<IReadOnlyDictionary<string, string>?>())
+            .Returns(SafetyClassification.Amber(ReferralCategory.Injury));
+        harness.StubLlm(BuildRestructureOutput(tier: SafetyTier.Amber, referralCategory: ReferralCategory.Injury));
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Amber, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — the retried restructure commits, with no second referral.
+        actual.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        var adapted = harness.Appended.Should().ContainSingle()
+            .Which.Event.Should().BeOfType<PlanAdaptedFromLog>().Subject;
+        adapted.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+    }
+
+    [Fact]
+    public async Task Handle_AmberWithAnotherLogsReferralOnStream_StillAppendsItsOwnReferral()
+    {
+        // Arrange — the dedupe is keyed per WorkoutLogId: an earlier log's
+        //   referral on the same plan stream never suppresses this log's.
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot(), notes: "shin still hurts today");
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubStream(StreamedSignal(new SafetySignalRaised(
+            Guid.NewGuid(), SafetyTier.Amber, ReferralCategory.Injury, AmberReferralContent.InjuryReferral)));
+        harness.SafetyGate
+            .Classify(Arg.Any<string?>(), Arg.Any<IReadOnlyDictionary<string, string>?>())
+            .Returns(SafetyClassification.Amber(ReferralCategory.Injury));
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Amber, Arg.Any<AdaptationSignalState>())
+            .Returns(new EscalationDecision(
+                EscalationLevel.Absorb,
+                AdaptationKind.Absorb,
+                AdaptationSignalState.Create(PlanState.MinorDeviation, 1.0, 0, null)));
+
+        // Act
+        await harness.HandleAsync(cmd);
+
+        // Assert
+        var signal = harness.Appended.Should().ContainSingle()
+            .Which.Event.Should().BeOfType<SafetySignalRaised>().Subject;
+        signal.TriggeringWorkoutLogId.Should().Be(cmd.WorkoutLogId);
     }
 
     [Fact]
@@ -752,10 +972,18 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         // Act
         var actual = await harness.HandleAsync(cmd);
 
-        // Assert
+        // Assert — the proposal is rejected, but the Amber referral staged before
+        //   the LLM call persists with the error envelope (slice 3B F1): a safety
+        //   turn is never dropped because the restructure failed. The plan event,
+        //   state document, and marker stay un-staged so the retry re-evaluates.
         actual.Kind.Should().Be(AdaptationResponseKind.Error);
         actual.Retryable.Should().BeFalse();
-        AssertNothingStaged(harness);
+        var signal = harness.Appended.Should().ContainSingle()
+            .Which.Event.Should().BeOfType<SafetySignalRaised>().Subject;
+        signal.TriggeringWorkoutLogId.Should().Be(cmd.WorkoutLogId);
+        harness.Session.DidNotReceiveWithAnyArgs().Store(Arg.Any<AdaptationSignalStateDocument>());
+        harness.Idempotency.DidNotReceiveWithAnyArgs()
+            .Record(Arg.Any<Guid>(), Arg.Any<AdaptationResponseDto>());
         harness.Logger.Entries.Should().Contain(e =>
             e.Level == LogLevel.Warning && e.Message.Contains("echo mismatch"));
     }
@@ -879,6 +1107,18 @@ public sealed class EvaluateAdaptationHandlerUnitTests
             ["flag"] = "true",
         };
         actual.Should().BeEquivalentTo(expected);
+    }
+
+    /// <summary>
+    /// Wraps a domain event in a substituted <see cref="IEvent"/> the way
+    /// <c>FetchStreamAsync</c> returns committed stream entries — only
+    /// <see cref="IEvent.Data"/> matters to the handler's per-log referral dedupe.
+    /// </summary>
+    private static IEvent StreamedSignal(SafetySignalRaised signal)
+    {
+        var evt = Substitute.For<IEvent>();
+        evt.Data.Returns(signal);
+        return evt;
     }
 
     private static void AssertNothingStaged(Harness harness)
@@ -1145,6 +1385,21 @@ public sealed class EvaluateAdaptationHandlerUnitTests
             Session
                 .LoadAsync<PlanProjectionDto>(PlanId, Arg.Any<CancellationToken>())
                 .Returns(plan);
+
+        /// <summary>
+        /// Stubs the committed plan stream the Amber referral dedupe fetches.
+        /// Unstubbed, the substituted event store returns null, which the
+        /// handler treats as an empty stream.
+        /// </summary>
+        public void StubStream(params IEvent[] events) =>
+            Session.Events
+                .FetchStreamAsync(
+                    PlanId,
+                    Arg.Any<long>(),
+                    Arg.Any<DateTimeOffset?>(),
+                    Arg.Any<long>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(events);
 
         public void StubLlm(PlanAdaptationOutput output) =>
             Llm

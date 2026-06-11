@@ -46,6 +46,10 @@ namespace RunCoach.Api.Modules.Training.Adaptation;
 /// <item>Red short-circuits: append ONLY <see cref="SafetySignalRaised"/> with
 ///   the scripted content for the matched category — no LLM, no plan change,
 ///   no signal-state advance.</item>
+/// <item>Amber appends the scripted <see cref="AmberReferralContent"/> referral
+///   BEFORE the escalation branch, so every outcome below — absorb, nudge,
+///   dead-zone hold, restructure, and even a terminal L2 failure — surfaces it
+///   (slice 3B F1), deduped per log against the committed stream.</item>
 /// <item>Rehydrate <see cref="AdaptationSignalState"/> from its per-plan Marten
 ///   document (validated via the <see cref="AdaptationSignalStateDocument.ToState"/>
 ///   factory boundary; <see cref="AdaptationSignalState.Initial"/> when absent),
@@ -57,24 +61,25 @@ namespace RunCoach.Api.Modules.Training.Adaptation;
 ///   ONE structured-output LLM call (DEC-073 — SDK-side retries only), validate via
 ///   <see cref="PlanAdaptationOutputValidator"/>, compute the deterministic diff via
 ///   <see cref="RestructureDiffCalculator"/>, then append one
-///   <see cref="PlanAdaptedFromLog"/> restructure (plus the scripted Amber
-///   <see cref="SafetySignalRaised"/> referral when the tier is Amber) and advance
-///   the signal state.</item>
+///   <see cref="PlanAdaptedFromLog"/> restructure and advance the signal state.</item>
 /// <item>The marker records LAST on every committing path so it persists
 ///   atomically with the appends it memoizes.</item>
 /// </list>
 /// </para>
 /// <para>
-/// Failure semantics: nothing is staged on failure paths. Any uncaught exception
-/// aborts the Wolverine-bracketed Marten transaction, rolling back marker, events,
-/// and state document together, so a retried run re-evaluates against fresh state.
-/// A <em>caught</em> terminal <see cref="CoachingLlmException"/> on the L2 path is
+/// Failure semantics: nothing is staged on failure paths, with ONE deliberate
+/// exception. Any uncaught exception aborts the Wolverine-bracketed Marten
+/// transaction, rolling back marker, events, and state document together, so a
+/// retried run re-evaluates against fresh state. A <em>caught</em> terminal
+/// <see cref="CoachingLlmException"/> (or post-decode reject) on the L2 path is
 /// different: the handler returns the <c>Kind=Error</c> envelope normally, so
-/// Wolverine COMMITS the session — which is safe only because the L2 path stages
-/// strictly nothing (no event, no state document, no marker) before the LLM call,
-/// validation, and diff have all succeeded. The committed transaction is therefore
-/// empty: the plan stream is unchanged and the marker stays released for
-/// re-evaluation.
+/// Wolverine COMMITS the session — the L2 path stages no plan event, state
+/// document, or marker before the LLM call, validation, and diff have all
+/// succeeded, so what commits is the Amber referral alone when the tier is Amber
+/// (slice 3B F1: a safety turn is never dropped because the restructure failed)
+/// and an empty transaction otherwise. The marker stays released either way; the
+/// retried evaluation re-runs in full and the per-log referral dedupe keeps the
+/// committed referral from appending twice.
 /// </para>
 /// </remarks>
 public sealed partial class EvaluateAdaptationHandler
@@ -242,6 +247,27 @@ public sealed partial class EvaluateAdaptationHandler
             return RecordAndReturn(idempotency, cmd.WorkoutLogId, AdaptationKind.Absorb);
         }
 
+        // (5b) an Amber classification ALWAYS surfaces the scripted referral —
+        //      on every escalation outcome below (L0 absorb, L1 nudge, the
+        //      cooldown dead-zone hold, L2 restructure) — slice 3B F1: the live
+        //      pass dropped the referral whenever the outcome was not an L2
+        //      restructure. Staged BEFORE the escalation branch so a caught
+        //      terminal L2 failure (a normal Kind=Error return that Wolverine
+        //      COMMITS) still persists it; because that failure path releases
+        //      the idempotency marker, the retried evaluation re-runs in full
+        //      and this per-log stream check keeps the retry from double-appending.
+        if (safety.Tier == SafetyTier.Amber
+            && !await ReferralAlreadyRaisedAsync(session, planId, cmd.WorkoutLogId, ct).ConfigureAwait(false))
+        {
+            var referral = safety.Category == ReferralCategory.Injury
+                ? AmberReferralContent.InjuryReferral
+                : AmberReferralContent.RedSReferral;
+            session.Events.Append(
+                planId,
+                new SafetySignalRaised(cmd.WorkoutLogId, SafetyTier.Amber, safety.Category, referral));
+            LogAmberReferralAppended(logger, cmd.WorkoutLogId, planId, safety.Category);
+        }
+
         // (6) rehydrate the prior signal state through the validating factory
         //     boundary; a plan with no adaptation history starts from Initial.
         var stateDocument = await session
@@ -374,28 +400,30 @@ public sealed partial class EvaluateAdaptationHandler
     /// (no handler-side retry loop — DEC-073 puts bounded retries inside the
     /// adapter's SDK), validate via <see cref="PlanAdaptationOutputValidator"/>,
     /// compute the deterministic diff via <see cref="RestructureDiffCalculator"/>,
-    /// and only then stage the event(s) + state + marker.
+    /// and only then stage the event + state + marker.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Stage-nothing-before-success is the load-bearing invariant: a caught
-    /// <see cref="CoachingLlmException"/> (and a post-decode validation reject,
-    /// which the handler maps to the same non-retryable envelope — the validator
-    /// is pure, the handler owns the policy) returns normally, so Wolverine
-    /// commits the session. Because every <c>session.Events.Append</c> /
-    /// <c>session.Store</c> / <c>idempotency.Record</c> sits strictly AFTER the
-    /// LLM call, validation, and diff have succeeded, that commit is empty:
-    /// stream unchanged, marker released, the log re-evaluates on retry.
+    /// Stage-nothing-before-success is the load-bearing invariant of THIS method:
+    /// a caught <see cref="CoachingLlmException"/> (and a post-decode validation
+    /// reject, which the handler maps to the same non-retryable envelope — the
+    /// validator is pure, the handler owns the policy) returns normally, so
+    /// Wolverine commits the session. Because every <c>session.Events.Append</c> /
+    /// <c>session.Store</c> / <c>idempotency.Record</c> in this method sits
+    /// strictly AFTER the LLM call, validation, and diff have succeeded, the
+    /// commit carries nothing of the restructure: stream unchanged (save the
+    /// Amber referral the caller staged at step 5b, which persists by design —
+    /// slice 3B F1), marker released, the log re-evaluates on retry.
     /// </para>
     /// <para>
-    /// An Amber tier additionally appends <see cref="SafetySignalRaised"/> with
-    /// the versioned scripted <see cref="AmberReferralContent"/> for the matched
-    /// category. The referral content source was unpinned by design; the scripted
-    /// per-category route (mirroring the Red-tier
-    /// <see cref="CrisisResponseContent"/> / <see cref="EmergencyResponseContent"/>
-    /// routing) is chosen deliberately over LLM prose so the safety turn stays
-    /// deterministic and safe (DEC-019/DEC-030/DEC-079 — safety is never left to
-    /// LLM self-policing).
+    /// The scripted Amber <see cref="SafetySignalRaised"/> referral is NOT
+    /// appended here: <see cref="Handle"/> stages it before the escalation branch
+    /// so every escalation outcome — not just a successful restructure — surfaces
+    /// it. The scripted per-category <see cref="AmberReferralContent"/> route
+    /// (mirroring the Red-tier <see cref="CrisisResponseContent"/> /
+    /// <see cref="EmergencyResponseContent"/> routing) is chosen deliberately over
+    /// LLM prose so the safety turn stays deterministic and safe
+    /// (DEC-019/DEC-030/DEC-079 — safety is never left to LLM self-policing).
     /// </para>
     /// </remarks>
     private static async Task<AdaptationResponseDto> RestructureAsync(
@@ -502,18 +530,6 @@ public sealed partial class EvaluateAdaptationHandler
                 output.Rationale,
                 diff));
 
-        if (safety.Tier == SafetyTier.Amber)
-        {
-            // Scripted-by-category referral content (see remarks) — GATE-BEFORE-
-            // INCREASE itself is already validator-enforced; the handler trusts it.
-            var content = safety.Category == ReferralCategory.Injury
-                ? AmberReferralContent.InjuryReferral
-                : AmberReferralContent.RedSReferral;
-            session.Events.Append(
-                planId,
-                new SafetySignalRaised(cmd.WorkoutLogId, SafetyTier.Amber, safety.Category, content));
-        }
-
         // Persist a restructure-shaped state derived from the EXECUTED level, not the
         // classifier's NextState. An escalated unswappable L1 carries a MicroAdjust
         // NextState (PlanState.MinorDeviation, LastAdaptationOn unstamped); committing
@@ -556,6 +572,28 @@ public sealed partial class EvaluateAdaptationHandler
         var response = AdaptationResponseDto.Adapted(kind);
         idempotency.Record(workoutLogId, response);
         return response;
+    }
+
+    /// <summary>
+    /// True when a prior evaluation of this log already committed its Amber
+    /// referral: a caught terminal L2 failure persists the referral but releases
+    /// the idempotency marker, so the retried evaluation re-runs in full and must
+    /// not append a second one (slice 3B F1). Reads the committed stream — events
+    /// staged on this session are invisible to the fetch, which is fine because
+    /// the handler appends at most one referral per run. A plan stream stays
+    /// short at MVP-0 (the seeded sequence plus one event per adaptation), so a
+    /// full fetch is cheap; the null-coalesce covers substituted sessions in unit
+    /// tests (Marten itself returns an empty list for an unknown stream).
+    /// </summary>
+    private static async Task<bool> ReferralAlreadyRaisedAsync(
+        IDocumentSession session,
+        Guid planId,
+        Guid workoutLogId,
+        CancellationToken ct)
+    {
+        var events = await session.Events.FetchStreamAsync(planId, token: ct).ConfigureAwait(false);
+        return events?.Any(e =>
+            e.Data is SafetySignalRaised signal && signal.TriggeringWorkoutLogId == workoutLogId) ?? false;
     }
 
     /// <summary>
@@ -694,4 +732,14 @@ public sealed partial class EvaluateAdaptationHandler
         Guid planId,
         SafetyTier gateTier,
         SafetyTier echoedTier);
+
+    [LoggerMessage(
+        EventId = 11,
+        Level = LogLevel.Information,
+        Message = "Amber referral appended workoutLogId={WorkoutLogId} planId={PlanId} category={Category}: scripted referral staged independent of the escalation outcome")]
+    private static partial void LogAmberReferralAppended(
+        ILogger logger,
+        Guid workoutLogId,
+        Guid planId,
+        ReferralCategory category);
 }
