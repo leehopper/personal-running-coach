@@ -58,6 +58,9 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             },
             TestContext.Current.CancellationToken);
 
+        // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
+        TrademarkProseGuard.AssertClean("plan-sarah", new { mesoWeek, workoutList });
+
         // Assert -- typed constraint checks
         var context = new PlanConstraintContext
         {
@@ -132,6 +135,9 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
                 Workouts = workoutList,
             },
             TestContext.Current.CancellationToken);
+
+        // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
+        TrademarkProseGuard.AssertClean("plan-lee", new { mesoWeek, workoutList });
 
         // Assert -- typed constraint checks with pace verification
         var context = new PlanConstraintContext
@@ -208,6 +214,9 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             },
             TestContext.Current.CancellationToken);
 
+        // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
+        TrademarkProseGuard.AssertClean("plan-maria", new { mesoWeek, workoutList });
+
         // Assert -- Maria-specific: weekly km within +-10% of current 55km
         var currentKm = (int)profile.UserProfile.CurrentWeeklyDistanceKm;
         var lowerBound = (int)(currentKm * 0.90);
@@ -271,6 +280,9 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
                 CoachingNarrative = narrative,
             },
             TestContext.Current.CancellationToken);
+
+        // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
+        TrademarkProseGuard.AssertClean("plan-james", new { macroPlan, mesoWeek, workoutList, narrative });
 
         // Assert -- typed constraint checks
         var context = new PlanConstraintContext
@@ -348,6 +360,9 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
                 Workouts = workoutList,
             },
             TestContext.Current.CancellationToken);
+
+        // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
+        TrademarkProseGuard.AssertClean("plan-priya", new { mesoWeek, workoutList });
 
         // Assert -- Priya-specific: exactly 4 run days and 3 rest/cross-train days.
         // 7-slot count is structurally guaranteed by named day properties (Sunday..Saturday).

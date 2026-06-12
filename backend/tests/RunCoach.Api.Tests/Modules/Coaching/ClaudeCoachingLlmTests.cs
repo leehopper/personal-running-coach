@@ -640,6 +640,60 @@ public class ClaudeCoachingLlmTests
     }
 
     [Fact]
+    public async Task GenerateStructuredAsync_ScrubsTrademarkedTerm_FromProseFields()
+    {
+        // Arrange — Slice 3B F2: the live pass persisted the trademarked term in
+        // Macro.Rationale. The adapter is the single boundary every structured
+        // output crosses, so the scrub must happen here, before deserialization.
+        var leaked = new MacroPlanOutput
+        {
+            TotalWeeks = 16,
+            GoalDescription = "10K race",
+            Rationale = "Using Daniels' Running Formula, your VDOT sits around 38",
+            Warnings = "Your vdot may fluctuate week to week",
+            Phases = [],
+        };
+        var jsonResponse = JsonSerializer.Serialize(
+            leaked,
+            ClaudeCoachingLlm.StructuredOutputSerializerOptions);
+
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse(jsonResponse));
+
+        var sut = CreateSut();
+
+        // Act
+        var (actual, _) = await sut.GenerateStructuredAsync<MacroPlanOutput>(
+            "system", "user message", TestContext.Current.CancellationToken);
+
+        // Assert — every prose field is clean and reads naturally.
+        actual.Rationale.Should().Be(
+            "Using Daniels' Running Formula, your pace-zone index sits around 38");
+        actual.Warnings.Should().Be("Your pace-zone index may fluctuate week to week");
+        actual.Rationale.Should().NotContainEquivalentOf("VDOT");
+        actual.Warnings.Should().NotContainEquivalentOf("VDOT");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_ScrubsTrademarkedTerm_FromNarrativeText()
+    {
+        // Arrange — the plain-text surface must hold the same guarantee as the
+        // structured one: ICoachingLlm never returns the trademarked term.
+        _mockMessages
+            .Create(Arg.Any<MessageCreateParams>(), Arg.Any<CancellationToken>())
+            .Returns(BuildTextResponse("Your VDOT of 38 suggests an easy pace near 6:10/km."));
+
+        var sut = CreateSut();
+
+        // Act
+        var actualText = await sut.GenerateAsync("system", "user message", TestContext.Current.CancellationToken);
+
+        // Assert
+        actualText.Should().Be("Your pace-zone index of 38 suggests an easy pace near 6:10/km.");
+    }
+
+    [Fact]
     public void AsIChatClient_ReturnsNonNullIChatClient()
     {
         // Arrange
