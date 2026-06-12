@@ -1123,9 +1123,12 @@ public sealed class EvaluateAdaptationHandlerUnitTests
 
     private static void AssertNothingStaged(Harness harness)
     {
-        // The L2 failure contract (DEC-073): stage NOTHING — no event, no
-        // signal-state advance, no idempotency marker — so the committing
-        // (or aborting) transaction leaves the stream and marker untouched.
+        // The L2 failure contract (DEC-073), for a non-Amber gate: stage NOTHING —
+        // no event, no signal-state advance, no idempotency marker — so the
+        // committing (or aborting) transaction leaves the stream and marker
+        // untouched. The slice 3B F1 / DEC-081 exception (the step-5b Amber referral
+        // commits on a terminal L2 failure) does not apply here: every remaining
+        // caller gates on a Green tier, so the stream is genuinely empty.
         harness.Appended.Should().BeEmpty();
         harness.Session.DidNotReceiveWithAnyArgs().Store(Arg.Any<AdaptationSignalStateDocument>());
         harness.Idempotency.DidNotReceiveWithAnyArgs()

@@ -821,6 +821,87 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
             .Should().NotBeNull(because: "the successful retry recorded its marker");
     }
 
+    // F1 scenario E — the dedupe must hold under the concurrent-failure race itself
+    // (DEC-081): two evaluations of the SAME Amber log race the LLM seam and BOTH
+    // fail terminally, so each stages its step-5b referral with NO marker to fall
+    // back on. Exactly one referral may survive — the loser's referral-bearing
+    // commit must lose the stream-version race and its bounded retry must dedupe
+    // against the winner's committed one. Scenario 11 races only the success path
+    // (the winner's marker resolves the loser); scenario D exercises the dedupe
+    // sequentially. This is the only path where the dedupe is the deciding guard.
+    [Fact]
+    public async Task ConcurrentAmberTerminalFailures_SameLog_AppendExactlyOneReferral()
+    {
+        // Arrange — seed the Amber log DIRECTLY through the service (committing the
+        // WorkoutLog without the create flow's adaptation dispatch), so no referral
+        // pre-commits and both racers start from an empty stream. Going through
+        // PostLogAsync would commit the create-flow evaluation's referral first,
+        // and the dedupe would then suppress both racers before they ever raced.
+        var ct = TestContext.Current.CancellationToken;
+        var (_, userId, _) = await RegisterLoginAndPrimeAsync();
+        var planId = Guid.NewGuid();
+        await SeedActivePlanAsync(userId, planId, ct);
+        await SeedSignalStateAsync(userId, planId, rollingScore: 2.0, ct);
+
+        Guid workoutLogId;
+        using (var scope = Factory.Services.CreateScope())
+        {
+            var logs = scope.ServiceProvider.GetRequiredService<IWorkoutLogService>();
+            workoutLogId = await logs.CreateAsync(
+                userId,
+                UnderPerformingTempoRequest(notes: "Sharp pain in my left shin, had to stop early."),
+                ct);
+        }
+
+        (await FetchPlanEventsAsync(userId, planId, ct)).OfType<SafetySignalRaised>().Should().BeEmpty(
+            because: "seeding the log directly stages no referral — both racers start from an empty stream");
+        StubCoachingLlm.Reset();
+
+        // Both racers rendezvous INSIDE the LLM seam, then BOTH throw terminal —
+        // each has already passed step 5b and staged its referral, so their commits
+        // race the same stream version. A retry (the 3rd+ seam call) must not block
+        // on the spent barrier; the loser's re-run dedupes and fails fast instead.
+        var seamCalls = 0;
+        using var rendezvous = new Barrier(2);
+        StubCoachingLlm.UseStructuredBehavior(() =>
+        {
+            if (Interlocked.Increment(ref seamCalls) <= 2)
+            {
+                rendezvous.SignalAndWait(TimeSpan.FromSeconds(15));
+            }
+
+            throw new PermanentCoachingLlmException(
+                "both concurrent Amber evaluations fail terminally at the seam", innerException: null);
+        });
+
+        // Act — two live-bus invocations of the SAME EvaluateAdaptationCommand.
+        var outcomes = await Task.WhenAll(
+            Task.Run(() => InvokeEvaluationAsync(userId, workoutLogId, ct), ct),
+            Task.Run(() => InvokeEvaluationAsync(userId, workoutLogId, ct), ct));
+
+        // Assert — both raced past the marker check to the LLM seam, and neither
+        // conflict escaped the bounded retry (the loser's referral-append conflict
+        // resolves to a clean Kind=Error, never a thrown conflict).
+        StubCoachingLlm.StructuredCallCount.Should().BeGreaterThanOrEqualTo(
+            2, because: "both evaluations reached the LLM seam before either committed");
+        outcomes.Should().OnlyContain(
+            o => o.Conflict == null,
+            because: "the loser's referral-append version conflict resolves via the bounded retry");
+        outcomes.Select(o => o.Envelope!).Should().AllSatisfy(
+            envelope => envelope.Kind.Should().Be(AdaptationResponseKind.Error));
+
+        // ...and exactly one referral survived: the per-log dedupe plus the
+        // stream-version conflict admit a single SafetySignalRaised — one turn.
+        var events = await FetchPlanEventsAsync(userId, planId, ct);
+        events.OfType<SafetySignalRaised>().Should().ContainSingle(
+            because: "the dedupe keeps two concurrent failed evaluations from double-appending the referral");
+        events.OfType<PlanAdaptedFromLog>().Should().BeEmpty(because: "both evaluations failed terminally");
+        (await LoadTurnsAsync(userId, planId, ct)).Should().ContainSingle()
+            .Which.Role.Should().Be(ConversationRole.SystemSafety);
+        (await LoadDocumentAsync<IdempotencyMarker>(userId, workoutLogId, ct)).Should().BeNull(
+            because: "both terminal failures release the marker");
+    }
+
     /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {

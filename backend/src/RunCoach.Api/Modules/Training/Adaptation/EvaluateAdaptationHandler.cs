@@ -253,20 +253,12 @@ public sealed partial class EvaluateAdaptationHandler
         //      pass dropped the referral whenever the outcome was not an L2
         //      restructure. Staged BEFORE the escalation branch so a caught
         //      terminal L2 failure (a normal Kind=Error return that Wolverine
-        //      COMMITS) still persists it; because that failure path releases
-        //      the idempotency marker, the retried evaluation re-runs in full
-        //      and this per-log stream check keeps the retry from double-appending.
-        if (safety.Tier == SafetyTier.Amber
-            && !await ReferralAlreadyRaisedAsync(session, planId, cmd.WorkoutLogId, ct).ConfigureAwait(false))
-        {
-            var referral = safety.Category == ReferralCategory.Injury
-                ? AmberReferralContent.InjuryReferral
-                : AmberReferralContent.RedSReferral;
-            session.Events.Append(
-                planId,
-                new SafetySignalRaised(cmd.WorkoutLogId, SafetyTier.Amber, safety.Category, referral));
-            LogAmberReferralAppended(logger, cmd.WorkoutLogId, planId, safety.Category);
-        }
+        //      COMMITS) still persists it (DEC-081); because that failure path
+        //      releases the idempotency marker, the retried evaluation re-runs in
+        //      full and the helper's per-log stream check keeps the retry from
+        //      double-appending.
+        await AppendAmberReferralIfRequiredAsync(session, planId, cmd.WorkoutLogId, safety, logger, ct)
+            .ConfigureAwait(false);
 
         // (6) rehydrate the prior signal state through the validating factory
         //     boundary; a plan with no adaptation history starts from Initial.
@@ -487,7 +479,8 @@ public sealed partial class EvaluateAdaptationHandler
         // proposal — or a proposal that contradicts the deterministic ladder by
         // not being a restructure (DEC-079: the deterministic layer decides the
         // level; the LLM never absorbs a sustained deviation away) — maps to a
-        // non-retryable Kind=Error envelope with nothing staged. The reject is
+        // non-retryable Kind=Error envelope with no restructure staged (the step-5b
+        // Amber referral, if any, persists — DEC-081). The reject is
         // terminal: there is exactly one structured-output call and no corrective
         // re-prompt (DEC-080 — the spec's "one re-prompt on validator reject" line
         // is deliberately not implemented at MVP-0).
@@ -507,7 +500,8 @@ public sealed partial class EvaluateAdaptationHandler
         // mismatch means the clamp evaluated against a tier the gate never assigned
         // (e.g. an echoed Green over an Amber gate would let a positive NetLoadDelta
         // through), so reject it here — the invariant must never depend on the LLM
-        // policing its own tier. Nothing staged.
+        // policing its own tier. No restructure staged (the step-5b Amber referral,
+        // if any, persists — DEC-081).
         if (output.SafetyTier != safety.Tier)
         {
             LogRestructureTierEchoMismatch(logger, cmd.WorkoutLogId, planId, safety.Tier, output.SafetyTier);
@@ -572,6 +566,41 @@ public sealed partial class EvaluateAdaptationHandler
         var response = AdaptationResponseDto.Adapted(kind);
         idempotency.Record(workoutLogId, response);
         return response;
+    }
+
+    /// <summary>
+    /// Stages the scripted per-category Amber referral (slice 3B F1, DEC-081) when
+    /// the gate classified Amber and no prior evaluation of this log already
+    /// committed one. Extracted from <see cref="Handle"/> so the single safety
+    /// append lives outside the escalation control flow; the per-log
+    /// <see cref="ReferralAlreadyRaisedAsync"/> check keeps a marker-released retry
+    /// (after a committed terminal-L2 failure) from double-appending. The scripted
+    /// per-category route — mirroring the Red-tier <see cref="CrisisResponseContent"/>
+    /// / <see cref="EmergencyResponseContent"/> routing — is chosen deliberately over
+    /// LLM prose so the safety turn stays deterministic and safe (DEC-019/DEC-030/DEC-079
+    /// — safety is never left to LLM self-policing).
+    /// </summary>
+    private static async Task AppendAmberReferralIfRequiredAsync(
+        IDocumentSession session,
+        Guid planId,
+        Guid workoutLogId,
+        SafetyClassification safety,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        if (safety.Tier != SafetyTier.Amber
+            || await ReferralAlreadyRaisedAsync(session, planId, workoutLogId, ct).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        var referral = safety.Category == ReferralCategory.Injury
+            ? AmberReferralContent.InjuryReferral
+            : AmberReferralContent.RedSReferral;
+        session.Events.Append(
+            planId,
+            new SafetySignalRaised(workoutLogId, SafetyTier.Amber, safety.Category, referral));
+        LogAmberReferralAppended(logger, workoutLogId, planId, safety.Category);
     }
 
     /// <summary>
@@ -697,7 +726,7 @@ public sealed partial class EvaluateAdaptationHandler
     [LoggerMessage(
         EventId = 7,
         Level = LogLevel.Warning,
-        Message = "Adaptation LLM call failed terminally workoutLogId={WorkoutLogId} planId={PlanId}; returning the Kind=Error envelope with nothing staged")]
+        Message = "Adaptation LLM call failed terminally workoutLogId={WorkoutLogId} planId={PlanId}; returning the Kind=Error envelope with no restructure staged (any step-5b Amber referral persists)")]
     private static partial void LogAdaptationLlmFailed(
         ILogger logger,
         Guid workoutLogId,
@@ -707,7 +736,7 @@ public sealed partial class EvaluateAdaptationHandler
     [LoggerMessage(
         EventId = 8,
         Level = LogLevel.Warning,
-        Message = "Adaptation LLM proposal rejected workoutLogId={WorkoutLogId} planId={PlanId} violation={Violation} proposedKind={ProposedKind}; returning the Kind=Error envelope with nothing staged")]
+        Message = "Adaptation LLM proposal rejected workoutLogId={WorkoutLogId} planId={PlanId} violation={Violation} proposedKind={ProposedKind}; returning the Kind=Error envelope with no restructure staged (any step-5b Amber referral persists)")]
     private static partial void LogRestructureProposalRejected(
         ILogger logger,
         Guid workoutLogId,
@@ -725,7 +754,7 @@ public sealed partial class EvaluateAdaptationHandler
     [LoggerMessage(
         EventId = 10,
         Level = LogLevel.Warning,
-        Message = "Adaptation LLM safety-tier echo mismatch workoutLogId={WorkoutLogId} planId={PlanId} gateTier={GateTier} echoedTier={EchoedTier}; rejecting the proposal with nothing staged")]
+        Message = "Adaptation LLM safety-tier echo mismatch workoutLogId={WorkoutLogId} planId={PlanId} gateTier={GateTier} echoedTier={EchoedTier}; rejecting the proposal with no restructure staged (any step-5b Amber referral persists)")]
     private static partial void LogRestructureTierEchoMismatch(
         ILogger logger,
         Guid workoutLogId,
