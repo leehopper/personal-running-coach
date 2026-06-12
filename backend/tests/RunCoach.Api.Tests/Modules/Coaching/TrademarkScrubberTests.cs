@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using FluentAssertions;
 using RunCoach.Api.Modules.Coaching;
 
@@ -17,7 +18,7 @@ public class TrademarkScrubberTests
     public void Scrub_ReplacesTheTerm_InTheRecordedLiveLeakShape()
     {
         // Arrange — the exact prose shape the 2026-06-11 live pass persisted
-        // into Macro.Rationale (slice-3b-live-pass-fixes.md § F2).
+        // into Macro.Rationale (Slice 3B F2).
         var leaked = "Using Daniels' Running Formula, your VDOT sits around 38";
 
         // Act
@@ -117,5 +118,24 @@ public class TrademarkScrubberTests
 
         // Assert
         actual.Should().Be(expected);
+    }
+
+    [Fact]
+    public void ScrubJsonStringValues_ReplacesTheTerm_AfterJsonNewlineEscape()
+    {
+        // Arrange — raw JSON where the term immediately follows a \n escape sequence in a string
+        // value. The plain Scrub() misses this because the regex \b sees 'n' (a word char) before
+        // 'V' and the boundary does not fire. ScrubJsonStringValues() operates on decoded string
+        // values so the actual newline character precedes 'V' and the boundary fires correctly.
+        var json = """{"rationale":"Key metrics:\nVDOT: 38","total_weeks":16}""";
+        var node = JsonNode.Parse(json)!;
+
+        // Act
+        var occurrences = TrademarkScrubber.ScrubJsonStringValues(node);
+
+        // Assert
+        occurrences.Should().Be(1);
+        node["rationale"]!.GetValue<string>()
+            .Should().Be("Key metrics:\npace-zone index: 38");
     }
 }

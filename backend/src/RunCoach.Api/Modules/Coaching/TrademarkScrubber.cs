@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 namespace RunCoach.Api.Modules.Coaching;
@@ -44,6 +45,65 @@ internal static partial class TrademarkScrubber
         return occurrences == 0 ? text : TrademarkedTerm().Replace(text, Replacement);
     }
 
+    /// <summary>
+    /// Walks every string value reachable from <paramref name="node"/>,
+    /// applies <see cref="Scrub"/> to each decoded value in place, and
+    /// returns the total number of replacements made. Operates on decoded
+    /// string values so the word-boundary regex fires correctly even when
+    /// the term follows a JSON escape sequence such as <c>\n</c>.
+    /// </summary>
+    internal static int ScrubJsonStringValues(JsonNode? node)
+    {
+        var total = 0;
+        WalkAndScrub(node, ref total);
+        return total;
+    }
+
     [GeneratedRegex(@"\bV[.-]?DOTs?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TrademarkedTerm();
+
+    private static void WalkAndScrub(JsonNode? node, ref int total)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (var key in obj.Select(p => p.Key).ToList())
+                {
+                    if (obj[key] is JsonValue v && v.TryGetValue<string>(out var s))
+                    {
+                        var r = Scrub(s, out var hits);
+                        total += hits;
+                        if (hits > 0)
+                        {
+                            obj[key] = JsonValue.Create(r);
+                        }
+                    }
+                    else
+                    {
+                        WalkAndScrub(obj[key], ref total);
+                    }
+                }
+
+                break;
+            case JsonArray arr:
+                for (var i = 0; i < arr.Count; i++)
+                {
+                    if (arr[i] is JsonValue v && v.TryGetValue<string>(out var s))
+                    {
+                        var r = Scrub(s, out var hits);
+                        total += hits;
+                        if (hits > 0)
+                        {
+                            arr[i] = JsonValue.Create(r);
+                        }
+                    }
+                    else
+                    {
+                        WalkAndScrub(arr[i], ref total);
+                    }
+                }
+
+                break;
+        }
+    }
 }

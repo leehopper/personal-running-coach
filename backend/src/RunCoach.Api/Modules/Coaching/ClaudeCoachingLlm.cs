@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Anthropic;
 using Anthropic.Core;
@@ -204,10 +205,33 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
         ThrowIfTruncated(response);
 
-        // Slice 3B F2: scrub the trademarked pace-index term from the raw JSON before
-        // deserialization — the one boundary every structured output type crosses, so
-        // prose fields on current and future output records are covered uniformly.
-        json = ScrubTrademarkedProse(_logger, json, typeof(T).Name);
+        // Slice 3B F2: scrub on decoded JSON string values rather than the raw JSON text so that
+        // the word-boundary regex fires correctly when the term follows a JSON escape sequence
+        // (e.g. \n encodes a newline as the two-char sequence backslash+'n'; the 'n' is a word
+        // character and blocks \b if we scan the raw text instead).
+        JsonNode? scrubNode;
+        try
+        {
+            scrubNode = JsonNode.Parse(json);
+        }
+        catch (JsonException ex)
+        {
+            throw new PermanentCoachingLlmException(RejectedMessage, ex);
+        }
+
+        if (scrubNode is null)
+        {
+            throw new PermanentCoachingLlmException(
+                RejectedMessage,
+                new InvalidOperationException(
+                    $"Failed to parse structured output for {typeof(T).Name}. JSON was a null literal."));
+        }
+
+        var scrubHits = TrademarkScrubber.ScrubJsonStringValues(scrubNode);
+        if (scrubHits > 0)
+        {
+            LogScrubbedTrademarkedTerm(_logger, scrubHits, typeof(T).Name);
+        }
 
         // DEC-073 classifies malformed model output as terminal. Constrained decoding makes a
         // malformed or null payload structurally unreachable in production, but the totality
@@ -216,7 +240,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         T? result;
         try
         {
-            result = JsonSerializer.Deserialize<T>(json, StructuredOutputSerializerOptions);
+            result = scrubNode.Deserialize<T>(StructuredOutputSerializerOptions);
         }
         catch (JsonException ex)
         {
