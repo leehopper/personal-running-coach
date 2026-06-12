@@ -24,7 +24,7 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// <summary>
 /// Regression guard for DEC-057's "single-handler / single-session / single-transaction"
 /// concurrency guarantee. Verifies that <c>EventAppendMode.Rich</c> enforces stream-version
-/// consistency so that N concurrent first-turn submissions for the same user result in
+/// consistency so that N first-turn submissions racing on the same stream result in
 /// exactly one successful commit and (N-1) stream-collision failures.
 ///
 /// <para>
@@ -33,6 +33,26 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// <c>session.Events.StartStream&lt;OnboardingView&gt;(userId, …)</c> and succeed at
 /// <c>SaveChangesAsync</c>, producing N copies of the onboarding stream's first-event
 /// sequence — the exact silent data-corruption the <c>Rich</c> flip closes.
+/// </para>
+/// <para>
+/// The test runs in two phases to make the collision deterministic. Phase 1 invokes
+/// <see cref="OnboardingTurnHandler.Handle"/> for all N submissions WITHOUT committing:
+/// every invocation reads <c>view == null</c> (nothing has committed yet, so ordering
+/// is irrelevant) and stages a <c>StartStream</c> on its own session. Phase 2 races
+/// all N <c>SaveChangesAsync</c> commits. Exactly one stream-row insert can satisfy
+/// the <c>mt_streams (tenant_id, id)</c> primary key, so exactly one commit wins
+/// regardless of scheduling — the property holds on any machine at any speed.
+/// </para>
+/// <para>
+/// The two-phase shape exists because the obvious alternative — N end-to-end
+/// handler+commit tasks fired via <c>Task.WhenAll</c> — encodes a hidden timing
+/// assumption: that every handler reads "no stream yet" before any task commits.
+/// On a slow, coverage-instrumented runner the tasks can serialize, and a task that
+/// starts after the winner's commit reads the existing view, takes the handler's
+/// legitimate second-turn Append path, and succeeds — failing the exactly-one-winner
+/// assertion (observed once in CI as <c>successCount == 2</c>) without any actual
+/// violation of the stream guarantee. Staging everything before any commit removes
+/// the timing dependence while still exercising the same database-level guard.
 /// </para>
 /// <para>
 /// The test calls <see cref="OnboardingTurnHandler.Handle"/> directly (bypassing the
@@ -51,12 +71,13 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
     private const string StrongPassword = "Str0ngTestPassw0rd!";
 
     /// <summary>
-    /// Five concurrent first-turn submissions for the same user stream must result in
-    /// exactly one successful <c>SaveChangesAsync</c> commit (the "winner") and four
-    /// <c>ExistingStreamIdCollisionException</c> failures (the "losers"). Each loser's
-    /// exception must be either <see cref="ExistingStreamIdCollisionException"/> or a
-    /// <see cref="MartenCommandException"/> wrapping a PostgreSQL unique-constraint
-    /// violation — both indicate Marten's Rich-mode version gate fired.
+    /// Five first-turn submissions, all staged before any commit, then committed
+    /// concurrently, must result in exactly one successful <c>SaveChangesAsync</c>
+    /// (the "winner") and four stream-collision failures (the "losers"). Each
+    /// loser's exception must be either <see cref="ExistingStreamIdCollisionException"/>
+    /// or a <see cref="MartenCommandException"/> wrapping a PostgreSQL
+    /// unique-constraint violation — both indicate Marten's Rich-mode version
+    /// gate fired.
     /// </summary>
     [Fact]
     public async Task ConcurrentFirstTurnSubmits_ExactlyOneSucceeds_RestThrowStreamCollision()
@@ -65,62 +86,75 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
         // projection wiring has a valid FK target when the winner commits.
         var userId = await SeedUserAsync();
 
-        var successCount = 0;
-        var failures = new List<Exception>();
-        var lockObj = new Lock();
-
-        // Act — fire N concurrent handler invocations, each in its own DI scope
-        // (mirroring the per-request scope Wolverine creates in production). All
-        // share the same userId so their StartStream calls target the same Marten
-        // stream. Each uses a distinct idempotencyKey so the idempotency short-
-        // circuit does NOT mask the race — the collision must happen at the DB
-        // layer, not inside the handler.
-        var tasks = Enumerable.Range(0, ConcurrentSubmitCount).Select(async _ =>
+        var prepared = new List<(IServiceScope Scope, IDocumentSession Session)>(ConcurrentSubmitCount);
+        try
         {
-            try
+            // Act, phase 1 — run the handler for all N submissions without
+            // committing. Each invocation gets its own DI scope + session
+            // (mirroring the per-request scope Wolverine creates in production),
+            // reads view == null (nothing has committed), and stages
+            // StartStream<OnboardingView> for the same userId. Each uses a
+            // distinct idempotencyKey so the idempotency short-circuit does NOT
+            // mask the race — the collision must happen at the DB layer, not
+            // inside the handler.
+            for (var i = 0; i < ConcurrentSubmitCount; i++)
             {
-                await InvokeFirstTurnAsync(userId, idempotencyKey: Guid.NewGuid());
-                lock (lockObj)
-                {
-                    successCount++;
-                }
+                prepared.Add(await PrepareFirstTurnAsync(userId, idempotencyKey: Guid.NewGuid()));
             }
-            catch (Exception ex)
+
+            // Act, phase 2 — race all N commits. This is where Marten's
+            // Rich-mode stream-version gate must let exactly one StartStream
+            // insert through.
+            var outcomes = await Task.WhenAll(prepared.Select(async p =>
             {
-                lock (lockObj)
+                try
                 {
-                    failures.Add(ex);
+                    await p.Session.SaveChangesAsync(TestContext.Current.CancellationToken);
+                    return (Exception?)null;
                 }
+                catch (Exception ex)
+                {
+                    return ex;
+                }
+            }));
+
+            // Assert — exactly one winner; all losers carry a stream-collision signal.
+            var successCount = outcomes.Count(o => o is null);
+            var failures = outcomes.Where(o => o is not null).Cast<Exception>().ToList();
+
+            successCount.Should().Be(
+                1,
+                because: "exactly one concurrent StartStream<OnboardingView> commit must win; all others must hit the stream-id unique constraint");
+
+            var expectedFailureCount = ConcurrentSubmitCount - 1;
+            failures.Should().HaveCount(
+                expectedFailureCount,
+                because: $"the remaining {expectedFailureCount} submits must fail with a stream-collision exception from Marten's Rich-mode version check");
+
+            // Each failure must be a Marten stream-collision indicator: either the typed
+            // ExistingStreamIdCollisionException (emitted directly by Marten when it
+            // detects the collision before issuing the SQL) or a MartenCommandException
+            // wrapping the PostgreSQL unique-constraint violation (emitted when the
+            // collision surfaces at the DB level inside SaveChangesAsync).
+            //
+            // Per CodeRabbit feedback: a bare `is MartenCommandException` would also
+            // accept unrelated SQL errors (foreign-key, syntax, etc.). Verify the
+            // wrapped Postgres exception carries SqlState 23505 (unique_violation),
+            // which is the exact signal that Marten's Rich-mode version gate fired.
+            foreach (var ex in failures)
+            {
+                ex.Should().Match<Exception>(
+                    e => e is ExistingStreamIdCollisionException || IsUniqueViolation(e),
+                    because: "Rich-mode concurrent StartStream must throw ExistingStreamIdCollisionException or a MartenCommandException wrapping a Postgres unique_violation (SqlState 23505) — not silently succeed");
             }
-        });
-
-        await Task.WhenAll(tasks);
-
-        // Assert — exactly one winner; all losers carry a stream-collision signal.
-        successCount.Should().Be(
-            1,
-            because: "exactly one concurrent StartStream<OnboardingView> commit must win; all others must hit the stream-id unique constraint");
-
-        var expectedFailureCount = ConcurrentSubmitCount - 1;
-        failures.Should().HaveCount(
-            expectedFailureCount,
-            because: $"the remaining {expectedFailureCount} submits must fail with a stream-collision exception from Marten's Rich-mode version check");
-
-        // Each failure must be a Marten stream-collision indicator: either the typed
-        // ExistingStreamIdCollisionException (emitted directly by Marten when it
-        // detects the collision before issuing the SQL) or a MartenCommandException
-        // wrapping the PostgreSQL unique-constraint violation (emitted when the
-        // collision surfaces at the DB level inside SaveChangesAsync).
-        //
-        // Per CodeRabbit feedback: a bare `is MartenCommandException` would also
-        // accept unrelated SQL errors (foreign-key, syntax, etc.). Verify the
-        // wrapped Postgres exception carries SqlState 23505 (unique_violation),
-        // which is the exact signal that Marten's Rich-mode version gate fired.
-        foreach (var ex in failures)
+        }
+        finally
         {
-            ex.Should().Match<Exception>(
-                e => e is ExistingStreamIdCollisionException || IsUniqueViolation(e),
-                because: "Rich-mode concurrent StartStream must throw ExistingStreamIdCollisionException or a MartenCommandException wrapping a Postgres unique_violation (SqlState 23505) — not silently succeed");
+            foreach (var (scope, session) in prepared)
+            {
+                await session.DisposeAsync();
+                scope.Dispose();
+            }
         }
     }
 
@@ -194,15 +228,16 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
 
     /// <summary>
     /// Invokes <see cref="OnboardingTurnHandler.Handle"/> in its own DI scope with a
-    /// real <see cref="IDocumentSession"/> and then commits via
-    /// <c>SaveChangesAsync</c> (standing in for Wolverine's transactional middleware).
-    /// All LLM-dependent collaborators are stubbed to return a minimal valid
-    /// <see cref="OnboardingTurnOutput"/> so the handler proceeds past the LLM call
-    /// and reaches the <c>StartStream</c> + <c>Append</c> path before commit.
+    /// real <see cref="IDocumentSession"/> WITHOUT committing — the handler stages
+    /// the StartStream + Append operations and the caller owns the commit (standing
+    /// in for Wolverine's transactional middleware) plus disposal of the returned
+    /// scope and session. All LLM-dependent collaborators are stubbed to return a
+    /// minimal valid <see cref="OnboardingTurnOutput"/> so the handler proceeds past
+    /// the LLM call and reaches the <c>StartStream</c> + <c>Append</c> path.
     /// </summary>
-    private async Task InvokeFirstTurnAsync(Guid userId, Guid idempotencyKey)
+    private async Task<(IServiceScope Scope, IDocumentSession Session)> PrepareFirstTurnAsync(Guid userId, Guid idempotencyKey)
     {
-        using var scope = Factory.Services.CreateScope();
+        var scope = Factory.Services.CreateScope();
 
         // Marten is configured with TenancyStyle.Conjoined; the default DI
         // session has no tenant assigned (in production, Wolverine middleware
@@ -210,7 +245,7 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
         // user id as tenant matches what the runtime would do for this
         // command and lets MartenIdempotencyStore's tenant-scope guard pass.
         var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
-        await using var session = store.LightweightSession(userId.ToString());
+        var session = store.LightweightSession(userId.ToString());
 
         var llm = Substitute.For<ICoachingLlm>();
         llm.GenerateStructuredAsync<OnboardingTurnOutput>(
@@ -252,8 +287,6 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
             NullLogger<OnboardingTurnHandler>.Instance,
             TestContext.Current.CancellationToken);
 
-        // Stand in for Wolverine's transactional middleware. This is the commit
-        // where the stream-collision exception surfaces for the losing sessions.
-        await session.SaveChangesAsync(TestContext.Current.CancellationToken);
+        return (scope, session);
     }
 }

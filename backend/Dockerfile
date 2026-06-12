@@ -20,7 +20,7 @@
 # contributors use Path B (host-run API + Compose for infra only) per
 # CONTRIBUTING.md and DEC-045. Remove this comment and retry Path A on the
 # first .NET 11 SDK bump.
-FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:c0790639332692a0d56cdd81ed581cfd24d040d9839764c138994866df89a3b6 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:548d93f8a18a1acbe6cc127bc4f47281430d34a9e35c18afa80a8d6741c2adc3 AS build
 
 # Defensive belt-and-suspenders against #122608-class regressions if this
 # Dockerfile is ever accidentally built on arm64. Exhaustive ARM64 SVE/SVE2
@@ -48,7 +48,7 @@ RUN dotnet restore RunCoach.slnx
 COPY . .
 RUN dotnet publish src/RunCoach.Api/RunCoach.Api.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:8c0b6857eab7b2aa57884c839bf4678414606bd7d17370f18a842ac5cf414711 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:ddcf70ad1ab963a4fcd41fbd722a6b660e404e87567cfbd46fd2809c21b02088 AS runtime
 
 WORKDIR /app
 COPY --from=build /app/publish .
