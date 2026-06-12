@@ -2911,4 +2911,26 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 
 ---
 
+## DEC-081: Slice 3B F1 — the Amber safety referral commits on a terminal L2 failure, the one deliberate exception to DEC-080's "nothing staged" rule (Slice 3B)
+
+**Date:** 2026-06-11
+**Category:** Backend / Coaching / Adaptation / Safety
+**Status:** Accepted — records the deliberate relaxation of DEC-080's "nothing staged on a validator reject / echo mismatch / terminal-LLM failure" contract for the Amber referral only, shipped in `EvaluateAdaptationHandler` (slice 3B F1, PR #185), surfaced by the PR #185 deep review.
+**Drives:** What the adaptation handler commits when an Amber-classified evaluation fails on the L2 restructure path.
+**Builds on:** DEC-080 (single-call validator reject — nothing staged), DEC-073 (synchronous LLM-failure policy — SDK-only retry), DEC-079 (high-risk safety subset — safety turns are never LLM-policed), the `project_mvp0_audience_and_priorities` steer.
+
+**Decision:**
+
+- **The scripted Amber referral stages before the escalation branch (handler step 5b) and commits on every Amber outcome, including a terminal L2 failure.** The 2026-06-11 live e2e pass found the Amber `SafetySignalRaised` referral was appended only inside the L2 restructure path, so an Amber log that absorbed (L0), rode a score-driven L1, or landed in the post-restructure cooldown dead-zone surfaced no safety turn at all (the live repro: an injury note during cooldown produced total silence in the Coach panel). The fix hoists the referral append into the main handler flow before the deterministic escalation, so absorb, nudge, dead-zone hold, restructure, and a caught terminal `CoachingLlmException` / post-decode reject / tier-echo mismatch all surface it.
+- **This is the one deliberate exception to DEC-080's "nothing staged" rule.** On those caught L2-failure paths the handler returns the `Kind=Error` envelope normally, so Wolverine commits the session — and for an Amber log the staged referral commits with it (DEC-079: a safety turn is never dropped because the restructure failed). The plan event, signal-state document, and idempotency marker still stage strictly nothing before the LLM call, validation, and diff have all succeeded, so the marker stays released and the log re-evaluates on retry; only the safety referral is exempt.
+- **A per-log committed-stream dedupe keeps the marker-released retry from double-appending.** `ReferralAlreadyRaisedAsync` reads the committed plan stream for an existing `SafetySignalRaised` carrying the same `WorkoutLogId`; the retry — or a concurrent racer whose referral-bearing commit lost the stream-version race and re-runs under the bounded chain retry — skips the append when one is already committed.
+
+**Rationale:** DEC-079 makes the high-risk safety subset non-negotiable for MVP-0 (self + family); silently dropping an injury / RED-S referral because the LLM restructure failed is exactly the failure DEC-079 guards against. DEC-080's "nothing staged" invariant exists to protect the *plan-mutating* writes so a failed evaluation re-runs cleanly on retry — the scripted, deterministic referral is not a plan mutation and is idempotent under the per-log dedupe, so committing it on failure costs nothing the retry semantics rely on. On a successful Amber restructure the event order flips to `[referral, restructure]`; the conversation panel orders turns by event version, so the two turns simply swap positions with no logic keyed off order.
+
+**Alternatives considered:** (1) keep the referral inside the restructure path and accept the gap — rejected, it is the live bug. (2) Stage the referral but roll it back with the transaction on failure (strict DEC-080) — rejected, it reintroduces the dropped-safety-turn gap on every terminal L2 failure. (3) Emit the referral from a separate per-user safety stream — deferred; the plan-scoped Conversation panel has no plan-less surface yet.
+
+**Open / deferred:** off-plan logs still return before safety classification (handler step 3 precedes step 4), so an off-plan log with a crisis / injury note raises no signal at all; surfacing it needs a plan-less safety vehicle (per-user safety stream, or classify-at-create with a response-level surface). Tracked in `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle.
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
