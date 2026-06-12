@@ -21,9 +21,22 @@ feature ground, so they precede Slice 4.
 (new account, funded key, real browser) passes with all four fixes observable at
 the surface. CI/eval coverage alone does not close this slice.
 
+**Progress.** F1 ✅ shipped #185 (2026-06-11). F2 ⬜ · F3 ⬜ · F4 ⬜ — next: F2.
+The live-pass re-run (done-gate) is pending all four.
+
 ---
 
 ## F1 — Amber safety referral surfaces on every escalation path
+
+**Status: ✅ Shipped — #185 (2026-06-11), DEC-081.** The referral append is hoisted
+out of `RestructureAsync` into a pre-escalation step in `EvaluateAdaptationHandler`,
+so every Amber outcome (L0 absorb, score-driven L1, L1 nudge, dead-zone hold, L2
+restructure, and a terminal L2 failure) surfaces it; a per-log committed-stream
+dedupe (`ReferralAlreadyRaisedAsync`) prevents double-appends across the
+marker-released retry and the concurrent-failure race. DEC-081 records the
+referral-commits-on-terminal-L2-failure exception to DEC-080's nothing-staged rule.
+Unit + integration coverage spans Amber × {absorb, score-driven L1, nudge, terminal
+failure, dedupe, concurrent-failure race}.
 
 **Finding.** `EvaluateAdaptationHandler` appends the Amber `SafetySignalRaised`
 referral only inside the L2 restructure path. An Amber-classified log whose
