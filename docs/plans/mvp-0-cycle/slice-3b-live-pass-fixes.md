@@ -21,7 +21,7 @@ feature ground, so they precede Slice 4.
 (new account, funded key, real browser) passes with all four fixes observable at
 the surface. CI/eval coverage alone does not close this slice.
 
-**Progress.** F1 ✅ shipped #185 (2026-06-11). F2 ⬜ · F3 ⬜ · F4 ⬜ — next: F2.
+**Progress.** F1 ✅ shipped #185 (2026-06-11). F2 ✅ shipped #187 (2026-06-12). F3 ⬜ · F4 ⬜ — next: F3.
 The live-pass re-run (done-gate) is pending all four.
 
 ---
@@ -63,6 +63,8 @@ evaluation per log.
   dead-zone hold} so the gap cannot silently reopen.
 
 ## F2 — Trademark scrub on all persisted LLM prose
+
+**Status: ✅ Shipped — #187 (2026-06-12).** Generation prompts now prohibit the term and name the approved vocabulary; a deterministic scrub guard at the structured-output boundary rejects/scrubs offending output before append; eval trademark guard extended to all persisted prose fields.
 
 **Finding.** The live macro generation emitted the trademarked term into the
 persisted `plan_generated_v1` event: `Macro.Rationale` reads "Using Daniels'
