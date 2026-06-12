@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":15,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body absorb the week ahead. Gentle walking or stretching is fine if you feel like moving.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Second rest day to keep your schedule at 3 runs per week. Use this time to prep your gear and mentally set intentions for the week.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 25–30 min at 7:00–8:00 /km. This is your aerobic foundation day — keep it conversational, relaxed, and enjoyable.\"},\"wednesday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day between runs. Light stretching or a short walk is perfectly fine.\"},\"thursday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 25–30 min at 7:00–8:00 /km. Focus on relaxed breathing and a comfortable, steady effort. No need to push — easy pace builds your engine.\"},\"friday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Your body is adapting — rest is where the fitness gains actually happen.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long run, 40–45 min at 7:00–8:00 /km. Your longest effort of the week — aim to finish feeling like you had more left in the tank. Slow down if needed.\"},\"week_summary\":\"Welcome, Sarah! Week 1 is all about establishing your rhythm and building the habit of consistent, easy running. All three runs this week stay in your Daniels-Gilbert easy zone (7:00–8:00 /km) — that's not a limitation, it's exactly the right stimulus. At your current base of 15 km per week, we're holding volume steady while your body learns to handle three structured run days. The priority right now is consistency over intensity: showing up, keeping the effort comfortable, and finishing each session feeling good rather than depleted. Your long run on Saturday anchors the week.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 3860,
+    "outputTokenCount": 531,
+    "totalTokenCount": 4391
+  }
+}

@@ -55,6 +55,10 @@ static_system_prompt: |
   The training paces provided are computed deterministically from the runner's race history using Daniels' Running Formula. You MUST use these exact pace ranges. Do not derive or estimate different paces.
   Volume progression MUST NOT exceed 10% per week. Deload weeks must occur every 3-4 weeks.
 
+  VOCABULARY RULES:
+  - Refer to the pace methodology and the fitness index ONLY as "Daniels-Gilbert zones" or "pace-zone index" — in every prose field you produce (rationales, notes, warnings, week summaries, coaching narrative).
+  - Do NOT use the trademarked four-letter brand name for the Daniels fitness index, in any casing or spelling variant. When you would name the index, say "pace-zone index" instead.
+
   SEMANTIC OUTPUT GUIDANCE:
   When generating a training plan, explain your reasoning and include physiological rationale for key decisions. Connect training choices to the runner's specific goals, fitness level, and constraints.
 

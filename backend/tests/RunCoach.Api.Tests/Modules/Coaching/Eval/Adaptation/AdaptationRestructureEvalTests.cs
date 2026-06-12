@@ -102,8 +102,9 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
         verdict.Criteria.Should().AllSatisfy(c =>
             c.Passed.Should().BeTrue(because: $"criterion '{c.CriterionName}' should pass: {c.Evidence}"));
 
-        // Trademark guard on the LLM-authored copy.
-        output.Rationale.Should().NotContainEquivalentOf("VDOT");
+        // Trademark guard on the LLM-authored copy — every prose field, not just
+        // the rationale (Slice 3B F2).
+        TrademarkProseGuard.AssertClean($"adaptation-restructure-{profileName}", output);
     }
 
     /// <summary>

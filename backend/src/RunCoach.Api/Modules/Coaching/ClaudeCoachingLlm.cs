@@ -135,7 +135,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
         ThrowIfTruncated(response);
 
-        return text;
+        return ScrubTrademarkedProse(_logger, text, outputKind: "text");
     }
 
     /// <inheritdoc />
@@ -203,6 +203,11 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             response.Usage.OutputTokens);
 
         ThrowIfTruncated(response);
+
+        // Slice 3B F2: scrub the trademarked pace-index term from the raw JSON before
+        // deserialization — the one boundary every structured output type crosses, so
+        // prose fields on current and future output records are covered uniformly.
+        json = ScrubTrademarkedProse(_logger, json, typeof(T).Name);
 
         // DEC-073 classifies malformed model output as terminal. Constrained decoding makes a
         // malformed or null payload structurally unreachable in production, but the totality
@@ -410,6 +415,23 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <summary>
+    /// Scrubs the trademarked pace-index term from raw LLM output before it is
+    /// deserialized or returned (Slice 3B F2). The prompt-level vocabulary rules
+    /// make a hit rare; when one occurs it is replaced with the approved
+    /// vocabulary and logged as a warning so prompt drift stays visible.
+    /// </summary>
+    private static string ScrubTrademarkedProse(ILogger logger, string text, string outputKind)
+    {
+        var scrubbed = TrademarkScrubber.Scrub(text, out var occurrences);
+        if (occurrences > 0)
+        {
+            LogScrubbedTrademarkedTerm(logger, occurrences, outputKind);
+        }
+
+        return scrubbed;
+    }
+
+    /// <summary>
     /// Validates that required settings are present.
     /// Throws <see cref="InvalidOperationException"/> if the API key is missing.
     /// </summary>
@@ -436,6 +458,9 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Received response from {ModelId}: {ContentLength} chars, stop_reason={StopReason}, input_tokens={InputTokens}, output_tokens={OutputTokens}")]
     private static partial void LogReceivedResponse(ILogger logger, string modelId, int contentLength, string stopReason, long inputTokens, long outputTokens);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Scrubbed {Occurrences} trademarked pace-index term occurrence(s) from LLM output ({OutputKind})")]
+    private static partial void LogScrubbedTrademarkedTerm(ILogger logger, int occurrences, string outputKind);
 
     /// <summary>
     /// Issues the Anthropic <c>messages.create</c> call inside a <see cref="RetryAfterCapture"/>

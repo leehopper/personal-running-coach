@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Recovery\",\"weekly_target_km\":8,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest day. Let your body consolidate the work from the week ahead. Staying off your feet today is an active investment in Friday and Saturday's runs.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Use this time for gentle foot mobility work if it feels comfortable — but only pain-free movement. Nothing that loads the plantar fascia.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Your first run of the week. Keep it to 20 minutes maximum at easy pace (5:25–6:12 /km). Start with a 3–5 minute brisk walk to warm up. If you feel any foot pain at any point, switch to walking immediately. No ego today — this run is about re-establishing the habit, not fitness.\"},\"wednesday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day between runs. This spacing is intentional — 48 hours between efforts gives your plantar fascia time to respond and recover. Notice how your foot feels today; that feedback matters.\"},\"thursday\":{\"slot_type\":\"CrossTrain\",\"workout_type\":\"CrossTrain\",\"notes\":\"Optional light cross-training if cleared by your physio — think swimming or upper-body work only, nothing that loads the foot. If in doubt, treat this as a second rest day. No pressure either way.\"},\"friday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Second easy run of the week. Same structure as Tuesday — 3–5 minute walk warm-up, then up to 20 minutes at easy pace (5:25–6:12 /km). Check in with your foot at 10 minutes. If anything feels off, walk the remainder. That still counts as a successful session.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Your long run day — and right now, that means your third easy run capped at 20 minutes. Same easy pace (5:25–6:12 /km), same walk warm-up protocol. The goal this week is simply completing three sessions pain-free. That is the whole win.\"},\"week_summary\":\"Welcome back, James. This first week is built entirely around one question: can your foot handle three 20-minute easy runs with no pain? Your physio has cleared you for exactly that, and your recent training history — 6 km, 8.5 km, 2.4 km over the past three weeks — tells me your body is ready to build carefully but isn't ready to push yet. The 8 km weekly target reflects that reality honestly. Every run this week uses your Daniels-Gilbert easy zone (5:25–6:12 /km), which is the only appropriate zone given your current clearance. There is no speed work, no tempo, nothing that spikes load on the plantar fascia. The rest days are spaced deliberately to give 48 hours between runs. Your one job this week is to finish all three sessions feeling the same or better than when you started. If foot pain shows up at any point during a run, walk — and let your physio know. What would feel like a success to you at the end of this first week?\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 4066,
+    "outputTokenCount": 773,
+    "totalTokenCount": 4839
+  }
+}
