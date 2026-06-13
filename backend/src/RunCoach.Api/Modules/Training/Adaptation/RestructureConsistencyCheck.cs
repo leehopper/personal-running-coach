@@ -1,4 +1,5 @@
 using RunCoach.Api.Modules.Coaching.Adaptation;
+using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Training.Plan.Models;
 
 namespace RunCoach.Api.Modules.Training.Adaptation;
@@ -20,11 +21,18 @@ namespace RunCoach.Api.Modules.Training.Adaptation;
 /// </para>
 /// <para>
 /// The match is EXACT: weekly targets and workout distances are whole-km integers, so
-/// a consistent restructure sums precisely with no tolerance band. The check applies
-/// only when the proposal revises the current week's target and that week carries
-/// materialized micro detail; otherwise it is a no-op pass (a restructure that touches
-/// only upcoming weeks has no current-week target to contradict, and a pre-existing
-/// meso/micro mismatch the proposal does not touch is out of scope — deferred).
+/// a consistent restructure sums precisely with no tolerance band (DEC-083 ratifies
+/// this over the spec's earlier tolerance-band wording). The check applies only when
+/// the proposal revises the current week's target and that week carries materialized
+/// micro detail; otherwise it is a no-op pass (a restructure that touches only upcoming
+/// weeks has no current-week target to contradict, and a pre-existing meso/micro
+/// mismatch the proposal does not touch is out of scope — deferred).
+/// </para>
+/// <para>
+/// The resulting-week sum counts running distance only: <c>WeeklyTargetKm</c> is a
+/// running-volume figure, so a carried-over cross-training day (which the resolver
+/// preserves verbatim) is excluded from the sum, matching how the target is defined
+/// and how the prompt frames it ("the exact arithmetic sum of those distances" over runs).
 /// </para>
 /// </remarks>
 internal static class RestructureConsistencyCheck
@@ -61,6 +69,7 @@ internal static class RestructureConsistencyCheck
 
         var resultingSumKm = RestructureWorkoutResolver
             .ResolveResultingWorkouts(proposal.RevisedCurrentWeekWorkouts, currentWeek.Workouts)
+            .Where(workout => workout.WorkoutType != WorkoutType.CrossTrain)
             .Sum(workout => workout.TargetDistanceKm);
 
         return new RestructureConsistencyResult(

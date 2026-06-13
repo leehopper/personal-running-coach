@@ -9,10 +9,10 @@ namespace RunCoach.Api.Tests.Modules.Training.Adaptation;
 /// <summary>
 /// Unit tests for <see cref="RestructureConsistencyCheck"/> (slice 3B F4): a
 /// restructure that revises the current week's weekly target must make that target
-/// equal the total distance of the week's RESULTING workouts (the sparse revisions
-/// applied over the untouched days). The check is exact (whole km) and a no-op pass
-/// when the proposal does not revise the current week's target or the week carries no
-/// materialized micro detail.
+/// equal the total RUNNING distance of the week's RESULTING workouts (the sparse
+/// revisions applied over the untouched days). The check is exact (whole km) and a
+/// no-op pass when the proposal does not revise the current week's target or the week
+/// carries no materialized micro detail.
 /// </summary>
 public sealed class RestructureConsistencyCheckTests
 {
@@ -32,9 +32,12 @@ public sealed class RestructureConsistencyCheckTests
         var actual = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 1);
 
         // Assert
-        actual.IsConsistent.Should().BeFalse();
-        actual.ProposedWeeklyTargetKm.Should().Be(24);
-        actual.ResultingWorkoutSumKm.Should().Be(30);
+        var expectedIsConsistent = false;
+        var expectedProposedWeeklyTargetKm = 24;
+        var expectedResultingWorkoutSumKm = 30;
+        actual.IsConsistent.Should().Be(expectedIsConsistent);
+        actual.ProposedWeeklyTargetKm.Should().Be(expectedProposedWeeklyTargetKm);
+        actual.ResultingWorkoutSumKm.Should().Be(expectedResultingWorkoutSumKm);
     }
 
     [Fact]
@@ -50,9 +53,12 @@ public sealed class RestructureConsistencyCheckTests
         var actual = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 1);
 
         // Assert
-        actual.IsConsistent.Should().BeTrue();
-        actual.ProposedWeeklyTargetKm.Should().Be(30);
-        actual.ResultingWorkoutSumKm.Should().Be(30);
+        var expectedIsConsistent = true;
+        var expectedProposedWeeklyTargetKm = 30;
+        var expectedResultingWorkoutSumKm = 30;
+        actual.IsConsistent.Should().Be(expectedIsConsistent);
+        actual.ProposedWeeklyTargetKm.Should().Be(expectedProposedWeeklyTargetKm);
+        actual.ResultingWorkoutSumKm.Should().Be(expectedResultingWorkoutSumKm);
     }
 
     [Fact]
@@ -67,8 +73,10 @@ public sealed class RestructureConsistencyCheckTests
         var actual = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 1);
 
         // Assert
-        actual.IsConsistent.Should().BeFalse();
-        actual.ResultingWorkoutSumKm.Should().Be(35);
+        var expectedIsConsistent = false;
+        var expectedResultingWorkoutSumKm = 35;
+        actual.IsConsistent.Should().Be(expectedIsConsistent);
+        actual.ResultingWorkoutSumKm.Should().Be(expectedResultingWorkoutSumKm);
     }
 
     [Fact]
@@ -84,8 +92,31 @@ public sealed class RestructureConsistencyCheckTests
         var actual = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 1);
 
         // Assert
-        actual.IsConsistent.Should().BeTrue();
-        actual.ResultingWorkoutSumKm.Should().Be(20);
+        var expectedIsConsistent = true;
+        var expectedResultingWorkoutSumKm = 20;
+        actual.IsConsistent.Should().Be(expectedIsConsistent);
+        actual.ResultingWorkoutSumKm.Should().Be(expectedResultingWorkoutSumKm);
+    }
+
+    [Fact]
+    public void Evaluate_CarriedOverCrossTrainDay_IsExcludedFromTheRunningOnlySum()
+    {
+        // Arrange — the current week is two runs (10 + 8 km) plus an untouched 20 km
+        //   cross-training day. The weekly target is running volume, so the resulting
+        //   sum must exclude the carried-over cross-train distance: 10 + 8 = 18, not 38.
+        var plan = Plan(1, Workout(1, 10), Workout(3, 8), CrossTrain(5, 20));
+        var proposal = Proposal(
+            targets: [Target(1, 18)],
+            revised: [Workout(1, 10), Workout(3, 8)]);
+
+        // Act
+        var actual = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 1);
+
+        // Assert
+        var expectedIsConsistent = true;
+        var expectedResultingWorkoutSumKm = 18;
+        actual.IsConsistent.Should().Be(expectedIsConsistent);
+        actual.ResultingWorkoutSumKm.Should().Be(expectedResultingWorkoutSumKm);
     }
 
     [Fact]
@@ -102,7 +133,8 @@ public sealed class RestructureConsistencyCheckTests
         var actual = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 1);
 
         // Assert
-        actual.Should().Be(RestructureConsistencyResult.NotApplicable);
+        var expectedResult = RestructureConsistencyResult.NotApplicable;
+        actual.Should().Be(expectedResult);
     }
 
     [Fact]
@@ -117,7 +149,8 @@ public sealed class RestructureConsistencyCheckTests
         var actual = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 2);
 
         // Assert
-        actual.Should().Be(RestructureConsistencyResult.NotApplicable);
+        var expectedResult = RestructureConsistencyResult.NotApplicable;
+        actual.Should().Be(expectedResult);
     }
 
     [Fact]
@@ -134,8 +167,10 @@ public sealed class RestructureConsistencyCheckTests
         var actual = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 1);
 
         // Assert — 20 km (the last edit) against the unchanged 20 km week.
-        actual.IsConsistent.Should().BeTrue();
-        actual.ProposedWeeklyTargetKm.Should().Be(20);
+        var expectedIsConsistent = true;
+        var expectedProposedWeeklyTargetKm = 20;
+        actual.IsConsistent.Should().Be(expectedIsConsistent);
+        actual.ProposedWeeklyTargetKm.Should().Be(expectedProposedWeeklyTargetKm);
     }
 
     private static PlanProjectionDto Plan(int weekNumber, params WorkoutOutput[] existing) =>
@@ -175,4 +210,7 @@ public sealed class RestructureConsistencyCheckTests
             CoachingNotes = string.Empty,
             PerceivedEffort = 4,
         };
+
+    private static WorkoutOutput CrossTrain(int dayOfWeek, int targetDistanceKm) =>
+        Workout(dayOfWeek, targetDistanceKm) with { WorkoutType = WorkoutType.CrossTrain, Title = "Cross-Training" };
 }

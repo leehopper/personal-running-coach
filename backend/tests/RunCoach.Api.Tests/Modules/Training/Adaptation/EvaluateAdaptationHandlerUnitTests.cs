@@ -991,11 +991,14 @@ public sealed class EvaluateAdaptationHandlerUnitTests
     [Fact]
     public async Task Handle_RestructureWithInconsistentCurrentWeekTarget_RejectsWithNothingStaged()
     {
-        // Arrange — slice 3B F4: the restructure revises the current week's (week 1)
-        //   target to 24 km, but its resulting week sums to 40 km (the day-2 edit plus
-        //   the three untouched days at 10 km each). The proposed target contradicts the
-        //   week it actually produces, so the projection-aware gate rejects it terminally
-        //   — even though the pure validator passes (it cannot see the untouched days).
+        // Arrange — slice 3B F4: the proposal's three revised runs sum to 24 km
+        //   (12 + 4 + 8) but it leaves Saturday's 10 km long run (day 6) untouched, so
+        //   the RESULTING week is 34 km. The proposed current-week (week 1) target of
+        //   24 km counts only the revised days and contradicts the week the merge
+        //   actually produces. The gate catches this only by summing the untouched day
+        //   too — the exact projection-aware drift it exists for — even though the pure
+        //   validator passes. (A resolver regression that summed revised-only would see
+        //   24 == 24 and wrongly let it through, so this fails if the merge ever breaks.)
         var harness = new Harness();
         var log = BuildLog(BuildSnapshot());
         var cmd = CommandFor(log);
@@ -1006,7 +1009,12 @@ public sealed class EvaluateAdaptationHandlerUnitTests
             RestructurePlan = new RestructurePlan
             {
                 RevisedWeeklyTargets = [new WeeklyTargetEdit { WeekNumber = 1, WeeklyTargetKm = 24 }],
-                RevisedCurrentWeekWorkouts = [BuildWorkout(2, WorkoutType.Easy)],
+                RevisedCurrentWeekWorkouts =
+                [
+                    BuildWorkout(0, WorkoutType.Easy) with { TargetDistanceKm = 12 },
+                    BuildWorkout(2, WorkoutType.Easy) with { TargetDistanceKm = 4 },
+                    BuildWorkout(3, WorkoutType.Easy) with { TargetDistanceKm = 8 },
+                ],
                 ForwardPath = "Hold the reduced volume this week, then ramp back ~10% per week.",
             },
         });
@@ -1030,9 +1038,12 @@ public sealed class EvaluateAdaptationHandlerUnitTests
     [Fact]
     public async Task Handle_RestructureWithConsistentCurrentWeekTarget_AppliesTheRestructure()
     {
-        // Arrange — slice 3B F4: the current-week (week 1) target equals the resulting
-        //   week sum (40 km = the day-2 edit plus three untouched 10 km days), so the
-        //   consistency gate passes and the restructure is applied as usual.
+        // Arrange — slice 3B F4: the same three revised runs sum to 24 km and Saturday's
+        //   untouched 10 km long run (day 6) brings the RESULTING week to 34 km, which
+        //   equals the proposed current-week (week 1) target. The gate passes only
+        //   because it merges the untouched day into the sum, so the restructure is
+        //   applied as usual. (A resolver regression that summed revised-only would see
+        //   24 != 34 and wrongly reject, so this fails if the merge ever breaks.)
         var harness = new Harness();
         var log = BuildLog(BuildSnapshot());
         var cmd = CommandFor(log);
@@ -1042,8 +1053,13 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         {
             RestructurePlan = new RestructurePlan
             {
-                RevisedWeeklyTargets = [new WeeklyTargetEdit { WeekNumber = 1, WeeklyTargetKm = 40 }],
-                RevisedCurrentWeekWorkouts = [BuildWorkout(2, WorkoutType.Easy)],
+                RevisedWeeklyTargets = [new WeeklyTargetEdit { WeekNumber = 1, WeeklyTargetKm = 34 }],
+                RevisedCurrentWeekWorkouts =
+                [
+                    BuildWorkout(0, WorkoutType.Easy) with { TargetDistanceKm = 12 },
+                    BuildWorkout(2, WorkoutType.Easy) with { TargetDistanceKm = 4 },
+                    BuildWorkout(3, WorkoutType.Easy) with { TargetDistanceKm = 8 },
+                ],
                 ForwardPath = "Hold the reduced volume this week, then ramp back ~10% per week.",
             },
         });

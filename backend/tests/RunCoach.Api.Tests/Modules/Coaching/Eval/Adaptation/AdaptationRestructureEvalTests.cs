@@ -104,6 +104,10 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
         // Runs the production check against the scenario's existing current week.
         var consistency = RestructureConsistencyCheck.Evaluate(
             output.RestructurePlan!, ExistingWeekProjection(profileName), currentWeekNumber: 1);
+        consistency.ProposedWeeklyTargetKm.Should().NotBeNull(
+            because: "this eval must exercise the current-week consistency rule itself, not the "
+                + "NotApplicable pass — the fixture must revise the current week's target");
+        consistency.ResultingWorkoutSumKm.Should().NotBeNull();
         consistency.IsConsistent.Should().BeTrue(
             because: "the restructure's current-week target must equal its resulting workout sum "
                 + $"(proposed {consistency.ProposedWeeklyTargetKm} km, resulting {consistency.ResultingWorkoutSumKm} km)");
