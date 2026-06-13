@@ -2,6 +2,7 @@ using FluentAssertions;
 using RunCoach.Api.Modules.Coaching.Adaptation;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Training.Adaptation;
+using RunCoach.Api.Modules.Training.Plan.Models;
 using RunCoach.Api.Modules.Training.Safety;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Eval.Adaptation;
@@ -185,6 +186,59 @@ public sealed class AdaptationValidatorEvalTests
         violations.Should().BeEmpty();
     }
 
+    [Fact]
+    public void Consistency_CurrentWeekTargetMatchingOnlyEditedWorkouts_IsRejected()
+    {
+        // Arrange — the live-pass shape (slice 3B F4): the current week is four
+        //   workouts (Mon 7 / Wed 8 / Thu 6 / Sat 14); the proposal edits three to sum
+        //   24 km and leaves Thursday's 6 km untouched, then sets the week target to 24.
+        //   The real week sums to 30, so the proposed target contradicts it.
+        var plan = WeekOnePlan(Workout(1, 7), Workout(3, 8), Workout(4, 6), Workout(6, 14));
+        var proposal = new RestructurePlan
+        {
+            RevisedWeeklyTargets = [new WeeklyTargetEdit { WeekNumber = 1, WeeklyTargetKm = 24 }],
+            RevisedCurrentWeekWorkouts = [Workout(1, 4), Workout(3, 8), Workout(6, 12)],
+            ForwardPath = "Hold this week, then ramp back up.",
+        };
+
+        // Act
+        var result = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 1);
+
+        // Assert — the eval pins the rule that rejects the live arithmetic gap.
+        result.IsConsistent.Should().BeFalse();
+        result.ProposedWeeklyTargetKm.Should().Be(24);
+        result.ResultingWorkoutSumKm.Should().Be(30);
+    }
+
+    [Fact]
+    public void Consistency_CurrentWeekTargetMatchingTheResultingWeek_IsClean()
+    {
+        // Arrange — same edits, but the target accounts for the untouched Thursday.
+        var plan = WeekOnePlan(Workout(1, 7), Workout(3, 8), Workout(4, 6), Workout(6, 14));
+        var proposal = new RestructurePlan
+        {
+            RevisedWeeklyTargets = [new WeeklyTargetEdit { WeekNumber = 1, WeeklyTargetKm = 30 }],
+            RevisedCurrentWeekWorkouts = [Workout(1, 4), Workout(3, 8), Workout(6, 12)],
+            ForwardPath = "Hold this week, then ramp back up.",
+        };
+
+        // Act
+        var result = RestructureConsistencyCheck.Evaluate(proposal, plan, currentWeekNumber: 1);
+
+        // Assert
+        result.IsConsistent.Should().BeTrue();
+    }
+
+    private static PlanProjectionDto WeekOnePlan(params WorkoutOutput[] existing) =>
+        new()
+        {
+            PlanId = Guid.NewGuid(),
+            MicroWorkoutsByWeek = new Dictionary<int, MicroWorkoutListOutput>
+            {
+                [1] = new() { Workouts = existing },
+            },
+        };
+
     private static PlanAdaptationOutput Restructure(
         SafetyTier tier,
         int netLoadDelta,
@@ -221,4 +275,7 @@ public sealed class AdaptationValidatorEvalTests
             CoachingNotes = string.Empty,
             PerceivedEffort = 4,
         };
+
+    private static WorkoutOutput Workout(int dayOfWeek, int targetDistanceKm) =>
+        Workout(dayOfWeek, WorkoutType.Easy) with { TargetDistanceKm = targetDistanceKm };
 }

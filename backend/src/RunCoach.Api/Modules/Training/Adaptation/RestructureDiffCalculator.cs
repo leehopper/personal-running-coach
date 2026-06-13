@@ -100,12 +100,10 @@ internal static class RestructureDiffCalculator
             return [];
         }
 
-        // Collapse duplicate day entries last-wins; drop days outside 0..6.
-        var revisedByDay = new Dictionary<int, WorkoutOutput>();
-        foreach (var workout in revisedWorkouts.Where(workout => workout.DayOfWeek is >= 0 and <= 6))
-        {
-            revisedByDay[workout.DayOfWeek] = workout;
-        }
+        // Collapse duplicate day entries last-wins; drop days outside 0..6. Shared
+        // with the F4 consistency check via RestructureWorkoutResolver so both resolve
+        // the sparse per-day edit set identically.
+        var revisedByDay = RestructureWorkoutResolver.IndexRevisedByDay(revisedWorkouts);
 
         var changes = new List<WorkoutChange>();
         foreach (var (dayOfWeek, after) in revisedByDay.OrderBy(pair => pair.Key))
