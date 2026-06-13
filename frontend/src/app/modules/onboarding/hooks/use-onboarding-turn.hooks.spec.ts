@@ -61,7 +61,7 @@ describe('useOnboardingTurn', () => {
   })
 
   it('dispatches submitFailed and flips the user turn to failed when the server returns kind=Error', async () => {
-    submitUnwrap.mockResolvedValue({ kind: OnboardingTurnKind.Error, message: 'wire error' })
+    submitUnwrap.mockResolvedValue({ kind: OnboardingTurnKind.Error, errorMessage: 'wire error' })
     const store = makeStore()
     const { result } = renderHook(() => useOnboardingTurn(), {
       wrapper: makeWrapper(store),
