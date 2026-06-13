@@ -58,11 +58,31 @@ public sealed class PlanHorizonCalculatorTests
     [Fact]
     public void Compute_RaceExactlyAtMaxWeeks_Anchors()
     {
+        // Arrange
         var raceDate = PlanStart.AddDays(((PlanHorizonCalculator.MaxAnchorWeeks - 1) * 7) + 1);
 
+        // Act
         var actual = PlanHorizonCalculator.Compute(PlanStart, raceDate);
 
+        // Assert
         actual.IsAnchored.Should().BeTrue();
         actual.TargetTotalWeeks.Should().Be(PlanHorizonCalculator.MaxAnchorWeeks);
+    }
+
+    [Fact]
+    public void Compute_RaceOnPlanStartDate_ReturnsNoAnchor()
+    {
+        // raceDate == planStart → dayOffset 0 → raceWeek 1 → caught by the <= 1 guard (distinct path).
+        PlanHorizonCalculator.Compute(PlanStart, PlanStart).IsAnchored.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Compute_NonSundayAnchor_Throws()
+    {
+        var monday = PlanStart.AddDays(1); // 2026-06-08 is a Monday
+
+        var act = () => PlanHorizonCalculator.Compute(monday, monday.AddDays(63));
+
+        act.Should().Throw<ArgumentException>().WithParameterName("planStartDate");
     }
 }

@@ -26,8 +26,18 @@ public static class PlanHorizonCalculator
     /// </summary>
     /// <param name="planStartDate">The plan's week-1 day-0 anchor (a Sunday).</param>
     /// <param name="raceDate">The target event date, or null when none exists.</param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="planStartDate"/> is not a Sunday (the week-1 day-0 anchor).
+    /// </exception>
     public static PlanHorizon Compute(DateOnly planStartDate, DateOnly? raceDate)
     {
+        if (planStartDate.DayOfWeek != DayOfWeek.Sunday)
+        {
+            throw new ArgumentException(
+                $"planStartDate must be a Sunday (week 1, day 0); got {planStartDate:O} ({planStartDate.DayOfWeek}).",
+                nameof(planStartDate));
+        }
+
         if (raceDate is null || raceDate.Value < planStartDate)
         {
             return PlanHorizon.NoAnchor();
