@@ -29,6 +29,10 @@ export interface OnboardingTurn {
   // Idempotency key carried by every user turn. Retries reuse the SAME
   // key per spec § Unit 3 R03.9.
   idempotencyKey?: string
+  // User-facing message from the server when the turn fails with
+  // `kind: Error`. Undefined for network/parse failures — callers render
+  // a generic fallback when absent.
+  errorMessage?: string
 }
 
 export interface OnboardingChatState {
@@ -99,7 +103,7 @@ export const onboardingSlice = createSlice({
         status: 'pending',
       })
     },
-    submitFailed: (state, action: PayloadAction<{ id: string }>) => {
+    submitFailed: (state, action: PayloadAction<{ id: string; errorMessage?: string }>) => {
       state.isSubmitting = false
       // A failed final-turn submit may have already dispatched the
       // grace-period `building-plan` placeholder. Strip it so the user
@@ -109,6 +113,7 @@ export const onboardingSlice = createSlice({
       const turn = state.turns.find((candidate) => candidate.id === action.payload.id)
       if (turn !== undefined) {
         turn.status = 'failed'
+        turn.errorMessage = action.payload.errorMessage
       }
     },
     submitRetryStarted: (state, action: PayloadAction<{ id: string }>) => {

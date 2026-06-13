@@ -20,6 +20,10 @@ export interface OnboardingChatProps {
   completedTopics: readonly OnboardingTopic[]
   isSubmitting: boolean
   hasFailedTurn: boolean
+  // Server-supplied error message from a `kind: Error` turn. Undefined for
+  // network/parse failures — the `RetryAffordance` renders a generic fallback
+  // when absent.
+  failedTurnMessage?: string
   onSubmit: (payload: InputSubmissionPayload) => Promise<void>
   onRetry: () => Promise<void>
 }
@@ -43,6 +47,7 @@ export const OnboardingChat = ({
   completedTopics,
   isSubmitting,
   hasFailedTurn,
+  failedTurnMessage,
   onSubmit,
   onRetry,
 }: OnboardingChatProps): ReactElement => {
@@ -69,7 +74,13 @@ export const OnboardingChat = ({
           <TurnRow key={turn.id} turn={turn} />
         ))}
       </TranscriptScroller>
-      {hasFailedTurn && <RetryAffordance onRetry={onRetry} isSubmitting={isSubmitting} />}
+      {hasFailedTurn && (
+        <RetryAffordance
+          onRetry={onRetry}
+          isSubmitting={isSubmitting}
+          message={failedTurnMessage}
+        />
+      )}
       <footer className="flex flex-col gap-2">
         <InputForTopic
           suggestedInputType={effectiveInputType}
@@ -107,18 +118,27 @@ const TurnRow = ({ turn }: TurnRowProps): ReactElement => {
   )
 }
 
+const RETRY_FALLBACK_MESSAGE = "That didn't go through. Try again?"
+
 interface RetryAffordanceProps {
   onRetry: () => Promise<void>
   isSubmitting: boolean
+  message?: string
 }
 
-const RetryAffordance = ({ onRetry, isSubmitting }: RetryAffordanceProps): ReactElement => (
+const RetryAffordance = ({
+  onRetry,
+  isSubmitting,
+  message,
+}: RetryAffordanceProps): ReactElement => (
   <div
     role="alert"
     data-testid="onboarding-retry"
-    className="flex items-center justify-between rounded-md border border-border bg-secondary px-3 py-2 text-sm text-secondary-foreground"
+    className="flex items-center justify-between rounded-md border border-border bg-secondary px-3 py-2 text-sm"
   >
-    <span>That didn’t go through. Try again?</span>
+    <span className={message !== undefined ? 'text-destructive' : 'text-secondary-foreground'}>
+      {message ?? RETRY_FALLBACK_MESSAGE}
+    </span>
     <Button
       type="button"
       size="xs"

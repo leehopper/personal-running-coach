@@ -96,7 +96,7 @@ export const useOnboardingTurn = (): UseOnboardingTurnReturn => {
       }
       const response = parsed.data
       if (response.kind === OnboardingTurnKind.Error) {
-        dispatch(submitFailed({ id: turnId }))
+        dispatch(submitFailed({ id: turnId, errorMessage: response.errorMessage }))
         return
       }
       // Either Ask or Complete from this point — the user bubble is now

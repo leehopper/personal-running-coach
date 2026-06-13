@@ -132,6 +132,33 @@ describe('onboardingSlice', () => {
       expect(state.isSubmitting).toBe(false)
       expect(state.turns).toHaveLength(0)
     })
+
+    it('stores errorMessage on the failed turn when provided', () => {
+      const prior: OnboardingChatState = {
+        ...emptyState,
+        isSubmitting: true,
+        turns: [makeTurn({ id: 'user-1', role: 'user', status: 'pending' })],
+      }
+      const state = onboardingReducer(
+        prior,
+        submitFailed({ id: 'user-1', errorMessage: 'Plan generation is not available right now.' }),
+      )
+      const userTurn = state.turns.find((t) => t.id === 'user-1')
+      expect(userTurn?.status).toBe('failed')
+      expect(userTurn?.errorMessage).toBe('Plan generation is not available right now.')
+    })
+
+    it('leaves errorMessage undefined on the failed turn when not provided', () => {
+      const prior: OnboardingChatState = {
+        ...emptyState,
+        isSubmitting: true,
+        turns: [makeTurn({ id: 'user-1', role: 'user', status: 'pending' })],
+      }
+      const state = onboardingReducer(prior, submitFailed({ id: 'user-1' }))
+      const userTurn = state.turns.find((t) => t.id === 'user-1')
+      expect(userTurn?.status).toBe('failed')
+      expect(userTurn?.errorMessage).toBeUndefined()
+    })
   })
 
   // ─── submitRetryStarted ───────────────────────────────────────────────────
