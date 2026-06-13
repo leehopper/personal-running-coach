@@ -38,7 +38,7 @@ const validCompletePayload = {
 
 const validErrorPayload = {
   kind: OnboardingTurnKind.Error,
-  message: 'Server response failed schema validation.',
+  errorMessage: 'Server response failed schema validation.',
 }
 
 describe('onboardingTurnResponseSchema', () => {
@@ -65,12 +65,12 @@ describe('onboardingTurnResponseSchema', () => {
     }
   })
 
-  it('parses a synthetic Error payload (client-side variant)', () => {
+  it('parses an Error payload (backend terminal rejection or client-side schema failure)', () => {
     const actual = onboardingTurnResponseSchema.parse(validErrorPayload)
 
     expect(actual.kind).toBe(OnboardingTurnKind.Error)
     if (actual.kind === OnboardingTurnKind.Error) {
-      expect(actual.message).toBe('Server response failed schema validation.')
+      expect(actual.errorMessage).toBe('Server response failed schema validation.')
     }
   })
 

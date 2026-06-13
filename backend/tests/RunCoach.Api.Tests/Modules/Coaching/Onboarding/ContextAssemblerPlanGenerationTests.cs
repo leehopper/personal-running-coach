@@ -9,6 +9,7 @@ using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Coaching.Sanitization;
+using RunCoach.Api.Modules.Training.Plan;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 
@@ -19,6 +20,11 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 /// </summary>
 public sealed class ContextAssemblerPlanGenerationTests
 {
+    // A pinned local "today" + non-anchored horizon: these tests exercise the
+    // prefix byte-stability and intent-placement rules, not the F3 anchoring,
+    // so the date context stays constant across the compared compositions.
+    private static readonly DateOnly Today = new(2026, 6, 12);
+
     [Fact]
     public async Task ComposeForPlanGenerationAsync_TwoReplays_ProduceByteStableMacroPrompt()
     {
@@ -30,11 +36,15 @@ public sealed class ContextAssemblerPlanGenerationTests
         var first = await sut.ComposeForPlanGenerationAsync(
             snapshot,
             intent: null,
+            Today,
+            PlanHorizon.NoAnchor(),
             TestContext.Current.CancellationToken);
 
         var second = await sut.ComposeForPlanGenerationAsync(
             snapshot,
             intent: null,
+            Today,
+            PlanHorizon.NoAnchor(),
             TestContext.Current.CancellationToken);
 
         // Assert — both system prompt and user message bytes must be equal.
@@ -58,11 +68,15 @@ public sealed class ContextAssemblerPlanGenerationTests
         var withoutIntent = await sut.ComposeForPlanGenerationAsync(
             snapshot,
             intent: null,
+            Today,
+            PlanHorizon.NoAnchor(),
             TestContext.Current.CancellationToken);
 
         var withIntent = await sut.ComposeForPlanGenerationAsync(
             snapshot,
             intent,
+            Today,
+            PlanHorizon.NoAnchor(),
             TestContext.Current.CancellationToken);
 
         // Assert — system prompt is identical regardless of intent.
@@ -102,6 +116,8 @@ public sealed class ContextAssemblerPlanGenerationTests
         var composition = await sut.ComposeForPlanGenerationAsync(
             snapshot,
             intent: null,
+            Today,
+            PlanHorizon.NoAnchor(),
             TestContext.Current.CancellationToken);
 
         // Assert
@@ -124,6 +140,8 @@ public sealed class ContextAssemblerPlanGenerationTests
         var act = () => sut.ComposeForPlanGenerationAsync(
             profileSnapshot: null!,
             intent: null,
+            Today,
+            PlanHorizon.NoAnchor(),
             TestContext.Current.CancellationToken);
 
         // Assert
@@ -144,6 +162,8 @@ public sealed class ContextAssemblerPlanGenerationTests
         await sut.Invoking(s => s.ComposeForPlanGenerationAsync(
                 snapshot,
                 intent: null,
+                Today,
+                PlanHorizon.NoAnchor(),
                 cts.Token))
             .Should().ThrowAsync<OperationCanceledException>();
     }

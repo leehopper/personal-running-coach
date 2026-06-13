@@ -104,4 +104,22 @@ public sealed class OnboardingTurnResponseDtoTests
         // Assert
         act.Should().Throw<ArgumentException>().WithParameterName("planId");
     }
+
+    [Fact]
+    public void Error_BuildsErrorKindWithMessage()
+    {
+        // Arrange
+        const string expectedMessage = "We couldn't fit a plan to your event date. Please try again.";
+
+        // Act
+        var actual = OnboardingTurnResponseDto.Error(expectedMessage);
+
+        // Assert -- full Error contract: message + every per-Kind field the factory zeroes.
+        actual.Kind.Should().Be(OnboardingTurnKind.Error);
+        actual.ErrorMessage.Should().Be(expectedMessage);
+        actual.PlanId.Should().BeNull();
+        actual.Topic.Should().BeNull();
+        actual.SuggestedInputType.Should().BeNull();
+        actual.Progress.Should().Be(new OnboardingProgressDto(0, 1));
+    }
 }

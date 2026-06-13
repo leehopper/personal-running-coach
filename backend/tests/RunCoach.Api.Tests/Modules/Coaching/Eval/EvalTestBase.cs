@@ -329,6 +329,18 @@ public abstract class EvalTestBase : IAsyncDisposable
     }
 
     /// <summary>
+    /// Returns whether a cached Sonnet fixture exists on disk for the given scenario.
+    /// Mirrors the per-scenario layout written by <see cref="DiskBasedReportingConfiguration"/>:
+    /// a directory named after the scenario under the sonnet cache root. Tests guarding a
+    /// not-yet-recorded scenario use this to <c>Assert.Skip</c> before issuing any call, so
+    /// the eval suite stays green in Replay mode until a funded-key recording lands.
+    /// </summary>
+    /// <param name="scenario">The scenario name passed to <see cref="CreateSonnetScenarioRunAsync"/>.</param>
+    /// <returns><c>true</c> when the scenario's cache directory exists; <c>false</c> otherwise.</returns>
+    protected static bool SonnetFixtureExists(string scenario) =>
+        Directory.Exists(Path.Combine(GetCacheStoragePath("sonnet"), "cache", scenario));
+
+    /// <summary>
     /// Builds the full user message text from the assembled prompt sections.
     /// </summary>
     protected static string BuildUserMessageFromSections(AssembledPrompt assembled)

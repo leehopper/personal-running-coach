@@ -88,13 +88,16 @@ const completeResponseSchema = z.object({
   planId: z.uuid(),
 })
 
-// Variant 3 — synthetic client-side error. The backend never emits
-// `kind: -1`; this shape exists so the chat UI can carry a parse / network
-// failure through the same discriminated-union dispatch the success path
-// uses, avoiding a separate error-state surface.
+// Variant 3 — terminal plan-generation rejection (backend F3) or a client-side
+// schema-parse failure reusing the same kind value. The backend sends the full
+// envelope (assistantBlocks, topic, progress, planId) alongside `errorMessage`;
+// a plain object strips those extra fields (default Zod behavior) rather than
+// failing — note the Error envelope's progress carries totalTopics:1, which would
+// not satisfy progressSchema's literal(6), so those fields are intentionally not
+// validated on this branch.
 const errorResponseSchema = z.object({
   kind: z.literal(OnboardingTurnKind.Error),
-  message: z.string().min(1),
+  errorMessage: z.string().min(1),
 })
 
 /**

@@ -31,8 +31,31 @@ public static class ServiceCollectionExtensions
         services.Configure<PromptStoreSettings>(
             configuration.GetSection(PromptStoreSettings.SectionName));
 
+        // App clock — bind the settings and fail fast at startup on a bad time zone. The validation
+        // runs here at registration time (which executes during boot) so a typo or unsupported IANA
+        // id surfaces immediately, rather than on the first plan-generation request that asks
+        // LocalDateProvider for "today" (F3 / DEC-082). It resolves the zone, not just its
+        // non-emptiness, because an unresolvable id is the failure that would otherwise survive boot.
+        // Done inline rather than via OptionsBuilder.ValidateOnStart() because that registers an
+        // IConfigureOptions<StartupValidatorOptions> lambda factory the Wolverine codegen composition
+        // guard (DEC-071) rejects as an opaque Scoped/Transient factory.
+        var appClockSection = configuration.GetSection(AppClockSettings.SectionName);
+        services.Configure<AppClockSettings>(appClockSection);
+        var appClockSettings = appClockSection.Get<AppClockSettings>() ?? new AppClockSettings();
+        if (!TimeZoneResolves(appClockSettings.TimeZone))
+        {
+            throw new InvalidOperationException(
+                $"Configured App:TimeZone '{appClockSettings.TimeZone}' is not a resolvable IANA time-zone id.");
+        }
+
         // System services — TimeProvider for deterministic date/time operations.
         services.AddSingleton(TimeProvider.System);
+
+        // App-local date provider (F3 / DEC-082) — singleton, stateless wrapper over
+        // TimeProvider + the configured app time zone. A type registration (not a lambda
+        // factory) keeps Wolverine 6 handler codegen happy (DEC-071) for any future
+        // handler that resolves it.
+        services.AddSingleton<ILocalDateProvider, LocalDateProvider>();
 
         // Training module — stateless computation services (singleton).
         services.AddSingleton<IPaceZoneIndexCalculator, PaceZoneIndexCalculator>();
@@ -100,5 +123,28 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPlanGenerationService, PlanGenerationService>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="timeZoneId"/> is a non-empty IANA id the runtime can
+    /// resolve. Used by the <see cref="AppClockSettings"/> startup validation so an unresolvable
+    /// zone fails fast at boot rather than on first use in <see cref="LocalDateProvider"/>.
+    /// </summary>
+    private static bool TimeZoneResolves(string? timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+        {
+            return false;
+        }
+
+        try
+        {
+            _ = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            return true;
+        }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            return false;
+        }
     }
 }

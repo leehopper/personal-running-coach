@@ -111,6 +111,11 @@ export const OnboardingPage = (): ReactElement => {
     [chatState.turns],
   )
 
+  const failedTurnMessage = useMemo(
+    () => chatState.turns.find((turn) => turn.status === 'failed')?.errorMessage,
+    [chatState.turns],
+  )
+
   if (isLoading) {
     return (
       <div
@@ -154,6 +159,7 @@ export const OnboardingPage = (): ReactElement => {
       completedTopics={chatState.completedTopics}
       isSubmitting={chatState.isSubmitting}
       hasFailedTurn={hasFailedTurn}
+      failedTurnMessage={failedTurnMessage}
       onSubmit={({ text }) => submitTurn({ text })}
       onRetry={() => retryLastFailedTurn()}
     />
