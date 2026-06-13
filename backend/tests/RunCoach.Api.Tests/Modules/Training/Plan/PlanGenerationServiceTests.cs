@@ -34,6 +34,14 @@ public sealed class PlanGenerationServiceTests
 
     private static readonly DateTimeOffset Now = new(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
 
+    // Phase-week shapes for the F3 validation tests (CA1861: hoisted to static fields
+    // so the repeated BuildMacroWithTotalWeeks calls do not allocate a fresh array each time).
+    private static readonly int[] NineWeekPhaseWeeks = [5, 4];
+
+    private static readonly int[] SixteenWeekPhaseWeeks = [8, 4, 2, 2];
+
+    private static readonly int[] PhaseSumMismatchWeeks = [6, 4];
+
     [Fact]
     public async Task GeneratePlanAsync_InvokesSixCallsInMacroMesoMicroOrder()
     {
@@ -425,6 +433,76 @@ public sealed class PlanGenerationServiceTests
         await act.Should().ThrowAsync<ArgumentNullException>();
     }
 
+    [Fact]
+    public async Task GeneratePlanAsync_AnchoredHorizon_ValidMacro_AppendsPlanWithLocalStartDate()
+    {
+        // Arrange — local today 2026-06-12 → plan-start Sunday 2026-06-07; the race on
+        // 2026-08-08 is week 9 from that anchor, so a 9-week phase-sum-consistent macro
+        // passes the horizon validation (within the ±1-week tolerance).
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacro(llm, BuildMacroWithTotalWeeks(9, NineWeekPhaseWeeks));
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateRaceView(eventDateIso: "2026-08-08");
+
+        // Act
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — PlanStartDate anchors to the app-local generation-week Sunday.
+        sequence.Macro.PlanStartDate.Should().Be(new DateOnly(2026, 6, 7));
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_AnchoredHorizon_HorizonViolatingMacro_Throws()
+    {
+        // Arrange — a phase-sum-consistent 16-week macro against a 9-week race horizon
+        // exceeds the ±1-week tolerance, so the macro is terminally rejected.
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacro(llm, BuildMacroWithTotalWeeks(16, SixteenWeekPhaseWeeks));
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateRaceView(eventDateIso: "2026-08-08");
+
+        // Act
+        var act = () => sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        (await act.Should().ThrowAsync<PlanGenerationRejectedException>())
+            .Which.Violation.Should().Be(MacroPlanOutputValidationViolation.HorizonMismatch);
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_NoEventDate_GeneralFitness_DoesNotThrow()
+    {
+        // Arrange — no target event → non-anchored horizon; the validator only checks
+        // phase-sum consistency, which the shared happy-path macro satisfies.
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureLlmHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        var act = () => sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_PhaseSumMismatch_Throws()
+    {
+        // Arrange — phases (6 + 4 = 10) do not sum to TotalWeeks (12). The phase-sum check
+        // runs on every generation, anchored or not, and rejects the macro terminally.
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacro(llm, BuildMacroWithTotalWeeks(12, PhaseSumMismatchWeeks));
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        var act = () => sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        (await act.Should().ThrowAsync<PlanGenerationRejectedException>())
+            .Which.Violation.Should().Be(MacroPlanOutputValidationViolation.PhaseSumMismatch);
+    }
+
     [Theory]
     [InlineData(1, PhaseType.Base, false)]
     [InlineData(8, PhaseType.Base, true)] // last week of an 8-week phase that includes deload.
@@ -536,13 +614,16 @@ public sealed class PlanGenerationServiceTests
     }
 
     private static (PlanGenerationService Sut, ICoachingLlm Llm, IContextAssembler Assembler) CreateSut(
-        DateTimeOffset? now = null)
+        DateTimeOffset? now = null,
+        DateOnly? localToday = null)
     {
         var assembler = Substitute.For<IContextAssembler>();
         assembler
             .ComposeForPlanGenerationAsync(
                 Arg.Any<OnboardingView>(),
                 Arg.Any<RegenerationIntent?>(),
+                Arg.Any<DateOnly>(),
+                Arg.Any<PlanHorizon>(),
                 Arg.Any<CancellationToken>())
             .Returns(call =>
             {
@@ -573,8 +654,16 @@ public sealed class PlanGenerationServiceTests
             ModelId = "test-model-id",
         });
 
+        var effectiveNow = now ?? Now;
         var timeProvider = Substitute.For<TimeProvider>();
-        timeProvider.GetUtcNow().Returns(now ?? Now);
+        timeProvider.GetUtcNow().Returns(effectiveNow);
+
+        // The local-date provider drives both the date-aware horizon and the
+        // PlanStartDate anchor (F3). It defaults to the calendar day of the pinned
+        // clock so the existing PlanStartDate assertions stay valid. Tests that
+        // exercise anchoring pass an explicit localToday instead.
+        var localDate = Substitute.For<ILocalDateProvider>();
+        localDate.Today().Returns(localToday ?? DateOnly.FromDateTime(effectiveNow.UtcDateTime));
 
         var sut = new PlanGenerationService(
             assembler,
@@ -582,6 +671,7 @@ public sealed class PlanGenerationServiceTests
             promptStore,
             settings,
             timeProvider,
+            localDate,
             NullLogger<PlanGenerationService>.Instance);
 
         return (sut, llm, assembler);
@@ -608,6 +698,53 @@ public sealed class PlanGenerationServiceTests
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ => WithZeroUsage(BuildMacro()));
+    }
+
+    /// <summary>
+    /// Stubs the macro tier call to return the supplied macro verbatim. Used by the F3
+    /// validation tests to feed a horizon-violating or phase-sum-inconsistent macro.
+    /// </summary>
+    private static void ConfigureMacro(ICoachingLlm llm, MacroPlanOutput macro)
+    {
+        llm
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(macro));
+    }
+
+    /// <summary>
+    /// Stubs the meso + micro tier calls on the happy path. Paired with
+    /// <see cref="ConfigureMacro"/> when the macro tier is configured separately so a
+    /// rejection-before-meso assertion still has well-formed downstream stubs available.
+    /// </summary>
+    private static void ConfigureMesoMicroHappyPath(ICoachingLlm llm)
+    {
+        var mesoCounter = 0;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                mesoCounter++;
+                return WithZeroUsage(BuildMeso(mesoCounter, PhaseType.Base, isDeload: false));
+            });
+
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMicro()));
     }
 
     private static void ConfigureLlmHappyPath(
@@ -686,6 +823,23 @@ public sealed class PlanGenerationServiceTests
         },
     };
 
+    /// <summary>
+    /// A completed view carrying a future target event (F3). The supplied ISO date drives
+    /// the deterministic horizon, which gates macro validation in the service.
+    /// </summary>
+    private static OnboardingView CreateRaceView(string eventDateIso)
+    {
+        var view = CreateCompletedView();
+        view.TargetEvent = new TargetEventAnswer
+        {
+            EventName = "Local Half Marathon",
+            DistanceKm = 21.1,
+            EventDateIso = eventDateIso,
+            TargetFinishTimeIso = "PT1H45M",
+        };
+        return view;
+    }
+
     private static MacroPlanOutput BuildMacro()
     {
         return new MacroPlanOutput
@@ -723,6 +877,44 @@ public sealed class PlanGenerationServiceTests
             },
             Rationale = "Base then build.",
             Warnings = "Stop on sharp pain.",
+        };
+    }
+
+    /// <summary>
+    /// Builds a macro with an explicit <paramref name="totalWeeks"/> and one phase per entry in
+    /// <paramref name="phaseWeeks"/>. The validator checks both the phase-sum (against
+    /// <paramref name="totalWeeks"/>) and the horizon (against <paramref name="totalWeeks"/>), so
+    /// callers control each independently: a phase-sum that matches isolates the horizon check, a
+    /// mismatching sum isolates the phase-sum check.
+    /// </summary>
+    private static MacroPlanOutput BuildMacroWithTotalWeeks(int totalWeeks, int[] phaseWeeks)
+    {
+        var phaseTypes = new[] { PhaseType.Base, PhaseType.Build, PhaseType.Peak, PhaseType.Taper };
+        var phases = new PlanPhaseOutput[phaseWeeks.Length];
+        for (var i = 0; i < phaseWeeks.Length; i++)
+        {
+            phases[i] = new PlanPhaseOutput
+            {
+                PhaseType = phaseTypes[i % phaseTypes.Length],
+                Weeks = phaseWeeks[i],
+                WeeklyDistanceStartKm = 30,
+                WeeklyDistanceEndKm = 50,
+                IntensityDistribution = "80/20",
+                AllowedWorkoutTypes = new[] { WorkoutType.Easy, WorkoutType.LongRun },
+                TargetPaceEasySecPerKm = 360,
+                TargetPaceFastSecPerKm = 300,
+                Notes = string.Empty,
+                IncludesDeload = false,
+            };
+        }
+
+        return new MacroPlanOutput
+        {
+            TotalWeeks = totalWeeks,
+            GoalDescription = "Half Marathon",
+            Phases = phases,
+            Rationale = "Configured for validation tests.",
+            Warnings = string.Empty,
         };
     }
 

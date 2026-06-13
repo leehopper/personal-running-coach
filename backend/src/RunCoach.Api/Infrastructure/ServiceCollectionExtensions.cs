@@ -30,9 +30,17 @@ public static class ServiceCollectionExtensions
             configuration.GetSection(CoachingLlmSettings.SectionName));
         services.Configure<PromptStoreSettings>(
             configuration.GetSection(PromptStoreSettings.SectionName));
+        services.Configure<AppClockSettings>(
+            configuration.GetSection(AppClockSettings.SectionName));
 
         // System services — TimeProvider for deterministic date/time operations.
         services.AddSingleton(TimeProvider.System);
+
+        // App-local date provider (F3 / DEC-082) — singleton, stateless wrapper over
+        // TimeProvider + the configured app time zone. A type registration (not a lambda
+        // factory) keeps Wolverine 6 handler codegen happy (DEC-071) for any future
+        // handler that resolves it.
+        services.AddSingleton<ILocalDateProvider, LocalDateProvider>();
 
         // Training module — stateless computation services (singleton).
         services.AddSingleton<IPaceZoneIndexCalculator, PaceZoneIndexCalculator>();

@@ -6,9 +6,12 @@ using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
+using RunCoach.Api.Modules.Coaching.Onboarding;
+using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Constants;
 using RunCoach.Api.Modules.Training.Models;
+using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Tests.Modules.Training.Profiles;
 
 namespace RunCoach.Api.Tests.Modules.Coaching;
@@ -22,6 +25,43 @@ public class ContextAssemblerTests
     {
         var store = CreateMockPromptStore();
         _sut = new ContextAssembler(store, TimeProvider.System, NullLogger<ContextAssembler>.Instance);
+    }
+
+    [Fact]
+    public async Task ComposeForPlanGenerationAsync_AnchoredHorizon_PromptCarriesDatesAndInstruction()
+    {
+        // Arrange — the horizon is passed explicitly (F3): the prompt must echo the current
+        // date, the target event date, and the hard total-weeks/race-week instruction.
+        var view = BuildCompletedOnboardingView();
+        var today = new DateOnly(2026, 6, 12);
+        var horizon = PlanHorizon.Anchored(new DateOnly(2026, 8, 15), targetTotalWeeks: 9);
+
+        // Act
+        var composition = await _sut.ComposeForPlanGenerationAsync(
+            view, intent: null, today, horizon, TestContext.Current.CancellationToken);
+
+        // Assert
+        composition.UserMessage.Should().Contain("Current date: 2026-06-12");
+        composition.UserMessage.Should().Contain("Target event date: 2026-08-15");
+        composition.UserMessage.Should().Contain("exactly 9 weeks");
+        composition.UserMessage.Should().Contain("race week");
+    }
+
+    [Fact]
+    public async Task ComposeForPlanGenerationAsync_NoAnchor_CarriesCurrentDateButNoAnchorInstruction()
+    {
+        // Arrange — a non-anchored horizon emits the current date only (general-fitness behavior).
+        var view = BuildCompletedOnboardingView();
+        var today = new DateOnly(2026, 6, 12);
+
+        // Act
+        var composition = await _sut.ComposeForPlanGenerationAsync(
+            view, intent: null, today, PlanHorizon.NoAnchor(), TestContext.Current.CancellationToken);
+
+        // Assert
+        composition.UserMessage.Should().Contain("Current date: 2026-06-12");
+        composition.UserMessage.Should().NotContain("race week");
+        composition.UserMessage.Should().NotContain("Target event date");
     }
 
     [Fact]
@@ -1702,6 +1742,36 @@ public class ContextAssemblerTests
     // ================================================================
     // Helper methods
     // ================================================================
+
+    /// <summary>
+    /// Builds a minimal completed <see cref="OnboardingView"/> for the plan-generation
+    /// composition tests. The captured <c>TargetEvent</c> carries a future event date, but the
+    /// horizon is supplied explicitly to <c>ComposeForPlanGenerationAsync</c>, so the view's event
+    /// does not drive anchoring in these tests.
+    /// </summary>
+    private static OnboardingView BuildCompletedOnboardingView() => new()
+    {
+        Id = Guid.Parse("00000000-0000-0000-0000-000000000010"),
+        UserId = Guid.Parse("00000000-0000-0000-0000-000000000010"),
+        TenantId = "00000000-0000-0000-0000-000000000010",
+        Status = OnboardingStatus.Completed,
+        OnboardingStartedAt = new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero),
+        OnboardingCompletedAt = new DateTimeOffset(2026, 6, 1, 12, 30, 0, TimeSpan.Zero),
+        Version = 12,
+        PrimaryGoal = new PrimaryGoalAnswer
+        {
+            Goal = PrimaryGoal.RaceTraining,
+            Description = "training for a half marathon",
+        },
+        TargetEvent = new TargetEventAnswer
+        {
+            EventName = "Local Half Marathon",
+            DistanceKm = 21.1,
+            EventDateIso = "2026-08-15",
+            TargetFinishTimeIso = "PT1H45M",
+        },
+    };
+
     private static IPromptStore CreateMockPromptStore()
     {
         var store = Substitute.For<IPromptStore>();

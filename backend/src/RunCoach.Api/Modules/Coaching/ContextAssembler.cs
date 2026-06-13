@@ -10,6 +10,7 @@ using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Models;
+using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Plan.Models;
 using RunCoach.Api.Modules.Training.Safety;
 using IPromptSanitizer = RunCoach.Api.Modules.Coaching.Sanitization.IPromptSanitizer;
@@ -312,9 +313,12 @@ public sealed partial class ContextAssembler : IContextAssembler
     public async Task<PlanGenerationPromptComposition> ComposeForPlanGenerationAsync(
         OnboardingView profileSnapshot,
         RegenerationIntent? intent,
+        DateOnly today,
+        PlanHorizon horizon,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(profileSnapshot);
+        ArgumentNullException.ThrowIfNull(horizon);
 
         ct.ThrowIfCancellationRequested();
 
@@ -330,7 +334,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         // does not change within a single chain). Tier-specific suffixes
         // (macro vs meso week-N vs micro) are appended by the calling service
         // AFTER this base, keeping the prefix bytes returned here byte-stable.
-        var userMessage = BuildPlanGenerationUserMessage(profileSnapshot, intent);
+        var userMessage = BuildPlanGenerationUserMessage(profileSnapshot, intent, today, horizon);
 
         return new PlanGenerationPromptComposition(
             SystemPrompt: systemPrompt,
@@ -560,12 +564,15 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// </summary>
     private static string BuildPlanGenerationUserMessage(
         OnboardingView profileSnapshot,
-        RegenerationIntent? intent)
+        RegenerationIntent? intent,
+        DateOnly today,
+        PlanHorizon horizon)
     {
         var sb = new StringBuilder();
 
         sb.AppendLine("PROFILE SNAPSHOT (captured during onboarding):");
         AppendSlotSummary(sb, profileSnapshot);
+        AppendPlanDateContext(sb, today, horizon);
 
         if (intent is not null)
         {
@@ -575,6 +582,27 @@ public sealed partial class ContextAssembler : IContextAssembler
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Appends the F3 PLAN DATE CONTEXT block. The current date is always emitted so the plan is
+    /// date-aware; when the horizon is anchored to a future event, a hard instruction pins the
+    /// total weeks, names race week, and requires the final (taper) phase to end on race week.
+    /// Values are deterministic (a pinned date in eval) so the cacheable prefix stays byte-stable.
+    /// </summary>
+    private static void AppendPlanDateContext(StringBuilder sb, DateOnly today, PlanHorizon horizon)
+    {
+        sb.AppendLine();
+        sb.AppendLine("PLAN DATE CONTEXT:");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"  Current date: {today:yyyy-MM-dd}");
+
+        if (horizon.IsAnchored)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"  Target event date: {horizon.RaceDate!.Value:yyyy-MM-dd}");
+            sb.AppendLine(
+                CultureInfo.InvariantCulture,
+                $"  The plan must span exactly {horizon.TargetTotalWeeks!.Value} weeks. Week {horizon.TargetTotalWeeks!.Value} is race week (the week containing the target event). The final training phase (the taper) must end on race week, and the phase week counts must sum to {horizon.TargetTotalWeeks!.Value}.");
+        }
     }
 
     /// <summary>

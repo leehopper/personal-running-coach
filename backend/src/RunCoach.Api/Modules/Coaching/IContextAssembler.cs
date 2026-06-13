@@ -2,6 +2,7 @@ using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Models;
+using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Plan.Models;
 using RunCoach.Api.Modules.Training.Safety;
 
@@ -80,11 +81,23 @@ public interface IContextAssembler
     /// <c>IPromptSanitizer.SanitizeAsync(intent.FreeText, PromptSection.RegenerationIntentFreeText, ct)</c>.
     /// This method does NOT re-sanitize.
     /// </param>
+    /// <param name="today">
+    /// The app-local calendar "today" (F3). Always emitted in the PLAN DATE CONTEXT block so the
+    /// generated plan is date-aware, regardless of whether the horizon anchors to an event.
+    /// </param>
+    /// <param name="horizon">
+    /// The deterministic <see cref="PlanHorizon"/> computed for this generation (F3). When anchored,
+    /// the PLAN DATE CONTEXT block adds a hard event-anchoring instruction pinning the total weeks,
+    /// naming race week, and requiring the final (taper) phase to end on race week; when not anchored,
+    /// only the current date is emitted (general-fitness behavior).
+    /// </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The composed plan-generation prompt — system + base user message.</returns>
     Task<PlanGenerationPromptComposition> ComposeForPlanGenerationAsync(
         OnboardingView profileSnapshot,
         RegenerationIntent? intent,
+        DateOnly today,
+        PlanHorizon horizon,
         CancellationToken ct = default);
 
     /// <summary>
