@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using RunCoach.Api.Infrastructure;
+using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
+using RunCoach.Api.Modules.Training.Plan;
 using Wolverine;
 
 namespace RunCoach.Api.Modules.Coaching.Onboarding;
@@ -79,6 +81,16 @@ public sealed partial class OnboardingController(
                 title: "Onboarding is already complete.",
                 detail: "Submit a regenerate request via Settings → Plan instead of a fresh turn.",
                 statusCode: StatusCodes.Status409Conflict);
+        }
+        catch (PlanGenerationRejectedException ex)
+        {
+            // Terminal, expected rejection of a well-formed but invalid generated plan (F3): the
+            // Wolverine transaction already aborted (nothing staged; the turn is re-submittable).
+            // Surface an HTTP-200 error envelope rather than a 500 so the client renders the message
+            // + a retry affordance, and monitoring does not see an unhandled exception.
+            LogPlanGenerationRejected(logger, userId, ex.Violation);
+            return Ok(OnboardingTurnResponseDto.Error(
+                "We couldn't build a plan that fits your event date. Please try submitting again."));
         }
     }
 
@@ -211,6 +223,12 @@ public sealed partial class OnboardingController(
         Level = LogLevel.Information,
         Message = "Onboarding turn rejected: stream already complete user={UserId}")]
     private static partial void LogAlreadyComplete(ILogger logger, Guid userId);
+
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Warning,
+        Message = "Plan generation rejected during onboarding completion: UserId={UserId} Violation={Violation}")]
+    private static partial void LogPlanGenerationRejected(ILogger logger, Guid userId, MacroPlanOutputValidationViolation violation);
 
     private bool TryGetUserId(out Guid userId)
     {
