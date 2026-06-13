@@ -13,8 +13,10 @@ public enum MacroPlanOutputValidationViolation
     PhaseSumMismatch = 1,
 
     /// <summary>
-    /// An anchored horizon exists but <see cref="MacroPlanOutput.TotalWeeks"/> does not place
-    /// race week inside the final phase's last week (within the ±1-week tolerance).
+    /// An anchored horizon exists but <see cref="MacroPlanOutput.TotalWeeks"/> deviates from the
+    /// required total weeks (the race-week index) by more than the ±1-week tolerance. Because the
+    /// phase-sum check runs first, TotalWeeks equals the final phase's last week, so this places
+    /// race week outside the taper's final week.
     /// </summary>
     HorizonMismatch = 2,
 }

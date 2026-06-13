@@ -43,10 +43,16 @@ public sealed class MacroPlanOutputValidatorTests
     [InlineData(10)] // one week long
     public void Validate_WithinOneWeekOfTarget_Passes(int totalWeeks)
     {
+        // Arrange
         var macro = BuildMacro(totalWeeks);
         var horizon = PlanHorizon.Anchored(new DateOnly(2026, 8, 8), targetTotalWeeks: 9);
 
-        MacroPlanOutputValidator.Validate(macro, horizon).IsValid.Should().BeTrue();
+        // Act
+        var actual = MacroPlanOutputValidator.Validate(macro, horizon);
+
+        // Assert
+        actual.IsValid.Should().BeTrue();
+        actual.Violation.Should().Be(MacroPlanOutputValidationViolation.None);
     }
 
     [Theory]
@@ -54,11 +60,14 @@ public sealed class MacroPlanOutputValidatorTests
     [InlineData(11)] // two long
     public void Validate_BeyondOneWeekOfTarget_Rejects(int totalWeeks)
     {
+        // Arrange
         var macro = BuildMacro(totalWeeks);
         var horizon = PlanHorizon.Anchored(new DateOnly(2026, 8, 8), targetTotalWeeks: 9);
 
+        // Act
         var actual = MacroPlanOutputValidator.Validate(macro, horizon);
 
+        // Assert
         actual.IsValid.Should().BeFalse();
         actual.Violation.Should().Be(MacroPlanOutputValidationViolation.HorizonMismatch);
     }
@@ -66,9 +75,15 @@ public sealed class MacroPlanOutputValidatorTests
     [Fact]
     public void Validate_NoAnchor_ConsistentPhases_Passes()
     {
+        // Arrange
         var macro = BuildMacro(totalWeeks: 16, 10, 6);
 
-        MacroPlanOutputValidator.Validate(macro, PlanHorizon.NoAnchor()).IsValid.Should().BeTrue();
+        // Act
+        var actual = MacroPlanOutputValidator.Validate(macro, PlanHorizon.NoAnchor());
+
+        // Assert
+        actual.IsValid.Should().BeTrue();
+        actual.Violation.Should().Be(MacroPlanOutputValidationViolation.None);
     }
 
     // Builds a macro whose phases sum to totalWeeks, or to the explicit phaseWeeks when given.
