@@ -2933,4 +2933,29 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 
 ---
 
+## DEC-082: App-local "today" seam for plan anchoring (F3 / Slice 3B)
+
+**Date:** 2026-06-12
+**Category:** Backend / Plan generation / Time handling
+**Status:** Accepted — ships in F3 (Slice 3B, PR #188); resolves the off-by-one calendar-day found in the 2026-06-11 live e2e pass.
+**Drives:** How the plan-generation and horizon-validation code resolves "today" to anchor `PlanStartDate` and the horizon window.
+**Builds on:** DEC-076 (snapshot-on-log, calendar dates as timezone-free `DateOnly`), DEC-073/DEC-080 (terminal-rejection posture the `PlanHorizonCalculator` + `MacroPlanOutputValidator` follow).
+
+**Decision:**
+
+- **Introduce `ILocalDateProvider` / `LocalDateProvider`.** The implementation derives "today" from the injected `TimeProvider`, converts the instant through a single configured application time zone (`App:TimeZone`, IANA string, default `America/New_York`), and returns a `DateOnly`. All plan-generation and horizon-validation code resolves "today" through this seam.
+- **Calendar dates remain timezone-free `DateOnly` throughout.** `PlanStartDate`, the target event date, and a run's `OccurredOn` are never UTC-converted; the application time zone is only used to answer "which wall-calendar day is now?". This **reaffirms DEC-076** — it does not reverse it.
+- **Per-user time zones are deferred.** The seam is designed to accept a zone parameter later; the single configured zone is the right MVP-0 boundary (self + family in one timezone) and the upgrade path is a one-call-site change.
+- **`PlanHorizonCalculator` + `MacroPlanOutputValidator` enforce a ±1-week horizon and phase-sum.** A non-conforming macro triggers `PlanGenerationRejectedException`, surfaced as an HTTP-200 `OnboardingTurnKind.Error` envelope on the onboarding completion turn (DEC-073/DEC-080 terminal-rejection posture).
+
+**Rationale:** The 2026-06-11 live pass showed that anchoring "today" to `DateOnly.FromDateTime(UtcNow)` can resolve one calendar day off near midnight relative to the runner's local calendar day, shifting the entire generated plan. The fix is minimal surface: one interface, one registered implementation, one config key. The ±1-week tolerance gives one week of slack for test reproducibility and LLM date-rounding while still catching the 16-week-plan-for-9-week-race class of error observed in the live pass.
+
+**Alternatives considered:** (1) Per-user time zone at the data model level immediately — deferred; there is no user-timezone storage or UI, and the seam already supports upgrading to a zone parameter later. (2) Always use UTC (`DateOnly.FromDateTime(UtcNow)`) — rejected; this is exactly what produced the off-by-one in the live pass. (3) Accept the off-by-one at MVP-0 — rejected; the horizon validator makes plan-start visible-to-the-runner, so a one-day shift produces a user-visible wrong start date.
+
+**Open / deferred:** Per-user time zones (upgrade the `ILocalDateProvider` seam to accept a caller-supplied zone parameter when user-profile timezone storage lands). The regenerate-plan path does not yet map `PlanGenerationRejectedException` to a `Kind=Error` envelope (only the onboarding completion controller does); tracked in `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle.
+
+**Cross-references:** F3 / spec 18 (`docs/specs/18-spec-slice-3b-live-pass-fixes`, gitignored), DEC-076 (calendar dates as timezone-free `DateOnly`), DEC-073 (synchronous LLM-failure policy — `Kind=Error` envelope), DEC-080 (terminal-rejection posture).
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
