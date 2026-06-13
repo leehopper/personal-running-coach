@@ -12,7 +12,7 @@ export const PostApiV1OnboardingTurnsBody = zod.strictObject({
 })
 
 export const PostApiV1OnboardingTurnsResponse = zod.strictObject({
-  kind: zod.union([zod.literal(0), zod.literal(1)]),
+  kind: zod.union([zod.literal(0), zod.literal(1), zod.literal(2)]),
   assistantBlocks: zod.unknown(),
   topic: zod.union([
     zod.literal(0),
@@ -34,6 +34,7 @@ export const PostApiV1OnboardingTurnsResponse = zod.strictObject({
     totalTopics: zod.number(),
   }),
   planId: zod.uuid().nullish(),
+  errorMessage: zod.string().nullish(),
 })
 
 export const GetApiV1OnboardingStateResponse = zod.strictObject({

@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using RunCoach.Api.Infrastructure;
+using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
+using RunCoach.Api.Modules.Training.Plan;
 using Wolverine;
 
 namespace RunCoach.Api.Modules.Coaching.Onboarding;
@@ -79,6 +81,26 @@ public sealed partial class OnboardingController(
                 title: "Onboarding is already complete.",
                 detail: "Submit a regenerate request via Settings → Plan instead of a fresh turn.",
                 statusCode: StatusCodes.Status409Conflict);
+        }
+        catch (PlanGenerationRejectedException ex)
+        {
+            // Terminal, expected rejection of a well-formed but invalid generated plan (F3): the
+            // Wolverine transaction already aborted (nothing staged; the turn is re-submittable).
+            // Surface an HTTP-200 error envelope rather than a 500 so the client renders the message
+            // + a retry affordance, and monitoring does not see an unhandled exception.
+            LogPlanGenerationRejected(logger, userId, ex.Violation);
+
+            // Tailor the copy to the violation: only a HorizonMismatch is about the event date.
+            // A PhaseSumMismatch is an internal model-output inconsistency unrelated to the date,
+            // so the event-date wording would be misleading — fall back to a neutral message.
+            var errorMessage = ex.Violation switch
+            {
+                MacroPlanOutputValidationViolation.HorizonMismatch =>
+                    "We couldn't build a plan that fits your event date. Please try submitting again.",
+                _ =>
+                    "We hit a problem building your plan. Please try submitting again.",
+            };
+            return Ok(OnboardingTurnResponseDto.Error(errorMessage));
         }
     }
 
@@ -211,6 +233,12 @@ public sealed partial class OnboardingController(
         Level = LogLevel.Information,
         Message = "Onboarding turn rejected: stream already complete user={UserId}")]
     private static partial void LogAlreadyComplete(ILogger logger, Guid userId);
+
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Warning,
+        Message = "Plan generation rejected during onboarding completion: UserId={UserId} Violation={Violation}")]
+    private static partial void LogPlanGenerationRejected(ILogger logger, Guid userId, MacroPlanOutputValidationViolation violation);
 
     private bool TryGetUserId(out Guid userId)
     {

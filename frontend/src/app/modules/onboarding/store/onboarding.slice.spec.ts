@@ -132,19 +132,54 @@ describe('onboardingSlice', () => {
       expect(state.isSubmitting).toBe(false)
       expect(state.turns).toHaveLength(0)
     })
+
+    it('stores errorMessage on the failed turn when provided', () => {
+      const prior: OnboardingChatState = {
+        ...emptyState,
+        isSubmitting: true,
+        turns: [makeTurn({ id: 'user-1', role: 'user', status: 'pending' })],
+      }
+      const state = onboardingReducer(
+        prior,
+        submitFailed({ id: 'user-1', errorMessage: 'Plan generation is not available right now.' }),
+      )
+      const userTurn = state.turns.find((t) => t.id === 'user-1')
+      expect(userTurn?.status).toBe('failed')
+      expect(userTurn?.errorMessage).toBe('Plan generation is not available right now.')
+    })
+
+    it('leaves errorMessage undefined on the failed turn when not provided', () => {
+      const prior: OnboardingChatState = {
+        ...emptyState,
+        isSubmitting: true,
+        turns: [makeTurn({ id: 'user-1', role: 'user', status: 'pending' })],
+      }
+      const state = onboardingReducer(prior, submitFailed({ id: 'user-1' }))
+      const userTurn = state.turns.find((t) => t.id === 'user-1')
+      expect(userTurn?.status).toBe('failed')
+      expect(userTurn?.errorMessage).toBeUndefined()
+    })
   })
 
   // ─── submitRetryStarted ───────────────────────────────────────────────────
 
   describe('submitRetryStarted', () => {
-    it('sets the matching failed turn back to pending and sets isSubmitting=true', () => {
+    it('sets the matching failed turn back to pending, clears its errorMessage, and sets isSubmitting=true', () => {
       const prior: OnboardingChatState = {
         ...emptyState,
-        turns: [makeTurn({ id: 'user-1', role: 'user', status: 'failed' })],
+        turns: [
+          makeTurn({
+            id: 'user-1',
+            role: 'user',
+            status: 'failed',
+            errorMessage: 'Plan generation is not available right now.',
+          }),
+        ],
       }
       const state = onboardingReducer(prior, submitRetryStarted({ id: 'user-1' }))
       expect(state.isSubmitting).toBe(true)
       expect(state.turns[0].status).toBe('pending')
+      expect(state.turns[0].errorMessage).toBeUndefined()
     })
 
     it('with an unknown turn id sets isSubmitting=true without throwing or mutating other turns', () => {

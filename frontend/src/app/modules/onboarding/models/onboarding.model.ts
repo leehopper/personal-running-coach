@@ -44,14 +44,14 @@ export type OnboardingTopic = (typeof OnboardingTopic)[keyof typeof OnboardingTo
 /**
  * Discriminator for `OnboardingTurnResponse`. Mirrors
  * `RunCoach.Api.Modules.Coaching.Onboarding.Models.OnboardingTurnKind`.
- * `Error` is a synthetic client-side variant produced when the local Zod
- * schema rejects a server payload — the backend itself only emits
- * `Ask` (0) or `Complete` (1).
+ * `Error` (2) is emitted by the backend (F3) on a terminal plan-generation
+ * rejection, and is also reused as the client-side variant when the local
+ * Zod schema rejects a server payload.
  */
 export const OnboardingTurnKind = {
   Ask: 0,
   Complete: 1,
-  Error: -1,
+  Error: 2,
 } as const
 export type OnboardingTurnKind = (typeof OnboardingTurnKind)[keyof typeof OnboardingTurnKind]
 
@@ -206,12 +206,14 @@ export interface OnboardingTurnCompleteResponse extends OnboardingTurnResponseBa
 }
 
 /**
- * Synthetic client-side variant emitted when the local Zod schema rejects
- * a server payload. The backend itself never serializes this kind.
+ * Backend-emitted (F3) on a terminal plan-generation rejection, and also
+ * used as the client-side variant when the local Zod schema rejects a
+ * server payload. Carries a user-facing `errorMessage` matching the wire
+ * field name.
  */
 export interface OnboardingTurnErrorResponse {
   kind: typeof OnboardingTurnKind.Error
-  message: string
+  errorMessage: string
 }
 
 /**

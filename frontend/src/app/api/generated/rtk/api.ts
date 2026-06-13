@@ -285,7 +285,7 @@ export type ConversationTurnDto = {
 export type ConversationTurnsResponseDto = {
   turns: ConversationTurnDto[]
 }
-export type OnboardingTurnKind = 0 | 1
+export type OnboardingTurnKind = 0 | 1 | 2
 export type OnboardingTopic = 0 | 1 | 2 | 3 | 4 | 5
 export type SuggestedInputType = 0 | 1 | 2 | 3 | 4
 export type OnboardingProgressDto = {
@@ -299,6 +299,7 @@ export type OnboardingTurnResponseDto = {
   suggestedInputType: SuggestedInputType
   progress: OnboardingProgressDto
   planId?: string | null
+  errorMessage?: string | null
 }
 export type OnboardingTurnRequestDto = {
   idempotencyKey: string

@@ -162,6 +162,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     private readonly IPromptStore _promptStore;
     private readonly CoachingLlmSettings _settings;
     private readonly TimeProvider _timeProvider;
+    private readonly ILocalDateProvider _localDate;
     private readonly ILogger<PlanGenerationService> _logger;
 
     /// <summary>
@@ -172,6 +173,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     /// <param name="promptStore">Prompt store consulted to record the active prompt version on <see cref="PlanGenerated"/>.</param>
     /// <param name="settings">Coaching LLM settings — supplies the model id stamped on <see cref="PlanGenerated"/>.</param>
     /// <param name="timeProvider">Time provider for the <see cref="PlanGenerated.GeneratedAt"/> stamp.</param>
+    /// <param name="localDate">App-local date provider supplying "today" for the date-aware horizon and the <see cref="PlanGenerated.PlanStartDate"/> anchor (F3 / DEC-082).</param>
     /// <param name="logger">Logger.</param>
     public PlanGenerationService(
         IContextAssembler assembler,
@@ -179,6 +181,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         IPromptStore promptStore,
         IOptions<CoachingLlmSettings> settings,
         TimeProvider timeProvider,
+        ILocalDateProvider localDate,
         ILogger<PlanGenerationService> logger)
     {
         ArgumentNullException.ThrowIfNull(assembler);
@@ -186,6 +189,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         ArgumentNullException.ThrowIfNull(promptStore);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(localDate);
         ArgumentNullException.ThrowIfNull(logger);
 
         _assembler = assembler;
@@ -193,6 +197,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         _promptStore = promptStore;
         _settings = settings.Value;
         _timeProvider = timeProvider;
+        _localDate = localDate;
         _logger = logger;
     }
 
@@ -224,9 +229,17 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         var stopwatch = Stopwatch.StartNew();
         try
         {
+            // Compute the date-aware horizon once: local "today" → the Sunday anchor → the
+            // deterministic horizon from the parsed target-event date. Used for the prompt
+            // constraint, the macro validator, and the PlanStartDate anchor (F3 / DEC-082).
+            var today = _localDate.Today();
+            var planStartDate = PlanCalendar.StartOfTrainingWeek(today);
+            var raceDate = ResolveTargetEventDate(profileSnapshot);
+            var horizon = PlanHorizonCalculator.Compute(planStartDate, raceDate);
+
             // Compose the cacheable prefix — same bytes for all six calls.
             var composition = await _assembler
-                .ComposeForPlanGenerationAsync(profileSnapshot, intent, ct)
+                .ComposeForPlanGenerationAsync(profileSnapshot, intent, today, horizon, ct)
                 .ConfigureAwait(false);
 
             var systemPrompt = composition.SystemPrompt;
@@ -248,6 +261,18 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                 extraTags: null,
                 ct).ConfigureAwait(false);
             totalUsage = totalUsage.Add(macroUsage);
+
+            // Deterministic horizon + internal-consistency validation (F3). A rejection is terminal:
+            // throw before any meso/micro work or event staging, so the caller's Marten transaction
+            // aborts with nothing committed (DEC-073/DEC-080). User-facing callers are intended to map
+            // this to a terminal error envelope (the onboarding completion path); other callers
+            // propagate it through the standard error pipeline.
+            var macroValidation = MacroPlanOutputValidator.Validate(macro, horizon);
+            if (!macroValidation.IsValid)
+            {
+                LogMacroRejected(_logger, planId, macroValidation.Violation);
+                throw new PlanGenerationRejectedException(macroValidation.Violation);
+            }
 
             // Tier 2 — four meso weeks (1..4). Each call carries a per-week context
             // suffix derived from the macro plan's phase list so the LLM knows
@@ -291,15 +316,17 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             var generatedAt = _timeProvider.GetUtcNow();
 
             // Assemble the canonical Slice 1 plan event sequence. PlanStartDate anchors
-            // week 1, day 0 (Sunday) to the start of the generation week so a logged run's
-            // date maps deterministically to a (week, day) slot (slice-2b Unit 1 / DEC-076).
-            // The regenerate flow re-anchors automatically because it shares this site.
+            // week 1, day 0 (Sunday) to the start of the app-local generation week so a
+            // logged run's date maps deterministically to a (week, day) slot (slice-2b
+            // Unit 1 / DEC-076). The anchor is the same Sunday the horizon was computed
+            // against (F3 / DEC-082); the regenerate flow re-anchors automatically because
+            // it shares this site.
             var planGenerated = new PlanGenerated(
                 PlanId: planId,
                 UserId: userId,
                 Macro: macro,
                 GeneratedAt: generatedAt,
-                PlanStartDate: PlanCalendar.StartOfTrainingWeek(DateOnly.FromDateTime(generatedAt.UtcDateTime)),
+                PlanStartDate: planStartDate,
                 PromptVersion: promptVersion,
                 ModelId: _settings.ModelId,
                 PreviousPlanId: previousPlanId);
@@ -494,6 +521,30 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         }
     }
 
+    /// <summary>
+    /// Parses the onboarding target-event date to a calendar <see cref="DateOnly"/>, or null when
+    /// no parseable event date is captured. The onboarding answer stores the date as an ISO
+    /// <c>yyyy-MM-dd</c> string (<c>TargetEventAnswer.EventDateIso</c>); a missing event or an
+    /// unparseable string yields null (general-fitness behavior).
+    /// </summary>
+    private static DateOnly? ResolveTargetEventDate(OnboardingView view)
+    {
+        var iso = view.TargetEvent?.EventDateIso;
+        if (string.IsNullOrWhiteSpace(iso))
+        {
+            return null;
+        }
+
+        return DateOnly.TryParseExact(
+            iso,
+            "yyyy-MM-dd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var parsed)
+            ? parsed
+            : null;
+    }
+
     [LoggerMessage(
         Level = LogLevel.Information,
         Message = "Plan generation chain start: PlanId={PlanId} UserId={UserId} PreviousPlanId={PreviousPlanId}")]
@@ -510,6 +561,14 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         ILogger logger,
         Guid planId,
         int eventCount);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Macro plan rejected by validation: PlanId={PlanId} Violation={Violation}")]
+    private static partial void LogMacroRejected(
+        ILogger logger,
+        Guid planId,
+        MacroPlanOutputValidationViolation violation);
 
     /// <summary>
     /// Wraps one tier-level structured-output call: opens a per-tier child
