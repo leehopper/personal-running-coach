@@ -21,7 +21,7 @@ feature ground, so they precede Slice 4.
 (new account, funded key, real browser) passes with all four fixes observable at
 the surface. CI/eval coverage alone does not close this slice.
 
-**Progress.** F1 ✅ shipped #185 (2026-06-11). F2 ✅ shipped #187 (2026-06-12). F3 ⬜ · F4 ⬜ — next: F3.
+**Progress.** F1 ✅ shipped #185 (2026-06-11). F2 ✅ shipped #187 (2026-06-12). F3 ✅ shipped #190 (2026-06-13). F4 ⬜ — next: F4.
 The live-pass re-run (done-gate) is pending all four.
 
 ---
@@ -89,6 +89,8 @@ structured-output boundary rejects or scrubs offending output before append;
   fixture proving so.
 
 ## F3 — Plan horizon anchors to the target event date
+
+**Status: ✅ Shipped — #190 (2026-06-13), DEC-082.** An app-local "today" seam (`ILocalDateProvider`/`LocalDateProvider` over the injected `TimeProvider` + a single configured `App:TimeZone`) fixes the UTC-midnight off-by-one; a deterministic `PlanHorizonCalculator` anchors the horizon from `PlanStartDate` + the parsed event date and pins it into the macro prompt as a hard constraint; `MacroPlanOutputValidator` enforces phase-week-sum (always) and the ±1-week event horizon (when anchored), throwing `PlanGenerationRejectedException` (terminal, nothing staged) which the onboarding completion turn maps to an HTTP-200 `Kind=Error` envelope. A dated-event horizon eval was added but **skips until its fixture is recorded** (funded-key step, part of the live-pass re-run done-gate). Calendar dates stay timezone-free `DateOnly` — reaffirms DEC-076. Regenerate-path envelope mapping + the OTel `outcome=rejected` tag are deferred (cycle-plan § Captured During Cycle, DEC-082 open/deferred).
 
 **Finding.** Onboarding declared a 10K on 2026-08-15 (nine weeks out);
 the macro plan generated `TotalWeeks: 16` with Base/Build/Peak/Taper spanning to
