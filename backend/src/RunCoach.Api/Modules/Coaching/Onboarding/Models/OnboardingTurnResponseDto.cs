@@ -4,17 +4,18 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 
 /// <summary>
 /// Response payload for POST /api/v1/onboarding/turns. Carries either the next assistant turn
-/// (Kind = Ask) or the completion signal with a generated plan id (Kind = Complete).
+/// (Kind = Ask), the completion signal with a generated plan id (Kind = Complete), or a terminal
+/// rejection envelope (Kind = Error).
 /// </summary>
 /// <remarks>
 /// <para>
 /// The DTO is logically a discriminated union but is encoded as a flat record so the
 /// frontend Zod schema can read it without a custom converter. Producers should
-/// always use the static <see cref="Ask"/> / <see cref="Complete"/> factories — the
+/// always use the static <see cref="Ask"/> / <see cref="Complete"/> / <see cref="Error"/> factories — the
 /// positional constructor remains public only for System.Text.Json deserialization.
 /// </para>
 /// </remarks>
-/// <param name="Kind">Discriminator: Ask or Complete.</param>
+/// <param name="Kind">Discriminator: Ask, Complete, or Error.</param>
 /// <param name="AssistantBlocks">
 /// Anthropic content blocks from the assistant turn, carried as a <see cref="JsonElement"/> so
 /// non-text block types (thinking, tool_use) round-trip to the frontend without lossy projection.
@@ -24,11 +25,11 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// source document's lifetime.
 /// </param>
 /// <param name="Topic">
-/// The current topic the assistant is asking about. Null when <paramref name="Kind"/> is Complete.
+/// The current topic the assistant is asking about. Null when <paramref name="Kind"/> is Complete or Error.
 /// </param>
 /// <param name="SuggestedInputType">
 /// The input control the chat surface should render for the next user reply.
-/// Null when <paramref name="Kind"/> is Complete.
+/// Null when <paramref name="Kind"/> is Complete or Error.
 /// </param>
 /// <param name="Progress">
 /// Topic-completion progress for the UI indicator.
@@ -36,14 +37,35 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// <param name="PlanId">
 /// The generated plan id when <paramref name="Kind"/> is Complete; null otherwise.
 /// </param>
+/// <param name="ErrorMessage">User-facing error text when <paramref name="Kind"/> is Error; null otherwise.</param>
 public sealed record OnboardingTurnResponseDto(
     OnboardingTurnKind Kind,
     JsonElement AssistantBlocks,
     OnboardingTopic? Topic,
     SuggestedInputType? SuggestedInputType,
     OnboardingProgressDto Progress,
-    Guid? PlanId)
+    Guid? PlanId,
+    string? ErrorMessage = null)
 {
+    private static readonly JsonElement EmptyAssistantBlocks = JsonDocument.Parse("[]").RootElement.Clone();
+
+    /// <summary>
+    /// Constructs an <see cref="OnboardingTurnKind.Error"/>-shaped response (F3). Carries a
+    /// user-facing message and no plan; assistant blocks are empty and progress is zeroed
+    /// (the client renders only the message + a retry affordance on this kind). HTTP status is 200.
+    /// </summary>
+    /// <param name="errorMessage">User-facing description of why plan generation was rejected.</param>
+    /// <returns>A well-formed Error response.</returns>
+    public static OnboardingTurnResponseDto Error(string errorMessage) =>
+        new(
+            Kind: OnboardingTurnKind.Error,
+            AssistantBlocks: EmptyAssistantBlocks,
+            Topic: null,
+            SuggestedInputType: null,
+            Progress: new OnboardingProgressDto(0, 1),
+            PlanId: null,
+            ErrorMessage: errorMessage);
+
     /// <summary>
     /// Constructs an <see cref="OnboardingTurnKind.Ask"/>-shaped response. Validates
     /// that the per-Kind invariant holds (topic + suggestedInputType present, planId absent).
