@@ -407,9 +407,13 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             return;
         }
 
-        // Skip until the fixture is recorded (funded-key, user-run step). No paid call is issued
-        // here — the on-disk check short-circuits before CreateSonnetScenarioRunAsync.
-        if (!SonnetFixtureExists("plan.dated-event.macro"))
+        // Skip until the fixture is recorded (funded-key, user-run step) — but only in Replay mode.
+        // The skip is Replay-only so a Record run with a funded key can create the first fixture
+        // via the documented workflow; gating it unconditionally would make the fixture unrecordable.
+        // No paid call is issued by this check — the on-disk lookup short-circuits before
+        // CreateSonnetScenarioRunAsync.
+        var effectiveMode = ResolveEffectiveMode(CacheMode, IsApiKeyConfigured);
+        if (effectiveMode == EvalCacheMode.Replay && !SonnetFixtureExists("plan.dated-event.macro"))
         {
             Assert.Skip(
                 "Eval fixture 'plan.dated-event.macro' not yet recorded (funded-key step); "

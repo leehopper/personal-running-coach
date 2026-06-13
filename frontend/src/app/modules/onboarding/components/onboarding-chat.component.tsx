@@ -136,7 +136,7 @@ const RetryAffordance = ({
     data-testid="onboarding-retry"
     className="flex items-center justify-between rounded-md border border-border bg-secondary px-3 py-2 text-sm"
   >
-    <span className={message !== undefined ? 'text-destructive' : 'text-secondary-foreground'}>
+    <span className={message === undefined ? 'text-secondary-foreground' : 'text-destructive'}>
       {message ?? RETRY_FALLBACK_MESSAGE}
     </span>
     <Button

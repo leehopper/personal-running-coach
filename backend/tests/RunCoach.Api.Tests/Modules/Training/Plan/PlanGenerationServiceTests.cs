@@ -487,6 +487,27 @@ public sealed class PlanGenerationServiceTests
     }
 
     [Fact]
+    public async Task GeneratePlanAsync_MalformedEventDate_FallsThroughToGeneralFitness_DoesNotThrow()
+    {
+        // Arrange — an EventDateIso that is present but unparseable. ResolveTargetEventDate returns
+        // null, so the horizon is non-anchored and the validator skips the event-horizon check. The
+        // macro is a 16-week plan that WOULD violate a 9-week anchored horizon (cf.
+        // AnchoredHorizon_HorizonViolatingMacro_Throws); generating it without rejection proves the
+        // malformed date disabled anchoring, with only the always-on phase-sum check applied. Guards
+        // against a future change to the parse format silently dropping anchoring on real dated plans.
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacro(llm, BuildMacroWithTotalWeeks(16, SixteenWeekPhaseWeeks));
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateRaceView(eventDateIso: "not-a-date");
+
+        // Act
+        var act = () => sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
     public async Task GeneratePlanAsync_PhaseSumMismatch_Throws()
     {
         // Arrange — phases (6 + 4 = 10) do not sum to TotalWeeks (12). The phase-sum check

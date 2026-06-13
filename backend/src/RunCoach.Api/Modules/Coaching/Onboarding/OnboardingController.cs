@@ -89,8 +89,18 @@ public sealed partial class OnboardingController(
             // Surface an HTTP-200 error envelope rather than a 500 so the client renders the message
             // + a retry affordance, and monitoring does not see an unhandled exception.
             LogPlanGenerationRejected(logger, userId, ex.Violation);
-            return Ok(OnboardingTurnResponseDto.Error(
-                "We couldn't build a plan that fits your event date. Please try submitting again."));
+
+            // Tailor the copy to the violation: only a HorizonMismatch is about the event date.
+            // A PhaseSumMismatch is an internal model-output inconsistency unrelated to the date,
+            // so the event-date wording would be misleading — fall back to a neutral message.
+            var errorMessage = ex.Violation switch
+            {
+                MacroPlanOutputValidationViolation.HorizonMismatch =>
+                    "We couldn't build a plan that fits your event date. Please try submitting again.",
+                _ =>
+                    "We hit a problem building your plan. Please try submitting again.",
+            };
+            return Ok(OnboardingTurnResponseDto.Error(errorMessage));
         }
     }
 

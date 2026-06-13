@@ -114,10 +114,12 @@ public sealed class OnboardingTurnResponseDtoTests
         // Act
         var actual = OnboardingTurnResponseDto.Error(expectedMessage);
 
-        // Assert
+        // Assert -- full Error contract: message + every per-Kind field the factory zeroes.
         actual.Kind.Should().Be(OnboardingTurnKind.Error);
         actual.ErrorMessage.Should().Be(expectedMessage);
         actual.PlanId.Should().BeNull();
         actual.Topic.Should().BeNull();
+        actual.SuggestedInputType.Should().BeNull();
+        actual.Progress.Should().Be(new OnboardingProgressDto(0, 1));
     }
 }

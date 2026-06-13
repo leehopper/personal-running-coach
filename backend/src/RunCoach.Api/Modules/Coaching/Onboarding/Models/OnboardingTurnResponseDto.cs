@@ -47,7 +47,7 @@ public sealed record OnboardingTurnResponseDto(
     Guid? PlanId,
     string? ErrorMessage = null)
 {
-    private static readonly JsonElement EmptyAssistantBlocks = JsonDocument.Parse("[]").RootElement.Clone();
+    private static readonly JsonElement EmptyAssistantBlocks = InitializeEmptyAssistantBlocks();
 
     /// <summary>
     /// Constructs an <see cref="OnboardingTurnKind.Error"/>-shaped response (F3). Carries a
@@ -117,5 +117,14 @@ public sealed record OnboardingTurnResponseDto(
             SuggestedInputType: null,
             Progress: progress,
             PlanId: planId);
+    }
+
+    // Clones the empty-array element out of a disposed JsonDocument: the clone is an independent
+    // JsonElement that survives the document, while disposing the document returns its pooled
+    // buffer instead of leaking it for the app lifetime.
+    private static JsonElement InitializeEmptyAssistantBlocks()
+    {
+        using var doc = JsonDocument.Parse("[]");
+        return doc.RootElement.Clone();
     }
 }

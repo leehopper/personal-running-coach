@@ -598,10 +598,14 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         if (horizon.IsAnchored)
         {
+            // TargetTotalWeeks is non-null whenever the horizon is anchored; bind it once so the
+            // three interpolations below don't each repeat the null-forgiving deref. Behavior- and
+            // byte-preserving — the emitted string is identical, so the cacheable prefix is unaffected.
+            var totalWeeks = horizon.TargetTotalWeeks!.Value;
             sb.AppendLine(CultureInfo.InvariantCulture, $"  Target event date: {horizon.RaceDate!.Value:yyyy-MM-dd}");
             sb.AppendLine(
                 CultureInfo.InvariantCulture,
-                $"  The plan must span exactly {horizon.TargetTotalWeeks!.Value} weeks. Week {horizon.TargetTotalWeeks!.Value} is race week (the week containing the target event). The final training phase (the taper) must end on race week, and the phase week counts must sum to {horizon.TargetTotalWeeks!.Value}.");
+                $"  The plan must span exactly {totalWeeks} weeks. Week {totalWeeks} is race week (the week containing the target event). The final training phase (the taper) must end on race week, and the phase week counts must sum to {totalWeeks}.");
         }
     }
 
