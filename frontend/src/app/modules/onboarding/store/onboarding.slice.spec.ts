@@ -164,14 +164,22 @@ describe('onboardingSlice', () => {
   // ─── submitRetryStarted ───────────────────────────────────────────────────
 
   describe('submitRetryStarted', () => {
-    it('sets the matching failed turn back to pending and sets isSubmitting=true', () => {
+    it('sets the matching failed turn back to pending, clears its errorMessage, and sets isSubmitting=true', () => {
       const prior: OnboardingChatState = {
         ...emptyState,
-        turns: [makeTurn({ id: 'user-1', role: 'user', status: 'failed' })],
+        turns: [
+          makeTurn({
+            id: 'user-1',
+            role: 'user',
+            status: 'failed',
+            errorMessage: 'Plan generation is not available right now.',
+          }),
+        ],
       }
       const state = onboardingReducer(prior, submitRetryStarted({ id: 'user-1' }))
       expect(state.isSubmitting).toBe(true)
       expect(state.turns[0].status).toBe('pending')
+      expect(state.turns[0].errorMessage).toBeUndefined()
     })
 
     it('with an unknown turn id sets isSubmitting=true without throwing or mutating other turns', () => {

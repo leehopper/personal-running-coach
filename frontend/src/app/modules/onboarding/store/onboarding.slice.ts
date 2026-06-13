@@ -121,6 +121,9 @@ export const onboardingSlice = createSlice({
       const turn = state.turns.find((candidate) => candidate.id === action.payload.id)
       if (turn !== undefined) {
         turn.status = 'pending'
+        // Clear any error message carried over from the prior failed
+        // attempt so it can't surface as dead data on a future read.
+        turn.errorMessage = undefined
       }
     },
     userTurnDelivered: (state, action: PayloadAction<{ id: string }>) => {
