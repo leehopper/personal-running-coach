@@ -2937,7 +2937,7 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 
 **Date:** 2026-06-12
 **Category:** Backend / Plan generation / Time handling
-**Status:** Accepted — ships in F3 (Slice 3B, PR #188); resolves the off-by-one calendar-day found in the 2026-06-11 live e2e pass.
+**Status:** Accepted — ships in F3 (Slice 3B); resolves the off-by-one calendar-day found in the 2026-06-11 live e2e pass.
 **Drives:** How the plan-generation and horizon-validation code resolves "today" to anchor `PlanStartDate` and the horizon window.
 **Builds on:** DEC-076 (snapshot-on-log, calendar dates as timezone-free `DateOnly`), DEC-073/DEC-080 (terminal-rejection posture the `PlanHorizonCalculator` + `MacroPlanOutputValidator` follow).
 
