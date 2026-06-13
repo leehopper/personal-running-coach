@@ -88,17 +88,17 @@ const completeResponseSchema = z.object({
   planId: z.uuid(),
 })
 
-// Variant 3 — terminal plan-generation rejection (backend F3) or a
-// client-side schema-parse failure reusing the same kind value. The
-// backend sends the full envelope (assistantBlocks, topic, etc.) as filler
-// fields alongside `errorMessage`; `.passthrough()` tolerates them without
-// failing validation.
-const errorResponseSchema = z
-  .object({
-    kind: z.literal(OnboardingTurnKind.Error),
-    errorMessage: z.string().min(1),
-  })
-  .passthrough()
+// Variant 3 — terminal plan-generation rejection (backend F3) or a client-side
+// schema-parse failure reusing the same kind value. The backend sends the full
+// envelope (assistantBlocks, topic, progress, planId) alongside `errorMessage`;
+// a plain object strips those extra fields (default Zod behavior) rather than
+// failing — note the Error envelope's progress carries totalTopics:1, which would
+// not satisfy progressSchema's literal(6), so those fields are intentionally not
+// validated on this branch.
+const errorResponseSchema = z.object({
+  kind: z.literal(OnboardingTurnKind.Error),
+  errorMessage: z.string().min(1),
+})
 
 /**
  * Discriminated-union schema for the POST /api/v1/onboarding/turns response.
