@@ -7,8 +7,9 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// (<see cref="MacroPlanOutputValidator"/>) — the generation is terminally rejected with
 /// nothing staged (DEC-073/DEC-080 posture: no re-prompt, no partial commit). Distinct from
 /// <c>CoachingLlmException</c>: this is an <em>expected</em> rejection of a well-formed LLM
-/// response, not a transport/SDK failure, so it is surfaced as an HTTP-200 error envelope
-/// rather than a 5xx.
+/// response, not a transport/SDK failure. User-facing callers (the onboarding completion path)
+/// are intended to map it to a terminal error envelope rather than a 5xx; callers that don't
+/// map it propagate it through the standard error middleware.
 /// </summary>
 public sealed class PlanGenerationRejectedException : Exception
 {

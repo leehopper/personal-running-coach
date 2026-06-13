@@ -264,8 +264,9 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
 
             // Deterministic horizon + internal-consistency validation (F3). A rejection is terminal:
             // throw before any meso/micro work or event staging, so the caller's Marten transaction
-            // aborts with nothing committed (DEC-073/DEC-080). The onboarding controller maps this to
-            // an HTTP-200 error envelope.
+            // aborts with nothing committed (DEC-073/DEC-080). User-facing callers are intended to map
+            // this to a terminal error envelope (the onboarding completion path); other callers
+            // propagate it through the standard error pipeline.
             var macroValidation = MacroPlanOutputValidator.Validate(macro, horizon);
             if (!macroValidation.IsValid)
             {

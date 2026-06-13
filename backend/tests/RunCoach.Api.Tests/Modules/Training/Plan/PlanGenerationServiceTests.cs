@@ -438,7 +438,8 @@ public sealed class PlanGenerationServiceTests
     {
         // Arrange — local today 2026-06-12 → plan-start Sunday 2026-06-07; the race on
         // 2026-08-08 is week 9 from that anchor, so a 9-week phase-sum-consistent macro
-        // passes the horizon validation (within the ±1-week tolerance).
+        // passes the horizon validation as an exact-fit horizon (delta 0). The ±1-week
+        // tolerance boundary is covered by the MacroPlanOutputValidator unit tests.
         var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
         ConfigureMacro(llm, BuildMacroWithTotalWeeks(9, NineWeekPhaseWeeks));
         ConfigureMesoMicroHappyPath(llm);
@@ -752,29 +753,7 @@ public sealed class PlanGenerationServiceTests
         List<CacheControl?>? cacheCapture = null)
     {
         ConfigureMacroSuccess(llm);
-
-        var mesoCounter = 0;
-        llm
-            .GenerateStructuredAsync<MesoWeekOutput>(
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
-                Arg.Any<CacheControl?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(_ =>
-            {
-                mesoCounter++;
-                return WithZeroUsage(BuildMeso(mesoCounter, PhaseType.Base, isDeload: false));
-            });
-
-        llm
-            .GenerateStructuredAsync<MicroWorkoutListOutput>(
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
-                Arg.Any<CacheControl?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(_ => WithZeroUsage(BuildMicro()));
+        ConfigureMesoMicroHappyPath(llm);
 
         if (cacheCapture is not null)
         {
