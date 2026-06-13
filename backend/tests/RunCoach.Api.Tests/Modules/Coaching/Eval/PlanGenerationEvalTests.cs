@@ -1,9 +1,13 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
+using RunCoach.Api.Modules.Coaching.Onboarding;
+using RunCoach.Api.Modules.Coaching.Onboarding.Models;
+using RunCoach.Api.Modules.Training.Plan;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 
@@ -377,6 +381,194 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         nonRunDays.Should().Be(
             3,
             "constrained profile should have exactly 3 rest/cross-train days");
+    }
+
+    /// <summary>
+    /// F3 horizon eval: given an anchored <see cref="PlanHorizon"/>, live Sonnet must produce
+    /// a macro plan whose total weeks land race week in the final phase — i.e. the deterministic
+    /// <see cref="MacroPlanOutputValidator"/> passes against the same horizon. This drives the
+    /// plan-generation prompt (<see cref="IContextAssembler.ComposeForPlanGenerationAsync"/> with
+    /// an anchored horizon), NOT the coaching <c>AssembleAsync</c> prompt the sibling scenarios use.
+    ///
+    /// <para>
+    /// The fixture for this scenario is recorded separately with a funded key (a paid Sonnet call).
+    /// Until that recording lands, the test skips: it checks the on-disk cache before issuing any
+    /// call, so the eval suite stays green in Replay mode (CI never goes red waiting on a fixture).
+    /// Record it with: <c>EVAL_CACHE_MODE=Record dotnet test --solution RunCoach.slnx --filter "Category=Eval"</c>
+    /// (with the Anthropic key set on the test project's user-secrets store), then commit the new
+    /// <c>tests/eval-cache/sonnet/cache/plan.dated-event.macro/</c> fixture.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task DatedEvent_Macro_LandsRaceWeekInFinalPhase()
+    {
+        if (!CanRunEvals)
+        {
+            return;
+        }
+
+        // Skip until the fixture is recorded (funded-key, user-run step). No paid call is issued
+        // here — the on-disk check short-circuits before CreateSonnetScenarioRunAsync.
+        if (!SonnetFixtureExists("plan.dated-event.macro"))
+        {
+            Assert.Skip(
+                "Eval fixture 'plan.dated-event.macro' not yet recorded (funded-key step); "
+                + "skipping until present.");
+        }
+
+        // Arrange -- anchored horizon, ~9 weeks out from a pinned local "today".
+        // PlanStart is the Sunday on or before today (week 1, day 0 anchor).
+        var today = new DateOnly(2026, 6, 12);
+        var planStart = PlanCalendar.StartOfTrainingWeek(today);
+        var raceDate = new DateOnly(2026, 8, 8);
+        var horizon = PlanHorizonCalculator.Compute(planStart, raceDate);
+
+        // Sanity: the chosen dates must actually anchor, or the assertion below is vacuous.
+        horizon.IsAnchored.Should().BeTrue(
+            "the eval is only meaningful when the horizon anchors to the target event");
+
+        var view = BuildDatedRaceView(raceDate);
+        var composition = await Assembler.ComposeForPlanGenerationAsync(
+            view,
+            intent: null,
+            today,
+            horizon,
+            TestContext.Current.CancellationToken);
+
+        // Act -- cached structured macro call keyed on the plan-generation composition.
+        var macro = await GenerateCachedMacroAsync(
+            "plan.dated-event.macro",
+            composition,
+            TestContext.Current.CancellationToken);
+
+        await WriteEvalResultAsync(
+            "plan-dated-event",
+            new
+            {
+                Profile = "Dated event (anchored horizon)",
+                Horizon = new
+                {
+                    horizon.TargetTotalWeeks,
+                    RaceDate = raceDate.ToString("O", CultureInfo.InvariantCulture),
+                },
+                MacroPlan = macro,
+            },
+            TestContext.Current.CancellationToken);
+
+        // Trademark guard -- every persisted prose field of the cached output (Slice 3B F2).
+        TrademarkProseGuard.AssertClean("plan-dated-event", new { macro });
+
+        // Assert -- the deterministic validator passes against the same horizon: phases sum to
+        // TotalWeeks and TotalWeeks places race week in the final phase (tolerance +-1 week).
+        var validation = MacroPlanOutputValidator.Validate(macro, horizon);
+        validation.IsValid.Should().BeTrue(
+            "live Sonnet must honor the {0}-week anchored horizon; violation={1}",
+            horizon.TargetTotalWeeks,
+            validation.Violation);
+    }
+
+    /// <summary>
+    /// Builds a minimal completed <see cref="OnboardingView"/> for a realistic dated-event
+    /// profile: a race-training goal whose <see cref="TargetEventAnswer.EventDateIso"/> is the
+    /// supplied race date, so <see cref="IContextAssembler.ComposeForPlanGenerationAsync"/>
+    /// renders the anchored PLAN DATE CONTEXT block.
+    /// </summary>
+    private static OnboardingView BuildDatedRaceView(DateOnly raceDate) => new()
+    {
+        Id = Guid.Parse("00000000-0000-0000-0000-0000000000f3"),
+        UserId = Guid.Parse("00000000-0000-0000-0000-0000000000f3"),
+        TenantId = "00000000-0000-0000-0000-0000000000f3",
+        Status = OnboardingStatus.Completed,
+        OnboardingStartedAt = new DateTimeOffset(2026, 06, 12, 12, 0, 0, TimeSpan.Zero),
+        OnboardingCompletedAt = new DateTimeOffset(2026, 06, 12, 12, 30, 0, TimeSpan.Zero),
+        Version = 12,
+        PrimaryGoal = new PrimaryGoalAnswer
+        {
+            Goal = PrimaryGoal.RaceTraining,
+            Description = "training for a late-summer half marathon",
+        },
+        TargetEvent = new TargetEventAnswer
+        {
+            EventName = "Late Summer Half Marathon",
+            DistanceKm = 21.1,
+            EventDateIso = raceDate.ToString("O", CultureInfo.InvariantCulture),
+            TargetFinishTimeIso = "PT1H45M",
+        },
+        CurrentFitness = new CurrentFitnessAnswer
+        {
+            TypicalWeeklyKm = 35,
+            LongestRecentRunKm = 12,
+            RecentRaceDistanceKm = 10,
+            RecentRaceTimeIso = "PT0H47M30S",
+            Description = "consistent four runs per week, comfortable at easy pace",
+        },
+        WeeklySchedule = new WeeklyScheduleAnswer
+        {
+            MaxRunDaysPerWeek = 5,
+            TypicalSessionMinutes = 60,
+            Monday = true,
+            Tuesday = true,
+            Wednesday = false,
+            Thursday = true,
+            Friday = false,
+            Saturday = true,
+            Sunday = true,
+            Description = "no early mornings",
+        },
+        InjuryHistory = new InjuryHistoryAnswer
+        {
+            HasActiveInjury = false,
+            ActiveInjuryDescription = string.Empty,
+            PastInjurySummary = "occasional IT-band tightness when ramping volume",
+        },
+        Preferences = new PreferencesAnswer
+        {
+            PreferredUnits = PreferredUnits.Kilometers,
+            PreferTrail = false,
+            ComfortableWithIntensity = true,
+            Description = "prefers structured workouts on Tuesday and Saturday",
+        },
+    };
+
+    /// <summary>
+    /// Sends the plan-generation composition (system prompt + base user message) with JSON
+    /// response format to get a structured <see cref="MacroPlanOutput"/> via the cached
+    /// IChatClient. Mirrors <see cref="GenerateStructuredAsync{T}"/> exactly so the cache-key
+    /// derivation is identical — it differs only in sourcing the system + user text from a
+    /// <see cref="PlanGenerationPromptComposition"/> rather than an <c>AssembledPrompt</c>.
+    /// </summary>
+    private async Task<MacroPlanOutput> GenerateCachedMacroAsync(
+        string scenarioName,
+        PlanGenerationPromptComposition composition,
+        CancellationToken cancellationToken = default)
+    {
+        await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName);
+        var client = sonnetRun.ChatConfiguration!.ChatClient;
+
+        var schemaNode = JsonSchemaHelper.GenerateSchema<MacroPlanOutput>();
+        var schemaElement = JsonSerializer.Deserialize<JsonElement>(schemaNode.ToJsonString());
+
+        IList<ChatMessage> messages =
+        [
+            new ChatMessage(ChatRole.System, composition.SystemPrompt),
+            new ChatMessage(ChatRole.User, composition.UserMessage),
+        ];
+
+        var options = new ChatOptions
+        {
+            ResponseFormat = ChatResponseFormat.ForJsonSchema(
+                schemaElement,
+                nameof(MacroPlanOutput)),
+        };
+
+        var response = await client.GetResponseAsync(messages, options, cancellationToken);
+        var rawText = response.Text ?? throw new InvalidOperationException(
+            $"Structured output call for {nameof(MacroPlanOutput)} returned null.");
+
+        // Constrained decoding guarantees bare JSON -- no markdown fences to strip.
+        return JsonSerializer.Deserialize<MacroPlanOutput>(rawText, DeserializeOptions)
+            ?? throw new InvalidOperationException(
+                $"Failed to deserialize structured output to {nameof(MacroPlanOutput)}.");
     }
 
     /// <summary>
