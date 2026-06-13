@@ -13,7 +13,7 @@ public sealed record AppClockSettings
     public const string SectionName = "App";
 
     /// <summary>
-    /// Gets iANA time-zone id used to derive the app-local calendar day from UTC.
+    /// Gets IANA time-zone id used to derive the app-local calendar day from UTC.
     /// Defaults to <c>America/New_York</c> when unconfigured.
     /// </summary>
     public string TimeZone { get; init; } = "America/New_York";
