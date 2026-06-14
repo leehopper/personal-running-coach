@@ -21,8 +21,8 @@ feature ground, so they precede Slice 4.
 (new account, funded key, real browser) passes with all four fixes observable at
 the surface. CI/eval coverage alone does not close this slice.
 
-**Progress.** F1 ✅ shipped #185 (2026-06-11). F2 ✅ shipped #187 (2026-06-12). F3 ✅ shipped #190 (2026-06-13). F4 ⬜ — next: F4.
-The live-pass re-run (done-gate) is pending all four.
+**Progress.** F1 ✅ shipped #185 (2026-06-11). F2 ✅ shipped #187 (2026-06-12). F3 ✅ shipped #190 (2026-06-13). F4 ✅ shipped #192 (2026-06-13).
+All four immediate fixes shipped; the live-pass re-run (done-gate) is the remaining close-out.
 
 ---
 
@@ -112,6 +112,8 @@ fitness goal) is unchanged.
   posture) rather than silently appended.
 
 ## F4 — Restructure internal-consistency validation
+
+**Status: ✅ Shipped — #192 (2026-06-13), DEC-083.** A projection-aware `RestructureConsistencyCheck` runs as a post-validation gate on the L2 path (after `PlanAdaptationOutputValidator`, before the diff): when the proposal revises the current week's weekly target, that target must equal the **exact** running-only sum of the week's *resulting* workouts (the sparse `RevisedCurrentWeekWorkouts` merged over the live projection's untouched days via a shared `RestructureWorkoutResolver`, cross-training excluded). A mismatch is terminal (`Kind=Error`, nothing staged — DEC-080; the step-5b Amber referral still commits — DEC-081). The `adaptation.v1.yaml` prompt now instructs the LLM to list the complete revised current week and set its target to the exact arithmetic sum, and `RestructureDiffCalculator` suppresses restated-but-unchanged no-op workout rows. **DEC-083** ratifies exact-km equality + the narrowed current-week scope over this section's original tolerance-band wording (whole-km integers + exact-sum prompt leave nothing for a 5% band to absorb; the broader effective-target scope is deferred). Two residuals are tracked in the cycle plan's *Captured During Cycle* table: the `RestructurePlan.RevisedWeeklyTargets` schema-`[Description]` realignment (needs a curated funded-key re-record — a trial re-record produced a live-Sonnet output that was itself inconsistent) and the no-removal/`Rest` workout semantic (a shorten-by-omission is terminally rejected rather than applied).
 
 **Finding.** The live L2 restructure proposed Week 1 `WeeklyTargetKm: 24` while
 its own edited micro week sums to 30 km (Mon 4 + Wed 8 + untouched Thu 6 + Sat 12)
