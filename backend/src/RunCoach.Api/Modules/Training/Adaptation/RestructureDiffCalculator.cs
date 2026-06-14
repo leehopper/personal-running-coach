@@ -27,6 +27,10 @@ namespace RunCoach.Api.Modules.Training.Adaptation;
 /// <item>Workout edits apply to the CURRENT micro week only; when that week carries no
 ///   micro detail (only week 1 is materialized at MVP-0) every workout edit is dropped
 ///   rather than synthesizing a future week.</item>
+/// <item>A revised day whose prescription (type/title/distance/duration/paces/effort)
+///   equals the existing day is dropped — the F4 prompt has the LLM restate kept runs
+///   to total the week, and a restated-but-unchanged day must not show as a no-op
+///   <c>X km -&gt; X km</c> change.</item>
 /// <item>No change ever carries a week number below 1 — the projection throws on a
 ///   non-1-based week and fails the whole transaction, so malformed LLM week indices
 ///   are dropped here instead. Day-of-week values outside 0..6 are dropped for the
@@ -100,12 +104,10 @@ internal static class RestructureDiffCalculator
             return [];
         }
 
-        // Collapse duplicate day entries last-wins; drop days outside 0..6.
-        var revisedByDay = new Dictionary<int, WorkoutOutput>();
-        foreach (var workout in revisedWorkouts.Where(workout => workout.DayOfWeek is >= 0 and <= 6))
-        {
-            revisedByDay[workout.DayOfWeek] = workout;
-        }
+        // Collapse duplicate day entries last-wins; drop days outside 0..6. Shared
+        // with the F4 consistency check via RestructureWorkoutResolver so both resolve
+        // the sparse per-day edit set identically.
+        var revisedByDay = RestructureWorkoutResolver.IndexRevisedByDay(revisedWorkouts);
 
         var changes = new List<WorkoutChange>();
         foreach (var (dayOfWeek, after) in revisedByDay.OrderBy(pair => pair.Key))
@@ -114,9 +116,30 @@ internal static class RestructureDiffCalculator
             // upsert (Before null when the day had no workout), an absent day is
             // untouched — so a removal (null After) is never emitted.
             var before = currentWeek.Workouts.FirstOrDefault(workout => workout.DayOfWeek == dayOfWeek);
+
+            // The F4 prompt has the LLM restate EVERY current-week run, including the
+            // ones it keeps unchanged, so it can total the week. A restated-but-unchanged
+            // day must not surface as a "X km -> X km" no-op in the persisted diff — mirror
+            // the weekly-target path's unchanged guard. Equality is on the runner-facing
+            // prescription (type/title/distance/duration/paces/effort), not the regenerated
+            // prose or segments, which the model rewrites freely even for a kept session.
+            if (before is not null && RepresentsNoChange(before, after))
+            {
+                continue;
+            }
+
             changes.Add(new WorkoutChange(currentWeekNumber, dayOfWeek, before, after));
         }
 
         return changes;
     }
+
+    private static bool RepresentsNoChange(WorkoutOutput before, WorkoutOutput after) =>
+        before.WorkoutType == after.WorkoutType
+        && before.Title == after.Title
+        && before.TargetDistanceKm == after.TargetDistanceKm
+        && before.TargetDurationMinutes == after.TargetDurationMinutes
+        && before.TargetPaceEasySecPerKm == after.TargetPaceEasySecPerKm
+        && before.TargetPaceFastSecPerKm == after.TargetPaceFastSecPerKm
+        && before.PerceivedEffort == after.PerceivedEffort;
 }

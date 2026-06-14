@@ -989,6 +989,96 @@ public sealed class EvaluateAdaptationHandlerUnitTests
     }
 
     [Fact]
+    public async Task Handle_RestructureWithInconsistentCurrentWeekTarget_RejectsWithNothingStaged()
+    {
+        // Arrange — slice 3B F4: the proposal's three revised runs sum to 24 km
+        //   (12 + 4 + 8) but it leaves Saturday's 10 km long run (day 6) untouched, so
+        //   the RESULTING week is 34 km. The proposed current-week (week 1) target of
+        //   24 km counts only the revised days and contradicts the week the merge
+        //   actually produces. The gate catches this only by summing the untouched day
+        //   too — the exact projection-aware drift it exists for — even though the pure
+        //   validator passes. (A resolver regression that summed revised-only would see
+        //   24 == 24 and wrongly let it through, so this fails if the merge ever breaks.)
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot());
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.StubLlm(BuildRestructureOutput() with
+        {
+            RestructurePlan = new RestructurePlan
+            {
+                RevisedWeeklyTargets = [new WeeklyTargetEdit { WeekNumber = 1, WeeklyTargetKm = 24 }],
+                RevisedCurrentWeekWorkouts =
+                [
+                    BuildWorkout(0, WorkoutType.Easy) with { TargetDistanceKm = 12 },
+                    BuildWorkout(2, WorkoutType.Easy) with { TargetDistanceKm = 4 },
+                    BuildWorkout(3, WorkoutType.Easy) with { TargetDistanceKm = 8 },
+                ],
+                ForwardPath = "Hold the reduced volume this week, then ramp back ~10% per week.",
+            },
+        });
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — the same non-retryable Kind=Error envelope as the other post-decode
+        //   rejects, nothing staged (Green gate: no referral either), and the warning
+        //   names the contradiction.
+        actual.Kind.Should().Be(AdaptationResponseKind.Error);
+        actual.Retryable.Should().BeFalse();
+        AssertNothingStaged(harness);
+        harness.Logger.Entries.Should().Contain(e =>
+            e.Level == LogLevel.Warning && e.Message.Contains("internally inconsistent"));
+    }
+
+    [Fact]
+    public async Task Handle_RestructureWithConsistentCurrentWeekTarget_AppliesTheRestructure()
+    {
+        // Arrange — slice 3B F4: the same three revised runs sum to 24 km and Saturday's
+        //   untouched 10 km long run (day 6) brings the RESULTING week to 34 km, which
+        //   equals the proposed current-week (week 1) target. The gate passes only
+        //   because it merges the untouched day into the sum, so the restructure is
+        //   applied as usual. (A resolver regression that summed revised-only would see
+        //   24 != 34 and wrongly reject, so this fails if the merge ever breaks.)
+        var harness = new Harness();
+        var log = BuildLog(BuildSnapshot());
+        var cmd = CommandFor(log);
+        var deviation = harness.StubOnPlan(cmd, log);
+        harness.StubPlan(BuildPlan());
+        harness.StubLlm(BuildRestructureOutput() with
+        {
+            RestructurePlan = new RestructurePlan
+            {
+                RevisedWeeklyTargets = [new WeeklyTargetEdit { WeekNumber = 1, WeeklyTargetKm = 34 }],
+                RevisedCurrentWeekWorkouts =
+                [
+                    BuildWorkout(0, WorkoutType.Easy) with { TargetDistanceKm = 12 },
+                    BuildWorkout(2, WorkoutType.Easy) with { TargetDistanceKm = 4 },
+                    BuildWorkout(3, WorkoutType.Easy) with { TargetDistanceKm = 8 },
+                ],
+                ForwardPath = "Hold the reduced volume this week, then ramp back ~10% per week.",
+            },
+        });
+        harness.Classifier
+            .Classify(deviation, SafetyTier.Green, Arg.Any<AdaptationSignalState>())
+            .Returns(RestructureDecision());
+
+        // Act
+        var actual = await harness.HandleAsync(cmd);
+
+        // Assert — the restructure is applied: one PlanAdaptedFromLog, marker recorded.
+        actual.Kind.Should().Be(AdaptationResponseKind.Adapted);
+        actual.AdaptationKind.Should().Be(AdaptationKind.Restructure);
+        harness.Appended.Should().ContainSingle()
+            .Which.Event.Should().BeOfType<PlanAdaptedFromLog>();
+        harness.Idempotency.Received(1).Record(cmd.WorkoutLogId, Arg.Any<AdaptationResponseDto>());
+    }
+
+    [Fact]
     public async Task Handle_RestructurePath_SanitizesViaTheAssemblerOnly_PassingTheRawDetail()
     {
         // Arrange — the handler sanitizes a SEPARATE copy for the safety gate and

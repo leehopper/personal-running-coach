@@ -80,6 +80,29 @@ public sealed class RestructureDiffCalculatorTests
         actual.WeeklyTargetChanges.Should().BeEmpty();
     }
 
+    [Fact]
+    public void Calculate_SuppressesNoOpWorkoutEditThatRestatesAnUnchangedDay()
+    {
+        // Arrange — the F4 prompt has the LLM restate every current-week run so it can
+        //   total the week, including the ones it keeps. Day 2 (Tempo) is restated with
+        //   the same prescription but freshly reworded coaching prose. That is not a
+        //   change the runner sees, so the diff must not emit a "Tempo 10 km -> Tempo
+        //   10 km" no-op (mirrors the unchanged-weekly-target drop above).
+        var plan = BuildPlan();
+        var restatedTuesday = BuildWorkout(2, WorkoutType.Tempo) with
+        {
+            CoachingNotes = "Same session — keep the effort honest.",
+            Segments = [],
+        };
+        var proposal = BuildProposal(workouts: [restatedTuesday]);
+
+        // Act
+        var actual = RestructureDiffCalculator.Calculate(proposal, plan, currentWeekNumber: 1);
+
+        // Assert
+        actual.WorkoutChanges.Should().BeEmpty();
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

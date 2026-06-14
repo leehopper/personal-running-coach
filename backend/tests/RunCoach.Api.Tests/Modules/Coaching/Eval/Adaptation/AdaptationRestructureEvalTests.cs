@@ -7,6 +7,7 @@ using RunCoach.Api.Modules.Coaching.Adaptation;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Adaptation;
+using RunCoach.Api.Modules.Training.Plan.Models;
 using RunCoach.Api.Modules.Training.Safety;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Eval.Adaptation;
@@ -97,6 +98,20 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
         constraintViolations.Should().BeEmpty(
             because: "the restructure proposal must honor the eval-side mileage-ramp guardrail");
 
+        // (slice 3B F4) Internal consistency: when the proposal revises the current
+        // week's weekly target, that target must equal the sum of the week's resulting
+        // workout distances — the sparse revisions applied over the days left untouched.
+        // Runs the production check against the scenario's existing current week.
+        var consistency = RestructureConsistencyCheck.Evaluate(
+            output.RestructurePlan!, ExistingWeekProjection(profileName), currentWeekNumber: 1);
+        consistency.ProposedWeeklyTargetKm.Should().NotBeNull(
+            because: "this eval must exercise the current-week consistency rule itself, not the "
+                + "NotApplicable pass — the fixture must revise the current week's target");
+        consistency.ResultingWorkoutSumKm.Should().NotBeNull();
+        consistency.IsConsistent.Should().BeTrue(
+            because: "the restructure's current-week target must equal its resulting workout sum "
+                + $"(proposed {consistency.ProposedWeeklyTargetKm} km, resulting {consistency.ResultingWorkoutSumKm} km)");
+
         // Communication judge: every rationale criterion must pass.
         verdict.OverallScore.Should().Be(1.0m, because: "the rationale must meet every communication criterion");
         verdict.Criteria.Should().AllSatisfy(c =>
@@ -118,6 +133,50 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
         "priya" => 60,
         _ => throw new ArgumentOutOfRangeException(nameof(profileName), profileName, "No adaptation baseline for this profile."),
     };
+
+    /// <summary>
+    /// The scenario's existing current micro week as structured data, mirroring the
+    /// prose in <see cref="BuildTokens"/>'s plan_context, so the F4 consistency check
+    /// can sum the resulting week — including the days the proposal leaves untouched.
+    /// </summary>
+    private static PlanProjectionDto ExistingWeekProjection(string profileName)
+    {
+        // lee = Mon Easy 7 / Wed Tempo 8 / Fri Easy 6 / Sun Long Run 14; priya =
+        // Tue Easy 10 / Thu Tempo 12 / Sat Intervals 14 / Sun Long Run 22 (days are
+        // 0=Sun..6=Sat, matching the plan_context prose).
+        WorkoutOutput[] week = profileName switch
+        {
+            "lee" => [Workout(1, 7), Workout(3, 8), Workout(5, 6), Workout(0, 14)],
+            "priya" => [Workout(2, 10), Workout(4, 12), Workout(6, 14), Workout(0, 22)],
+            _ => throw new ArgumentOutOfRangeException(nameof(profileName), profileName, "No existing week for this profile."),
+        };
+
+        return new PlanProjectionDto
+        {
+            PlanId = Guid.NewGuid(),
+            MicroWorkoutsByWeek = new Dictionary<int, MicroWorkoutListOutput>
+            {
+                [1] = new() { Workouts = week },
+            },
+        };
+    }
+
+    private static WorkoutOutput Workout(int dayOfWeek, int targetDistanceKm) =>
+        new()
+        {
+            DayOfWeek = dayOfWeek,
+            WorkoutType = WorkoutType.Easy,
+            Title = "Workout",
+            TargetDistanceKm = targetDistanceKm,
+            TargetDurationMinutes = 40,
+            TargetPaceEasySecPerKm = 360,
+            TargetPaceFastSecPerKm = 360,
+            Segments = [],
+            WarmupNotes = string.Empty,
+            CooldownNotes = string.Empty,
+            CoachingNotes = string.Empty,
+            PerceivedEffort = 4,
+        };
 
     private static async Task<(string System, string User)> BuildAdaptationPromptAsync(
         string profileName, CancellationToken ct)
