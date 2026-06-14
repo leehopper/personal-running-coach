@@ -16,7 +16,7 @@ public sealed record RestructurePlan
     /// Gets the revised weekly volume targets (km) for upcoming meso weeks. Each entry
     /// replaces that week's <c>MesoWeekOutput.WeeklyTargetKm</c>.
     /// </summary>
-    [Description("Revised weekly volume targets in kilometers for upcoming meso weeks. Each entry replaces that week's weekly target. May be empty when only the current week changes.")]
+    [Description("Revised weekly volume targets in kilometers; each entry replaces that week's weekly target. Include the current week's entry whenever you revise the current week, and set its target to the EXACT arithmetic sum of that week's resulting workout distances (every run the week holds after your revisions, including days you leave unchanged, not only the changed ones).")]
     public required WeeklyTargetEdit[] RevisedWeeklyTargets { get; init; }
 
     /// <summary>
