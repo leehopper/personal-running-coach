@@ -2937,7 +2937,7 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 
 **Date:** 2026-06-12
 **Category:** Backend / Plan generation / Time handling
-**Status:** Accepted — ships in F3 (Slice 3B); resolves the off-by-one calendar-day found in the 2026-06-11 live e2e pass.
+**Status:** Accepted — shipped in F3 / Slice 3B (#190, 2026-06-13); resolves the off-by-one calendar-day found in the 2026-06-11 live e2e pass.
 **Drives:** How the plan-generation and horizon-validation code resolves "today" to anchor `PlanStartDate` and the horizon window.
 **Builds on:** DEC-076 (snapshot-on-log, calendar dates as timezone-free `DateOnly`), DEC-073/DEC-080 (terminal-rejection posture the `PlanHorizonCalculator` + `MacroPlanOutputValidator` follow).
 
@@ -2955,6 +2955,34 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 **Open / deferred:** Per-user time zones (upgrade the `ILocalDateProvider` seam to accept a caller-supplied zone parameter when user-profile timezone storage lands). The regenerate-plan path does not yet map `PlanGenerationRejectedException` to a `Kind=Error` envelope (only the onboarding completion controller does); tracked in `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle.
 
 **Cross-references:** F3 / spec 18 (`docs/specs/18-spec-slice-3b-live-pass-fixes`, gitignored), DEC-076 (calendar dates as timezone-free `DateOnly`), DEC-073 (synchronous LLM-failure policy — `Kind=Error` envelope), DEC-080 (terminal-rejection posture).
+
+---
+
+## DEC-083: Slice 3B F4 — restructure consistency gate uses exact integer equality on a narrowed current-week scope (supersedes spec 18 Unit 4's tolerance band) (Slice 3B)
+
+**Date:** 2026-06-13
+**Category:** Backend / Plan adaptation / L2 restructure validation
+**Status:** Accepted — records the deliberate divergence of the shipped F4 gate (`RestructureConsistencyCheck`, #192) from spec 18 Unit 4's tolerance-band wording; surfaced by the #192 deep review.
+**Drives:** How the L2 restructure consistency gate compares a proposed current-week weekly target against the week's resulting workouts.
+**Builds on:** DEC-080 (single-call validator reject — nothing staged; "deliberate MVP-0 scope reductions from the local spec" precedent), DEC-081 (Amber referral persists on terminal L2 failure), DEC-079 (structured diff is computed deterministically, never parsed prose).
+
+**Decision:**
+
+- **Exact integer equality, no tolerance band.** The gate rejects a restructure when the proposed current-week weekly target does not *exactly* equal the sum of the week's resulting running workouts. Spec 18 Unit 4 specified `max(1 km, 5% of the effective target)`; that tolerance is **deliberately not implemented**. Weekly targets and workout distances are whole-km integers, and the adaptation prompt (`adaptation.v1.yaml` CURRENT-WEEK CONSISTENCY block) instructs the LLM to set the current-week target to the *exact arithmetic sum* of the week's runs, so a consistent restructure sums precisely and the tolerance has nothing to absorb.
+- **Scope narrowed to a revised current-week target.** The gate fires only when the proposal carries a `RevisedWeeklyTargets` entry for the current week and that week carries materialized micro detail. The spec's "else the unchanged existing target" comparison is **not implemented**: a restructure that edits current-week workouts without restating the target is treated as not-applicable. Policing a pre-existing meso/micro arithmetic mismatch the proposal did not create is out of MVP-0 scope, and the narrowing keeps every prior restructure test/fixture (none of which emit a current-week target edit) unaffected.
+- **The resulting-week sum is running-only.** `MesoWeekOutput.WeeklyTargetKm` is running volume, so a carried-over cross-training day (preserved verbatim by `RestructureWorkoutResolver`) is excluded from the sum (finding #8).
+- **The diff suppresses no-op workout changes.** Because the prompt has the LLM restate every current-week run (including kept ones) to total the week, `RestructureDiffCalculator` drops a revised day whose prescription (type/title/distance/duration/paces/effort) equals the existing day, so a restated-but-unchanged run does not surface as a bogus `X km -> X km` change in the persisted diff or the Coach panel (finding #5).
+
+**Rationale:** The F4 fix's whole purpose is that the weekly target must reflect the week the restructure actually produces. With whole-km integers and a prompt that defines the target as the exact sum of the listed runs, exact equality is the natural, strongest invariant; a 5% tolerance would re-admit the small target-vs-week drift the gate exists to forbid. The spec's tolerance was paired with the broader "check against the existing target" scope (where the meso and micro tiers can disagree by a rounding margin); since that broader scope is deferred, the tolerance has no role. Recording this as a DEC rather than reverting to the spec keeps the shipped, internally-coherent design and follows the DEC-080 precedent of documenting deliberate MVP-0 reductions from the local spec.
+
+**Alternatives considered:** (1) Implement the spec's tolerance band + effective-target (revised-or-existing) — rejected for MVP-0: broadening the scope risks rejecting restructures over pre-existing meso/micro mismatches and would force re-recording the adaptation eval against the looser rule; the tolerance is moot in whole-km/exact-sum land. (2) Leave the divergence undocumented — rejected; plan-first discipline (DEC-008) requires a DEC when the implementation departs from the reviewed spec.
+
+**Open / deferred:**
+
+- **Schema `[Description]` lag (finding #4).** `RestructurePlan.RevisedWeeklyTargets` still reads "for upcoming meso weeks … may be empty when only the current week changes," which contradicts the gate's dependence on a current-week target. The prompt's CURRENT-WEEK CONSISTENCY instruction is authoritative and reliably produces the current-week target — both committed restructure fixtures (lee 30 km, priya 46 km) carry it, so the gate is exercised, not silently skipped. Aligning the `[Description]` busts the adaptation eval cache key (a funded-key re-record); deferred to the next deliberate adaptation re-record (the slice's live-pass done-gate), where a re-recorded output is verified consistent rather than dice-rolled (a trial re-record on #192 produced a live-Sonnet output that was itself inconsistent, confirming the re-record must be curated, not blind). Tracked in `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle.
+- **No removal / `Rest` semantic (finding #6).** The sparse-upsert restructure model cannot express dropping a run day to rest (there is no `Rest` `WorkoutType` and the diff never emits a removal). A restructure that omits a day and lowers the target is summed against the carried-over (un-dropped) week and terminally rejected. Accepted MVP-0 limitation (removal is a spec non-goal); revisit with an explicit rest/removal marker if it surfaces in live use.
+
+**Cross-references:** F4 / spec 18 Unit 4 (`docs/specs/18-spec-slice-3b-live-pass-fixes`, gitignored — updated to match this decision), DEC-080 (terminal-rejection + deliberate-scope-reduction precedent), DEC-079 (deterministic structured diff).
 
 ---
 

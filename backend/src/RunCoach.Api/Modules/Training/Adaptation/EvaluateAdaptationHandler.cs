@@ -509,6 +509,29 @@ public sealed partial class EvaluateAdaptationHandler
                 new PermanentCoachingLlmException(RejectedProposalMessage, null));
         }
 
+        // (slice 3B F4) Internal-consistency gate: when the restructure revises the
+        // current week's weekly target, that target must equal the total distance of
+        // the week's RESULTING workouts — the sparse revisions applied over the days
+        // left untouched. The live pass produced a target that matched only the edited
+        // workouts while an untouched workout pushed the real week higher; that
+        // contradiction is terminal (DEC-080), the projection-aware companion to the
+        // pure validator above. No restructure staged (the step-5b Amber referral, if
+        // any, persists — DEC-081), so this gate sits before any append below.
+        var consistency = RestructureConsistencyCheck.Evaluate(
+            output.RestructurePlan!, plan, snapshot.WeekNumber);
+        if (!consistency.IsConsistent)
+        {
+            LogRestructureWeeklyTargetInconsistent(
+                logger,
+                cmd.WorkoutLogId,
+                planId,
+                snapshot.WeekNumber,
+                consistency.ProposedWeeklyTargetKm,
+                consistency.ResultingWorkoutSumKm);
+            return AdaptationResponseDto.FromError(
+                new PermanentCoachingLlmException(RejectedProposalMessage, null));
+        }
+
         // DEC-079: the diff is structured data computed deterministically from
         // the validated proposal against the projection — never parsed prose.
         var diff = RestructureDiffCalculator.Calculate(output.RestructurePlan!, plan, snapshot.WeekNumber);
@@ -771,4 +794,16 @@ public sealed partial class EvaluateAdaptationHandler
         Guid workoutLogId,
         Guid planId,
         ReferralCategory category);
+
+    [LoggerMessage(
+        EventId = 12,
+        Level = LogLevel.Warning,
+        Message = "Adaptation LLM restructure internally inconsistent workoutLogId={WorkoutLogId} planId={PlanId} week={WeekNumber}: proposed current-week target {ProposedWeeklyTargetKm} km != resulting workout sum {ResultingWorkoutSumKm} km; rejecting the proposal with no restructure staged (any step-5b Amber referral persists)")]
+    private static partial void LogRestructureWeeklyTargetInconsistent(
+        ILogger logger,
+        Guid workoutLogId,
+        Guid planId,
+        int weekNumber,
+        int? proposedWeeklyTargetKm,
+        int? resultingWorkoutSumKm);
 }

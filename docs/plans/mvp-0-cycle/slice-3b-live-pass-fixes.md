@@ -21,8 +21,9 @@ feature ground, so they precede Slice 4.
 (new account, funded key, real browser) passes with all four fixes observable at
 the surface. CI/eval coverage alone does not close this slice.
 
-**Progress.** F1 ✅ shipped #185 (2026-06-11). F2 ✅ shipped #187 (2026-06-12). F3 ⬜ · F4 ⬜ — next: F3.
-The live-pass re-run (done-gate) is pending all four.
+**Progress.** F1 ✅ shipped #185 (2026-06-11). F2 ✅ shipped #187 (2026-06-12). F3 ✅ shipped #190 (2026-06-13). F4 ✅ shipped #192 (2026-06-13).
+All four immediate fixes shipped. **Live-pass re-run ✅ PASSED 2026-06-13** (fresh account `validation3b-jun13@runcoach.test`, funded key, real browser via Playwright) — all four fixes observed at the surface AND in the persisted event store. **F3:** a 10K on 2026-08-15 (the exact date that produced the original 16-week bug) generated a **10-week** plan (Base 1–3 / Build 4–7 / Peak 8–9 / Taper = wk 10 = race week), macro validator accepted, no rejection. **F2:** new plan stream's persisted prose carries zero trademarked terms (the macro `Rationale` — the original leak field — now reads "pace-zone index"/"Daniels-Gilbert"); the only `vdot` in the store is the pre-fix 2026-06-11 plan. **F4:** three under-performing logs (score 1→2→3) drove a live L2 restructure whose revised current-week target (27 km) equals the **exact** running-only sum of the resulting week (Mon 8 untouched + Wed 6 + Thu 0 + Sat 13 = 27); the Coach-panel diff suppresses the untouched Monday and shows no target/sum contradiction. **F1:** an Amber injury note ("sharp pain in my left shin … stopped early") logged inside the post-restructure cooldown dead-zone surfaced the scripted physiotherapist referral turn (SafetyTier 1 / ReferralCategory 3) with the plan unchanged and **no** second restructure (restructure count stayed 1, no new LLM call). Known out-of-scope findings reproduced as expected (schedule slot-merge loop — 5 round-trips; input-kind/assistant-text mismatch; stale week narratives beside corrected numbers). User-observed persona/UX notes captured to the cycle plan's Captured During Cycle table (2026-06-13).
+**Slice CLOSED 2026-06-14 (#194).** Both funded-key eval re-records landed: F3's `plan.dated-event.macro` fixture recorded (the dated-event horizon eval now runs in Replay instead of skipping) and F4's `RestructurePlan.RevisedWeeklyTargets` `[Description]` realigned to the consistency gate + `adaptation.restructure.{lee,priya}` (+ judge) re-recorded internally consistent on the first attempt (DEC-083 residual closed). The live browser done-gate was met 2026-06-13; full backend suite green in Replay (1787 passed).
 
 ---
 
@@ -90,6 +91,8 @@ structured-output boundary rejects or scrubs offending output before append;
 
 ## F3 — Plan horizon anchors to the target event date
 
+**Status: ✅ Shipped — #190 (2026-06-13), DEC-082.** An app-local "today" seam (`ILocalDateProvider`/`LocalDateProvider` over the injected `TimeProvider` + a single configured `App:TimeZone`) fixes the UTC-midnight off-by-one; a deterministic `PlanHorizonCalculator` anchors the horizon from `PlanStartDate` + the parsed event date and pins it into the macro prompt as a hard constraint; `MacroPlanOutputValidator` enforces phase-week-sum (always) and the ±1-week event horizon (when anchored), throwing `PlanGenerationRejectedException` (terminal, nothing staged) which the onboarding completion turn maps to an HTTP-200 `Kind=Error` envelope. A dated-event horizon eval was added but **skips until its fixture is recorded** (funded-key step, part of the live-pass re-run done-gate). Calendar dates stay timezone-free `DateOnly` — reaffirms DEC-076. Regenerate-path envelope mapping + the OTel `outcome=rejected` tag are deferred (cycle-plan § Captured During Cycle, DEC-082 open/deferred).
+
 **Finding.** Onboarding declared a 10K on 2026-08-15 (nine weeks out);
 the macro plan generated `TotalWeeks: 16` with Base/Build/Peak/Taper spanning to
 late September — race day lands mid-Peak and the taper sits six weeks after the
@@ -110,6 +113,8 @@ fitness goal) is unchanged.
   posture) rather than silently appended.
 
 ## F4 — Restructure internal-consistency validation
+
+**Status: ✅ Shipped — #192 (2026-06-13), DEC-083.** A projection-aware `RestructureConsistencyCheck` runs as a post-validation gate on the L2 path (after `PlanAdaptationOutputValidator`, before the diff): when the proposal revises the current week's weekly target, that target must equal the **exact** running-only sum of the week's *resulting* workouts (the sparse `RevisedCurrentWeekWorkouts` merged over the live projection's untouched days via a shared `RestructureWorkoutResolver`, cross-training excluded). A mismatch is terminal (`Kind=Error`, nothing staged — DEC-080; the step-5b Amber referral still commits — DEC-081). The `adaptation.v1.yaml` prompt now instructs the LLM to list the complete revised current week and set its target to the exact arithmetic sum, and `RestructureDiffCalculator` suppresses restated-but-unchanged no-op workout rows. **DEC-083** ratifies exact-km equality + the narrowed current-week scope over this section's original tolerance-band wording (whole-km integers + exact-sum prompt leave nothing for a 5% band to absorb; the broader effective-target scope is deferred). Two residuals are tracked in the cycle plan's *Captured During Cycle* table: the `RestructurePlan.RevisedWeeklyTargets` schema-`[Description]` realignment (needs a curated funded-key re-record — a trial re-record produced a live-Sonnet output that was itself inconsistent) and the no-removal/`Rest` workout semantic (a shorten-by-omission is terminally rejected rather than applied).
 
 **Finding.** The live L2 restructure proposed Week 1 `WeeklyTargetKm: 24` while
 its own edited micro week sums to 30 km (Mon 4 + Wed 8 + untouched Thu 6 + Sat 12)

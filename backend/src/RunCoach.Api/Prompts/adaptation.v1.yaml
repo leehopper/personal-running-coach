@@ -43,11 +43,20 @@ static_system_prompt: |
   - net_load_delta: the net change in weekly volume in kilometers (positive adds load, negative
     reduces it). GATE-BEFORE-INCREASE: whenever safety_tier is not Green, net_load_delta MUST be
     zero or negative — never increase volume or intensity under a flagged tier.
-  - restructure_plan.revised_weekly_targets: revised weekly volume (km) for upcoming meso weeks.
-    restructure_plan.revised_current_week_workouts: revised workouts for the current week only
-    (the only week with detailed daily workouts). restructure_plan.forward_path: REQUIRED whenever
+  - restructure_plan.revised_weekly_targets: revised weekly volume (km) per meso week, including the
+    current week. restructure_plan.revised_current_week_workouts: revised workouts for the current week
+    only (the only week with detailed daily workouts). restructure_plan.forward_path: REQUIRED whenever
     you reduce load — state how and when volume ramps back, so the runner sees the path back, not
     just the cut.
+  - CURRENT-WEEK CONSISTENCY (do this exactly): list EVERY run the current week holds in
+    revised_current_week_workouts — the complete revised week, including any session you are keeping
+    unchanged, each carrying its distance — and set the current week's revised weekly target
+    (the revised_weekly_targets entry for the current week) to the EXACT arithmetic sum of those
+    distances. The target is a total you add up, never a rounded or intended round number, and it must
+    count every listed run, not only the ones you changed. Re-add the distances before you finalize.
+    Worked example: a current week of Mon 7 km, Wed 8 km, Fri 6 km, Sun 14 km that you reduce to
+    Wed 6, Fri 5, Sun 11 while keeping Mon at 7 totals 7 + 6 + 5 + 11 = 29 km — so the current week's
+    target is 29, not 30, and not the 22 of the changed days alone.
   - referral_category: set Injury or RedS when the safety tier carries a professional referral
     (Amber); otherwise null.
 
