@@ -24,6 +24,15 @@ public sealed class VoiceProseGuardTests
         VoiceProseGuard.FindViolation(value).Should().NotBeNull();
     }
 
+    [Theory]
+    [InlineData("Block starts 2026-06-13, ends 2026-07-04.")] // plain hyphen-minus dates
+    [InlineData("Easy run, 8-10 km.")] // plain hyphen-minus range, not a banned dash
+    public void FindViolation_PlainHyphenMinus_ReturnsNull(string value)
+    {
+        // Assert
+        VoiceProseGuard.FindViolation(value).Should().BeNull();
+    }
+
     [Fact]
     public void FindViolation_Exclamation_ReturnsViolation()
     {
@@ -51,7 +60,20 @@ public sealed class VoiceProseGuardTests
         var act = () => VoiceProseGuard.AssertClean("test", output);
 
         // Assert
-        act.Should().Throw<Exception>();
+        act.Should().Throw<Xunit.Sdk.XunitException>().WithMessage("*Love that*");
+    }
+
+    [Fact]
+    public void AssertClean_ArrayElementWithBannedPhrase_Throws()
+    {
+        // Arrange
+        var output = new { notes = new[] { "fine", "Love that target." } };
+
+        // Act
+        var act = () => VoiceProseGuard.AssertClean("test", output);
+
+        // Assert
+        act.Should().Throw<Xunit.Sdk.XunitException>().WithMessage("*Love that*");
     }
 
     [Fact]
