@@ -72,12 +72,18 @@ Net effect: **kept** = MI spine + all safety; **deleted** = mandatory OARS affir
 
 > **No runtime scrubber.** Unlike the F2 `TrademarkScrubber`, 4A does **not** add a runtime em-dash scrubber. The prompt STYLE rule plus the deterministic eval guard are the chosen enforcement. (Em-dash → comma/period rewriting is not always clean; revisit only if live tuning shows the model still emitting them despite the prompt rule.)
 
-### D4 — Build/merge model: structural PR first, then tune
+### D4 — Build/merge model: small stacked structural PRs, then tune
 
-The voice is subjective and a single rewrite will not land it. The work is structured as:
+The voice is subjective and a single rewrite will not land it, and the structural work itself must not land as one huge PR. It breaks into small, reviewable PRs (full breakout + task map in the implementation plan `docs/superpowers/plans/2026-06-17-slice-4a-voice-retune.md`):
 
-1. **One structural PR** — the persona-doc edits, the three prompt rewrites, the deterministic prose guards, the advisory Haiku rubric, the regenerated DEC-074 hash manifest, and a **single** re-record of the affected fixtures. Reviewable and gateable: it has a clean definition of done independent of the subjective register landing perfectly.
-2. **Tuning rounds** — prompt-only follow-up PRs. Each round: adjust the prompt prose → regenerate the manifest → targeted re-record of the affected fixtures → Replay-verify → builder reads the live output against a fresh account. Repeat until the gruff-direct register reads right to the builder.
+1. **PR0 — split-recording** (cycle-plan + ROADMAP Status reflect 4A/4B/4C).
+2. **PR1 — enforcement scaffolding** (deterministic `VoiceProseGuard` + advisory `VoiceRubrics.Restraint` + unit tests). Test-only, green on its own — no prompt or fixture changes.
+3. **PR2 — persona doc** (`coaching-persona.md` gruff-direct rewrite). Doc-only.
+4. **PR3 / PR4 / PR5 — one prompt each** (`onboarding-v1`, then `coaching-system.v1`, then `adaptation.v1`). Each PR = that prompt's rewrite + its `.prompt-hashes.sha256` line + a **targeted** re-record of only that surface's fixtures + wiring the guard (and, in PR5, the advisory rubric) into that surface's eval. Stacked, because all three touch the shared manifest + `tests/eval-cache/`; rebase each onto the prior after merge.
+
+The one unavoidably-coupled unit is *(one prompt + its manifest line + its fixtures + its guard wiring)* — the lefthook `check-prompt-hashes` hook and the `EvalTestBase` static-ctor backstop block a partial commit — so per-prompt is the smallest safe PR boundary.
+
+5. **Tuning rounds** — prompt-only follow-up PRs. Each round: adjust the prompt prose → regenerate the manifest → targeted re-record of the affected fixtures → Replay-verify → builder reads the live output against a fresh account. Repeat until the gruff-direct register reads right to the builder.
 
 ### D5 — Eval re-record + manifest mechanics
 
