@@ -27,7 +27,7 @@ Small, reviewable PRs. PR1–PR2 are independent; PR3–PR5 are **stacked** beca
 
 | PR | Task(s) | Contents | Size / review focus | Depends on |
 |---|---|---|---|---|
-| **PR0** | Task 0 | Record the 4A/4B/4C split + advance Status in `cycle-plan.md` + `ROADMAP.md` | Tiny doc | — |
+| **PR0** | Task 0 | Record the 4A/4B/4C split + advance Status in `cycle-plan.md` + `ROADMAP.md` | Tiny doc — **done in the 2026-06-17 planning PR**; a fresh session starts at PR1 | — |
 | **PR1** | Tasks 1–2 | `VoiceProseGuard` + unit tests; `VoiceRubrics.Restraint` + unit tests. Test-only, no prompt/fixture changes → green on its own | Small, pure TDD | — |
 | **PR2** | Task 3 | `coaching-persona.md` gruff-direct rewrite | Small, doc-only (the register decision in prose) | — |
 | **PR3** | Task 4 | `onboarding-v1` rewrite + manifest + re-record onboarding fixtures + wire guard into onboarding eval | Medium: prose + scoped fixture churn | PR1, PR2 |
@@ -40,6 +40,8 @@ Why this keeps PRs small: the only unavoidably-coupled unit is *(one prompt + it
 ---
 
 ## Task 0: Record the 4A/4B/4C split (PR0)
+
+> **Done in the 2026-06-17 Slice 4A planning PR.** The Status blocks already point at "Slice 4A active, next = PR1", so a fresh `/catchup` session starts at Task 1. Steps retained for the record.
 
 **Files:**
 - Modify: `ROADMAP.md` (Status block — Active slice + Next step)
