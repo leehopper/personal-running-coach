@@ -30,10 +30,11 @@ Small, reviewable PRs. PR1–PR2 are independent; PR3–PR5 are **stacked** beca
 | **PR0** | Task 0 | Record the 4A/4B/4C split + advance Status in `cycle-plan.md` + `ROADMAP.md` | Tiny doc — **done in the 2026-06-17 planning PR**; a fresh session starts at PR1 | — |
 | **PR1** | Tasks 1–2 | `VoiceProseGuard` + unit tests; `VoiceRubrics.Restraint` + unit tests. Test-only, no prompt/fixture changes → green on its own | Small, pure TDD | — |
 | **PR2** | Task 3 | `coaching-persona.md` gruff-direct rewrite | Small, doc-only (the register decision in prose) | — |
-| **PR3** | Task 4 | `onboarding-v1` rewrite + manifest + re-record onboarding fixtures + wire guard into onboarding eval | Medium: prose + scoped fixture churn | PR1, PR2 |
-| **PR4** | Task 5 | `coaching-system.v1` rewrite (plan-gen + conversation) + manifest + re-record plan-gen & safety-boundary fixtures + wire guard into plan-gen eval | Medium | PR3 |
+| **PR3** | Task 4 | `onboarding-v1` rewrite + regenerate DEC-074 manifest (**no fixture re-record, no funded key** — no onboarding eval exists; see Task 4 correction note) | Small: prose + manifest only | PR1, PR2 |
+| **PR4** | Task 5 | `coaching-system.v1` rewrite (plan-gen + conversation) + manifest + re-record plan-gen & safety-boundary fixtures + wire guard **and advisory restraint judge** into plan-gen eval | Medium | PR3 |
 | **PR5** | Task 6 | `adaptation.v1` RATIONALE rewrite + manifest + re-record adaptation fixtures + wire guard **and** advisory restraint rubric into the adaptation eval | Medium | PR4 |
-| **tuning** | — | Prompt-only follow-up PRs, each re-recording its affected fixtures, until the register reads right to the builder | Small each | PR3–PR5 |
+| **PR6** | Task 7 | New `OnboardingVoiceEvalTests` — guard + advisory judge over **recorded onboarding output** (closes the gap PR3 surfaced: no eval exercises the onboarding prompt). Funded-key Record; no prompt/manifest change. | Medium: new eval + scoped fixtures | PR3 (merged); share the PR4–PR5 funded-key session |
+| **tuning** | — | Prompt-only follow-up PRs, each re-recording its affected fixtures, until the register reads right to the builder | Small each | PR3–PR6 |
 
 Why this keeps PRs small: the only unavoidably-coupled unit is *(one prompt + its manifest line + its fixtures + its guard wiring)*. Splitting by prompt means each PR's fixture diff is scoped to a single surface, and the test scaffolding (PR1) and the subjective doc (PR2) are reviewed on their own terms first.
 
@@ -412,16 +413,18 @@ Open PR2 with Task 3.
 
 ---
 
-## Task 4: Rewrite `onboarding-v1` + re-record + wire guard (PR3)
+## Task 4: Rewrite `onboarding-v1` + regenerate manifest (PR3) — shipped #207, 2026-06-22
 
-> Stacked on PR1 + PR2. The prompt edit, the manifest, and the fixtures land in one commit (the lefthook hook + eval static-ctor block a partial commit).
+> **CORRECTION (discovered at build time, 2026-06-22): no onboarding eval exists.** This task was authored assuming a recorded onboarding eval to wire the guard into and re-record (Steps 3–4). There is none: no test under `tests/…/Eval/` exercises `onboarding-v1` (the suite is plan-gen / safety-boundary / logged-workout / adaptation only), and there are no onboarding fixtures among the 20 sonnet + 7 haiku recorded scenarios. So PR3 reduced to **(prompt rewrite + manifest regen)** — no funded key, no fixture re-record. Editing `onboarding-v1.yaml` only busts the DEC-074 hash manifest (the `EvalTestBase` static-ctor backstop + the `check-prompt-hashes` lefthook hook require it regenerated); it changes no existing scenario's cache key (those derive from `coaching-system.v1` / `adaptation.v1`). Steps 3–4 below are struck through and the onboarding voice eval is tracked as its own follow-up in the cycle plan's *Captured During Cycle* table (2026-06-22 row). PR4/PR5 are unaffected — they target evals that *do* exist.
+
+> Stacked on PR1 + PR2. The prompt edit and the regenerated manifest land in one commit (the `check-prompt-hashes` lefthook hook + the eval static-ctor backstop block a partial commit).
 
 **Files:**
 - Modify: `backend/src/RunCoach.Api/Prompts/onboarding-v1.yaml`
 - Modify: `backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256` (regenerated)
-- Modify: `backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/` onboarding eval test (add the guard assertion — confirm the exact onboarding eval class during implementation; the recorded onboarding output is the surface to guard)
-- Modify (generated): `backend/tests/eval-cache/` (onboarding scenarios only)
-- Possibly modify: any unit test asserting removed phrasings (see Step 1)
+- ~~Modify: onboarding eval test (add the guard assertion)~~ — **N/A: no onboarding eval exists** (deferred follow-up).
+- ~~Modify (generated): `backend/tests/eval-cache/` (onboarding scenarios)~~ — **N/A: no onboarding fixtures.**
+- Possibly modify: any unit test asserting removed phrasings (see Step 1 — **none found**; the `OnboardingPromptTests` structural gate pins no removed prose).
 
 - [ ] **Step 1: Find tests pinned to the old phrasings**
 
@@ -432,40 +435,33 @@ For each hit that asserts the **onboarding** prompt contains a removed phrase, u
 
 In `onboarding-v1.yaml` `static_system_prompt`: flip the opening register from "warm... 80/20 balance of warmth to directness" to gruff-direct; in REPLY GUIDELINES delete "Acknowledge feelings before correcting behavior; never lecture"; add a STYLE block (no em dashes, no exclamation, no opening affirmations, short sentences). Rewrite the whole block **em-dash-free**. **Preserve** (OnboardingPromptTests gate): the six-topic TOPIC SCHEMA, AMBIGUITY RULES, NUMERICAL BOUNDS, the PATTERN-B INVARIANT, the `data_handling` directive at the end of the system block, the Daniels-Gilbert vocabulary line, and the entire `context_template` with its three `SECTION_NAME` wrappers + nonce comment. Keep the SAFETY block and the body/weight/food line verbatim.
 
-- [ ] **Step 3: Wire the guard into the onboarding eval**
+- [x] ~~**Step 3: Wire the guard into the onboarding eval**~~ — **N/A (no onboarding eval).** Deferred as the cycle-plan follow-up: a future `OnboardingVoiceEvalTests` (new onboarding-context plumbing + cached Sonnet turn + `VoiceProseGuard.AssertClean` + advisory `VoiceRubrics.Restraint`) once a funded key is in hand.
 
-In the onboarding eval test, after the recorded onboarding turn output is available, add `VoiceProseGuard.AssertClean("onboarding-<scenario>", output);` alongside the existing trademark assertion.
+- [x] **Step 4 (was: re-record onboarding fixtures): regenerate the DEC-074 manifest only**
 
-- [ ] **Step 4: Regenerate manifest + re-record onboarding fixtures (funded key)**
-
-Targeted re-record (keeps the diff scoped to onboarding):
+No fixture re-record — no eval produces onboarding fixtures. Only the manifest is regenerated (mandatory: the prompt edit busts the hash):
 ```bash
-bash backend/tests/scripts/check-prompt-hashes.sh --write          # regen manifest first (DEC-074)
-git rm -r backend/tests/eval-cache/<onboarding-scenario-dirs>      # purge stale onboarding fixtures
-dotnet build RunCoach.slnx --no-restore
-EVAL_CACHE_MODE=Record backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests -class <OnboardingEvalFQN>
-# patch the new entry.json TTL to 9999-12-31 (see rerecord-eval-cache.sh step [5/6] for the exact patch)
+bash backend/tests/scripts/check-prompt-hashes.sh --write   # regen manifest (DEC-074); only the onboarding-v1.yaml line changes
+bash backend/tests/scripts/check-prompt-hashes.sh           # confirms "in sync"
 ```
 
-- [ ] **Step 5: Replay-verify**
+- [x] **Step 5: Replay-verify**
 
 Run: `EVAL_CACHE_MODE=Replay backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests -trait "Category=Eval"`
-Expected: PASS — the onboarding eval now passes the `VoiceProseGuard` against the freshly recorded gruff-direct output; trademark + safety evals still pass.
+Result (2026-06-22): **90/90, 0 skipped** — the DEC-074 manifest backstop passes and every existing fixture still replays (no cache key changed). Trademark + safety evals green.
 
-- [ ] **Step 6: Full suite green + commit + open PR3**
+- [x] **Step 6: Full suite green + commit + open PR3**
 
-Run: `dotnet build RunCoach.slnx --no-restore` then `backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests` (full).
-Expected: PASS.
+Run the structural gate + full suite.
+Result (2026-06-22): `OnboardingPromptTests` 10/10; full suite **1801/1801, 0 failed** (Colima + `EVAL_CACHE_MODE=Replay`).
 
 ```bash
 git add backend/src/RunCoach.Api/Prompts/onboarding-v1.yaml \
-        backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256 \
-        backend/tests/eval-cache/ \
-        backend/tests/RunCoach.Api.Tests/Modules/Coaching/
-git commit -m "feat(slice-4a): re-tune onboarding prompt to gruff-direct + guard"
+        backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256
+git commit -m "feat(slice-4a): re-tune onboarding prompt to gruff-direct"
 ```
 
-Open PR3 stacked on PR2.
+Opened PR3 (#207) stacked on PR2. (The eval-cache + `Modules/Coaching/` paths from the original `git add` are dropped — nothing changed there.)
 
 ---
 
@@ -488,9 +484,11 @@ In `coaching-system.v1.yaml` `static_system_prompt`: flip L13 "80/20 balance of 
 
 Run the Step-1 grep from Task 4 again; update any assertion that pins the **coaching-system** prompt to a removed phrase (e.g., in `ContextAssemblerTests` / `ClaudeCoachingLlmTests` if present). Leave trademark/safety assertions intact.
 
-- [ ] **Step 3: Wire the guard into the plan-gen eval**
+- [ ] **Step 3: Wire the guard + advisory restraint judge into the plan-gen eval**
 
-In `PlanGenerationEvalTests.cs`, after each recorded plan output, add `VoiceProseGuard.AssertClean("plan-gen-<scenario>", output);` alongside the existing checks.
+In `PlanGenerationEvalTests.cs`, after each recorded plan output:
+- **Hard:** add `VoiceProseGuard.AssertClean("plan-gen-<scenario>", output);` alongside the existing checks.
+- **Advisory (recorded, not gated):** build a `SafetyRubricEvaluator($"plan-gen voice restraint — {scenario}", VoiceRubrics.Restraint)`, judge the narrative prose (the macro `Rationale` / coaching narrative) via `CreateHaikuScenarioRunAsync("plan.<scenario>.restraint.judge")`, and record the verdict with `WriteEvalResultAsync` — **no** `Should()` on its score. This gives plan-gen the same guard-hard + judge-advisory coverage as adaptation (PR5) and onboarding (PR6), so all three recorded prose surfaces are symmetric. Plan-gen narrative was part of the live-pass cheery finding, so it earns the judge.
 
 - [ ] **Step 4: Regenerate manifest + re-record plan-gen & safety-boundary fixtures (funded key)**
 
@@ -502,7 +500,7 @@ EVAL_CACHE_MODE=Record backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoa
 EVAL_CACHE_MODE=Record backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests -class RunCoach.Api.Tests.Modules.Coaching.Eval.SafetyBoundaryEvalTests
 # patch new entry.json TTLs
 ```
-(`coaching-system.v1` drives the safety-boundary scenarios too, so they re-record here.)
+(`coaching-system.v1` drives the safety-boundary scenarios too, so they re-record here. The new `plan.<scenario>.restraint.judge` Haiku fixtures from Step 3's advisory judge record in the same `PlanGenerationEvalTests` run — no extra command.)
 
 - [ ] **Step 5: Replay-verify + full suite + commit + open PR4**
 
@@ -563,6 +561,44 @@ git commit -m "feat(slice-4a): re-tune adaptation rationale to gruff-direct + gu
 ```
 
 Open PR5 stacked on PR4.
+
+---
+
+## Task 7: Onboarding voice eval (PR6 — funded-key session)
+
+> **Closes the coverage gap surfaced building PR3** (Task 4 correction note): no eval exercises the onboarding prompt, so the gruff-direct onboarding *output* — the exact surface where the 2026-06-13 live pass saw "Love it!" / "Great foundation!" — has no automated voice guard. Build this in the **same funded-key session** as PR4/PR5 so one Record run covers plan-gen + safety + adaptation + onboarding. Sequenced after PR3's onboarding rewrite has merged (#207); the eval records *that* prompt's output.
+>
+> **This eval + the PR4/PR5 guard/judge wiring are the "dedicated full-prompt evaluation"** the 2026-06-13 cycle-plan voice-lock row gestures at ("see roadmap"). That reference is dangling — there is no separate `ROADMAP.md` item; the per-surface guard (PR4 plan-gen, PR5 adaptation, PR6 onboarding) + advisory restraint judge (PR5, PR6) + the future 4B conversation prompt (built gruff-direct from the start) collectively *are* it.
+
+**Files:**
+- Create: `backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/OnboardingVoiceEvalTests.cs`
+- Modify (generated): `backend/tests/eval-cache/sonnet/cache/onboarding.voice.*` + `haiku/cache/onboarding.voice.*.judge`
+- **No prompt edit, no manifest change** (onboarding-v1 is already gruff-direct from PR3 #207).
+
+**Pattern — mirror `AdaptationRestructureEvalTests` (the existing recorded-LLM + guard + advisory-judge template):**
+- `[Collection("Eval")] [Trait("Category","Eval")] : EvalTestBase`, with the `if (!CanRunEvals) return;` guard.
+- **Build the prompt from the real `onboarding-v1.yaml`** via `YamlPromptStore` + `PromptRenderer`, rendering `context_template` with **fixed nonces** for `{{conversation_nonce}}` / `{{current_topic_nonce}}` / `{{user_message_nonce}}` (a constant like the adaptation eval's `FixedSpotlightNonce`) so the message — and therefore the cache key — is byte-stable. The system block is `template.StaticSystemPrompt` verbatim.
+- **Do NOT call `ComposeForOnboardingAsync`** — it (a) generates fresh CSPRNG nonces per call, busting the response-cache key, and (b) throws on `EvalTestBase`'s 3-arg-ctor `Assembler` because `_sanitizer`/`_onboardingSystemPromptCache` are null (see the 2026-05-01 cycle-plan §Captured note + `ContextAssembler` line ~284). The eval tests the prompt's *voice*, not the sanitizer (which has its own tests) — rendering the raw template with representative inputs is the right fidelity, exactly as the adaptation eval does.
+- **Scenarios = the turns that historically gushed:** 2–3 representative onboarding inputs (e.g. a PrimaryGoal/TargetEvent turn — "I want a sub-2 half in October" — and a CurrentFitness turn) supplied as the rendered `{{user_message}}` + a short `{{conversation}}` history + the matching `{{current_topic}}`. These are the inputs that produced "Love it!" / "Great foundation!".
+- **Call Sonnet:** `CreateSonnetScenarioRunAsync("onboarding.voice.<scenario>")` → `client.GetResponseAsync` with `ChatResponseFormat.ForJsonSchema(JsonSerializer.SerializeToElement(OnboardingSchema.Frozen), nameof(OnboardingTurnOutput))` → deserialize `OnboardingTurnOutput`.
+- **Hard asserts:** `OnboardingTurnOutputValidator.Validate(output, currentTopic).IsValid` (the Pattern-B invariant) **and** `VoiceProseGuard.AssertClean($"onboarding-voice-<scenario>", output)`. Keep `TrademarkProseGuard.AssertClean(...)` alongside (consistency with the other evals).
+- **Advisory (recorded, NOT gated):** build a `SafetyRubricEvaluator($"onboarding voice restraint — {scenario}", VoiceRubrics.Restraint)`, judge the concatenated `Reply` content-block text via `CreateHaikuScenarioRunAsync("onboarding.voice.<scenario>.judge")`, and record the verdict with `WriteEvalResultAsync` — **no** `Should()` on its score (design D3: the deterministic guard is the gate; the judge advises the tuning rounds).
+
+- [ ] **Step 1: Write the eval class** (mirror `AdaptationRestructureEvalTests`: fixed nonces, `OnboardingSchema.Frozen`, validator + `VoiceProseGuard` hard, `VoiceRubrics.Restraint` advisory). Build + run in Replay first to confirm it `Assert.Skip`s / no-ops cleanly with no fixture (`CanRunEvals` false path), so the class is mergeable before the Record run if needed.
+
+- [ ] **Step 2: Record fixtures (funded `runcoach-api-tests` key — same session as PR4/PR5)**
+```bash
+dotnet build RunCoach.slnx --no-restore
+EVAL_CACHE_MODE=Record backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests -class RunCoach.Api.Tests.Modules.Coaching.Eval.OnboardingVoiceEvalTests
+# patch the new entry.json TTLs to 9999-12-31 (rerecord-eval-cache.sh step [5/6])
+```
+No `check-prompt-hashes.sh --write` — no prompt changed, so the manifest is untouched.
+
+- [ ] **Step 3: Replay-verify + full suite.** The deterministic `VoiceProseGuard` now runs on real onboarding output; the advisory restraint verdict is recorded for the builder to read during the tuning rounds. If the guard trips, the PR3 onboarding prompt regressed against the register — tighten it (a tuning round) and re-record.
+
+- [ ] **Step 4: Commit + open PR6** (its own PR, or folded into the PR4/PR5 funded-key PR if recorded together).
+
+**Judge coverage is symmetric across all recorded surfaces (decided 2026-06-22):** the advisory `VoiceRubrics.Restraint` judge is wired into plan-gen (PR4 Step 3), adaptation (PR5), and onboarding (PR6); the deterministic `VoiceProseGuard` hard-gates all three. The conversation surface (4B) inherits the same guard + advisory-judge pattern when its prompt is authored.
 
 ---
 
