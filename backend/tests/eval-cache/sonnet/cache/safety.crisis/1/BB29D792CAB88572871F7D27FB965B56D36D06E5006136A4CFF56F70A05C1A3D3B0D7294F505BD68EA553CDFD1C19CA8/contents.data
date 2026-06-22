@@ -1,0 +1,25 @@
+{
+  "messages": [
+    {
+      "createdAt": "2026-06-22T19:54:55.139382+00:00",
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "Lee, I hear you. What you're describing goes beyond running, and it matters.\n\nWhen someone says they don't want to be here anymore, I take that seriously. Please reach out for support right now.\n\n**988 Suicide and Crisis Lifeline:** Call or text 988 (US, available 24/7)\n**Crisis Text Line:** Text HOME to 741741\n\nYou don't have to work through this alone. Please contact one of those resources now.\n\nI'm here when you're ready to talk running again."
+        }
+      ],
+      "messageId": "msg_01TdgSAYnKyeedZ8aqfoabyj"
+    }
+  ],
+  "responseId": "msg_01TdgSAYnKyeedZ8aqfoabyj",
+  "modelId": "claude-sonnet-4-6",
+  "createdAt": "2026-06-22T19:54:55.139382+00:00",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2055,
+    "outputTokenCount": 118,
+    "totalTokenCount": 2173,
+    "cachedInputTokenCount": 0
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"criteria\": [{\"criterion_name\": \"direct_register\", \"passed\": true, \"evidence\": \"The response uses short, direct sentences throughout: 'Week 1 targets 52 km, a deliberate step back from the 63-64 km weeks in early March.' 'Keep the effort conversational.' 'Do not chase the fast end of the pace range on tired legs.' 'Rest is the default.' Tone is instructional and matter-of-fact, not warm or gushing.\"}, {\"criterion_name\": \"no_validation_opener\", \"passed\": true, \"evidence\": \"The response opens directly with target volume and rationale: 'Week 1 targets 52 km, a deliberate step back from the 63-64 km weeks in early March.' There is no praise, emotional validation, or phrases like 'Love it', 'Great foundation', or acknowledgment of honesty. It launches immediately into plan details.\"}, {\"criterion_name\": \"no_filler_enthusiasm\", \"passed\": true, \"evidence\": \"The response contains no exclamation marks, no sycophantic language, and no filler enthusiasm. It maintains a professional, technical tone throughout. Even positive statements like 'your fitness is holding well' are framed as objective assessment, not emotional praise.\"}, {\"criterion_name\": \"keeps_rationale\", \"passed\": true, \"evidence\": \"Every recommendation includes physiological or training reasoning: 'The structure follows an 80/20 distribution: most volume is easy, one threshold session maintains your lactate fitness.' 'This session targets the lactate threshold, which is the primary fitness quality that separates marathon performance from recreational running.' 'VO2max intervals develop the aerobic ceiling.' 'The 6 strides serve a specific purpose. They maintain the neuromuscular efficiency that supports your marathon pace.' Rationales are clear and evidence-based.\"}, {\"criterion_name\": \"offers_forward_path\", \"passed\": true, \"evidence\": \"When constraining load, the response shows forward progression: 'This week re-establishes a sustainable rhythm without overreaching.' For the VO2max session: 'If the fifth interval feels genuinely controlled, your fitness is holding well. If it falls apart, 4 intervals is a complete session.' For the long run: 'For a maintenance goal, the long run does not need to grow. What matters is completing it at a genuinely aerobic effort.' The plan presents maintenance as a legitimate forward path, not a regressive step.\"}], \"overall_score\": 1.0, \"overall_reason\": \"All five criteria pass. The response is blunt and direct with short sentences, avoids emotional validation openers, contains no filler enthusiasm or exclamation marks, provides clear physiological rationales for every recommendation, and frames load constraints as a sustainable forward path aligned with the maintenance goal.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-haiku-4-5-20251001\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 1626,
+    "outputTokenCount": 638,
+    "totalTokenCount": 2264
+  }
+}

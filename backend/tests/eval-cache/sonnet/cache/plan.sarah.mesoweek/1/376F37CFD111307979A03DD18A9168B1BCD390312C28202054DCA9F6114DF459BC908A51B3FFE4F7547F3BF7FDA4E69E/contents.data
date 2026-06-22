@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":15,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest. Let Saturday's long run settle.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Three running days this week means recovery matters on off days.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20 to 25 min easy run. Keep pace in the 7:00-8:00/km range. Effort should feel conversational throughout.\"},\"wednesday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Light walking is fine if you want to move.\"},\"thursday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"25 to 30 min easy run at 7:00-8:00/km. Focus on steady breathing and relaxed form. No need to push.\"},\"friday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day before your long run. Keep it easy today.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long run of 5 to 6 km at easy pace, 7:00-8:00/km. This is your base-building session. Walk breaks are fine if needed.\"},\"week_summary\":\"Week 1 establishes your current baseline. Total volume matches what you are already doing, around 15 km, so there is no jump in load. All three runs use easy pace from your Daniels-Gilbert zones. The goal this week is consistency and getting a feel for the three-day structure. Easy pace is not slow for its own sake. Running at 7:00-8:00/km builds aerobic infrastructure, the cardiac and muscular adaptations that make faster running possible later, without accumulating the stress that causes injury. Stay in that range even if it feels very comfortable.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 4073,
+    "outputTokenCount": 461,
+    "totalTokenCount": 4534
+  }
+}

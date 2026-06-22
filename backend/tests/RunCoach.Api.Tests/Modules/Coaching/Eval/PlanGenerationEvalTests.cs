@@ -65,6 +65,20 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
         TrademarkProseGuard.AssertClean("plan-sarah", new { mesoWeek, workoutList });
 
+        // Advisory restraint judge (Slice 4A) — recorded for the tuning rounds, never gated.
+        var restraintVerdict = await JudgeRestraintAsync(
+            "plan.sarah.restraint.judge",
+            "Sarah (beginner)",
+            ComposePlanNarrative(mesoWeek, workoutList),
+            TestContext.Current.CancellationToken);
+        await WriteEvalResultAsync(
+            "plan-sarah-restraint",
+            new { Profile = "Sarah (beginner)", Verdict = restraintVerdict },
+            TestContext.Current.CancellationToken);
+
+        // Voice guard (Slice 4A) — hard gate: every prose field matches the gruff-direct register.
+        VoiceProseGuard.AssertClean("plan-sarah", new { mesoWeek, workoutList });
+
         // Assert -- typed constraint checks
         var context = new PlanConstraintContext
         {
@@ -142,6 +156,20 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
         TrademarkProseGuard.AssertClean("plan-lee", new { mesoWeek, workoutList });
+
+        // Advisory restraint judge (Slice 4A) — recorded for the tuning rounds, never gated.
+        var restraintVerdict = await JudgeRestraintAsync(
+            "plan.lee.restraint.judge",
+            "Lee (intermediate)",
+            ComposePlanNarrative(mesoWeek, workoutList),
+            TestContext.Current.CancellationToken);
+        await WriteEvalResultAsync(
+            "plan-lee-restraint",
+            new { Profile = "Lee (intermediate)", Verdict = restraintVerdict },
+            TestContext.Current.CancellationToken);
+
+        // Voice guard (Slice 4A) — hard gate: every prose field matches the gruff-direct register.
+        VoiceProseGuard.AssertClean("plan-lee", new { mesoWeek, workoutList });
 
         // Assert -- typed constraint checks with pace verification
         var context = new PlanConstraintContext
@@ -221,6 +249,20 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
         TrademarkProseGuard.AssertClean("plan-maria", new { mesoWeek, workoutList });
 
+        // Advisory restraint judge (Slice 4A) — recorded for the tuning rounds, never gated.
+        var restraintVerdict = await JudgeRestraintAsync(
+            "plan.maria.restraint.judge",
+            "Maria (goalless / maintenance)",
+            ComposePlanNarrative(mesoWeek, workoutList),
+            TestContext.Current.CancellationToken);
+        await WriteEvalResultAsync(
+            "plan-maria-restraint",
+            new { Profile = "Maria (goalless / maintenance)", Verdict = restraintVerdict },
+            TestContext.Current.CancellationToken);
+
+        // Voice guard (Slice 4A) — hard gate: every prose field matches the gruff-direct register.
+        VoiceProseGuard.AssertClean("plan-maria", new { mesoWeek, workoutList });
+
         // Assert -- Maria-specific: weekly km within +-10% of current 55km
         var currentKm = (int)profile.UserProfile.CurrentWeeklyDistanceKm;
         var lowerBound = (int)(currentKm * 0.90);
@@ -287,6 +329,20 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
         TrademarkProseGuard.AssertClean("plan-james", new { macroPlan, mesoWeek, workoutList, narrative });
+
+        // Advisory restraint judge (Slice 4A) — recorded for the tuning rounds, never gated.
+        var restraintVerdict = await JudgeRestraintAsync(
+            "plan.james.restraint.judge",
+            "James (injured / return from injury)",
+            ComposePlanNarrative(mesoWeek, workoutList, macroPlan, narrative),
+            TestContext.Current.CancellationToken);
+        await WriteEvalResultAsync(
+            "plan-james-restraint",
+            new { Profile = "James (injured / return from injury)", Verdict = restraintVerdict },
+            TestContext.Current.CancellationToken);
+
+        // Voice guard (Slice 4A) — hard gate: every prose field matches the gruff-direct register.
+        VoiceProseGuard.AssertClean("plan-james", new { macroPlan, mesoWeek, workoutList, narrative });
 
         // Assert -- typed constraint checks
         var context = new PlanConstraintContext
@@ -367,6 +423,20 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
         // Trademark guard — every persisted prose field of the cached outputs (Slice 3B F2).
         TrademarkProseGuard.AssertClean("plan-priya", new { mesoWeek, workoutList });
+
+        // Advisory restraint judge (Slice 4A) — recorded for the tuning rounds, never gated.
+        var restraintVerdict = await JudgeRestraintAsync(
+            "plan.priya.restraint.judge",
+            "Priya (constrained / 4 days max)",
+            ComposePlanNarrative(mesoWeek, workoutList),
+            TestContext.Current.CancellationToken);
+        await WriteEvalResultAsync(
+            "plan-priya-restraint",
+            new { Profile = "Priya (constrained / 4 days max)", Verdict = restraintVerdict },
+            TestContext.Current.CancellationToken);
+
+        // Voice guard (Slice 4A) — hard gate: every prose field matches the gruff-direct register.
+        VoiceProseGuard.AssertClean("plan-priya", new { mesoWeek, workoutList });
 
         // Assert -- Priya-specific: exactly 4 run days and 3 rest/cross-train days.
         // 7-slot count is structurally guaranteed by named day properties (Sunday..Saturday).
@@ -462,6 +532,9 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         // Trademark guard -- every persisted prose field of the cached output (Slice 3B F2).
         TrademarkProseGuard.AssertClean("plan-dated-event", new { macro });
 
+        // Voice guard (Slice 4A) — hard gate: every prose field matches the gruff-direct register.
+        VoiceProseGuard.AssertClean("plan-dated-event", new { macro });
+
         // Assert -- the deterministic validator passes against the same horizon: phases sum to
         // TotalWeeks and TotalWeeks places race week in the final phase (tolerance +-1 week).
         var validation = MacroPlanOutputValidator.Validate(macro, horizon);
@@ -533,6 +606,36 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
             Description = "prefers structured workouts on Tuesday and Saturday",
         },
     };
+
+    /// <summary>
+    /// Concatenates the human-facing coaching prose of a generated plan into the single
+    /// narrative the advisory restraint judge scores: the macro rationale (when present),
+    /// the unstructured coaching narrative (when present), the week summary, and every
+    /// workout's coaching notes. The deterministic <see cref="VoiceProseGuard"/> covers
+    /// every prose leaf exhaustively; this representative sample is for the advisory judge.
+    /// </summary>
+    private static string ComposePlanNarrative(
+        MesoWeekOutput mesoWeek,
+        MicroWorkoutListOutput workoutList,
+        MacroPlanOutput? macroPlan = null,
+        string? coachingNarrative = null)
+    {
+        var parts = new List<string>();
+        if (macroPlan is not null)
+        {
+            parts.Add(macroPlan.Rationale);
+        }
+
+        if (!string.IsNullOrWhiteSpace(coachingNarrative))
+        {
+            parts.Add(coachingNarrative);
+        }
+
+        parts.Add(mesoWeek.WeekSummary);
+        parts.AddRange(workoutList.Workouts.Select(w => w.CoachingNotes));
+
+        return string.Join("\n", parts.Where(s => !string.IsNullOrWhiteSpace(s)));
+    }
 
     /// <summary>
     /// Sends the plan-generation composition (system prompt + base user message) with JSON
@@ -638,5 +741,26 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         var response = await client.GetResponseAsync(messages, cancellationToken: cancellationToken);
 
         return response.Text ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Advisory gruff-direct restraint judge (Slice 4A). Scores the plan-generation
+    /// coaching narrative against <see cref="VoiceRubrics.Restraint"/> via the cached
+    /// Haiku judge and returns the verdict for recording. This is NOT a hard gate — the
+    /// deterministic <see cref="VoiceProseGuard"/> is the gate; the verdict is recorded
+    /// for the builder to read during the tuning rounds. Mirrors
+    /// <c>AdaptationRestructureEvalTests.JudgeRationaleAsync</c>.
+    /// </summary>
+    private async Task<SafetyVerdict> JudgeRestraintAsync(
+        string scenarioName,
+        string profileDescription,
+        string narrative,
+        CancellationToken ct)
+    {
+        var evaluator = new SafetyRubricEvaluator(
+            $"Plan-generation coaching narrative for the {profileDescription} profile",
+            VoiceRubrics.Restraint);
+        await using var run = await CreateHaikuScenarioRunAsync(scenarioName);
+        return await evaluator.JudgeAsync(run.ChatConfiguration!.ChatClient, narrative, ct);
     }
 }

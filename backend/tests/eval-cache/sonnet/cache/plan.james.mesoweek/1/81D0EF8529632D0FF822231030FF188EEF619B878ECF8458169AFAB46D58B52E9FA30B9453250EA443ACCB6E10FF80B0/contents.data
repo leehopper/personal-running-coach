@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":8,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest. Let the foot recover from any accumulated stress from the week prior.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest day. Two consecutive rest days at the start of the week gives your foot a clean baseline.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20 minutes easy running at 5:25-6:12/km per your Daniels-Gilbert zones. Walk immediately if you feel any foot pain. No heroics today. This run sets the tone.\"},\"wednesday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest. One day between runs is the protocol for now. Do not add extra activity here.\"},\"thursday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"20 minutes easy at 5:25-6:12/km. Check in with your foot before, during, and after. If pain appears at any point, walk or stop. That is not a failure, it is the plan working.\"},\"friday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Rest before your long run day. Keep off your feet as much as practical.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Your designated long run day. Given the 20-minute physiotherapist cap, this is still 20 minutes easy at 5:25-6:12/km. Walk breaks as needed if any foot discomfort appears. Focus on time on feet, not distance.\"},\"week_summary\":\"Week 1 targets roughly 8 km across three easy runs, each capped at 20 minutes per your physiotherapist clearance. All running stays within Daniels-Gilbert easy zone paces (5:25-6:12/km). There is no speed work. The priority is tissue tolerance, not fitness. If your foot flags on any run, walk or stop. Completing the week at reduced volume or with walk breaks is still a full success. Report back on how the foot responds before we progress.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 4279,
+    "outputTokenCount": 509,
+    "totalTokenCount": 4788
+  }
+}

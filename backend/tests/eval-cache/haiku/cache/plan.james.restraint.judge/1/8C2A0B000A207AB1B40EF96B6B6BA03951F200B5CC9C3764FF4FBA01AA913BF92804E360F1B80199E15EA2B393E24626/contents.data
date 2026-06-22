@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"criteria\": [{\"criterion_name\": \"direct_register\", \"passed\": true, \"evidence\": \"The response uses short, direct sentences throughout: 'This plan is built around one constraint above all others: active plantar fasciitis with physiotherapist clearance for 20-minute easy runs only.' 'The lower end of that range, toward 6:00 to 6:12, is the right target for the first eight weeks.' 'No speed work appears anywhere in this plan.' The tone is instructional and matter-of-fact, not warm or chatty.\"}, {\"criterion_name\": \"no_validation_opener\", \"passed\": true, \"evidence\": \"The response opens directly into the constraint and plan structure: 'This plan is built around one constraint above all others: active plantar fasciitis with physiotherapist clearance for 20-minute easy runs only.' There is no opening praise, emotional validation, or affirmation language like 'Great job', 'Love it', or 'that takes honesty'.\"}, {\"criterion_name\": \"no_filler_enthusiasm\", \"passed\": true, \"evidence\": \"The response avoids exclamation marks almost entirely (none appear in the opening sections or main plan). Language is clinical: 'The plantar fasciitis is active, and the tissue needs progressive load, not just time.' 'Completing the week at reduced volume or with walk breaks is still a full success.' No sycophantic or gushing language is present.\"}, {\"criterion_name\": \"keeps_rationale\", \"passed\": true, \"evidence\": \"Every major recommendation includes physiological reasoning. For the slow build: 'Plantar fascia is a load-tolerant structure, but it responds poorly to sudden increases in tensile stress. Three things drive that stress: duration, pace, and surface hardness.' For deload weeks: 'Deload weeks at weeks 4 and 8 are not optional. They are the mechanism that lets the plantar fascia adapt without accumulating stress.' For pain protocol: 'Mild foot discomfort during run | Take a 2 to 3 minute walk break. Resume at easy pace if discomfort resolves.' Rationale is embedded throughout.\"}, {\"criterion_name\": \"offers_forward_path\", \"passed\": true, \"evidence\": \"Despite cutting speed work and capping at 20 minutes, the response maps a clear progression path: Week 1-3 prioritize tolerance with run-walk intervals. Weeks 4-6 build toward continuous running. Weeks 7-8 consolidate at 20 minutes. The closing section 'What Happens After Week 8' outlines realistic next steps: 'Extend long run duration toward 30 to 40 minutes over 4 to 6 more weeks', 'Add a fourth running day', 'Begin reintroducing structured easy strides'. The response shows how to move forward, not just what to avoid.\"}], \"overall_score\": 1.0, \"overall_reason\": \"All five criteria pass. The response is direct and instruction-focused, opens without validation language, avoids filler enthusiasm, provides clear physiological reasoning for every constraint and progression, and maps a concrete forward path despite the current injury-imposed limitations. The tone is professional and evidence-based throughout.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-haiku-4-5-20251001\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 4233,
+    "outputTokenCount": 740,
+    "totalTokenCount": 4973
+  }
+}
