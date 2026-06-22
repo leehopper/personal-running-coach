@@ -30,7 +30,7 @@ Small, reviewable PRs. PR1–PR2 are independent; PR3–PR5 are **stacked** beca
 | **PR0** | Task 0 | Record the 4A/4B/4C split + advance Status in `cycle-plan.md` + `ROADMAP.md` | Tiny doc — **done in the 2026-06-17 planning PR**; a fresh session starts at PR1 | — |
 | **PR1** | Tasks 1–2 | `VoiceProseGuard` + unit tests; `VoiceRubrics.Restraint` + unit tests. Test-only, no prompt/fixture changes → green on its own | Small, pure TDD | — |
 | **PR2** | Task 3 | `coaching-persona.md` gruff-direct rewrite | Small, doc-only (the register decision in prose) | — |
-| **PR3** | Task 4 | `onboarding-v1` rewrite + manifest + re-record onboarding fixtures + wire guard into onboarding eval | Medium: prose + scoped fixture churn | PR1, PR2 |
+| **PR3** | Task 4 | `onboarding-v1` rewrite + regenerate DEC-074 manifest (**no fixture re-record, no funded key** — no onboarding eval exists; see Task 4 correction note) | Small: prose + manifest only | PR1, PR2 |
 | **PR4** | Task 5 | `coaching-system.v1` rewrite (plan-gen + conversation) + manifest + re-record plan-gen & safety-boundary fixtures + wire guard into plan-gen eval | Medium | PR3 |
 | **PR5** | Task 6 | `adaptation.v1` RATIONALE rewrite + manifest + re-record adaptation fixtures + wire guard **and** advisory restraint rubric into the adaptation eval | Medium | PR4 |
 | **tuning** | — | Prompt-only follow-up PRs, each re-recording its affected fixtures, until the register reads right to the builder | Small each | PR3–PR5 |
@@ -412,16 +412,18 @@ Open PR2 with Task 3.
 
 ---
 
-## Task 4: Rewrite `onboarding-v1` + re-record + wire guard (PR3)
+## Task 4: Rewrite `onboarding-v1` + regenerate manifest (PR3) — shipped #207, 2026-06-22
 
-> Stacked on PR1 + PR2. The prompt edit, the manifest, and the fixtures land in one commit (the lefthook hook + eval static-ctor block a partial commit).
+> **CORRECTION (discovered at build time, 2026-06-22): no onboarding eval exists.** This task was authored assuming a recorded onboarding eval to wire the guard into and re-record (Steps 3–4). There is none: no test under `tests/…/Eval/` exercises `onboarding-v1` (the suite is plan-gen / safety-boundary / logged-workout / adaptation only), and there are no onboarding fixtures among the 20 sonnet + 7 haiku recorded scenarios. So PR3 reduced to **(prompt rewrite + manifest regen)** — no funded key, no fixture re-record. Editing `onboarding-v1.yaml` only busts the DEC-074 hash manifest (the `EvalTestBase` static-ctor backstop + the `check-prompt-hashes` lefthook hook require it regenerated); it changes no existing scenario's cache key (those derive from `coaching-system.v1` / `adaptation.v1`). Steps 3–4 below are struck through and the onboarding voice eval is tracked as its own follow-up in the cycle plan's *Captured During Cycle* table (2026-06-22 row). PR4/PR5 are unaffected — they target evals that *do* exist.
+
+> Stacked on PR1 + PR2. The prompt edit and the regenerated manifest land in one commit (the `check-prompt-hashes` lefthook hook + the eval static-ctor backstop block a partial commit).
 
 **Files:**
 - Modify: `backend/src/RunCoach.Api/Prompts/onboarding-v1.yaml`
 - Modify: `backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256` (regenerated)
-- Modify: `backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/` onboarding eval test (add the guard assertion — confirm the exact onboarding eval class during implementation; the recorded onboarding output is the surface to guard)
-- Modify (generated): `backend/tests/eval-cache/` (onboarding scenarios only)
-- Possibly modify: any unit test asserting removed phrasings (see Step 1)
+- ~~Modify: onboarding eval test (add the guard assertion)~~ — **N/A: no onboarding eval exists** (deferred follow-up).
+- ~~Modify (generated): `backend/tests/eval-cache/` (onboarding scenarios)~~ — **N/A: no onboarding fixtures.**
+- Possibly modify: any unit test asserting removed phrasings (see Step 1 — **none found**; the `OnboardingPromptTests` structural gate pins no removed prose).
 
 - [ ] **Step 1: Find tests pinned to the old phrasings**
 
@@ -432,40 +434,33 @@ For each hit that asserts the **onboarding** prompt contains a removed phrase, u
 
 In `onboarding-v1.yaml` `static_system_prompt`: flip the opening register from "warm... 80/20 balance of warmth to directness" to gruff-direct; in REPLY GUIDELINES delete "Acknowledge feelings before correcting behavior; never lecture"; add a STYLE block (no em dashes, no exclamation, no opening affirmations, short sentences). Rewrite the whole block **em-dash-free**. **Preserve** (OnboardingPromptTests gate): the six-topic TOPIC SCHEMA, AMBIGUITY RULES, NUMERICAL BOUNDS, the PATTERN-B INVARIANT, the `data_handling` directive at the end of the system block, the Daniels-Gilbert vocabulary line, and the entire `context_template` with its three `SECTION_NAME` wrappers + nonce comment. Keep the SAFETY block and the body/weight/food line verbatim.
 
-- [ ] **Step 3: Wire the guard into the onboarding eval**
+- [x] ~~**Step 3: Wire the guard into the onboarding eval**~~ — **N/A (no onboarding eval).** Deferred as the cycle-plan follow-up: a future `OnboardingVoiceEvalTests` (new onboarding-context plumbing + cached Sonnet turn + `VoiceProseGuard.AssertClean` + advisory `VoiceRubrics.Restraint`) once a funded key is in hand.
 
-In the onboarding eval test, after the recorded onboarding turn output is available, add `VoiceProseGuard.AssertClean("onboarding-<scenario>", output);` alongside the existing trademark assertion.
+- [x] **Step 4 (was: re-record onboarding fixtures): regenerate the DEC-074 manifest only**
 
-- [ ] **Step 4: Regenerate manifest + re-record onboarding fixtures (funded key)**
-
-Targeted re-record (keeps the diff scoped to onboarding):
+No fixture re-record — no eval produces onboarding fixtures. Only the manifest is regenerated (mandatory: the prompt edit busts the hash):
 ```bash
-bash backend/tests/scripts/check-prompt-hashes.sh --write          # regen manifest first (DEC-074)
-git rm -r backend/tests/eval-cache/<onboarding-scenario-dirs>      # purge stale onboarding fixtures
-dotnet build RunCoach.slnx --no-restore
-EVAL_CACHE_MODE=Record backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests -class <OnboardingEvalFQN>
-# patch the new entry.json TTL to 9999-12-31 (see rerecord-eval-cache.sh step [5/6] for the exact patch)
+bash backend/tests/scripts/check-prompt-hashes.sh --write   # regen manifest (DEC-074); only the onboarding-v1.yaml line changes
+bash backend/tests/scripts/check-prompt-hashes.sh           # confirms "in sync"
 ```
 
-- [ ] **Step 5: Replay-verify**
+- [x] **Step 5: Replay-verify**
 
 Run: `EVAL_CACHE_MODE=Replay backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests -trait "Category=Eval"`
-Expected: PASS — the onboarding eval now passes the `VoiceProseGuard` against the freshly recorded gruff-direct output; trademark + safety evals still pass.
+Result (2026-06-22): **90/90, 0 skipped** — the DEC-074 manifest backstop passes and every existing fixture still replays (no cache key changed). Trademark + safety evals green.
 
-- [ ] **Step 6: Full suite green + commit + open PR3**
+- [x] **Step 6: Full suite green + commit + open PR3**
 
-Run: `dotnet build RunCoach.slnx --no-restore` then `backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests` (full).
-Expected: PASS.
+Run the structural gate + full suite.
+Result (2026-06-22): `OnboardingPromptTests` 10/10; full suite **1801/1801, 0 failed** (Colima + `EVAL_CACHE_MODE=Replay`).
 
 ```bash
 git add backend/src/RunCoach.Api/Prompts/onboarding-v1.yaml \
-        backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256 \
-        backend/tests/eval-cache/ \
-        backend/tests/RunCoach.Api.Tests/Modules/Coaching/
-git commit -m "feat(slice-4a): re-tune onboarding prompt to gruff-direct + guard"
+        backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256
+git commit -m "feat(slice-4a): re-tune onboarding prompt to gruff-direct"
 ```
 
-Open PR3 stacked on PR2.
+Opened PR3 (#207) stacked on PR2. (The eval-cache + `Modules/Coaching/` paths from the original `git add` are dropped — nothing changed there.)
 
 ---
 
