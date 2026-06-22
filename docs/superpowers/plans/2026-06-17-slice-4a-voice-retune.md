@@ -476,21 +476,21 @@ Opened PR3 (#207) stacked on PR2. (The eval-cache + `Modules/Coaching/` paths fr
 - Modify (generated): `backend/tests/eval-cache/` (plan-gen + safety-boundary scenarios)
 - Possibly modify: unit tests asserting removed phrasings
 
-- [ ] **Step 1: Rewrite the system prompt**
+- [x] **Step 1: Rewrite the system prompt**
 
 In `coaching-system.v1.yaml` `static_system_prompt`: flip L13 "80/20 balance of warmth to directness" to directness-led; in ALWAYS delete "Acknowledge feelings before correcting behavior" and "Use process praise — connect success to effort, consistency, and decisions"; make OARS Affirmation non-mandatory in the COMMUNICATION FRAMEWORK Layer-1 line; add a STYLE block (no em dashes, no exclamation, no opening affirmations, short sentences). Rewrite **em-dash-free**. **Keep verbatim**: the entire NEVER list (incl. body/weight/food + toxic-culture lines), all SAFETY RULES, the DETERMINISTIC GUARDRAILS, the VOCABULARY RULES, the DATA HANDLING directive, and the `context_template`. Keep the MI spine (rationales, offer a choice, show the path forward).
 
-- [ ] **Step 2: Update pinned unit tests**
+- [x] **Step 2: Update pinned unit tests**
 
 Run the Step-1 grep from Task 4 again; update any assertion that pins the **coaching-system** prompt to a removed phrase (e.g., in `ContextAssemblerTests` / `ClaudeCoachingLlmTests` if present). Leave trademark/safety assertions intact.
 
-- [ ] **Step 3: Wire the guard + advisory restraint judge into the plan-gen eval**
+- [x] **Step 3: Wire the guard + advisory restraint judge into the plan-gen eval**
 
 In `PlanGenerationEvalTests.cs`, after each recorded plan output:
 - **Hard:** add `VoiceProseGuard.AssertClean("plan-gen-<scenario>", output);` alongside the existing checks.
 - **Advisory (recorded, not gated):** build a `SafetyRubricEvaluator($"plan-gen voice restraint — {scenario}", VoiceRubrics.Restraint)`, judge the narrative prose (the macro `Rationale` / coaching narrative) via `CreateHaikuScenarioRunAsync("plan.<scenario>.restraint.judge")`, and record the verdict with `WriteEvalResultAsync` — **no** `Should()` on its score. This gives plan-gen the same guard-hard + judge-advisory coverage as adaptation (PR5) and onboarding (PR6), so all three recorded prose surfaces are symmetric. Plan-gen narrative was part of the live-pass cheery finding, so it earns the judge.
 
-- [ ] **Step 4: Regenerate manifest + re-record plan-gen & safety-boundary fixtures (funded key)**
+- [x] **Step 4: Regenerate manifest + re-record plan-gen & safety-boundary fixtures (funded key)**
 
 ```bash
 bash backend/tests/scripts/check-prompt-hashes.sh --write
@@ -502,7 +502,7 @@ EVAL_CACHE_MODE=Record backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoa
 ```
 (`coaching-system.v1` drives the safety-boundary scenarios too, so they re-record here. The new `plan.<scenario>.restraint.judge` Haiku fixtures from Step 3's advisory judge record in the same `PlanGenerationEvalTests` run — no extra command.)
 
-- [ ] **Step 5: Replay-verify + full suite + commit + open PR4**
+- [x] **Step 5: Replay-verify + full suite + commit + open PR4**
 
 Run Replay (`-trait "Category=Eval"`) then the full binary. Expected: PASS — plan-gen guard green; safety evals still pass.
 
