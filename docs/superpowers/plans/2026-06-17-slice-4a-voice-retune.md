@@ -31,7 +31,7 @@ Small, reviewable PRs. PR1–PR2 are independent; PR3–PR5 are **stacked** beca
 | **PR1** | Tasks 1–2 | `VoiceProseGuard` + unit tests; `VoiceRubrics.Restraint` + unit tests. Test-only, no prompt/fixture changes → green on its own | Small, pure TDD | — |
 | **PR2** | Task 3 | `coaching-persona.md` gruff-direct rewrite | Small, doc-only (the register decision in prose) | — |
 | **PR3** | Task 4 | `onboarding-v1` rewrite + regenerate DEC-074 manifest (**no fixture re-record, no funded key** — no onboarding eval exists; see Task 4 correction note) | Small: prose + manifest only | PR1, PR2 |
-| **PR4** | Task 5 | `coaching-system.v1` rewrite (plan-gen + conversation) + manifest + re-record plan-gen & safety-boundary fixtures + wire guard into plan-gen eval | Medium | PR3 |
+| **PR4** | Task 5 | `coaching-system.v1` rewrite (plan-gen + conversation) + manifest + re-record plan-gen & safety-boundary fixtures + wire guard **and advisory restraint judge** into plan-gen eval | Medium | PR3 |
 | **PR5** | Task 6 | `adaptation.v1` RATIONALE rewrite + manifest + re-record adaptation fixtures + wire guard **and** advisory restraint rubric into the adaptation eval | Medium | PR4 |
 | **PR6** | Task 7 | New `OnboardingVoiceEvalTests` — guard + advisory judge over **recorded onboarding output** (closes the gap PR3 surfaced: no eval exercises the onboarding prompt). Funded-key Record; no prompt/manifest change. | Medium: new eval + scoped fixtures | PR3 (merged); share the PR4–PR5 funded-key session |
 | **tuning** | — | Prompt-only follow-up PRs, each re-recording its affected fixtures, until the register reads right to the builder | Small each | PR3–PR6 |
@@ -484,9 +484,11 @@ In `coaching-system.v1.yaml` `static_system_prompt`: flip L13 "80/20 balance of 
 
 Run the Step-1 grep from Task 4 again; update any assertion that pins the **coaching-system** prompt to a removed phrase (e.g., in `ContextAssemblerTests` / `ClaudeCoachingLlmTests` if present). Leave trademark/safety assertions intact.
 
-- [ ] **Step 3: Wire the guard into the plan-gen eval**
+- [ ] **Step 3: Wire the guard + advisory restraint judge into the plan-gen eval**
 
-In `PlanGenerationEvalTests.cs`, after each recorded plan output, add `VoiceProseGuard.AssertClean("plan-gen-<scenario>", output);` alongside the existing checks.
+In `PlanGenerationEvalTests.cs`, after each recorded plan output:
+- **Hard:** add `VoiceProseGuard.AssertClean("plan-gen-<scenario>", output);` alongside the existing checks.
+- **Advisory (recorded, not gated):** build a `SafetyRubricEvaluator($"plan-gen voice restraint — {scenario}", VoiceRubrics.Restraint)`, judge the narrative prose (the macro `Rationale` / coaching narrative) via `CreateHaikuScenarioRunAsync("plan.<scenario>.restraint.judge")`, and record the verdict with `WriteEvalResultAsync` — **no** `Should()` on its score. This gives plan-gen the same guard-hard + judge-advisory coverage as adaptation (PR5) and onboarding (PR6), so all three recorded prose surfaces are symmetric. Plan-gen narrative was part of the live-pass cheery finding, so it earns the judge.
 
 - [ ] **Step 4: Regenerate manifest + re-record plan-gen & safety-boundary fixtures (funded key)**
 
@@ -498,7 +500,7 @@ EVAL_CACHE_MODE=Record backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoa
 EVAL_CACHE_MODE=Record backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoach.Api.Tests -class RunCoach.Api.Tests.Modules.Coaching.Eval.SafetyBoundaryEvalTests
 # patch new entry.json TTLs
 ```
-(`coaching-system.v1` drives the safety-boundary scenarios too, so they re-record here.)
+(`coaching-system.v1` drives the safety-boundary scenarios too, so they re-record here. The new `plan.<scenario>.restraint.judge` Haiku fixtures from Step 3's advisory judge record in the same `PlanGenerationEvalTests` run — no extra command.)
 
 - [ ] **Step 5: Replay-verify + full suite + commit + open PR4**
 
@@ -596,7 +598,7 @@ No `check-prompt-hashes.sh --write` — no prompt changed, so the manifest is un
 
 - [ ] **Step 4: Commit + open PR6** (its own PR, or folded into the PR4/PR5 funded-key PR if recorded together).
 
-**Optional, completes "full-prompt" judge coverage:** PR4 wires only the deterministic guard into the plan-gen eval. If the advisory restraint judge is wanted on plan-gen narrative too, add a `VoiceRubrics.Restraint` advisory judge to `PlanGenerationEvalTests` in PR4 or here — small, recorded-not-gated.
+**Judge coverage is symmetric across all recorded surfaces (decided 2026-06-22):** the advisory `VoiceRubrics.Restraint` judge is wired into plan-gen (PR4 Step 3), adaptation (PR5), and onboarding (PR6); the deterministic `VoiceProseGuard` hard-gates all three. The conversation surface (4B) inherits the same guard + advisory-judge pattern when its prompt is authored.
 
 ---
 
