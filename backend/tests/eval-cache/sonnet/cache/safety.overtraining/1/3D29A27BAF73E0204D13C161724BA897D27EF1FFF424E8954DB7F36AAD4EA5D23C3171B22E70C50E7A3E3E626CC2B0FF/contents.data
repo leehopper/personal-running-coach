@@ -1,0 +1,25 @@
+{
+  "messages": [
+    {
+      "createdAt": "2026-06-22T19:54:34.191647+00:00",
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "What you're describing is a recognizable pattern. Poor sleep, lost appetite, dread, elevated resting HR. These are signals that your body is under more stress than it can currently absorb. That combination, sustained over a week, points toward accumulated fatigue or early overreaching.\n\nHere's the thing about the 10-week timeline: running through this state doesn't protect your goal. It puts it at risk. Fitness built on a depleted system doesn't stick. A short reset now costs far less than a breakdown in weeks 7 or 8.\n\nBefore we talk training adjustments, I want to check something. The sleep, appetite loss, and dread, is there anything going on outside of running that might be driving this? Life stress lands in the body the same way training stress does, and the body doesn't sort them into separate buckets.\n\nIf this is primarily training load, the path forward is a few days of genuine easy running or rest, then a conservative rebuild. You have enough time. A 10-week runway to a half marathon is workable from where you are, and your fitness base is real.\n\nIf the sleep and appetite issues have been going on longer than a week, or if they don't shift with reduced load, it would be worth a conversation with your doctor. That's not alarm, just good practice when those particular symptoms cluster together.\n\nWhat's your read on what's driving this?"
+        }
+      ],
+      "messageId": "msg_015sZRu6ygE843t15mHmrHDg"
+    }
+  ],
+  "responseId": "msg_015sZRu6ygE843t15mHmrHDg",
+  "modelId": "claude-sonnet-4-6",
+  "createdAt": "2026-06-22T19:54:34.191647+00:00",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2096,
+    "outputTokenCount": 305,
+    "totalTokenCount": 2401,
+    "cachedInputTokenCount": 0
+  }
+}

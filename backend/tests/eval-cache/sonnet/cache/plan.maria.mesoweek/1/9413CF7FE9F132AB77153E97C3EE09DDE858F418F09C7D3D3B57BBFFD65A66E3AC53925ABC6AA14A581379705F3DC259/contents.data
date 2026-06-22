@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"week_number\":1,\"phase_type\":\"Base\",\"weekly_target_km\":52,\"is_deload_week\":false,\"sunday\":{\"slot_type\":\"Run\",\"workout_type\":\"LongRun\",\"notes\":\"Long run at easy pace, 5:24-6:11/km. Target 18-20 km. Keep effort conversational. This anchors your weekly volume without digging into recovery debt.\"},\"monday\":{\"slot_type\":\"Rest\",\"workout_type\":null,\"notes\":\"Full rest. After the long run, a complete recovery day protects the Achilles and lets adaptation happen.\"},\"tuesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 5:24-6:11/km, 10-12 km. Legs should feel fresher after Monday rest. If they don't, shorten this run without guilt.\"},\"wednesday\":{\"slot_type\":\"Run\",\"workout_type\":\"Tempo\",\"notes\":\"Threshold run at 4:29/km. After a 2 km easy warm-up, hold threshold pace for 20 min, then cool down 2 km. This stimulus maintains your lactate clearance capacity.\"},\"thursday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy recovery run, 5:24-6:11/km, 8-10 km. The day after threshold work, keep effort genuinely easy. Heart rate and feel matter more than pace.\"},\"friday\":{\"slot_type\":\"CrossTrain\",\"workout_type\":null,\"notes\":\"Low-impact cross-training, 30-45 min. Cycling, swimming, or elliptical. Keeps weekly aerobic stimulus without adding run load on the Achilles.\"},\"saturday\":{\"slot_type\":\"Run\",\"workout_type\":\"Easy\",\"notes\":\"Easy run, 5:24-6:11/km, 10-12 km. A comfortable effort to close the week. Tune into how the body feels across the full week of training.\"},\"week_summary\":\"Week 1 targets 52 km, a deliberate step back from the 63-64 km weeks in early March. Your most recent week was 47 km with only 4 runs, so this week re-establishes a sustainable rhythm without overreaching. The structure follows an 80/20 distribution: most volume is easy, one threshold session maintains your lactate fitness. The cross-training day replaces a sixth run to protect the left Achilles as load rebuilds. Paces come from your Daniels-Gilbert zones at a pace-zone index of 46.7.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 4316,
+    "outputTokenCount": 591,
+    "totalTokenCount": 4907
+  }
+}
