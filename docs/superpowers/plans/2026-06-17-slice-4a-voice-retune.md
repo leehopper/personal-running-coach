@@ -518,9 +518,9 @@ Open PR4 stacked on PR3.
 
 ---
 
-## Task 6: Rewrite `adaptation.v1` + re-record + wire guard & rubric (PR5)
+## Task 6: Rewrite `adaptation.v1` + re-record + wire guard & rubric (PR5) — shipped #211, 2026-06-23
 
-> Stacked on PR4.
+> Stacked on PR4. Shipped clean: reusing PR4's proven STYLE block verbatim produced dash-free output first try (no tuning iteration); the communication judge held at 1.0 and the F4 consistency + mileage-ramp constraints still pass.
 
 **Files:**
 - Modify: `backend/src/RunCoach.Api/Prompts/adaptation.v1.yaml`
@@ -528,17 +528,17 @@ Open PR4 stacked on PR3.
 - Modify: `backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/Adaptation/AdaptationRestructureEvalTests.cs`
 - Modify (generated): `backend/tests/eval-cache/` (adaptation scenarios: `adaptation.restructure.{lee,priya}` + `.judge`)
 
-- [ ] **Step 1: Rewrite the RATIONALE shape + voice rule**
+- [x] **Step 1: Rewrite the RATIONALE shape + voice rule**
 
 In `adaptation.v1.yaml` `static_system_prompt` RATIONALE section: **drop step-1 "Validate what happened"**; set the shape to *name the data pattern → state the change → the physiological why → the path forward*. Flip the "warm and direct, an 80/20 balance" voice rule to gruff-direct; add the STYLE rules (no em dashes, no exclamation). Rewrite **em-dash-free**. **Leave untouched**: the STRUCTURED OUTPUT CONTRACT, the CURRENT-WEEK CONSISTENCY block, GATE-BEFORE-INCREASE, the PROGRAMMING GUARDRAILS, the NUMERICAL BOUNDS, and the `data_handling` directive (the Slice 3B F4 logic).
 
-- [ ] **Step 2: Wire the guard + advisory rubric into the adaptation eval**
+- [x] **Step 2: Wire the guard + advisory rubric into the adaptation eval**
 
 In `AdaptationRestructureEvalTests.cs`:
 - The existing `TrademarkProseGuard.AssertClean(...)` call already runs on `output`; add `VoiceProseGuard.AssertClean($"adaptation-restructure-{profileName}", output);` next to it.
 - Add an **advisory** restraint judge: build a second `SafetyRubricEvaluator($"...", VoiceRubrics.Restraint)`, call `JudgeRationaleAsync($"adaptation.restraint.{profileName}.judge", restraintEvaluator, output.Rationale, ct)`, and record the verdict via `WriteEvalResultAsync` — **do not** add a hard `Should()` assertion on its score (advisory per the design; the existing communication-judge `RationaleRubric` keeps its hard assertion).
 
-- [ ] **Step 3: Regenerate manifest + re-record adaptation fixtures (funded key)**
+- [x] **Step 3: Regenerate manifest + re-record adaptation fixtures (funded key)**
 
 ```bash
 bash backend/tests/scripts/check-prompt-hashes.sh --write
@@ -548,7 +548,7 @@ EVAL_CACHE_MODE=Record backend/tests/RunCoach.Api.Tests/bin/Debug/net10.0/RunCoa
 # patch new entry.json TTLs (incl. the new adaptation.restraint.{lee,priya}.judge entries)
 ```
 
-- [ ] **Step 4: Replay-verify + full suite + commit + open PR5**
+- [x] **Step 4: Replay-verify + full suite + commit + open PR5**
 
 Run Replay (`-trait "Category=Eval"`) then the full binary. Expected: PASS — adaptation passes both guards, the communication judge still scores 1.0, the advisory restraint verdict is recorded, F4 consistency + ramp constraints still pass.
 
