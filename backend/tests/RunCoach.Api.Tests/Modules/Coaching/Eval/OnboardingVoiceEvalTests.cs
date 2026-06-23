@@ -61,7 +61,7 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
         Converters = { new JsonStringEnumConverter() },
     };
 
-    // Mirrors ContextAssembler.OnboardingSlotSerializerOptions so a populated
+    // Mirrors `ContextAssembler.OnboardingSlotSerializerOptions` so a populated
     // captured-so-far slot renders byte-identically to production's user message.
     private static readonly JsonSerializerOptions SlotSerializerOptions = new()
     {
@@ -88,14 +88,12 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
         var output = await GenerateOnboardingAsync(
             $"onboarding.voice.{scenarioName}", prompt, TestContext.Current.CancellationToken);
 
-        // Advisory gruff-direct restraint judge (Slice 4A) — recorded for the tuning
-        // rounds, never gated. The deterministic VoiceProseGuard below is the hard gate;
-        // this verdict is for the builder to read. Mirrors the adaptation + plan-gen evals.
-        // Read the verdict per-criterion, not by OverallScore: an onboarding turn is a
-        // question, so the shared rubric's coaching-recommendation criteria
-        // (keeps_rationale, offers_forward_path) do not apply and score low by design.
-        // The voice-bearing criteria (direct_register, no_validation_opener,
-        // no_filler_enthusiasm) are the ones that flag a cheery regression here.
+        // Advisory gruff-direct restraint judge (Slice 4A), recorded for the tuning
+        // rounds and never gated. The deterministic `VoiceProseGuard` below is the hard
+        // gate, and this verdict is only for the builder to read. Read it per criterion
+        // rather than by its overall score. An onboarding turn is a question, so the shared
+        // rubric's coaching-recommendation criteria do not apply and score low by design,
+        // while its register criteria are what flag a cheery regression here.
         var replyText = ConcatReplyText(output);
         var restraintEvaluator = new SafetyRubricEvaluator(
             $"Onboarding reply voice restraint for the {scenarioName} turn",
@@ -245,7 +243,7 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
     private async Task<OnboardingTurnOutput> GenerateOnboardingAsync(
         string scenarioName, (string System, string User) prompt, CancellationToken ct)
     {
-        await using var run = await CreateSonnetScenarioRunAsync(scenarioName);
+        await using var run = await CreateSonnetScenarioRunAsync(scenarioName, ct);
         var client = run.ChatConfiguration!.ChatClient;
 
         var schemaElement = JsonSerializer.SerializeToElement(OnboardingSchema.Frozen);
@@ -270,7 +268,7 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
     private async Task<SafetyVerdict> JudgeReplyAsync(
         string scenarioName, SafetyRubricEvaluator evaluator, string reply, CancellationToken ct)
     {
-        await using var run = await CreateHaikuScenarioRunAsync(scenarioName);
+        await using var run = await CreateHaikuScenarioRunAsync(scenarioName, ct);
         return await evaluator.JudgeAsync(run.ChatConfiguration!.ChatClient, reply, ct);
     }
 

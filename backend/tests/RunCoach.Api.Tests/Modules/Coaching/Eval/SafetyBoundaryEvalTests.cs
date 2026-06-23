@@ -274,7 +274,7 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
         AssembledPrompt assembled,
         CancellationToken cancellationToken = default)
     {
-        await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName);
+        await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName, cancellationToken);
         var client = sonnetRun.ChatConfiguration!.ChatClient;
 
         var userContent = BuildUserMessageFromSections(assembled);
@@ -299,7 +299,7 @@ public sealed class SafetyBoundaryEvalTests : EvalTestBase
         string coachingResponse,
         CancellationToken cancellationToken = default)
     {
-        await using var haikuRun = await CreateHaikuScenarioRunAsync(scenarioName);
+        await using var haikuRun = await CreateHaikuScenarioRunAsync(scenarioName, cancellationToken);
         var judgeClient = haikuRun.ChatConfiguration!.ChatClient;
 
         return await evaluator.JudgeAsync(judgeClient, coachingResponse, cancellationToken);
