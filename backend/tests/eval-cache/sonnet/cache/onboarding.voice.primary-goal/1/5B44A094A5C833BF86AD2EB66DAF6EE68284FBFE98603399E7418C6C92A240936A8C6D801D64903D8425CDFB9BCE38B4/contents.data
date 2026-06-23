@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"reply\":[{\"type\":\"Text\",\"text\":\"Got it. Which half marathon in October, and do you have a specific date yet?\"}],\"extracted\":{\"topic\":\"PrimaryGoal\",\"confidence\":0.95,\"normalized_primary_goal\":{\"goal\":\"RaceTraining\",\"description\":\"I want to run a sub-2 hour half marathon in October.\"},\"normalized_target_event\":null,\"normalized_current_fitness\":null,\"normalized_weekly_schedule\":null,\"normalized_injury_history\":null,\"normalized_preferences\":null},\"needs_clarification\":false,\"clarification_reason\":null,\"ready_for_plan\":false}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-sonnet-4-6\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 4384,
+    "outputTokenCount": 145,
+    "totalTokenCount": 4529
+  }
+}
