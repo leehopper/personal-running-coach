@@ -82,6 +82,22 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
             new { Profile = profileName, Output = output, Verdict = verdict },
             TestContext.Current.CancellationToken);
 
+        // Advisory gruff-direct restraint judge (Slice 4A) — recorded for the tuning
+        // rounds, never gated. The deterministic VoiceProseGuard below is the hard gate;
+        // this verdict is for the builder to read. Mirrors PlanGenerationEvalTests.
+        var restraintEvaluator = new SafetyRubricEvaluator(
+            $"Adaptation restructure rationale voice restraint for the {profileName} profile",
+            VoiceRubrics.Restraint);
+        var restraintVerdict = await JudgeRationaleAsync(
+            $"adaptation.restraint.{profileName}.judge",
+            restraintEvaluator,
+            output.Rationale,
+            TestContext.Current.CancellationToken);
+        await WriteEvalResultAsync(
+            $"adaptation-restraint-{profileName}",
+            new { Profile = profileName, Verdict = restraintVerdict },
+            TestContext.Current.CancellationToken);
+
         // Assert — structurally valid, restructure-kind, gate tier echoed.
         var validation = PlanAdaptationOutputValidator.Validate(output);
         validation.IsValid.Should().BeTrue(
@@ -120,6 +136,9 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
         // Trademark guard on the LLM-authored copy — every prose field, not just
         // the rationale (Slice 3B F2).
         TrademarkProseGuard.AssertClean($"adaptation-restructure-{profileName}", output);
+
+        // Voice guard (Slice 4A) — hard gate: every prose field matches the gruff-direct register.
+        VoiceProseGuard.AssertClean($"adaptation-restructure-{profileName}", output);
     }
 
     /// <summary>

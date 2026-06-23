@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"criteria\": [{\"criterion_name\": \"direct_register\", \"passed\": true, \"evidence\": \"The response uses direct, short declarative sentences: 'That pattern across different session types points to accumulated fatigue rather than a single bad day.' 'The week is restructured down from 58 km to 48 km.' 'Grinding through volume at 40 s/km off pace does not.' No warm or chatty tone is present.\"}, {\"criterion_name\": \"no_validation_opener\", \"passed\": true, \"evidence\": \"The response opens directly with analysis ('Three consecutive sessions came in well below target') rather than with praise or emotional validation. There is no opening phrase like 'Love it,' 'Great foundation,' or 'that takes honesty to acknowledge.'\"}, {\"criterion_name\": \"no_filler_enthusiasm\", \"passed\": true, \"evidence\": \"The response contains no exclamation marks, no sycophantic language, and no filler enthusiasm. The tone is clinical and factual throughout: 'One reduced week preserves the training stimulus without compounding the fatigue.'\"}, {\"criterion_name\": \"keeps_rationale\", \"passed\": true, \"evidence\": \"The response provides explicit physiological and training rationale: 'The physiological reason is straightforward: completing sessions at the right quality signal builds fitness. Grinding through volume at 40 s/km off pace does not. One reduced week preserves the training stimulus without compounding the fatigue.'\"}, {\"criterion_name\": \"offers_forward_path\", \"passed\": true, \"evidence\": \"The response shows the path forward despite the load reduction: 'Week 2 steps back up to 52 km, and the full original loading resumes by Week 3 to 4. The 24-week timeline for sub-3:15 is intact.' This demonstrates progression out of the reduced week and preservation of the long-term goal.\"}], \"overall_score\": 1.0, \"overall_reason\": \"All five criteria pass. The response is direct and concise, avoids validation openers and filler enthusiasm, provides clear physiological rationale for the restructuring, and shows a credible forward path that preserves the athlete's long-term goal despite the temporary load reduction.\"}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-haiku-4-5-20251001\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 1057,
+    "outputTokenCount": 504,
+    "totalTokenCount": 1561
+  }
+}
