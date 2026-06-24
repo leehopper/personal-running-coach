@@ -2986,4 +2986,35 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 
 ---
 
+## DEC-084: Coaching voice is gruff-direct — warmth via competence, not enthusiasm; deterministic STYLE guard + advisory restraint judge (Slice 4A)
+
+**Date:** 2026-06-23
+**Category:** Coaching persona / LLM output voice / eval enforcement
+**Status:** Accepted — records the register lock executed by Slice 4A (PRs #199 / #206 / #207 / #209 / #211 / #213) and the close-out finding that the recorded register reads right (D4 tuning rounds not triggered). Supersedes the warmth-mandate portions of DEC-027's tone mapping; leaves DEC-030's safety taxonomy intact.
+**Drives:** The canonical voice of every LLM-produced coaching surface — onboarding turns (`onboarding-v1`), plan-generation narrative + open conversation (`coaching-system.v1`), and adaptation rationale (`adaptation.v1`) — and how that voice is enforced in the eval suite.
+**Builds on:** the 2026-06-13 builder voice lock (cycle plan § Captured During Cycle), DEC-074 (prompt-hash sentinel — every prompt rewrite regenerates the manifest and re-records affected fixtures), DEC-027 (proactive/conversational tone mapping — partially superseded), DEC-030 (safety taxonomy — unchanged).
+
+**Decision:**
+
+- **Register = gruff and direct.** Blunt, short sentences. Warmth is shown through competence and straight talk, never through enthusiasm, praise, or emotional validation. This is the canonical RunCoach voice across all three prose surfaces.
+- **Deleted from the persona + the three prompts:** mandatory OARS *Affirmation*, process praise, the "acknowledge feelings before correcting behavior" opener, and cheery sycophancy openers ("Love it!", "Great foundation!"). The 80/20 warmth-to-directness dial is retired in favor of directness-led.
+- **Kept (the MI spine):** always give a rationale (the physiological "why" is product value), offer a real choice when one exists, show the forward path. The adaptation RATIONALE shape was rewritten to *name the data pattern → state the change → physiological why → path back* (step-1 "Validate what happened" dropped).
+- **Kept verbatim (the safety lock — bounds all future prompt edits):** all safety / medical / crisis boundaries; the anti-toxic-culture cliché bans ("no days off", "pain is temporary", "push through"); the body / weight / shape / food-labeling guardrails (eating-disorder safety, *not* a warmth mandate). The F4 CURRENT-WEEK CONSISTENCY / GATE-BEFORE-INCREASE programming guardrails (DEC-083) are likewise untouched.
+- **Newly allowed:** pointed, factual accountability — naming a missed or under-performed session as data — never as shaming.
+- **STYLE rules:** no em dashes (`—`/`–`), no exclamation marks, no filler enthusiasm / sycophancy, short sentences.
+- **Enforcement = deterministic guard hard-gates, Haiku judge advises.** The deterministic `VoiceProseGuard` (em-dash / exclamation / banned-phrase) hard-gates the build over the cached eval fixtures; the `VoiceRubrics.Restraint` Haiku rubric (directness / no-validation-opener / no-filler / keeps-rationale / forward-path) is **advisory** — recorded and reported, not gated — because a fuzzy judge must not flake the build and the builder's eye is the real subjective gate. There is **no runtime scrubber** (unlike the F2 `TrademarkScrubber`); the prompt STYLE rule plus the deterministic eval guard are the chosen enforcement.
+
+**Rationale:** The 2026-06-11 live pass surfaced the persona reading far too cheery across onboarding, plan-gen, and adaptation ("Love it" opened two consecutive onboarding turns; the restructure rationale gushed "that takes honesty to acknowledge, and it matters"). The builder wants warmth via competence, not validation. Recording this as a DEC locks the register as load-bearing product behavior and gives future prompt edits two explicit invariants to respect (the deterministic STYLE guard and the KEPT-VERBATIM safety lock). At close-out the recorded register was adversarially verified to read right on all three surfaces (advisory restraint judge: plan-gen 5/5 and adaptation 2/2 at 1.0; mechanical guards green; full eval suite green in Replay), so D4's tuning rounds were not triggered.
+
+**Alternatives considered:** (1) Add a runtime em-dash scrubber mirroring the F2 `TrademarkScrubber` — rejected for MVP-0: em-dash → comma/period rewriting is not always clean, and the prompt rule + deterministic guard suffice; revisit only if live tuning shows the model still emitting dashes despite the rule. (2) Promote the restraint rubric to a hard threshold gate now — rejected: scores are not yet calibrated against builder-approved output and a fuzzy judge should not block the build; promote once calibrated. (3) Leave the register on the 2026-06-13 cycle-plan lock without a DEC — rejected: the change supersedes part of DEC-027 and alters a load-bearing product behavior, which warrants a decision-log entry.
+
+**Open / deferred (non-blocking, opportunistic):**
+
+- **Adaptation "without guilt" / "without concern" softeners.** Two of 59 prose fields in the `lee` restructure fixture name and reassure an unexpressed emotion ("cut to 10 km without guilt", "shorten to 4 km without concern") — feelings-adjacent under a register that deleted "acknowledge feelings first". The `priya` fixture shows the clean gruff form exists ("shut it down and log it. That information is useful"). Bounded and consistent with the kept "rest as investment, not punishment" spine; ships as-is. Nudge toward the `priya`-style framing on the next opportunistic adaptation re-record, not worth a re-record by itself.
+- **Onboarding restraint-rubric applicability.** The advisory judge scores short onboarding clarifier turns 0.0 by applying `keeps_rationale` / `offers_forward_path` (criteria authored for prose-heavy plan/adaptation output) to a one-line intake question where they do not belong — a rubric-applicability artifact, not a register failure (the three register criteria pass). If desired, scope the onboarding eval rubric to register-only criteria; this is a test-only change, not a prompt change.
+
+**Cross-references:** Slice 4A design `docs/plans/mvp-0-cycle/slice-4a-voice-retune.md`, the 2026-06-13 voice lock + close-out rows in `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle, DEC-027 (tone mapping — warmth-mandate portions superseded), DEC-030 (safety taxonomy — unchanged), DEC-074 (prompt-hash sentinel + re-record discipline), DEC-083 (F4 programming guardrails kept verbatim).
+
+---
+
 *Add new decisions at the bottom. Use format: DEC-XXX, date, category, decision, rationale, alternatives.*
