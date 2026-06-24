@@ -77,4 +77,30 @@ public interface ICoachingLlm
         IReadOnlyDictionary<string, JsonElement>? schema,
         CacheControl? cacheControl,
         CancellationToken ct);
+
+    /// <summary>
+    /// Streams the LLM's free-text reply token-by-token for the interactive
+    /// coaching conversation (Slice 4B). Yields each text delta as it arrives.
+    /// </summary>
+    /// <remarks>
+    /// Totality contract (DEC-073, extended for streaming): the only exceptions
+    /// that escape this method are
+    /// <see cref="TransientCoachingLlmException"/> /
+    /// <see cref="PermanentCoachingLlmException"/> (the call failed — retryable
+    /// or not), <see cref="IncompleteCoachingLlmException"/> (the stream ended
+    /// without a usable, complete reply — <c>max_tokens</c> truncation, context
+    /// overflow, or a model refusal; the caller must discard the partial and
+    /// persist an errored marker, never a complete turn), and an unwrapped
+    /// <see cref="OperationCanceledException"/> when the caller's own token is
+    /// cancelled (a client abort — <em>not</em> a service fault). A clean
+    /// completion simply ends the enumeration after the final delta.
+    /// </remarks>
+    /// <param name="systemPrompt">The coaching system prompt.</param>
+    /// <param name="userMessage">The assembled conversation user message.</param>
+    /// <param name="ct">Cancellation token (propagate the request-aborted token).</param>
+    /// <returns>An async stream of text deltas in arrival order.</returns>
+    IAsyncEnumerable<string> StreamAsync(
+        string systemPrompt,
+        string userMessage,
+        CancellationToken ct);
 }

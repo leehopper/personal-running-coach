@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
+using RunCoach.Api.Modules.Coaching.Sanitization;
 using AnthropicMessages = Anthropic.Models.Messages;
 
 namespace RunCoach.Api.Modules.Coaching;
@@ -54,6 +56,16 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     private readonly HttpClient? _httpClient;
 
     /// <summary>
+    /// Factory for the streaming <see cref="IChatClient"/> the
+    /// <see cref="StreamAsync"/> path drives. Production wraps the SDK's M.E.AI
+    /// bridge (<see cref="AsIChatClient"/>) in <see cref="SanitizationAuditChatClient"/>
+    /// so the stream inherits the GUARDRAIL audit span; tests inject a controllable
+    /// stub so the DEC-073 stream-error translation can be exercised without a live
+    /// SSE transport.
+    /// </summary>
+    private readonly Func<IChatClient> _streamingChatClientFactory;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="ClaudeCoachingLlm"/> class
     /// using dependency-injected settings and logger.
     /// Creates the <see cref="AnthropicClient"/> from configuration.
@@ -72,6 +84,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         ValidateSettings(_settings);
 
         (_client, _httpClient) = CreateClientPipeline(_settings, new SocketsHttpHandler());
+        _streamingChatClientFactory = () => new SanitizationAuditChatClient(AsIChatClient());
     }
 
     /// <summary>
@@ -81,7 +94,8 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     internal ClaudeCoachingLlm(
         IAnthropicClient client,
         CoachingLlmSettings settings,
-        ILogger<ClaudeCoachingLlm> logger)
+        ILogger<ClaudeCoachingLlm> logger,
+        Func<IChatClient>? streamingChatClientFactory = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(settings);
@@ -92,6 +106,8 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         _logger = logger;
         _ownsClient = false;
         _httpClient = null;
+        _streamingChatClientFactory = streamingChatClientFactory
+            ?? (() => new SanitizationAuditChatClient(AsIChatClient()));
     }
 
     /// <inheritdoc />
@@ -257,6 +273,33 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
         var usage = ExtractUsage(response);
         return (result, usage);
+    }
+
+    /// <inheritdoc />
+    public async IAsyncEnumerable<string> StreamAsync(
+        string systemPrompt,
+        string userMessage,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(userMessage);
+
+        using var chatClient = _streamingChatClientFactory();
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userMessage),
+        };
+
+        var stream = chatClient.GetStreamingResponseAsync(messages, options: null, ct);
+        await foreach (var update in stream.ConfigureAwait(false))
+        {
+            var delta = update.Text;
+            if (!string.IsNullOrEmpty(delta))
+            {
+                yield return delta;
+            }
+        }
     }
 
     /// <summary>
