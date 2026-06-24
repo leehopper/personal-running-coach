@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
@@ -37,7 +36,9 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval;
 /// (ONBOARDING STATE slot summary, CURRENT_TOPIC, then the sanitized + delimiter-wrapped
 /// runner input). The YAML's <c>context_template</c> block is never rendered for the
 /// onboarding flow. This eval mirrors both: it parses <c>static_system_prompt</c> the
-/// same way and reproduces the production user-message layout.
+/// same way and calls production's own <c>ContextAssembler.BuildOnboardingUserMessage</c>
+/// (internal via <c>InternalsVisibleTo</c>) for the user message, so the layout cannot
+/// drift out of sync with production.
 /// </para>
 /// <para>
 /// It does <b>not</b> call <c>ComposeForOnboardingAsync</c> — that path generates a fresh
@@ -61,15 +62,6 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
         Converters = { new JsonStringEnumConverter() },
     };
 
-    // Mirrors `ContextAssembler.OnboardingSlotSerializerOptions` so a populated
-    // captured-so-far slot renders byte-identically to production's user message.
-    private static readonly JsonSerializerOptions SlotSerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false,
-        Converters = { new JsonStringEnumConverter() },
-    };
-
     public static TheoryData<string> VoiceScenarios => ["primary-goal", "current-fitness"];
 
     [Theory]
@@ -86,7 +78,7 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
 
         // Act — exactly one structured onboarding turn (cached).
         var output = await GenerateOnboardingAsync(
-            $"onboarding.voice.{scenarioName}", prompt, TestContext.Current.CancellationToken);
+            $"onboarding.voice.{scenarioName}", (prompt.System, prompt.User), TestContext.Current.CancellationToken);
 
         // Advisory gruff-direct restraint judge (Slice 4A), recorded for the tuning
         // rounds and never gated. The deterministic `VoiceProseGuard` below is the hard
@@ -109,8 +101,7 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
             TestContext.Current.CancellationToken);
 
         // Assert — structurally valid Pattern-B onboarding turn.
-        var currentTopic = TopicFor(scenarioName);
-        var validation = OnboardingTurnOutputValidator.Validate(output, currentTopic);
+        var validation = OnboardingTurnOutputValidator.Validate(output, prompt.Topic);
         validation.IsValid.Should().BeTrue(
             because: $"the onboarding turn must satisfy the Pattern-B invariants (violation: {validation.Violation})");
 
@@ -134,8 +125,6 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
             output.Reply
                 .Where(block => block.Type == AnthropicContentBlockType.Text)
                 .Select(block => block.Text));
-
-    private static OnboardingTopic TopicFor(string scenarioName) => ScenarioInputs(scenarioName).Topic;
 
     /// <summary>
     /// The deterministic scenario inputs. Two turns the 2026-06-13 live pass saw gush:
@@ -165,13 +154,17 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
                 nameof(scenarioName), scenarioName, "No onboarding voice scenario for this name."),
         };
 
-    private static async Task<(string System, string User)> BuildOnboardingPromptAsync(
+    private static async Task<(string System, string User, OnboardingTopic Topic)> BuildOnboardingPromptAsync(
         string scenarioName, CancellationToken ct)
     {
         var system = await LoadOnboardingSystemPromptAsync(ct);
         var (view, topic, userInput) = ScenarioInputs(scenarioName);
-        var user = BuildOnboardingUserMessage(view, topic, WrapUserInput(userInput));
-        return (system, user);
+
+        // Call production's exact builder (internal via InternalsVisibleTo) rather
+        // than reproducing its layout, so a future slot/label change cannot drift
+        // this eval out of sync while still matching its stale fixture.
+        var user = ContextAssembler.BuildOnboardingUserMessage(view, topic, WrapUserInput(userInput));
+        return (system, user, topic);
     }
 
     /// <summary>
@@ -196,39 +189,6 @@ public sealed class OnboardingVoiceEvalTests : EvalTestBase
         }
 
         return doc.StaticSystemPrompt.TrimEnd();
-    }
-
-    /// <summary>
-    /// Reproduces <c>ContextAssembler.BuildOnboardingUserMessage</c>: the captured-so-far
-    /// slot summary, the current-topic line, then the delimiter-wrapped runner input last.
-    /// Explicit <c>\n</c> line endings keep the bytes platform-independent across the
-    /// record machine and CI (production uses <c>AppendLine</c>, identical on both).
-    /// </summary>
-    private static string BuildOnboardingUserMessage(
-        OnboardingView view, OnboardingTopic currentTopic, string wrappedUserInput)
-    {
-        var sb = new StringBuilder();
-        sb.Append("ONBOARDING STATE (captured so far):\n");
-        AppendSlot(sb, "PrimaryGoal", view.PrimaryGoal);
-        AppendSlot(sb, "TargetEvent", view.TargetEvent);
-        AppendSlot(sb, "CurrentFitness", view.CurrentFitness);
-        AppendSlot(sb, "WeeklySchedule", view.WeeklySchedule);
-        AppendSlot(sb, "InjuryHistory", view.InjuryHistory);
-        AppendSlot(sb, "Preferences", view.Preferences);
-        sb.Append('\n');
-        sb.Append("CURRENT_TOPIC: ").Append(currentTopic.ToString()).Append('\n');
-        sb.Append('\n');
-        sb.Append(wrappedUserInput);
-        return sb.ToString();
-    }
-
-    private static void AppendSlot<T>(StringBuilder sb, string label, T? value)
-        where T : class
-    {
-        var rendered = value is null
-            ? "<not yet captured>"
-            : JsonSerializer.Serialize(value, value.GetType(), SlotSerializerOptions);
-        sb.Append("  ").Append(label).Append(": ").Append(rendered).Append('\n');
     }
 
     /// <summary>
