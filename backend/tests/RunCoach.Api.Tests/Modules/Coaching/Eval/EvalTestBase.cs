@@ -369,7 +369,8 @@ public abstract class EvalTestBase : IAsyncDisposable
     /// Creates a cached Sonnet scenario run for plan generation / coaching tests.
     /// In Replay mode, the inner client throws on cache miss with the scenario name.
     /// </summary>
-    protected async ValueTask<ScenarioRun> CreateSonnetScenarioRunAsync(string scenarioName)
+    protected async ValueTask<ScenarioRun> CreateSonnetScenarioRunAsync(
+        string scenarioName, CancellationToken ct = default)
     {
         if (_sonnetReportingConfig is null)
         {
@@ -378,14 +379,15 @@ public abstract class EvalTestBase : IAsyncDisposable
                 "In Record mode an API key is required. In Replay mode, cache files must exist.");
         }
 
-        return await _sonnetReportingConfig.CreateScenarioRunAsync(scenarioName);
+        return await _sonnetReportingConfig.CreateScenarioRunAsync(scenarioName, cancellationToken: ct);
     }
 
     /// <summary>
     /// Creates a cached Haiku scenario run for LLM-as-judge calls.
     /// In Replay mode, the inner client throws on cache miss with the scenario name.
     /// </summary>
-    protected async ValueTask<ScenarioRun> CreateHaikuScenarioRunAsync(string scenarioName)
+    protected async ValueTask<ScenarioRun> CreateHaikuScenarioRunAsync(
+        string scenarioName, CancellationToken ct = default)
     {
         if (_haikuReportingConfig is null)
         {
@@ -394,7 +396,7 @@ public abstract class EvalTestBase : IAsyncDisposable
                 "In Record mode an API key is required. In Replay mode, cache files must exist.");
         }
 
-        return await _haikuReportingConfig.CreateScenarioRunAsync(scenarioName);
+        return await _haikuReportingConfig.CreateScenarioRunAsync(scenarioName, cancellationToken: ct);
     }
 
     /// <summary>

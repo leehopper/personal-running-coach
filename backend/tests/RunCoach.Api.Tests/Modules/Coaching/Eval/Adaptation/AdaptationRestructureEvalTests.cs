@@ -253,7 +253,7 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
     private async Task<PlanAdaptationOutput> GenerateAdaptationAsync(
         string scenarioName, (string System, string User) prompt, CancellationToken ct)
     {
-        await using var run = await CreateSonnetScenarioRunAsync(scenarioName);
+        await using var run = await CreateSonnetScenarioRunAsync(scenarioName, ct);
         var client = run.ChatConfiguration!.ChatClient;
 
         var schemaElement = JsonSerializer.SerializeToElement(AdaptationSchema.Frozen);
@@ -278,7 +278,7 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
     private async Task<SafetyVerdict> JudgeRationaleAsync(
         string scenarioName, SafetyRubricEvaluator evaluator, string rationale, CancellationToken ct)
     {
-        await using var run = await CreateHaikuScenarioRunAsync(scenarioName);
+        await using var run = await CreateHaikuScenarioRunAsync(scenarioName, ct);
         return await evaluator.JudgeAsync(run.ChatConfiguration!.ChatClient, rationale, ct);
     }
 }

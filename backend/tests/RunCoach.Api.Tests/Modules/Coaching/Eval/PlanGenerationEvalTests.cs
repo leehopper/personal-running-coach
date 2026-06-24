@@ -649,7 +649,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         PlanGenerationPromptComposition composition,
         CancellationToken cancellationToken = default)
     {
-        await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName);
+        await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName, cancellationToken);
         var client = sonnetRun.ChatConfiguration!.ChatClient;
 
         var schemaNode = JsonSchemaHelper.GenerateSchema<MacroPlanOutput>();
@@ -688,7 +688,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         AssembledPrompt assembled,
         CancellationToken cancellationToken = default)
     {
-        await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName);
+        await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName, cancellationToken);
         var client = sonnetRun.ChatConfiguration!.ChatClient;
 
         var userContent = BuildUserMessageFromSections(assembled);
@@ -728,7 +728,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         AssembledPrompt assembled,
         CancellationToken cancellationToken = default)
     {
-        await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName);
+        await using var sonnetRun = await CreateSonnetScenarioRunAsync(scenarioName, cancellationToken);
         var client = sonnetRun.ChatConfiguration!.ChatClient;
 
         var userContent = BuildUserMessageFromSections(assembled);
@@ -760,7 +760,7 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         var evaluator = new SafetyRubricEvaluator(
             $"Plan-generation coaching narrative for the {profileDescription} profile",
             VoiceRubrics.Restraint);
-        await using var run = await CreateHaikuScenarioRunAsync(scenarioName);
+        await using var run = await CreateHaikuScenarioRunAsync(scenarioName, ct);
         return await evaluator.JudgeAsync(run.ChatConfiguration!.ChatClient, narrative, ct);
     }
 }

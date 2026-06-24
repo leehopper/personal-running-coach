@@ -421,6 +421,43 @@ public sealed partial class ContextAssembler : IContextAssembler
     }
 
     /// <summary>
+    /// Builds the onboarding turn user message. Layout is intentional: the
+    /// captured-so-far slot summary precedes the current-topic line so the
+    /// LLM sees its working memory before the prompt for the next answer.
+    /// The sanitized + delimiter-wrapped runner input lands LAST per the
+    /// non-cached-tail convention (DEC-047 / Spotlighting).
+    /// </summary>
+    /// <remarks>
+    /// <c>internal</c> (not <c>private</c>) so the onboarding-voice eval calls
+    /// this exact builder instead of reproducing its layout — a hand-rolled copy
+    /// could silently drift (e.g. a new slot) and keep matching a stale fixture.
+    /// The test assembly retains access via <c>InternalsVisibleTo</c>.
+    /// </remarks>
+    internal static string BuildOnboardingUserMessage(
+        OnboardingView view,
+        OnboardingTopic currentTopic,
+        string sanitizedUserInput)
+    {
+        var sb = new StringBuilder();
+
+        sb.AppendLine("ONBOARDING STATE (captured so far):");
+        AppendSlotSummary(sb, view);
+
+        if (view.OutstandingClarifications.Count > 0)
+        {
+            var topics = string.Join(", ", view.OutstandingClarifications);
+            sb.AppendLine(CultureInfo.InvariantCulture, $"OUTSTANDING_CLARIFICATIONS: {topics}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine(CultureInfo.InvariantCulture, $"CURRENT_TOPIC: {currentTopic}");
+        sb.AppendLine();
+        sb.Append(sanitizedUserInput);
+
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Groups workouts by ISO week (Monday-based) and returns weekly summaries
     /// ordered by most recent week first.
     /// </summary>
@@ -520,37 +557,6 @@ public sealed partial class ContextAssembler : IContextAssembler
     }
 
     private static string FormatPace(Pace pace) => FormatTimeSpan(pace.ToTimeSpan());
-
-    /// <summary>
-    /// Builds the onboarding turn user message. Layout is intentional: the
-    /// captured-so-far slot summary precedes the current-topic line so the
-    /// LLM sees its working memory before the prompt for the next answer.
-    /// The sanitized + delimiter-wrapped runner input lands LAST per the
-    /// non-cached-tail convention (DEC-047 / Spotlighting).
-    /// </summary>
-    private static string BuildOnboardingUserMessage(
-        OnboardingView view,
-        OnboardingTopic currentTopic,
-        string sanitizedUserInput)
-    {
-        var sb = new StringBuilder();
-
-        sb.AppendLine("ONBOARDING STATE (captured so far):");
-        AppendSlotSummary(sb, view);
-
-        if (view.OutstandingClarifications.Count > 0)
-        {
-            var topics = string.Join(", ", view.OutstandingClarifications);
-            sb.AppendLine(CultureInfo.InvariantCulture, $"OUTSTANDING_CLARIFICATIONS: {topics}");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine(CultureInfo.InvariantCulture, $"CURRENT_TOPIC: {currentTopic}");
-        sb.AppendLine();
-        sb.Append(sanitizedUserInput);
-
-        return sb.ToString();
-    }
 
     /// <summary>
     /// Builds the plan-generation base user message. Layout: the captured
