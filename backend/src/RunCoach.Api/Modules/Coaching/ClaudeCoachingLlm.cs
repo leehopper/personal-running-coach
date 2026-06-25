@@ -49,6 +49,9 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     private const string RejectedMessage =
         "The coaching request could not be completed.";
 
+    private const string IncompleteMessage =
+        "The coaching reply could not be completed.";
+
     private readonly IAnthropicClient _client;
     private readonly CoachingLlmSettings _settings;
     private readonly ILogger<ClaudeCoachingLlm> _logger;
@@ -284,21 +287,73 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(userMessage);
 
-        using var chatClient = _streamingChatClientFactory();
-        var messages = new List<ChatMessage>
+        // Run inside a RetryAfterCapture scope so a pre-stream 429's raw Retry-After header
+        // (seen by RetryAfterCaptureHandler on the owned pipeline) is attached to the translated
+        // Transient exception, exactly as the non-streaming path does. Mid-stream errors have no
+        // header once SSE headers are flushed (R-084).
+        using (RetryAfterCapture.BeginScope())
         {
-            new(ChatRole.System, systemPrompt),
-            new(ChatRole.User, userMessage),
-        };
-
-        var stream = chatClient.GetStreamingResponseAsync(messages, options: null, ct);
-        await foreach (var update in stream.ConfigureAwait(false))
-        {
-            var delta = update.Text;
-            if (!string.IsNullOrEmpty(delta))
+            using var chatClient = _streamingChatClientFactory();
+            var messages = new List<ChatMessage>
             {
-                yield return delta;
+                new(ChatRole.System, systemPrompt),
+                new(ChatRole.User, userMessage),
+            };
+
+            // R-084: the SDK throws mid-enumeration for streamed errors. Drive the enumerator
+            // manually so MoveNextAsync sits inside try/catch while `yield return` stays outside it
+            // (C# forbids yielding from a try that has a catch), translating the Anthropic failure
+            // surface into the DEC-073 totality contract.
+            await using var enumerator = chatClient
+                .GetStreamingResponseAsync(messages, options: null, ct)
+                .GetAsyncEnumerator(ct);
+
+            string? terminalStopReason = null;
+
+            while (true)
+            {
+                ChatResponseUpdate update;
+                try
+                {
+                    if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        break;
+                    }
+
+                    update = enumerator.Current;
+                }
+                catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+                {
+                    // The SDK's per-attempt timeout fired (the caller did not cancel) — a transient
+                    // service failure. A genuine client abort (ct cancelled) fails this filter and
+                    // propagates unwrapped as not-an-error, mirroring CreateMessageAsync.
+                    throw new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, ex);
+                }
+                catch (AnthropicException ex)
+                {
+                    throw TranslateAnthropicFailure(ex);
+                }
+
+                // The terminal stop reason rides the message_delta update (and may repeat on
+                // trailing updates — last-write-wins keeps that idempotent). Captured here, acted
+                // on after the stream ends cleanly.
+                var stopReason = TryGetTerminalStopReason(update);
+                if (stopReason is not null)
+                {
+                    terminalStopReason = stopReason;
+                }
+
+                var delta = update.Text;
+                if (!string.IsNullOrEmpty(delta))
+                {
+                    yield return delta;
+                }
             }
+
+            // A clean enumeration end on an incomplete stop reason (truncation, context overflow,
+            // or a refusal) is the errored-turn signal: the partial just yielded is unusable as a
+            // complete turn. R-084 — these end the stream cleanly, never as an exception.
+            ThrowIfIncompleteFinish(terminalStopReason);
         }
     }
 
@@ -499,6 +554,114 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <summary>
+    /// Reads the authoritative Anthropic <c>stop_reason</c> from a streamed update's
+    /// <c>message_delta</c> event, or <see langword="null"/> for any other update. Read from the
+    /// raw event JSON rather than M.E.AI's <see cref="ChatResponseUpdate.FinishReason"/> because the
+    /// SDK enum has no <c>model_context_window_exceeded</c> member and the bridge maps it to
+    /// <c>Stop</c> — indistinguishable from a clean <c>end_turn</c> at the finish-reason layer.
+    /// </summary>
+    private static string? TryGetTerminalStopReason(ChatResponseUpdate update)
+    {
+        if (update.RawRepresentation is not RawMessageStreamEvent raw || !raw.TryPickDelta(out _))
+        {
+            return null;
+        }
+
+        return raw.Json.TryGetProperty("delta", out var delta)
+            && delta.TryGetProperty("stop_reason", out var stopReason)
+            && stopReason.ValueKind == JsonValueKind.String
+            ? stopReason.GetString()
+            : null;
+    }
+
+    /// <summary>
+    /// Raises the errored-turn signal (<see cref="IncompleteCoachingLlmException"/>) when a stream
+    /// ended cleanly on an incomplete stop reason. <c>max_tokens</c> is retryable (a fresh turn may
+    /// fit); context overflow and a refusal are not (re-sending the same input fails the same way).
+    /// Clean stop reasons (<c>end_turn</c>/<c>stop_sequence</c>) and a missing reason are no-ops.
+    /// </summary>
+    private static void ThrowIfIncompleteFinish(string? stopReason)
+    {
+        IncompleteReason? reason = stopReason switch
+        {
+            "max_tokens" => IncompleteReason.MaxTokens,
+            "model_context_window_exceeded" => IncompleteReason.ContextWindowExceeded,
+            "refusal" => IncompleteReason.Refusal,
+            _ => null,
+        };
+
+        if (reason is not { } incompleteReason)
+        {
+            return;
+        }
+
+        throw new IncompleteCoachingLlmException(
+            IncompleteMessage,
+            incompleteReason,
+            retryable: incompleteReason == IncompleteReason.MaxTokens);
+    }
+
+    /// <summary>
+    /// Translates an Anthropic SDK failure into the DEC-073 totality contract — the single classifier
+    /// shared by the request/response (<see cref="CreateMessageAsync"/>) and streaming
+    /// (<see cref="StreamAsync"/>) paths so they cannot drift. A mid-stream error after the HTTP 200
+    /// arrives as <see cref="AnthropicSseException"/> (streaming-only) and is classified on its SSE
+    /// error <c>type</c>; everything else is a pre-first-byte failure classified by HTTP status
+    /// (408/409/429/5xx → Transient, other 4xx → Permanent) or a transport
+    /// <see cref="AnthropicIOException"/> → Transient. Switch order mirrors the leaf-to-base hierarchy
+    /// (rate-limit and 5xx derive from <see cref="AnthropicApiException"/>; 408/409 land on the
+    /// non-leaf branch and are classified by status). The caller wraps the call in a
+    /// <see cref="RetryAfterCapture"/> scope so a 429's raw <c>Retry-After</c> header is attached.
+    /// </summary>
+    private static CoachingLlmException TranslateAnthropicFailure(AnthropicException ex) => ex switch
+    {
+        AnthropicSseException sse => ClassifySseError(sse),
+        AnthropicRateLimitException => new TransientCoachingLlmException(BusyMessage, RetryAfterCapture.CurrentSeconds, ex),
+        Anthropic5xxException => new TransientCoachingLlmException(UnavailableMessage, RetryAfterCapture.CurrentSeconds, ex),
+        AnthropicIOException => new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, ex),
+        AnthropicInvalidDataException => new PermanentCoachingLlmException(RejectedMessage, ex),
+        AnthropicApiException api => ClassifyApiStatus(api),
+        _ => new PermanentCoachingLlmException(RejectedMessage, ex),
+    };
+
+    /// <summary>
+    /// Classifies a status-bearing <see cref="AnthropicApiException"/> by HTTP status: 408/409/429
+    /// and 5xx are Transient (the SDK would have retried them); other 4xx are Permanent.
+    /// </summary>
+    private static CoachingLlmException ClassifyApiStatus(AnthropicApiException ex)
+    {
+        var status = (int)ex.StatusCode;
+        var transient = status is 408 or 409 or 429 || status >= 500;
+        return transient
+            ? new TransientCoachingLlmException(UnavailableMessage, RetryAfterCapture.CurrentSeconds, ex)
+            : new PermanentCoachingLlmException(RejectedMessage, ex);
+    }
+
+    /// <summary>
+    /// Classifies a mid-stream <see cref="AnthropicSseException"/>. The SDK 12.29.1 exposes no
+    /// structured error-type accessor; the error <c>type</c> string is carried verbatim in the
+    /// message (e.g. <c>SSE error returned from server: '{"type":"error","error":{"type":"overloaded_error",…}}'</c>),
+    /// so classification matches on that token. <c>invalid_request_error</c> /
+    /// <c>authentication_error</c> / <c>permission_error</c> are terminal (Permanent); the
+    /// retryable service-side types (<c>overloaded_error</c> / <c>rate_limit_error</c> /
+    /// <c>api_error</c> / <c>timeout_error</c>) and any unrecognized type default to Transient
+    /// (recall-over-precision). There is no <c>Retry-After</c> header once SSE headers are flushed,
+    /// so a transient mid-stream error carries no delay hint (the SSE endpoint applies a configured
+    /// default).
+    /// </summary>
+    private static CoachingLlmException ClassifySseError(AnthropicSseException sse)
+    {
+        var message = sse.Message;
+        var permanent = message.Contains("invalid_request_error", StringComparison.Ordinal)
+            || message.Contains("authentication_error", StringComparison.Ordinal)
+            || message.Contains("permission_error", StringComparison.Ordinal);
+
+        return permanent
+            ? new PermanentCoachingLlmException(RejectedMessage, sse)
+            : new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, sse);
+    }
+
+    /// <summary>
     /// Validates that required settings are present.
     /// Throws <see cref="InvalidOperationException"/> if the API key is missing.
     /// </summary>
@@ -531,18 +694,17 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
     /// <summary>
     /// Issues the Anthropic <c>messages.create</c> call inside a <see cref="RetryAfterCapture"/>
-    /// scope and translates the SDK 12.24.1 failure surface into the adapter-owned
+    /// scope and translates the SDK failure surface into the adapter-owned
     /// <see cref="TransientCoachingLlmException"/> / <see cref="PermanentCoachingLlmException"/>
-    /// (DEC-073) so callers never see an <c>Anthropic.Exceptions</c> type. The SDK has already
-    /// applied its own bounded retries (<see cref="CoachingLlmSettings.MaxRetries"/>) and honored
-    /// <c>Retry-After</c> backoff by the time any of these catches fire. Genuine caller
-    /// cancellation propagates unwrapped and is never reclassified as a service failure; the
-    /// filtered <c>OperationCanceledException</c> catch only fires when the caller's token is NOT
-    /// cancelled — i.e. the SDK's per-attempt timeout (<c>ClientOptions.Timeout</c>), which the
-    /// SDK 12.24.1 surfaces as a raw <see cref="TaskCanceledException"/> from a linked CTS with no
-    /// timeout exception type of its own. Catch order is significant:
-    /// <see cref="AnthropicRateLimitException"/> derives from
-    /// <see cref="Anthropic4xxException"/> which derives from <see cref="AnthropicApiException"/>.
+    /// (DEC-073) via the shared <see cref="TranslateAnthropicFailure"/> classifier, so callers never
+    /// see an <c>Anthropic.Exceptions</c> type and this path cannot drift from
+    /// <see cref="StreamAsync"/>. The SDK has already applied its own bounded retries
+    /// (<see cref="CoachingLlmSettings.MaxRetries"/>) and honored <c>Retry-After</c> backoff by the
+    /// time any catch fires. Genuine caller cancellation propagates unwrapped and is never
+    /// reclassified; the filtered <c>OperationCanceledException</c> catch only fires when the caller's
+    /// token is NOT cancelled — i.e. the SDK's per-attempt timeout (<c>ClientOptions.Timeout</c>),
+    /// which surfaces as a raw <see cref="TaskCanceledException"/> from a linked CTS with no timeout
+    /// exception type of its own.
     /// </summary>
     private async Task<Message> CreateMessageAsync(MessageCreateParams createParams, CancellationToken ct)
     {
@@ -558,38 +720,12 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
                 // overlong Anthropic call is a transient service failure, not a user cancellation.
                 throw new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, ex);
             }
-            catch (AnthropicRateLimitException ex)
-            {
-                throw new TransientCoachingLlmException(BusyMessage, RetryAfterCapture.CurrentSeconds, ex);
-            }
-            catch (Anthropic5xxException ex)
-            {
-                throw new TransientCoachingLlmException(UnavailableMessage, RetryAfterCapture.CurrentSeconds, ex);
-            }
-            catch (AnthropicIOException ex)
-            {
-                // Transport failure — no HTTP response, so no Retry-After to read.
-                throw new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, ex);
-            }
-            catch (AnthropicInvalidDataException ex)
-            {
-                throw new PermanentCoachingLlmException(RejectedMessage, ex);
-            }
-            catch (AnthropicApiException ex)
-            {
-                // Remaining HTTP errors: 408/409 land on the non-leaf Anthropic4xxException, so
-                // classify by status rather than leaf type. 408/409/429/5xx are transient (the
-                // SDK would have retried them); 400/401/403/404/422 are permanent.
-                var status = (int)ex.StatusCode;
-                var transient = status is 408 or 409 or 429 || status >= 500;
-                throw transient
-                    ? new TransientCoachingLlmException(UnavailableMessage, RetryAfterCapture.CurrentSeconds, ex)
-                    : new PermanentCoachingLlmException(RejectedMessage, ex);
-            }
             catch (AnthropicException ex)
             {
-                // Defensive catch-all for any unmodeled SDK exception (e.g. a bare service error).
-                throw new PermanentCoachingLlmException(RejectedMessage, ex);
+                // Status / leaf-type classification lives in the shared translator so this path and
+                // StreamAsync cannot drift (DEC-073). Genuine caller cancellation is unaffected — it
+                // surfaces as OperationCanceledException, which is not an AnthropicException.
+                throw TranslateAnthropicFailure(ex);
             }
         }
     }

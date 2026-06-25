@@ -1,4 +1,5 @@
 using Anthropic;
+using Anthropic.Exceptions;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -45,6 +46,73 @@ public sealed class ClaudeCoachingLlmStreamingTests
         deltas.Should().Equal("Easy ", "does ", "it.");
     }
 
+    [Fact]
+    public async Task StreamAsync_ClientAbort_PropagatesCancellationUnwrapped()
+    {
+        // Arrange — the caller's token is cancelled and the stream surfaces an OperationCanceledException
+        // (the RequestAborted shape). A genuine client abort is not-an-error: it must propagate
+        // unwrapped, never reclassified into a Transient/Permanent service fault.
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        using var llm = BuildStreamingLlm(_ => ThrowingStream(new OperationCanceledException(cts.Token)));
+
+        // Act
+        var act = async () =>
+        {
+            await foreach (var delta in llm.StreamAsync("system", "user", cts.Token))
+            {
+                _ = delta;
+            }
+        };
+
+        // Assert
+        var thrown = await act.Should().ThrowAsync<OperationCanceledException>();
+        thrown.Which.Should().NotBeAssignableTo<CoachingLlmException>();
+    }
+
+    [Fact]
+    public async Task StreamAsync_SdkPerAttemptTimeout_TranslatesToTransient()
+    {
+        // Arrange — an OperationCanceledException arrives while the caller's token is NOT cancelled:
+        // the SDK's per-attempt timeout fired. That is a transient service failure, not a user abort.
+        using var llm = BuildStreamingLlm(_ => ThrowingStream(new OperationCanceledException()));
+
+        // Act
+        var act = async () => await CollectAsync(llm);
+
+        // Assert
+        await act.Should().ThrowAsync<TransientCoachingLlmException>();
+    }
+
+    [Fact]
+    public async Task StreamAsync_TransportIOException_TranslatesToTransient()
+    {
+        // Arrange — a transport drop mid-stream (no Retry-After header to read).
+        using var llm = BuildStreamingLlm(_ => ThrowingStream(
+            new AnthropicIOException("connection reset", new HttpRequestException())));
+
+        // Act
+        var act = async () => await CollectAsync(llm);
+
+        // Assert
+        await act.Should().ThrowAsync<TransientCoachingLlmException>();
+    }
+
+    [Fact]
+    public async Task StreamAsync_UnmodeledAnthropicException_TranslatesToPermanent()
+    {
+        // Arrange — any Anthropic SDK exception outside the modeled cases is terminal; the totality
+        // contract still holds (only CoachingLlmException subtypes escape StreamAsync).
+        using var llm = BuildStreamingLlm(_ => ThrowingStream(
+            new AnthropicException("unmodeled", new InvalidOperationException())));
+
+        // Act
+        var act = async () => await CollectAsync(llm);
+
+        // Assert
+        await act.Should().ThrowAsync<PermanentCoachingLlmException>();
+    }
+
     private static async Task<List<string>> CollectAsync(ClaudeCoachingLlm llm)
     {
         var deltas = new List<string>();
@@ -54,6 +122,24 @@ public sealed class ClaudeCoachingLlmStreamingTests
         }
 
         return deltas;
+    }
+
+    /// <summary>
+    /// A stub stream that yields the supplied updates (if any) and then throws — exercising the
+    /// translator's mid-enumeration catch.
+    /// </summary>
+    private static async IAsyncEnumerable<ChatResponseUpdate> ThrowingStream(
+        Exception toThrow,
+        params ChatResponseUpdate[] before)
+    {
+        foreach (var update in before)
+        {
+            await Task.Yield();
+            yield return update;
+        }
+
+        await Task.Yield();
+        throw toThrow;
     }
 
     private static ChatResponseUpdate TextDelta(string text) => new(ChatRole.Assistant, text);
