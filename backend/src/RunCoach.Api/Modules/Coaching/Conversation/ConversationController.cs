@@ -83,6 +83,72 @@ public sealed class ConversationController(
         return Ok(new ConversationTurnsResponseDto(turns));
     }
 
+    /// <summary>
+    /// GET /api/v1/conversation/timeline — the runner's composed conversation
+    /// (Slice 4B Unit 3, DEC-085): their user-scoped interactive turns unioned with
+    /// the current plan's proactive adaptation/safety turns, oldest-first for a chat
+    /// composer. The interactive turns survive plan regeneration; the proactive turns
+    /// reset with the plan. User-scoped via the per-request tenanted Marten session;
+    /// no antiforgery (read). Returns the interactive turns alone until the current
+    /// plan has proactive turns (or none until PR4 wires the interactive appends).
+    /// </summary>
+    /// <param name="ct">Request cancellation token.</param>
+    /// <returns>200 with the oldest-first timeline (possibly empty); 401 when the user claim is missing or malformed.</returns>
+    [HttpGet("timeline")]
+    [ProducesResponseType(typeof(ConversationTimelineDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetTimeline(CancellationToken ct)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            return MissingUserClaim();
+        }
+
+        // Conjoined tenancy: one per-request tenanted session loads both the
+        // user-scoped interactive stream (keyed by user id) and the plan-scoped
+        // proactive log (keyed by the active plan id) — both under the same tenant.
+        await using var session = store.LightweightSession(userId.ToString());
+
+        // Interactive turns — keyed by user id, so they persist across plan regens.
+        var conversation = await session
+            .LoadAsync<ConversationView>(userId, ct)
+            .ConfigureAwait(false);
+        IReadOnlyList<InteractiveTurnView> interactive = conversation?.Turns ?? [];
+
+        // Proactive turns for the runner's active plan — keyed by plan id, reset on regen.
+        var currentPlanId = await EntityFrameworkQueryableExtensions
+            .SingleOrDefaultAsync(
+                db.RunnerOnboardingProfiles
+                    .AsNoTracking()
+                    .Where(p => p.UserId == userId)
+                    .Select(p => p.CurrentPlanId),
+                ct)
+            .ConfigureAwait(false);
+
+        IReadOnlyList<ConversationTurnView> proactive = [];
+        if (currentPlanId is not null)
+        {
+            var log = await session
+                .LoadAsync<ConversationLogView>(currentPlanId.Value, ct)
+                .ConfigureAwait(false);
+            proactive = log?.Turns ?? [];
+        }
+
+        // Union oldest-first. CreatedAt (the Marten event timestamp) is the cross-stream
+        // ordering key; the per-stream EventVersion then the TurnId are deterministic
+        // tiebreakers for turns that share a transaction_timestamp().
+        var turns = interactive
+            .Select(MapInteractiveTurn)
+            .Concat(proactive.Select(MapProactiveTurn))
+            .OrderBy(x => x.CreatedAt)
+            .ThenBy(x => x.EventVersion)
+            .ThenBy(x => x.TurnId)
+            .Select(x => x.Dto)
+            .ToArray();
+
+        return Ok(new ConversationTimelineDto(turns));
+    }
+
     private static ConversationTurnDto MapTurn(ConversationTurnView turn) =>
         new(
             turn.TriggeringPlanEventId,
@@ -95,6 +161,30 @@ public sealed class ConversationController(
             turn.Diff,
             turn.TriggeringWorkoutLogId,
             turn.CreatedAt);
+
+    private static (DateTimeOffset CreatedAt, long EventVersion, Guid TurnId, ConversationTimelineTurnDto Dto)
+        MapInteractiveTurn(InteractiveTurnView turn) =>
+        (turn.CreatedAt, turn.EventVersion, turn.TurnId,
+            new ConversationTimelineTurnDto(
+                turn.Participant == ConversationParticipant.User
+                    ? ConversationTimelineTurnKind.User
+                    : ConversationTimelineTurnKind.Coach,
+                turn.TurnId,
+                turn.CreatedAt,
+                new InteractiveTurnDto(turn.Content, turn.IsErrored),
+                Proactive: null));
+
+    private static (DateTimeOffset CreatedAt, long EventVersion, Guid TurnId, ConversationTimelineTurnDto Dto)
+        MapProactiveTurn(ConversationTurnView turn) =>
+        (turn.CreatedAt, turn.EventVersion, turn.TriggeringPlanEventId,
+            new ConversationTimelineTurnDto(
+                turn.Role == ConversationRole.AssistantAdaptation
+                    ? ConversationTimelineTurnKind.Adaptation
+                    : ConversationTimelineTurnKind.Safety,
+                turn.TriggeringPlanEventId,
+                turn.CreatedAt,
+                Interactive: null,
+                MapTurn(turn)));
 
     private bool TryGetUserId(out Guid userId)
     {

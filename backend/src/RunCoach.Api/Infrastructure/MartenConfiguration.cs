@@ -73,6 +73,8 @@ public static class MartenConfiguration
         typeof(PlanAdaptedFromLog),
         typeof(SafetySignalRaised),
         typeof(ClientErrorReported),
+        typeof(UserMessagePosted),
+        typeof(CoachMessagePosted),
     ];
 
     /// <summary>
@@ -148,6 +150,14 @@ public static class MartenConfiguration
         // mutates — the explanation stays atomic with the plan change (DEC-060).
         opts.Schema.For<ConversationLogView>().Identity(x => x.PlanId);
         opts.Projections.Add(new ConversationProjection(), ProjectionLifecycle.Inline);
+
+        // Interactive conversation read-model (Slice 4B Unit 3, DEC-085) — a net-new
+        // inline single-stream projection over the user-scoped `Conversation` stream,
+        // keyed by user id so the conversation survives plan regeneration (the plan-
+        // scoped ConversationLogView above resets with each new plan). Identity comes
+        // from the `Id` property convention (set to UserId by the projection), like
+        // the OnboardingView — no explicit `Schema.For<ConversationView>().Identity`.
+        opts.Projections.Add(new InteractiveConversationProjection(), ProjectionLifecycle.Inline);
 
         // Per-plan adaptation signal state (Slice 3 Unit 5, DEC-078 resolution) —
         // a directly-stored document, not a projection: the evaluation handler
