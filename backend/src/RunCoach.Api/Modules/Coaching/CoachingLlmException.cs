@@ -4,8 +4,12 @@ namespace RunCoach.Api.Modules.Coaching;
 /// Base type for the only exceptions <see cref="ICoachingLlm"/> surfaces to callers under
 /// DEC-073 (first live in Slice 3). The adapter translates every Anthropic SDK failure — and
 /// every post-response failure (per-attempt timeout, <c>max_tokens</c> truncation, malformed
-/// structured output) — into one of the two concrete subtypes so callers never take a dependency
-/// on SDK exception types and can branch on retryability alone.
+/// structured output) — into one of the concrete subtypes so callers never take a dependency
+/// on SDK exception types and can branch on retryability alone:
+/// <see cref="TransientCoachingLlmException"/> (retry the call) and
+/// <see cref="PermanentCoachingLlmException"/> (do not), plus
+/// <see cref="IncompleteCoachingLlmException"/> on the streaming path (the call succeeded but the
+/// turn ended without a usable, complete reply).
 /// </summary>
 public abstract class CoachingLlmException : Exception
 {

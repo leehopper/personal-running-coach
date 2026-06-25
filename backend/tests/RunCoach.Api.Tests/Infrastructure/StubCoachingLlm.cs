@@ -81,6 +81,13 @@ public sealed class StubCoachingLlm : ICoachingLlm
             + "generation. Script the structured surface instead, or move the coverage to the eval tier.");
 
     /// <inheritdoc />
+    public IAsyncEnumerable<string> StreamAsync(string systemPrompt, string userMessage, CancellationToken ct) =>
+        throw new InvalidOperationException(
+            "StubCoachingLlm.StreamAsync was called: no integration-tier flow scripts streaming "
+            + "generation. Streaming coverage lives in the ClaudeCoachingLlm streaming tests; add a "
+            + "dedicated streaming test seam if an integration flow needs it.");
+
+    /// <inheritdoc />
     public Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(
         string systemPrompt,
         string userMessage,
