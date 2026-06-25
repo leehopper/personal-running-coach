@@ -31,10 +31,11 @@ public sealed class ClaudeCoachingLlmStreamingTransportTests
         MaxTokens = 1024,
     };
 
-    // R-084 mid-stream SSE error-type → DEC-073 classification. The SDK reports a post-200 error
-    // as AnthropicSseException whose message carries the structured error `type` verbatim; the
-    // adapter classifies on that token. Retryable service-side errors are Transient; client/auth
-    // errors are Permanent; an unknown type defaults to Transient (recall-over-precision).
+    // R-084 mid-stream SSE error type maps to the DEC-073 classification. The SDK reports a
+    // post-200 error as an AnthropicSseException carrying a strongly-typed error-type enum parsed
+    // from the SSE payload, and the adapter classifies on that enum rather than on message text.
+    // Retryable service-side errors are Transient, client/auth/not-found/billing errors are
+    // Permanent, and an unknown type defaults to Transient for recall over precision.
     [Theory]
     [InlineData("overloaded_error", true)]
     [InlineData("rate_limit_error", true)]
@@ -44,16 +45,20 @@ public sealed class ClaudeCoachingLlmStreamingTransportTests
     [InlineData("invalid_request_error", false)]
     [InlineData("authentication_error", false)]
     [InlineData("permission_error", false)]
+    [InlineData("not_found_error", false)]
+    [InlineData("billing_error", false)]
     public async Task StreamAsync_MidStreamError_ClassifiesByErrorType(string errorType, bool expectTransient)
     {
         // Arrange — a 200 that streams two text deltas then an `error` SSE event of the given type,
         // which the SDK rethrows mid-enumeration as AnthropicSseException.
         using var llm = BuildLlm(SseBuilder.WithMidStreamError(errorType));
 
-        // Act
-        var act = async () => await CollectAsync(llm);
+        // Act — capture deltas into an external sink so the partial survives the throw.
+        var deltas = new List<string>();
+        var act = () => DrainIntoAsync(llm, deltas);
 
-        // Assert — the SDK type never escapes; it maps to the DEC-073 Transient/Permanent type.
+        // Assert — the SDK type never escapes; it maps to the DEC-073 Transient/Permanent type, and
+        // the partial deltas reached the consumer (incremental yield-then-throw) before it.
         if (expectTransient)
         {
             await act.Should().ThrowAsync<TransientCoachingLlmException>();
@@ -62,6 +67,25 @@ public sealed class ClaudeCoachingLlmStreamingTransportTests
         {
             await act.Should().ThrowAsync<PermanentCoachingLlmException>();
         }
+
+        deltas.Should().Equal("Easy ", "does it.");
+    }
+
+    [Fact]
+    public async Task StreamAsync_MidStreamError_ClassifiesOnStructuredTypeNotMessageText()
+    {
+        // Arrange — a transient rate_limit_error whose server-controlled `message` text happens to
+        // contain the literal token "permission_error". Classification must key off the SDK's
+        // structured error type (RateLimitError -> Transient), not a naive full-message substring
+        // match that would see "permission_error" and wrongly mark it Permanent (non-retryable).
+        using var llm = BuildLlm(SseBuilder.WithMidStreamError(
+            "rate_limit_error", "slow down; this is not a permission_error situation"));
+
+        // Act
+        var act = async () => await CollectAsync(llm);
+
+        // Assert
+        await act.Should().ThrowAsync<TransientCoachingLlmException>();
     }
 
     [Theory]
@@ -94,14 +118,17 @@ public sealed class ClaudeCoachingLlmStreamingTransportTests
         // Arrange — a stream that delivers text then ends on an incomplete-finish stop reason.
         using var llm = BuildLlm(SseBuilder.WithStopReason(stopReason));
 
-        // Act
-        var act = async () => await CollectAsync(llm);
+        // Act — capture deltas into an external sink so the partial survives the throw.
+        var deltas = new List<string>();
+        var act = () => DrainIntoAsync(llm, deltas);
 
-        // Assert — the partial is unusable: an IncompleteCoachingLlmException carrying the precise
-        // reason and retryability, never a clean completion.
+        // Assert — the partial reached the consumer (so the caller can discard it per the contract),
+        // then an IncompleteCoachingLlmException carrying the precise reason and retryability, never
+        // a clean completion.
         var thrown = await act.Should().ThrowAsync<IncompleteCoachingLlmException>();
         thrown.Which.Reason.Should().Be(expectedReason);
         thrown.Which.Retryable.Should().Be(expectedRetryable);
+        deltas.Should().Equal("Easy ", "does it.");
     }
 
     // Pre-first-byte HTTP failures (the SDK throws an AnthropicApiException before any SSE byte) reuse
@@ -185,12 +212,21 @@ public sealed class ClaudeCoachingLlmStreamingTransportTests
     private static async Task<List<string>> CollectAsync(ClaudeCoachingLlm llm)
     {
         var deltas = new List<string>();
+        await DrainIntoAsync(llm, deltas);
+        return deltas;
+    }
+
+    /// <summary>
+    /// Enumerates the stream into an external <paramref name="sink"/> so that, when the stream
+    /// throws mid-enumeration, the partial deltas already delivered survive for assertion (proving
+    /// the incremental yield-then-throw property).
+    /// </summary>
+    private static async Task DrainIntoAsync(ClaudeCoachingLlm llm, List<string> sink)
+    {
         await foreach (var delta in llm.StreamAsync("system", "user", TestContext.Current.CancellationToken))
         {
-            deltas.Add(delta);
+            sink.Add(delta);
         }
-
-        return deltas;
     }
 
     /// <summary>
@@ -225,11 +261,11 @@ public sealed class ClaudeCoachingLlmStreamingTransportTests
             return sb.ToString();
         }
 
-        public static string WithMidStreamError(string errorType)
+        public static string WithMidStreamError(string errorType, string message = "simulated")
         {
             var sb = new StringBuilder();
             AppendPreamble(sb);
-            Event(sb, "error", "{\"type\":\"error\",\"error\":{\"type\":\"" + errorType + "\",\"message\":\"simulated\"}}");
+            Event(sb, "error", "{\"type\":\"error\",\"error\":{\"type\":\"" + errorType + "\",\"message\":\"" + message + "\"}}");
             return sb.ToString();
         }
 

@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Anthropic;
 using Anthropic.Core;
 using Anthropic.Exceptions;
+using Anthropic.Models;
 using Anthropic.Models.Messages;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -279,82 +280,18 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <inheritdoc />
-    public async IAsyncEnumerable<string> StreamAsync(
+    public IAsyncEnumerable<string> StreamAsync(
         string systemPrompt,
         string userMessage,
-        [EnumeratorCancellation] CancellationToken ct)
+        CancellationToken ct)
     {
+        // Validate eagerly at the call site (not deferred to the first MoveNextAsync of the
+        // returned iterator), matching the async-Task ICoachingLlm methods — split from the
+        // iterator body per sonar S4456.
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(userMessage);
 
-        // Run inside a RetryAfterCapture scope so a pre-stream 429's raw Retry-After header
-        // (seen by RetryAfterCaptureHandler on the owned pipeline) is attached to the translated
-        // Transient exception, exactly as the non-streaming path does. Mid-stream errors have no
-        // header once SSE headers are flushed (R-084).
-        using (RetryAfterCapture.BeginScope())
-        {
-            using var chatClient = _streamingChatClientFactory();
-            var messages = new List<ChatMessage>
-            {
-                new(ChatRole.System, systemPrompt),
-                new(ChatRole.User, userMessage),
-            };
-
-            // R-084: the SDK throws mid-enumeration for streamed errors. Drive the enumerator
-            // manually so MoveNextAsync sits inside try/catch while `yield return` stays outside it
-            // (C# forbids yielding from a try that has a catch), translating the Anthropic failure
-            // surface into the DEC-073 totality contract.
-            await using var enumerator = chatClient
-                .GetStreamingResponseAsync(messages, options: null, ct)
-                .GetAsyncEnumerator(ct);
-
-            string? terminalStopReason = null;
-
-            while (true)
-            {
-                ChatResponseUpdate update;
-                try
-                {
-                    if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
-                    {
-                        break;
-                    }
-
-                    update = enumerator.Current;
-                }
-                catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
-                {
-                    // The SDK's per-attempt timeout fired (the caller did not cancel) — a transient
-                    // service failure. A genuine client abort (ct cancelled) fails this filter and
-                    // propagates unwrapped as not-an-error, mirroring CreateMessageAsync.
-                    throw new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, ex);
-                }
-                catch (AnthropicException ex)
-                {
-                    throw TranslateAnthropicFailure(ex);
-                }
-
-                // The terminal stop reason rides the message_delta update (and may repeat on
-                // trailing updates — last-write-wins keeps that idempotent). Captured here, acted
-                // on after the stream ends cleanly.
-                var stopReason = TryGetTerminalStopReason(update);
-                if (stopReason is not null)
-                {
-                    terminalStopReason = stopReason;
-                }
-
-                var delta = update.Text;
-                if (!string.IsNullOrEmpty(delta))
-                {
-                    yield return delta;
-                }
-            }
-
-            // A clean enumeration end on an incomplete stop reason (truncation, context overflow,
-            // or a refusal) is the errored-turn signal: the partial just yielded is unusable as a
-            // complete turn. R-084 — these end the stream cleanly, never as an exception.
-            ThrowIfIncompleteFinish(terminalStopReason);
-        }
+        return StreamCore(systemPrompt, userMessage, ct);
     }
 
     /// <summary>
@@ -567,7 +504,12 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             return null;
         }
 
-        return raw.Json.TryGetProperty("delta", out var delta)
+        // ValueKind guards keep JsonElement.TryGetProperty from throwing on a non-object element
+        // (it throws InvalidOperationException unless the element is an Object) — defensive against
+        // a malformed event, so no untyped exception can escape the totality contract.
+        return raw.Json.ValueKind == JsonValueKind.Object
+            && raw.Json.TryGetProperty("delta", out var delta)
+            && delta.ValueKind == JsonValueKind.Object
             && delta.TryGetProperty("stop_reason", out var stopReason)
             && stopReason.ValueKind == JsonValueKind.String
             ? stopReason.GetString()
@@ -638,28 +580,22 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <summary>
-    /// Classifies a mid-stream <see cref="AnthropicSseException"/>. The SDK 12.29.1 exposes no
-    /// structured error-type accessor; the error <c>type</c> string is carried verbatim in the
-    /// message (e.g. <c>SSE error returned from server: '{"type":"error","error":{"type":"overloaded_error",…}}'</c>),
-    /// so classification matches on that token. <c>invalid_request_error</c> /
-    /// <c>authentication_error</c> / <c>permission_error</c> are terminal (Permanent); the
-    /// retryable service-side types (<c>overloaded_error</c> / <c>rate_limit_error</c> /
-    /// <c>api_error</c> / <c>timeout_error</c>) and any unrecognized type default to Transient
-    /// (recall-over-precision). There is no <c>Retry-After</c> header once SSE headers are flushed,
-    /// so a transient mid-stream error carries no delay hint (the SSE endpoint applies a configured
-    /// default).
+    /// Classifies a mid-stream <see cref="AnthropicSseException"/> on the SDK's strongly-typed
+    /// <see cref="AnthropicServiceException.ErrorType"/> (parsed from the SSE <c>error.type</c> field
+    /// by the SDK, independent of the server-controlled <c>error.message</c> text). Bad-request /
+    /// auth / permission / not-found / billing types are terminal (Permanent); the retryable
+    /// service-side types (rate-limit / overloaded / api / timeout) and any unrecognized type
+    /// (<see langword="null"/>) default to Transient (recall-over-precision). There is no
+    /// <c>Retry-After</c> header once SSE headers are flushed, so a transient mid-stream error
+    /// carries no delay hint (the SSE endpoint applies a configured default).
     /// </summary>
-    private static CoachingLlmException ClassifySseError(AnthropicSseException sse)
+    private static CoachingLlmException ClassifySseError(AnthropicSseException sse) => sse.ErrorType switch
     {
-        var message = sse.Message;
-        var permanent = message.Contains("invalid_request_error", StringComparison.Ordinal)
-            || message.Contains("authentication_error", StringComparison.Ordinal)
-            || message.Contains("permission_error", StringComparison.Ordinal);
-
-        return permanent
-            ? new PermanentCoachingLlmException(RejectedMessage, sse)
-            : new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, sse);
-    }
+        ErrorType.InvalidRequestError or ErrorType.AuthenticationError or ErrorType.PermissionError
+            or ErrorType.NotFoundError or ErrorType.BillingError
+            => new PermanentCoachingLlmException(RejectedMessage, sse),
+        _ => new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, sse),
+    };
 
     /// <summary>
     /// Validates that required settings are present.
@@ -691,6 +627,89 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Scrubbed {Occurrences} trademarked pace-index term occurrence(s) from LLM output ({OutputKind})")]
     private static partial void LogScrubbedTrademarkedTerm(ILogger logger, int occurrences, string outputKind);
+
+    /// <summary>
+    /// The streaming iterator behind <see cref="StreamAsync"/> (split out so argument validation
+    /// runs eagerly at the call site rather than on first enumeration — sonar S4456).
+    /// </summary>
+    private async IAsyncEnumerable<string> StreamCore(
+        string systemPrompt,
+        string userMessage,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        // Run inside a RetryAfterCapture scope so a pre-stream 429's raw Retry-After header
+        // (seen by RetryAfterCaptureHandler on the owned pipeline) is attached to the translated
+        // Transient exception, exactly as the non-streaming path does. NOTE: an AsyncLocal value
+        // set here is only visible up to the FIRST `yield return` — after the consumer resumes the
+        // iterator it runs under its own ExecutionContext, so RetryAfterCapture.CurrentSeconds is
+        // reliable only in the pre-first-byte window. That is sufficient: a 429 is a pre-first-byte
+        // failure, and mid-stream errors have no Retry-After header once SSE headers are flushed
+        // (R-084).
+        using (RetryAfterCapture.BeginScope())
+        {
+            using var chatClient = _streamingChatClientFactory();
+            var messages = new List<ChatMessage>
+            {
+                new(ChatRole.System, systemPrompt),
+                new(ChatRole.User, userMessage),
+            };
+
+            // R-084: the SDK throws mid-enumeration for streamed errors. Drive the enumerator
+            // manually so MoveNextAsync sits inside try/catch while `yield return` stays outside it
+            // (C# forbids yielding from a try that has a catch), translating the Anthropic failure
+            // surface into the DEC-073 totality contract.
+            await using var enumerator = chatClient
+                .GetStreamingResponseAsync(messages, options: null, ct)
+                .GetAsyncEnumerator(ct);
+
+            string? terminalStopReason = null;
+
+            while (true)
+            {
+                ChatResponseUpdate update;
+                try
+                {
+                    if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        break;
+                    }
+
+                    update = enumerator.Current;
+                }
+                catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+                {
+                    // The SDK's per-attempt timeout fired (the caller did not cancel) — a transient
+                    // service failure. A genuine client abort (ct cancelled) fails this filter and
+                    // propagates unwrapped as not-an-error, mirroring CreateMessageAsync.
+                    throw new TransientCoachingLlmException(UnavailableMessage, retryAfterSeconds: null, ex);
+                }
+                catch (AnthropicException ex)
+                {
+                    throw TranslateAnthropicFailure(ex);
+                }
+
+                // The terminal stop reason rides the message_delta update (and may repeat on
+                // trailing updates — last-write-wins keeps that idempotent). Captured here, acted
+                // on after the stream ends cleanly.
+                var stopReason = TryGetTerminalStopReason(update);
+                if (stopReason is not null)
+                {
+                    terminalStopReason = stopReason;
+                }
+
+                var delta = update.Text;
+                if (!string.IsNullOrEmpty(delta))
+                {
+                    yield return delta;
+                }
+            }
+
+            // A clean enumeration end on an incomplete stop reason (truncation, context overflow,
+            // or a refusal) is the errored-turn signal: the partial just yielded is unusable as a
+            // complete turn. R-084 — these end the stream cleanly, never as an exception.
+            ThrowIfIncompleteFinish(terminalStopReason);
+        }
+    }
 
     /// <summary>
     /// Issues the Anthropic <c>messages.create</c> call inside a <see cref="RetryAfterCapture"/>

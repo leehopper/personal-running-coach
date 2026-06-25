@@ -46,6 +46,23 @@ public sealed class ClaudeCoachingLlmStreamingTests
         deltas.Should().Equal("Easy ", "does ", "it.");
     }
 
+    [Theory]
+    [InlineData("  ", "user")]
+    [InlineData("system", "  ")]
+    public void StreamAsync_BlankArgument_ThrowsEagerlyAtCallSite(string systemPrompt, string userMessage)
+    {
+        // The argument guards must run at call time — like the other (async Task) ICoachingLlm
+        // methods — not be deferred to the first MoveNextAsync of the returned enumerable. A caller
+        // that constructs the stream and enumerates later must still see the validation immediately.
+        using var llm = BuildStreamingLlm(_ => ToAsyncStream(TextDelta("ignored")));
+
+        // Act — calling the method (without enumerating) must throw.
+        var act = () => llm.StreamAsync(systemPrompt, userMessage, TestContext.Current.CancellationToken);
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
     [Fact]
     public async Task StreamAsync_ClientAbort_PropagatesCancellationUnwrapped()
     {
