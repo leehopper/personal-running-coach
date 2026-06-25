@@ -79,8 +79,8 @@ public interface ICoachingLlm
         CancellationToken ct);
 
     /// <summary>
-    /// Streams the LLM's free-text reply token-by-token for the interactive
-    /// coaching conversation (Slice 4B). Yields each text delta as it arrives.
+    /// Streams the LLM's free-text reply as text deltas for interactive
+    /// coaching conversations. Yields each text delta as it arrives.
     /// </summary>
     /// <remarks>
     /// Totality contract (DEC-073, extended for streaming): the only exceptions

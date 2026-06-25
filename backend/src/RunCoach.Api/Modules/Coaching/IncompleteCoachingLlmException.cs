@@ -23,17 +23,20 @@ public sealed class IncompleteCoachingLlmException : CoachingLlmException
     /// </summary>
     /// <param name="message">A user-safe description of the incomplete reply.</param>
     /// <param name="reason">Why the reply did not complete normally.</param>
-    /// <param name="retryable">Whether re-sending the turn could plausibly succeed.</param>
     /// <param name="innerException">The optional underlying cause (usually none — the SDK ends cleanly).</param>
     public IncompleteCoachingLlmException(
         string message,
         IncompleteReason reason,
-        bool retryable,
         Exception? innerException = null)
         : base(message, innerException)
     {
         Reason = reason;
-        Retryable = retryable;
+
+        // Retryability is a function of the reason, not an independent caller choice — only a
+        // max_tokens truncation can plausibly succeed on a fresh turn; context overflow and a
+        // refusal fail the same way on re-send. Deriving it here makes the documented invariant
+        // unbreakable at construction.
+        Retryable = reason == IncompleteReason.MaxTokens;
     }
 
     /// <summary>Gets the reason the reply did not complete normally.</summary>

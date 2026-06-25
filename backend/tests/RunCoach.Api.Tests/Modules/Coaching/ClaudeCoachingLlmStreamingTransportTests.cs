@@ -131,6 +131,30 @@ public sealed class ClaudeCoachingLlmStreamingTransportTests
         deltas.Should().Equal("Easy ", "does it.");
     }
 
+    // R-084 edge: an incomplete finish can carry zero text deltas (a max_tokens/refusal that emits
+    // no content before stopping). ThrowIfIncompleteFinish must still fire — a future refactor that
+    // gated the throw on "a delta was yielded" would pass every other test yet silently drop the
+    // errored-turn signal for an empty truncation. This pins that the signal is delta-independent.
+    [Theory]
+    [InlineData("max_tokens", IncompleteReason.MaxTokens, true)]
+    [InlineData("refusal", IncompleteReason.Refusal, false)]
+    public async Task StreamAsync_IncompleteFinishWithNoTextDeltas_StillRaisesIncomplete(
+        string stopReason, IncompleteReason expectedReason, bool expectedRetryable)
+    {
+        // Arrange — a stream that ends on an incomplete stop reason without emitting any text.
+        using var llm = BuildLlm(SseBuilder.WithStopReasonAndNoTextDeltas(stopReason));
+
+        // Act
+        var deltas = new List<string>();
+        var act = () => DrainIntoAsync(llm, deltas);
+
+        // Assert — no deltas reached the consumer, yet the errored-turn signal still surfaces.
+        var thrown = await act.Should().ThrowAsync<IncompleteCoachingLlmException>();
+        thrown.Which.Reason.Should().Be(expectedReason);
+        thrown.Which.Retryable.Should().Be(expectedRetryable);
+        deltas.Should().BeEmpty();
+    }
+
     // Pre-first-byte HTTP failures (the SDK throws an AnthropicApiException before any SSE byte) reuse
     // the request/response status classifier unchanged (R-084 carry-over): 408/409/429/5xx → Transient,
     // other 4xx → Permanent.
@@ -209,6 +233,25 @@ public sealed class ClaudeCoachingLlmStreamingTransportTests
         tags.Should().ContainKey("openinference.span.kind").WhoseValue.Should().Be("GUARDRAIL");
     }
 
+    // Trademark scrub parity with GenerateAsync (which scrubs complete responses): the streaming
+    // path must scrub the pace-index term before any chunk reaches the consumer, including when the
+    // term is split across deltas. The joined stream output must carry the approved vocabulary, not
+    // the trademarked term. This test spells the term to prove it is scrubbed (carve-out-exempt).
+    [Fact]
+    public async Task StreamAsync_ScrubsTrademarkedTerm_EvenWhenSplitAcrossDeltas()
+    {
+        // Arrange — "VDOT" straddles the delta boundary ("Your V" | "DOT is 38.").
+        using var llm = BuildLlm(SseBuilder.WithTextDeltas("Your V", "DOT is 38."));
+
+        // Act
+        var deltas = await CollectAsync(llm);
+
+        // Assert
+        var joined = string.Concat(deltas);
+        joined.Should().Be("Your pace-zone index is 38.");
+        joined.Should().NotContainEquivalentOf("vdot");
+    }
+
     private static async Task<List<string>> CollectAsync(ClaudeCoachingLlm llm)
     {
         var deltas = new List<string>();
@@ -257,6 +300,35 @@ public sealed class ClaudeCoachingLlmStreamingTransportTests
             AppendPreamble(sb);
             Event(sb, "content_block_stop", """{"type":"content_block_stop","index":0}""");
             Event(sb, "message_delta", "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"" + stopReason + "\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":15}}");
+            Event(sb, "message_stop", """{"type":"message_stop"}""");
+            return sb.ToString();
+        }
+
+        public static string WithTextDeltas(params string[] textDeltas)
+        {
+            // A clean end_turn stream carrying the supplied raw text deltas verbatim, so a test can
+            // drive trademarked text through the real bridge and assert the adapter scrubs it.
+            var sb = new StringBuilder();
+            Event(sb, "message_start", """{"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-4-6","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":10,"output_tokens":1}}}""");
+            Event(sb, "content_block_start", """{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}""");
+            foreach (var text in textDeltas)
+            {
+                Event(sb, "content_block_delta", "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"" + text + "\"}}");
+            }
+
+            Event(sb, "content_block_stop", """{"type":"content_block_stop","index":0}""");
+            Event(sb, "message_delta", """{"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":15}}""");
+            Event(sb, "message_stop", """{"type":"message_stop"}""");
+            return sb.ToString();
+        }
+
+        public static string WithStopReasonAndNoTextDeltas(string stopReason)
+        {
+            // An incomplete finish that emits no text: message_start → message_delta(stop) →
+            // message_stop with no content_block events in between.
+            var sb = new StringBuilder();
+            Event(sb, "message_start", """{"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-4-6","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":10,"output_tokens":1}}}""");
+            Event(sb, "message_delta", "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"" + stopReason + "\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":0}}");
             Event(sb, "message_stop", """{"type":"message_stop"}""");
             return sb.ToString();
         }

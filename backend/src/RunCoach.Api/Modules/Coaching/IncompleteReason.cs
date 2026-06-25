@@ -2,7 +2,7 @@ namespace RunCoach.Api.Modules.Coaching;
 
 /// <summary>
 /// Why a streamed coaching reply ended without a usable, complete turn
-/// (Slice 4B / R-084). The SDK reports each of these as a clean enumeration end
+/// (R-084). The SDK reports each of these as a clean enumeration end
 /// rather than an exception, so <see cref="ICoachingLlm.StreamAsync"/> detects the
 /// terminal finish reason and raises <see cref="IncompleteCoachingLlmException"/>.
 /// Explicitly numbered for stable wire/telemetry encoding.

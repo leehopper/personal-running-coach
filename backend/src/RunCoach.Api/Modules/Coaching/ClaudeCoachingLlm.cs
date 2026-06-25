@@ -517,6 +517,43 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <summary>
+    /// Harvests token-usage telemetry from a streamed update's raw event so the streaming path logs
+    /// the same cost-tracking counters as the non-streaming flow. <c>input_tokens</c> (and the model
+    /// id) ride the <c>message_start</c> event; the authoritative cumulative <c>output_tokens</c>
+    /// rides <c>message_delta</c>. Reads defensively from the raw JSON (M.E.AI's update surface does
+    /// not expose Anthropic usage) and leaves the running totals untouched for any other event.
+    /// </summary>
+    private static void HarvestStreamUsage(ChatResponseUpdate update, ref StreamUsage usage)
+    {
+        if (update.RawRepresentation is not RawMessageStreamEvent raw || raw.Json.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        // message_start: { "message": { "model": ..., "usage": { "input_tokens": .. } } }
+        if (raw.Json.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.Object)
+        {
+            if (message.TryGetProperty("model", out var model) && model.ValueKind == JsonValueKind.String)
+            {
+                usage.Model = model.GetString();
+            }
+
+            if (message.TryGetProperty("usage", out var startUsage) && startUsage.ValueKind == JsonValueKind.Object
+                && startUsage.TryGetProperty("input_tokens", out var input) && input.TryGetInt64(out var inputTokens))
+            {
+                usage.InputTokens = inputTokens;
+            }
+        }
+
+        // message_delta: { "usage": { "output_tokens": .. } } — cumulative; last write wins.
+        if (raw.Json.TryGetProperty("usage", out var deltaUsage) && deltaUsage.ValueKind == JsonValueKind.Object
+            && deltaUsage.TryGetProperty("output_tokens", out var output) && output.TryGetInt64(out var outputTokens))
+        {
+            usage.OutputTokens = outputTokens;
+        }
+    }
+
+    /// <summary>
     /// Raises the errored-turn signal (<see cref="IncompleteCoachingLlmException"/>) when a stream
     /// ended cleanly on an incomplete stop reason. <c>max_tokens</c> is retryable (a fresh turn may
     /// fit); context overflow and a refusal are not (re-sending the same input fails the same way).
@@ -537,10 +574,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             return;
         }
 
-        throw new IncompleteCoachingLlmException(
-            IncompleteMessage,
-            incompleteReason,
-            retryable: incompleteReason == IncompleteReason.MaxTokens);
+        throw new IncompleteCoachingLlmException(IncompleteMessage, incompleteReason);
     }
 
     /// <summary>
@@ -663,6 +697,9 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
                 .GetAsyncEnumerator(ct);
 
             string? terminalStopReason = null;
+            var usage = default(StreamUsage);
+            var scrubber = new StreamingTrademarkScrubber();
+            var responseLength = 0;
 
             while (true)
             {
@@ -688,21 +725,47 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
                     throw TranslateAnthropicFailure(ex);
                 }
 
+                HarvestStreamUsage(update, ref usage);
+
                 // The terminal stop reason rides the message_delta update (and may repeat on
                 // trailing updates — last-write-wins keeps that idempotent). Captured here, acted
                 // on after the stream ends cleanly.
-                var stopReason = TryGetTerminalStopReason(update);
-                if (stopReason is not null)
-                {
-                    terminalStopReason = stopReason;
-                }
+                terminalStopReason = TryGetTerminalStopReason(update) ?? terminalStopReason;
 
-                var delta = update.Text;
-                if (!string.IsNullOrEmpty(delta))
+                // Scrub the trademarked pace-index term before any chunk reaches the consumer, the
+                // same boundary GenerateAsync enforces on complete responses. The scrubber holds
+                // back only a trailing run that could still complete into the term across deltas, so
+                // a clean stream keeps its natural chunking.
+                var safe = scrubber.Push(update.Text);
+                if (safe.Length > 0)
                 {
-                    yield return delta;
+                    responseLength += safe.Length;
+                    yield return safe;
                 }
             }
+
+            var tail = scrubber.Flush();
+            if (tail.Length > 0)
+            {
+                responseLength += tail.Length;
+                yield return tail;
+            }
+
+            if (scrubber.Occurrences > 0)
+            {
+                LogScrubbedTrademarkedTerm(_logger, scrubber.Occurrences, "stream");
+            }
+
+            // Mirror the non-streaming cost-tracking invariant: log model, response length, stop
+            // reason, and token counts once the stream ends — before the errored-turn check so the
+            // telemetry is captured even on an incomplete finish.
+            LogReceivedResponse(
+                _logger,
+                usage.Model ?? _settings.ModelId,
+                responseLength,
+                terminalStopReason ?? "unknown",
+                usage.InputTokens,
+                usage.OutputTokens);
 
             // A clean enumeration end on an incomplete stop reason (truncation, context overflow,
             // or a refusal) is the errored-turn signal: the partial just yielded is unusable as a
@@ -747,5 +810,17 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
                 throw TranslateAnthropicFailure(ex);
             }
         }
+    }
+
+    /// <summary>
+    /// Mutable accumulator for token-usage telemetry harvested across stream events
+    /// (see <see cref="HarvestStreamUsage"/>). Nested because it is a private implementation
+    /// detail of the streaming path with no meaning outside it.
+    /// </summary>
+    private struct StreamUsage
+    {
+        public string? Model;
+        public long InputTokens;
+        public long OutputTokens;
     }
 }

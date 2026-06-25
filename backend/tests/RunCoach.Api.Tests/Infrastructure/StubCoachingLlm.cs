@@ -84,8 +84,8 @@ public sealed class StubCoachingLlm : ICoachingLlm
     public IAsyncEnumerable<string> StreamAsync(string systemPrompt, string userMessage, CancellationToken ct) =>
         throw new InvalidOperationException(
             "StubCoachingLlm.StreamAsync was called: no integration-tier flow scripts streaming "
-            + "generation yet. Streaming unit coverage lives in ClaudeCoachingLlmStreamingTests; "
-            + "end-to-end conversation coverage lands with the Slice 4B SSE endpoint.");
+            + "generation. Streaming coverage lives in the ClaudeCoachingLlm streaming tests; add a "
+            + "dedicated streaming test seam if an integration flow needs it.");
 
     /// <inheritdoc />
     public Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(
