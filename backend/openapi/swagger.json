@@ -418,6 +418,61 @@
         ]
       }
     },
+    "/api/v1/conversation/timeline": {
+      "get": {
+        "tags": [
+          "Conversation"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationTimelineDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationTimelineDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationTimelineDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ],
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
     "/api/v1/onboarding/turns": {
       "post": {
         "tags": [
@@ -1159,6 +1214,61 @@
         "type": "integer",
         "format": "int32"
       },
+      "ConversationTimelineDto": {
+        "required": [
+          "turns"
+        ],
+        "type": "object",
+        "properties": {
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationTimelineTurnDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConversationTimelineTurnDto": {
+        "required": [
+          "createdAt",
+          "interactive",
+          "kind",
+          "proactive",
+          "turnId"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ConversationTimelineTurnKind"
+          },
+          "turnId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "interactive": {
+            "$ref": "#/components/schemas/InteractiveTurnDto"
+          },
+          "proactive": {
+            "$ref": "#/components/schemas/ConversationTurnDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConversationTimelineTurnKind": {
+        "enum": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "ConversationTurnDto": {
         "required": [
           "adaptationKind",
@@ -1379,6 +1489,22 @@
           "Repetition"
         ],
         "type": "string"
+      },
+      "InteractiveTurnDto": {
+        "required": [
+          "content",
+          "isErrored"
+        ],
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "isErrored": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
       },
       "LoginRequestDto": {
         "required": [

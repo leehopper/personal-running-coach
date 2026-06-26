@@ -52,6 +52,12 @@ const injectedRtkApi = api.injectEndpoints({
     >({
       query: () => ({ url: `/api/v1/conversation/turns` }),
     }),
+    getApiV1ConversationTimeline: build.query<
+      GetApiV1ConversationTimelineApiResponse,
+      GetApiV1ConversationTimelineApiArg
+    >({
+      query: () => ({ url: `/api/v1/conversation/timeline` }),
+    }),
     postApiV1OnboardingTurns: build.mutation<
       PostApiV1OnboardingTurnsApiResponse,
       PostApiV1OnboardingTurnsApiArg
@@ -135,6 +141,8 @@ export type PostApiV1ClientErrorsApiArg = {
 }
 export type GetApiV1ConversationTurnsApiResponse = /** status 200 OK */ ConversationTurnsResponseDto
 export type GetApiV1ConversationTurnsApiArg = void
+export type GetApiV1ConversationTimelineApiResponse = /** status 200 OK */ ConversationTimelineDto
+export type GetApiV1ConversationTimelineApiArg = void
 export type PostApiV1OnboardingTurnsApiResponse = /** status 200 OK */ OnboardingTurnResponseDto
 export type PostApiV1OnboardingTurnsApiArg = {
   onboardingTurnRequestDto: OnboardingTurnRequestDto
@@ -284,6 +292,21 @@ export type ConversationTurnDto = {
 }
 export type ConversationTurnsResponseDto = {
   turns: ConversationTurnDto[]
+}
+export type ConversationTimelineTurnKind = 0 | 1 | 2 | 3
+export type InteractiveTurnDto = {
+  content: string
+  isErrored: boolean
+}
+export type ConversationTimelineTurnDto = {
+  kind: ConversationTimelineTurnKind
+  turnId: string
+  createdAt: string
+  interactive: InteractiveTurnDto
+  proactive: ConversationTurnDto
+}
+export type ConversationTimelineDto = {
+  turns: ConversationTimelineTurnDto[]
 }
 export type OnboardingTurnKind = 0 | 1 | 2
 export type OnboardingTopic = 0 | 1 | 2 | 3 | 4 | 5
@@ -542,6 +565,7 @@ export const {
   usePostApiV1AuthLogoutMutation,
   usePostApiV1ClientErrorsMutation,
   useGetApiV1ConversationTurnsQuery,
+  useGetApiV1ConversationTimelineQuery,
   usePostApiV1OnboardingTurnsMutation,
   useGetApiV1OnboardingStateQuery,
   usePostApiV1OnboardingAnswersReviseMutation,
