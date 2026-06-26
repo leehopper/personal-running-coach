@@ -100,8 +100,20 @@ public sealed class StubCoachingLlm : ICoachingLlm
         string userMessage,
         IReadOnlyDictionary<string, JsonElement>? schema,
         CacheControl? cacheControl,
+        CancellationToken ct) =>
+        GenerateStructuredAsync<T>(systemPrompt, userMessage, schema, cacheControl, modelOverride: null, ct);
+
+    /// <inheritdoc />
+    public Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(
+        string systemPrompt,
+        string userMessage,
+        IReadOnlyDictionary<string, JsonElement>? schema,
+        CacheControl? cacheControl,
+        string? modelOverride,
         CancellationToken ct)
     {
+        // The model override is irrelevant to the stub's scripted behavior — it
+        // records the call and returns the scripted output regardless of model.
         Interlocked.Increment(ref _structuredCallCount);
 
         var behavior = Volatile.Read(ref _structuredBehavior)

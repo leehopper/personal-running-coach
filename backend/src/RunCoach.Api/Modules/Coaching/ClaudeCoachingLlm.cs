@@ -169,17 +169,33 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     }
 
     /// <inheritdoc />
-    public async Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(
+    public Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(
         string systemPrompt,
         string userMessage,
         IReadOnlyDictionary<string, JsonElement>? schema,
         CacheControl? cacheControl,
         CancellationToken ct)
     {
+        return GenerateStructuredAsync<T>(systemPrompt, userMessage, schema, cacheControl, modelOverride: null, ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(
+        string systemPrompt,
+        string userMessage,
+        IReadOnlyDictionary<string, JsonElement>? schema,
+        CacheControl? cacheControl,
+        string? modelOverride,
+        CancellationToken ct)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(systemPrompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(userMessage);
 
-        LogSendingRequest(_logger, _settings.ModelId, _settings.MaxTokens);
+        // A per-call model override (the Haiku intent classifier) targets a second
+        // binding; null falls back to the configured default. Log the effective
+        // model so telemetry reflects what was actually sent, not the default.
+        var effectiveModel = modelOverride ?? _settings.ModelId;
+        LogSendingRequest(_logger, effectiveModel, _settings.MaxTokens);
 
         // Resolve schema: caller-supplied (byte-stable, e.g. OnboardingSchema.Frozen)
         // takes precedence; otherwise fall back to runtime generation.
@@ -189,7 +205,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
 
         var createParams = new MessageCreateParams
         {
-            Model = _settings.ModelId,
+            Model = effectiveModel,
             MaxTokens = _settings.MaxTokens,
             System = BuildSystemParam(systemPrompt, cacheControl),
             Messages =

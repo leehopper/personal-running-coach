@@ -79,6 +79,40 @@ public interface ICoachingLlm
         CancellationToken ct);
 
     /// <summary>
+    /// As <see cref="GenerateStructuredAsync{T}(string, string, IReadOnlyDictionary{string, JsonElement}?, CacheControl?, CancellationToken)"/>,
+    /// but targets a per-call model binding instead of the configured default.
+    /// </summary>
+    /// <remarks>
+    /// Slice 4B introduced the first production call against a second (Haiku)
+    /// model — the intent classifier — so this overload lets a caller point one
+    /// structured call at a cheaper/faster model (a floating alias only, DEC-037)
+    /// while leaving the shared default untouched for plan-generation, onboarding,
+    /// and adaptation. There is deliberately no temperature parameter: the
+    /// Anthropic SDK marks <c>temperature</c>/<c>top_p</c>/<c>top_k</c> obsolete and
+    /// rejects any non-default value with HTTP 400 on current Claude models, so
+    /// classifier determinism comes from constrained decoding (a byte-stable
+    /// frozen schema), not sampling control.
+    /// </remarks>
+    /// <typeparam name="T">The structured output record type.</typeparam>
+    /// <param name="systemPrompt">The coaching system prompt.</param>
+    /// <param name="userMessage">The assembled user message.</param>
+    /// <param name="schema">Optional pre-built JSON schema dictionary (pass the byte-stable Frozen schema).</param>
+    /// <param name="cacheControl">Optional Anthropic <c>cache_control</c> breakpoint for the system block.</param>
+    /// <param name="modelOverride">
+    /// The model id to target for this call (e.g. a Haiku floating alias). When
+    /// <see langword="null"/> the configured default model is used.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A tuple of <c>(Result, Usage)</c> as the sibling overloads.</returns>
+    Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(
+        string systemPrompt,
+        string userMessage,
+        IReadOnlyDictionary<string, JsonElement>? schema,
+        CacheControl? cacheControl,
+        string? modelOverride,
+        CancellationToken ct);
+
+    /// <summary>
     /// Streams the LLM's free-text reply as text deltas for interactive
     /// coaching conversations. Yields each text delta as it arrives.
     /// </summary>
