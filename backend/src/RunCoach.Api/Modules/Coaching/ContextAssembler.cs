@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
@@ -120,6 +121,12 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// The prompt ID used to look up the adaptation system prompt in the store.
     /// </summary>
     internal const string AdaptationPromptId = "adaptation";
+
+    /// <summary>
+    /// The prompt ID used to look up the interactive-conversation intent classifier
+    /// system prompt in the store (Slice 4B / DEC-085).
+    /// </summary>
+    internal const string ClassifierPromptId = "conversation-classifier";
 
     /// <summary>
     /// Filename of the onboarding system prompt YAML loaded directly off
@@ -407,6 +414,106 @@ public sealed partial class ContextAssembler : IContextAssembler
     }
 
     /// <inheritdoc />
+    public async Task<ClassificationPromptComposition> ComposeForClassificationAsync(
+        DateOnly today,
+        string userMessage,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(userMessage);
+
+        if (_sanitizer is null)
+        {
+            throw new InvalidOperationException(
+                "ContextAssembler was constructed without an IPromptSanitizer. " +
+                "Use the public constructor for the classification flow.");
+        }
+
+        ct.ThrowIfCancellationRequested();
+
+        // The classifier system prompt is byte-stable per version (cacheable prefix).
+        var activeVersion = _promptStore.GetActiveVersion(ClassifierPromptId);
+        var template = await _promptStore.GetPromptAsync(ClassifierPromptId, activeVersion, ct).ConfigureAwait(false);
+        var systemPrompt = template.StaticSystemPrompt.TrimEnd();
+
+        // This method is the single sanitization owner for the classifier prompt; the
+        // caller passes the RAW message. The sanitizer wraps it in a per-call
+        // <CURRENT_USER_INPUT id="..."> spotlight delimiter (R-068 / DEC-059).
+        var sanitized = await _sanitizer
+            .SanitizeAsync(userMessage, SanitizationPromptSection.CurrentUserMessage, ct)
+            .ConfigureAwait(false);
+
+        var tokens = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["today"] = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["current_message"] = sanitized.Sanitized,
+        };
+
+        var composedUserMessage = PromptRenderer.Render(template.ContextTemplate, tokens).TrimEnd();
+
+        return new ClassificationPromptComposition(
+            SystemPrompt: systemPrompt,
+            UserMessage: composedUserMessage,
+            Findings: sanitized.Findings.ToImmutableArray());
+    }
+
+    /// <inheritdoc />
+    public async Task<ConversationPromptComposition> ComposeForConversationAsync(
+        PlanProjectionDto? plan,
+        IReadOnlyList<LoggedWorkoutDetail> recentLogs,
+        IReadOnlyList<ConversationContextTurn> recentTurns,
+        string userMessage,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(recentLogs);
+        ArgumentNullException.ThrowIfNull(recentTurns);
+        ArgumentNullException.ThrowIfNull(userMessage);
+
+        if (_sanitizer is null || _recentLogSanitizer is null)
+        {
+            throw new InvalidOperationException(
+                "ContextAssembler was constructed without an IPromptSanitizer / IRecentLogSanitizer. " +
+                "Use the public constructor for the conversation flow.");
+        }
+
+        ct.ThrowIfCancellationRequested();
+
+        // Reuse coaching-system.v1 (the conversation register, re-tuned in Slice 4A —
+        // no further prompt re-tune); its data_handling directive already treats
+        // <SECTION_NAME id="..."> content as data.
+        var activeVersion = _promptStore.GetActiveVersion(CoachingPromptId);
+        var template = await _promptStore.GetPromptAsync(CoachingPromptId, activeVersion, ct).ConfigureAwait(false);
+        var systemPrompt = template.StaticSystemPrompt.TrimEnd();
+
+        // Plan context grounds the goal/structure; a separate runner-profile block is
+        // omitted at MVP-0 (the DEC-080 posture) — the plan plus recent logs ground the answer.
+        var planContext = plan is null ? "No active plan." : BuildAdaptationPlanContext(plan);
+
+        // Recent logs: newest-first, each routed through IRecentLogSanitizer then
+        // delimiter-escaped, inside one nonce-delimited spotlight section.
+        var recentLogsBlock = await BuildConversationRecentLogsAsync(_recentLogSanitizer, recentLogs, ct).ConfigureAwait(false);
+
+        // Recent interactive turns: prior content (incl. raw runner turns) is
+        // delimiter-escaped inside its own nonce-delimited spotlight section.
+        var conversationBlock = BuildConversationTurnsBlock(recentTurns);
+
+        // Current message: sanitized + spotlight-wrapped once (single sanitization owner).
+        var sanitized = await _sanitizer
+            .SanitizeAsync(userMessage, SanitizationPromptSection.CurrentUserMessage, ct)
+            .ConfigureAwait(false);
+
+        var userMessageText = BuildConversationUserMessage(
+            planContext,
+            recentLogsBlock,
+            conversationBlock,
+            sanitized.Sanitized);
+
+        return new ConversationPromptComposition(
+            SystemPrompt: systemPrompt,
+            UserMessage: userMessageText,
+            Findings: sanitized.Findings.ToImmutableArray());
+    }
+
+    /// <inheritdoc />
     public int EstimateTokens(string text)
     {
         if (string.IsNullOrEmpty(text))
@@ -681,6 +788,90 @@ public sealed partial class ContextAssembler : IContextAssembler
                     $"  {(DayOfWeek)workout.DayOfWeek} | {workout.WorkoutType} | {workout.Title} | {workout.TargetDistanceKm} km | {workout.TargetDurationMinutes} min | easy {FormatSecondsPerKm(workout.TargetPaceEasySecPerKm)}/km, fast {FormatSecondsPerKm(workout.TargetPaceFastSecPerKm)}/km");
             }
         }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Renders the recent logged workouts for the conversation Q&amp;A context: newest-first,
+    /// each routed through <see cref="IRecentLogSanitizer"/> then delimiter-escaped so a
+    /// runner-supplied note or metric value cannot close the spotlight section early.
+    /// </summary>
+    private static async Task<string> BuildConversationRecentLogsAsync(
+        IRecentLogSanitizer recentLogSanitizer,
+        IReadOnlyList<LoggedWorkoutDetail> recentLogs,
+        CancellationToken ct)
+    {
+        if (recentLogs.Count == 0)
+        {
+            return "No recent logged workouts.";
+        }
+
+        var lines = new List<string>(recentLogs.Count);
+        foreach (var log in recentLogs.OrderByDescending(l => l.OccurredOn))
+        {
+            var sanitized = await recentLogSanitizer.SanitizeAsync(log, ct).ConfigureAwait(false);
+            lines.Add(LayeredPromptSanitizer.EscapeDelimiterBody(
+                RecentLogFormatter.FormatWorkoutDetail(sanitized)));
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// Renders the recent interactive turns for the conversation Q&amp;A context. Prior
+    /// content (including raw runner turns) is delimiter-escaped before it is placed in the
+    /// spotlight section, so a prior message cannot close the wrapper or inject instructions.
+    /// </summary>
+    private static string BuildConversationTurnsBlock(IReadOnlyList<ConversationContextTurn> recentTurns)
+    {
+        if (recentTurns.Count == 0)
+        {
+            return "No prior messages in this conversation.";
+        }
+
+        var sb = new StringBuilder();
+        foreach (var turn in recentTurns)
+        {
+            var speaker = turn.Participant == ConversationParticipant.Coach ? "Coach" : "Runner";
+            var content = LayeredPromptSanitizer.EscapeDelimiterBody(turn.Content);
+            sb.AppendLine(CultureInfo.InvariantCulture, $"{speaker}: {content}");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Assembles the grounded conversation user message: plan context, the
+    /// nonce-delimited recent-logs and recent-conversation spotlight sections, and the
+    /// already-sanitized + spotlight-wrapped current runner message. Each spotlight
+    /// section carries a fresh per-call nonce (R-068 / DEC-059) on the non-cached tail.
+    /// </summary>
+    private static string BuildConversationUserMessage(
+        string planContext,
+        string recentLogsBlock,
+        string conversationBlock,
+        string currentMessage)
+    {
+        var logsNonce = LayeredPromptSanitizer.GenerateSpotlightNonce();
+        var conversationNonce = LayeredPromptSanitizer.GenerateSpotlightNonce();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("=== PLAN CONTEXT ===");
+        sb.AppendLine(planContext);
+        sb.AppendLine();
+        sb.AppendLine(CultureInfo.InvariantCulture, $"<SECTION_NAME id=\"{logsNonce}\">");
+        sb.AppendLine("=== RECENT LOGGED WORKOUTS (newest first) ===");
+        sb.AppendLine(recentLogsBlock);
+        sb.AppendLine("</SECTION_NAME>");
+        sb.AppendLine();
+        sb.AppendLine(CultureInfo.InvariantCulture, $"<SECTION_NAME id=\"{conversationNonce}\">");
+        sb.AppendLine("=== RECENT CONVERSATION ===");
+        sb.AppendLine(conversationBlock);
+        sb.AppendLine("</SECTION_NAME>");
+        sb.AppendLine();
+        sb.AppendLine("=== CURRENT MESSAGE ===");
+        sb.Append(currentMessage);
 
         return sb.ToString().TrimEnd();
     }

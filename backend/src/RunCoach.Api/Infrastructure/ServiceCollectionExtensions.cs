@@ -1,5 +1,6 @@
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
+using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Adaptation;
@@ -97,6 +98,10 @@ public static class ServiceCollectionExtensions
         // WolverineCodegenCompositionTests; correct 7-arg constructor selection is
         // guarded by ContextAssemblerDiResolutionTests.
         services.AddScoped<IContextAssembler, ContextAssembler>();
+
+        // Interactive-conversation intent classifier (Slice 4B / DEC-085 D3) — composes the
+        // classifier prompt, runs the Pattern-B Haiku triage call, and validates the union.
+        services.AddScoped<IMessageIntentClassifier, MessageIntentClassifier>();
 
         // Prompt-injection sanitizer (Slice 1 § Unit 6 / DEC-059 / R-068).
         // Stateless layered sanitizer — singleton-safe; the pattern catalog

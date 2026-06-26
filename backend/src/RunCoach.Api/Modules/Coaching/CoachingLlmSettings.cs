@@ -52,4 +52,14 @@ public sealed record CoachingLlmSettings
     /// Uses Haiku 4.5 floating alias for cost-effective judging (~$0.0015/eval).
     /// </summary>
     public string JudgeModelId { get; init; } = "claude-haiku-4-5";
+
+    /// <summary>
+    /// Gets the model identifier for the interactive-conversation intent classifier
+    /// (Slice 4B, DEC-085 D3). Uses the Haiku 4.5 floating alias (DEC-037) for a fast,
+    /// cheap triage call, passed per-call via the <c>GenerateStructuredAsync</c> model
+    /// override (PR3a) so the default coaching model is untouched. Distinct from
+    /// <see cref="JudgeModelId"/> (eval-only) so production classifier behavior is not
+    /// coupled to a test-only setting.
+    /// </summary>
+    public string ClassifierModelId { get; init; } = "claude-haiku-4-5";
 }
