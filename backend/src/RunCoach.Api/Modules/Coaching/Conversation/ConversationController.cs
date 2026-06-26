@@ -89,8 +89,8 @@ public sealed class ConversationController(
     /// the current plan's proactive adaptation/safety turns, oldest-first for a chat
     /// composer. The interactive turns survive plan regeneration; the proactive turns
     /// reset with the plan. User-scoped via the per-request tenanted Marten session;
-    /// no antiforgery (read). Returns the interactive turns alone until the current
-    /// plan has proactive turns (or none until PR4 wires the interactive appends).
+    /// no antiforgery (read). Returns the interactive turns alone when the current
+    /// plan has no proactive turns (and an empty timeline when neither stream exists).
     /// </summary>
     /// <param name="ct">Request cancellation token.</param>
     /// <returns>200 with the oldest-first timeline (possibly empty); 401 when the user claim is missing or malformed.</returns>
@@ -134,15 +134,15 @@ public sealed class ConversationController(
             proactive = log?.Turns ?? [];
         }
 
-        // Union oldest-first. CreatedAt (the Marten event timestamp) is the cross-stream
-        // ordering key; the per-stream EventVersion then the TurnId are deterministic
-        // tiebreakers for turns that share a transaction_timestamp().
+        // Union oldest-first. Dto.CreatedAt (the Marten event timestamp) is the
+        // cross-stream ordering key; the per-stream EventVersion then Dto.TurnId are
+        // deterministic tiebreakers for turns that share a transaction_timestamp().
         var turns = interactive
             .Select(MapInteractiveTurn)
             .Concat(proactive.Select(MapProactiveTurn))
-            .OrderBy(x => x.CreatedAt)
+            .OrderBy(x => x.Dto.CreatedAt)
             .ThenBy(x => x.EventVersion)
-            .ThenBy(x => x.TurnId)
+            .ThenBy(x => x.Dto.TurnId)
             .Select(x => x.Dto)
             .ToArray();
 
@@ -162,9 +162,9 @@ public sealed class ConversationController(
             turn.TriggeringWorkoutLogId,
             turn.CreatedAt);
 
-    private static (DateTimeOffset CreatedAt, long EventVersion, Guid TurnId, ConversationTimelineTurnDto Dto)
+    private static (long EventVersion, ConversationTimelineTurnDto Dto)
         MapInteractiveTurn(InteractiveTurnView turn) =>
-        (turn.CreatedAt, turn.EventVersion, turn.TurnId,
+        (turn.EventVersion,
             new ConversationTimelineTurnDto(
                 turn.Participant == ConversationParticipant.User
                     ? ConversationTimelineTurnKind.User
@@ -174,9 +174,9 @@ public sealed class ConversationController(
                 new InteractiveTurnDto(turn.Content, turn.IsErrored),
                 Proactive: null));
 
-    private static (DateTimeOffset CreatedAt, long EventVersion, Guid TurnId, ConversationTimelineTurnDto Dto)
+    private static (long EventVersion, ConversationTimelineTurnDto Dto)
         MapProactiveTurn(ConversationTurnView turn) =>
-        (turn.CreatedAt, turn.EventVersion, turn.TriggeringPlanEventId,
+        (turn.EventVersion,
             new ConversationTimelineTurnDto(
                 turn.Role == ConversationRole.AssistantAdaptation
                     ? ConversationTimelineTurnKind.Adaptation

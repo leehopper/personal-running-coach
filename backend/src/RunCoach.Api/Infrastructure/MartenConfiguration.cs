@@ -151,7 +151,7 @@ public static class MartenConfiguration
         opts.Schema.For<ConversationLogView>().Identity(x => x.PlanId);
         opts.Projections.Add(new ConversationProjection(), ProjectionLifecycle.Inline);
 
-        // Interactive conversation read-model (Slice 4B Unit 3, DEC-085) — a net-new
+        // Interactive conversation read-model (DEC-085) — a net-new
         // inline single-stream projection over the user-scoped `Conversation` stream,
         // keyed by user id so the conversation survives plan regeneration (the plan-
         // scoped ConversationLogView above resets with each new plan). Identity comes

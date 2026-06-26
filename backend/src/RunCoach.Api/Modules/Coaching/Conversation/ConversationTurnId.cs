@@ -40,8 +40,11 @@ public static class ConversationTurnId
         Span<byte> guidBytes = hash[..16];
 
         // Stamp RFC 4122 version (8 = custom/hash-based) + variant bits so the value
-        // is a well-formed UUID rather than a raw hash slice.
-        guidBytes[6] = (byte)((guidBytes[6] & 0x0F) | 0x80);
+        // is a well-formed UUID rather than a raw hash slice. The version nibble lives
+        // in the high 4 bits of byte 7 — `Guid(ReadOnlySpan<byte>)` reads Data3
+        // (bytes 6-7) little-endian, so byte 7 is the high byte shown at the canonical
+        // string position `XXXXXXXX-XXXX-Vxxx`.
+        guidBytes[7] = (byte)((guidBytes[7] & 0x0F) | 0x80);
         guidBytes[8] = (byte)((guidBytes[8] & 0x3F) | 0x80);
         return new Guid(guidBytes);
     }

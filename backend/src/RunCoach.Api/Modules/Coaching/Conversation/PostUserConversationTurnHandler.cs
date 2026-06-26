@@ -21,8 +21,8 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 /// </remarks>
 public sealed partial class PostUserConversationTurnHandler
 {
-    // Wolverine codegen emits a non-static handler stub that calls the static Handle
-    // method; ILogger<PostUserConversationTurnHandler> needs a non-static type. The
+    // Wolverine codegen emits a non-static handler stub that calls the static `Handle`
+    // method; `ILogger<PostUserConversationTurnHandler>` needs a non-static type. The
     // private constructor prevents instantiation in test code.
     private PostUserConversationTurnHandler()
     {

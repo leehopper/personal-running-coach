@@ -9,8 +9,8 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Conversation;
 
 /// <summary>
 /// Integration coverage for the two-write interactive-turn persistence handlers
-/// (Slice 4B Unit 3, DEC-085) driven through the live Wolverine bus the SSE endpoint
-/// will use (PR4) — <see cref="PostUserConversationTurn"/> then
+/// (Slice 4B Unit 3, DEC-085) driven through the live Wolverine bus —
+/// <see cref="PostUserConversationTurn"/> then
 /// <see cref="PostCoachConversationTurn"/>. Proves the user turn is durable-first, the
 /// coach turn appends on completion, and each write is independently idempotent on its
 /// own key (client id for the user turn, server-derived id for the coach turn) — two

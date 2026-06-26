@@ -4,8 +4,8 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 /// Command to persist the coach's reply as the <b>second</b> of the two-write
 /// conversation turn pair (Slice 4B Unit 3, DEC-085). Handled by
 /// <see cref="PostCoachConversationTurnHandler"/> as a tenant-scoped Wolverine
-/// handler. The SSE endpoint (PR4) dispatches this <b>once on completion</b> (or with
-/// <see cref="IsErrored"/> set when the stream died mid-flight). Idempotent on the
+/// handler. Dispatched <b>once on completion</b> (or with
+/// <see cref="IsErrored"/> set when the reply stream died mid-flight). Idempotent on the
 /// server-derived turn id (<see cref="ConversationTurnId.DeriveCoachTurnId"/> over
 /// <see cref="ClientMessageId"/>), so a duplicate completion never double-appends.
 /// </summary>
