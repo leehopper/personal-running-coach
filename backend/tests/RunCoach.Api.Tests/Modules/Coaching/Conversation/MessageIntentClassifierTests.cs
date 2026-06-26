@@ -51,6 +51,16 @@ public sealed class MessageIntentClassifierTests
         result.WorkoutLog.Should().BeNull();
         await _contextAssembler.Received(1).ComposeForClassificationAsync(
             Today, "how's my pace looking", Arg.Any<CancellationToken>());
+
+        // The composed system + user prompts are forwarded verbatim to the LLM (an arg
+        // swap, a dropped user message, or empty strings would fail this).
+        await _coachingLlm.Received(1).GenerateStructuredAsync<MessageIntentOutput>(
+            "classifier system",
+            "classifier user",
+            Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+            Arg.Any<CacheControl?>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

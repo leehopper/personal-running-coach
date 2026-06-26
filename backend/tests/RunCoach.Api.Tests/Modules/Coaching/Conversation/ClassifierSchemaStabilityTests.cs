@@ -7,13 +7,19 @@ using RunCoach.Api.Modules.Coaching.Conversation;
 namespace RunCoach.Api.Tests.Modules.Coaching.Conversation;
 
 /// <summary>
-/// Byte-stability + forbidden-keyword assertions on the Pattern-B
+/// Determinism + structural-invariant assertions on the Pattern-B
 /// <see cref="ClassifierSchema.Frozen"/> dictionary per DEC-058 (Slice 4B Unit 4).
-/// Mirror <c>PlanAdaptationSchemaStabilityTests</c>: they fail loudly if the
-/// schema-generation chain (System.Text.Json upgrade, attribute change on
-/// <see cref="MessageIntentOutput"/>, AnthropicSchemaSanitizer regression) drifts
-/// the schema bytes — drift would invalidate Anthropic's prompt-prefix cache and,
-/// for the forbidden-keyword cases, get the request rejected with HTTP 400.
+/// Mirror <c>PlanAdaptationSchemaStabilityTests</c>. Two complementary guards:
+/// (1) the byte/hash facts assert <b>intra-version determinism</b> — two builds in the
+/// same process are byte-identical, so the schema is not generated non-deterministically
+/// (e.g. unordered-dictionary key flapping) within a run; and (2) the structural facts
+/// (forbidden keywords absent, no <c>$ref</c>, required field names, string-enum
+/// discriminators, additionalProperties=false) catch shape regressions that would get the
+/// request rejected with HTTP 400 or silently relax the constraint. These do NOT pin a
+/// cross-version golden snapshot, so a benign System.Text.Json byte reordering that breaks
+/// the prompt-prefix cache hit (without changing the shape) would pass — a limitation shared
+/// with the sibling schema-stability tests (no golden-hash sentinel exists for schemas, unlike
+/// the DEC-074 manifest for prompts).
 /// </summary>
 public sealed class ClassifierSchemaStabilityTests
 {
@@ -146,6 +152,21 @@ public sealed class ClassifierSchemaStabilityTests
         {
             json.Should().Contain($"\"{status}\"", $"completion_status must enumerate the string member {status}");
         }
+    }
+
+    [Fact]
+    public void Frozen_ConstrainsTheDraftActuals_OccurredOnDistanceDuration()
+    {
+        // The constrained-decoding contract for the WorkoutLog draft slot is load-bearing:
+        // the LLM must be forced to emit the create-contract actuals. Assert the snake_case
+        // draft field keys appear in the schema (string search, since the nullable workout_log
+        // slot's wrapping shape is exporter-version-dependent) so a dropped draft field fails
+        // here rather than silently relaxing the LLM constraint.
+        var json = Encoding.UTF8.GetString(SerializeDictionaryToCanonicalJson(ClassifierSchema.Frozen));
+
+        json.Should().Contain("\"occurred_on\"", "the draft must constrain the workout date");
+        json.Should().Contain("\"distance_meters\"", "the draft must constrain the distance");
+        json.Should().Contain("\"duration_seconds\"", "the draft must constrain the duration");
     }
 
     private static IEnumerable<string> EnumValues(JsonElement schemaNode)
