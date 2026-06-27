@@ -224,6 +224,26 @@ public class ClaudeCoachingLlmTests
     }
 
     [Fact]
+    public void Constructor_ThrowsInvalidOperationException_WhenClassifierModelIdIsMissing()
+    {
+        // Arrange — fail fast at startup rather than silently routing classifier traffic
+        // to the default coaching model when the binding is blanked out.
+        var settingsWithNoClassifierModel = new CoachingLlmSettings
+        {
+            ApiKey = "sk-test-key",
+            ModelId = "claude-sonnet-4-6",
+            ClassifierModelId = string.Empty,
+        };
+        var options = Options.Create(settingsWithNoClassifierModel);
+
+        // Act & Assert
+        var act = () => new ClaudeCoachingLlm(options, _logger);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*classifier model ID*not configured*");
+    }
+
+    [Fact]
     public void Constructor_Succeeds_WithValidSettings()
     {
         // Arrange

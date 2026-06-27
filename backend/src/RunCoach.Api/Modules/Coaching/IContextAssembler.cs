@@ -1,3 +1,4 @@
+using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Training.Adaptation;
@@ -149,6 +150,46 @@ public interface IContextAssembler
         SafetyTier safetyTier,
         DeviationResult deviation,
         LoggedWorkoutDetail triggeringLog,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Composes the system prompt + user message for the interactive-conversation
+    /// intent classifier (Slice 4B / DEC-085 D3). Loads the byte-stable classifier
+    /// system prompt and renders the runner's CURRENT message — sanitized and
+    /// spotlight-wrapped via the DEC-059 sanitizer (this assembler is the single
+    /// sanitization owner) — alongside today's date for relative-date resolution.
+    /// </summary>
+    /// <param name="today">The runner's app-local calendar date, for resolving relative dates in the message.</param>
+    /// <param name="userMessage">The runner's RAW chat message; sanitized inside the assembler.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The composed classifier prompt — system + user + sanitization audit trail.</returns>
+    Task<ClassificationPromptComposition> ComposeForClassificationAsync(
+        DateOnly today,
+        string userMessage,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Composes the system prompt + grounded user message for a streamed conversational
+    /// answer (Slice 4B / DEC-085). Reuses <c>coaching-system.v1</c> (the register
+    /// re-tuned in Slice 4A — no further prompt re-tune) and grounds the answer in the
+    /// current plan, recent logged workouts (newest-first, sanitized + spotlight-wrapped
+    /// via <c>IRecentLogSanitizer</c>), recent interactive turns, and the runner's CURRENT
+    /// message (sanitized + spotlight-wrapped — single sanitization owner). Per-shape
+    /// context routing is out of scope (a single fixed assembly); a separate runner-profile
+    /// block is omitted at MVP-0 (the DEC-080 posture) — the plan goal plus recent logs
+    /// ground the answer.
+    /// </summary>
+    /// <param name="plan">The current plan projection, or null when the runner has no active plan.</param>
+    /// <param name="recentLogs">Recent logged workouts in any order, passed RAW; the assembler sorts newest-first and sanitizes before rendering.</param>
+    /// <param name="recentTurns">Recent non-errored interactive turns, oldest-first, for dialogue continuity.</param>
+    /// <param name="userMessage">The runner's RAW chat message; sanitized inside the assembler.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The composed conversation prompt — system + grounded user message + sanitization audit trail.</returns>
+    Task<ConversationPromptComposition> ComposeForConversationAsync(
+        PlanProjectionDto? plan,
+        IReadOnlyList<LoggedWorkoutDetail> recentLogs,
+        IReadOnlyList<ConversationContextTurn> recentTurns,
+        string userMessage,
         CancellationToken ct = default);
 
     /// <summary>

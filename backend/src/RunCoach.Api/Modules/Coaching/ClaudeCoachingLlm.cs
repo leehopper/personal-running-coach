@@ -338,7 +338,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
     /// Builds the owned <see cref="HttpClient"/> + <see cref="AnthropicClient"/> pair around the
     /// supplied transport handler. The <see cref="RetryAfterCaptureHandler"/> sits outermost in
     /// the SDK's HTTP pipeline so it can read the raw <c>Retry-After</c> header (DEC-073) — the
-    /// SDK 12.24.1 exposes no header accessor on its exceptions. The SDK's own bounded retry loop
+    /// SDK 12.31.0 exposes no header accessor on its exceptions. The SDK's own bounded retry loop
     /// wraps this handler; <see cref="HttpClient.Timeout"/> is disabled so the SDK's per-attempt
     /// timeout (<c>ClientOptions.Timeout</c>, linked to the inbound <see cref="CancellationToken"/>)
     /// is the sole governor. Single construction seam for the production constructor and the
@@ -666,6 +666,13 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
             throw new InvalidOperationException(
                 "Anthropic model ID is not configured. " +
                 "Set the 'Anthropic:ModelId' value in configuration.");
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.ClassifierModelId))
+        {
+            throw new InvalidOperationException(
+                "Anthropic classifier model ID is not configured. " +
+                "Set the 'Anthropic:ClassifierModelId' value in configuration.");
         }
     }
 
