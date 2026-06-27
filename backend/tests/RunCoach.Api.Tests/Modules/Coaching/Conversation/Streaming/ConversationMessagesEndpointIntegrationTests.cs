@@ -367,6 +367,11 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+        var problem = await ReadProblemAsync(response);
+        problem.Status.Should().Be(400);
+        problem.Type.Should().Be("https://runcoach.app/problems/invalid-conversation-message");
+        problem.Title.Should().Be("The message must be non-empty and carry a non-empty client message id.");
+        problem.TraceId.Should().NotBeNullOrEmpty(because: "the ProblemDetails carries a traceId for correlation");
         StubCoachingLlm.StructuredCallCount.Should().Be(0, because: "a blank message never reaches the classifier");
     }
 
@@ -382,6 +387,12 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+        var problem = await ReadProblemAsync(response);
+        problem.Status.Should().Be(400);
+        problem.Type.Should().Be("https://runcoach.app/problems/invalid-conversation-message");
+        problem.Title.Should().Be("The message must be non-empty and carry a non-empty client message id.");
+        problem.TraceId.Should().NotBeNullOrEmpty(because: "the ProblemDetails carries a traceId for correlation");
         StubCoachingLlm.StructuredCallCount.Should().Be(0);
     }
 
@@ -559,12 +570,9 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
     [Fact]
     public async Task PostHeartbeatUnhandledError_EmitsBestEffortRetryableErrorFrame_FromTheControllerCatch()
     {
-        // Arrange — the classifier throws an InvalidOperationException, standing in for an infra
-        // failure (bus / Marten / EF) that escapes the orchestrator. It is not one of the coaching-LLM
-        // exception types the orchestrator handles in-service, so it propagates all the way into the
-        // controller's unconditional post-heartbeat error handler — the best-effort error-frame path
-        // every in-stream failure test bypasses by scripting a coaching-LLM exception the orchestrator
-        // owns. A benign Green message keeps the safety gate quiet so the sole frame is the controller's.
+        // The classifier throws a non-coaching-LLM exception, which the orchestrator does not catch
+        // in-service, so it escapes into the controller's post-heartbeat error path. A benign Green
+        // message keeps the safety gate quiet, so the only frame is the controller's error frame.
         StubCoachingLlm.Reset();
         StubCoachingLlm.UseStructuredBehavior(
             () => throw new InvalidOperationException("infra failure escaping the orchestrator"));
@@ -606,12 +614,9 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
     [Fact]
     public async Task LoadAnswerContext_ExcludesErroredAndCurrentTurns_AndCapsAtTheRecentLimit()
     {
-        // Arrange — seed a realistic interactive conversation through the SAME two-write bus commands
-        // the production endpoint uses (so the real InteractiveConversationProjection materializes the
-        // ConversationView): 12 ordinary turns, then one errored coach marker, then the "current" user
-        // turn keyed by the clientMessageId under test. The context loader must drop the errored marker
-        // (!IsErrored) and the current turn (TurnId != clientMessageId) from the LLM grounding, then
-        // keep only the most-recent RecentTurnLimit (10) of what remains.
+        // Seed, through the production bus commands, twelve ordinary turns, one errored coach marker,
+        // and the current user turn keyed by the id under test. The loader must drop the errored marker
+        // and the current turn from the grounding, then keep only the most-recent ten of the rest.
         StubCoachingLlm.Reset();
         var userId = Guid.NewGuid();
         var currentTurnId = Guid.NewGuid();
@@ -746,6 +751,13 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
     private static T Payload<T>(SseFrame frame) =>
         JsonSerializer.Deserialize<T>(frame.Data, WebOptions)
         ?? throw new InvalidOperationException($"frame '{frame.Event}' had no JSON payload");
+
+    private static async Task<ProblemPayload> ReadProblemAsync(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        return JsonSerializer.Deserialize<ProblemPayload>(body, WebOptions)
+            ?? throw new InvalidOperationException("expected a ProblemDetails body");
+    }
 
     private static async Task<List<SseFrame>> ReadFramesAsync(HttpResponseMessage response)
     {
@@ -941,4 +953,6 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
     private sealed record ErrorPayload(string Message, bool Retryable, int? RetryAfterSeconds);
 
     private sealed record DonePayload(Guid TurnId);
+
+    private sealed record ProblemPayload(string? Type, string? Title, int? Status, string? TraceId);
 }
