@@ -58,6 +58,16 @@ const injectedRtkApi = api.injectEndpoints({
     >({
       query: () => ({ url: `/api/v1/conversation/timeline` }),
     }),
+    postApiV1ConversationMessages: build.mutation<
+      PostApiV1ConversationMessagesApiResponse,
+      PostApiV1ConversationMessagesApiArg
+    >({
+      query: (queryArg) => ({
+        url: `/api/v1/conversation/messages`,
+        method: 'POST',
+        body: queryArg.conversationMessageRequestDto,
+      }),
+    }),
     postApiV1OnboardingTurns: build.mutation<
       PostApiV1OnboardingTurnsApiResponse,
       PostApiV1OnboardingTurnsApiArg
@@ -143,6 +153,10 @@ export type GetApiV1ConversationTurnsApiResponse = /** status 200 OK */ Conversa
 export type GetApiV1ConversationTurnsApiArg = void
 export type GetApiV1ConversationTimelineApiResponse = /** status 200 OK */ ConversationTimelineDto
 export type GetApiV1ConversationTimelineApiArg = void
+export type PostApiV1ConversationMessagesApiResponse = unknown
+export type PostApiV1ConversationMessagesApiArg = {
+  conversationMessageRequestDto: ConversationMessageRequestDto
+}
 export type PostApiV1OnboardingTurnsApiResponse = /** status 200 OK */ OnboardingTurnResponseDto
 export type PostApiV1OnboardingTurnsApiArg = {
   onboardingTurnRequestDto: OnboardingTurnRequestDto
@@ -307,6 +321,10 @@ export type ConversationTimelineTurnDto = {
 }
 export type ConversationTimelineDto = {
   turns: ConversationTimelineTurnDto[]
+}
+export type ConversationMessageRequestDto = {
+  message: string
+  clientMessageId: string
 }
 export type OnboardingTurnKind = 0 | 1 | 2
 export type OnboardingTopic = 0 | 1 | 2 | 3 | 4 | 5
@@ -566,6 +584,7 @@ export const {
   usePostApiV1ClientErrorsMutation,
   useGetApiV1ConversationTurnsQuery,
   useGetApiV1ConversationTimelineQuery,
+  usePostApiV1ConversationMessagesMutation,
   usePostApiV1OnboardingTurnsMutation,
   useGetApiV1OnboardingStateQuery,
   usePostApiV1OnboardingAnswersReviseMutation,

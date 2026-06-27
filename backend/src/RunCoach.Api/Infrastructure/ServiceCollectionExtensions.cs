@@ -1,6 +1,7 @@
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Conversation;
+using RunCoach.Api.Modules.Coaching.Conversation.Streaming;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Coaching.Sanitization;
 using RunCoach.Api.Modules.Training.Adaptation;
@@ -102,6 +103,14 @@ public static class ServiceCollectionExtensions
         // Interactive-conversation intent classifier (Slice 4B / DEC-085 D3) — composes the
         // classifier prompt, runs the Pattern-B Haiku triage call, and validates the union.
         services.AddScoped<IMessageIntentClassifier, MessageIntentClassifier>();
+
+        // Streaming Q&A orchestrator (Slice 4B PR4) — the SSE endpoint's integration gate:
+        // safety gate -> classify -> route -> stream, with two-write idempotent persistence.
+        // Scoped (consumes IMessageBus + RunCoachDbContext + a per-request tenanted session).
+        services.Configure<ConversationStreamOptions>(
+            configuration.GetSection(ConversationStreamOptions.SectionName));
+        services.AddScoped<IConversationContextLoader, ConversationContextLoader>();
+        services.AddScoped<IConversationStreamService, ConversationStreamService>();
 
         // Prompt-injection sanitizer (Slice 1 § Unit 6 / DEC-059 / R-068).
         // Stateless layered sanitizer — singleton-safe; the pattern catalog

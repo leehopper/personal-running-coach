@@ -420,3 +420,10 @@ export const GetApiV1ConversationTimelineResponse = zod.strictObject({
     }),
   ),
 })
+
+export const PostApiV1ConversationMessagesBody = zod.strictObject({
+  message: zod.string(),
+  clientMessageId: zod.uuid(),
+})
+
+export const PostApiV1ConversationMessagesResponse = zod.unknown()

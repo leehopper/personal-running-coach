@@ -29,4 +29,16 @@ public interface IWorkoutLogService
     /// </summary>
     Task<QueryWorkoutLogsResponseDto> QueryAsync(
         Guid userId, WorkoutLogCursor? cursor, int? requestedLimit, CancellationToken ct);
+
+    /// <summary>
+    /// Resolves the server-authoritative candidate prescription a run on
+    /// <paramref name="occurredOn"/> would match for <paramref name="userId"/> — the
+    /// same plan-slot resolution <see cref="CreateAsync"/> performs (DEC-076), exposed so
+    /// the conversational-logging confirmation card (Slice 4B) can surface the candidate
+    /// before any commit. Returns <c>null</c> for an off-plan / unscheduled run (no active
+    /// plan, no matching slot, or a malformed stored prescription) — Confirm still commits
+    /// an off-plan log. Read-only: writes nothing to the database.
+    /// </summary>
+    Task<WorkoutPrescriptionSnapshot?> ResolveCandidatePrescriptionAsync(
+        Guid userId, DateOnly occurredOn, CancellationToken ct);
 }
