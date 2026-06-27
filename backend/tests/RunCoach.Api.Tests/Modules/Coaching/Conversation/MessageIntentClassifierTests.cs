@@ -91,8 +91,11 @@ public sealed class MessageIntentClassifierTests
         var draft = new StructuredLogDraft
         {
             OccurredOn = Today,
-            DistanceMeters = 5000,
-            DurationSeconds = 1500,
+            DistanceValue = 5,
+            DistanceUnit = RunnerDistanceUnit.Kilometers,
+            DurationHours = 0,
+            DurationMinutes = 25,
+            DurationSeconds = 0,
             CompletionStatus = CompletionStatus.Complete,
             Notes = null,
         };

@@ -25,9 +25,8 @@ public static class MessageIntentOutputValidator
         var hasDraft = output.WorkoutLog is not null;
         var slotMatchesIntent = output.Intent switch
         {
-            MessageIntent.Question => !hasDraft,
+            MessageIntent.Question or MessageIntent.Ambiguous => !hasDraft,
             MessageIntent.WorkoutLog => hasDraft,
-            MessageIntent.Ambiguous => !hasDraft,
             _ => false,
         };
 

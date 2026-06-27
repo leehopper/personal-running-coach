@@ -180,7 +180,7 @@ public interface IContextAssembler
     /// ground the answer.
     /// </summary>
     /// <param name="plan">The current plan projection, or null when the runner has no active plan.</param>
-    /// <param name="recentLogs">Recent logged workouts, newest-first, passed RAW; sanitized inside the assembler.</param>
+    /// <param name="recentLogs">Recent logged workouts in any order, passed RAW; the assembler sorts newest-first and sanitizes before rendering.</param>
     /// <param name="recentTurns">Recent non-errored interactive turns, oldest-first, for dialogue continuity.</param>
     /// <param name="userMessage">The runner's RAW chat message; sanitized inside the assembler.</param>
     /// <param name="ct">Cancellation token.</param>

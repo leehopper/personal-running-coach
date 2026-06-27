@@ -122,8 +122,11 @@ public sealed class MessageIntentOutputValidatorTests
     private static StructuredLogDraft SampleDraft() => new()
     {
         OccurredOn = new DateOnly(2026, 6, 26),
-        DistanceMeters = 5000,
-        DurationSeconds = 1500,
+        DistanceValue = 5,
+        DistanceUnit = RunnerDistanceUnit.Kilometers,
+        DurationHours = 0,
+        DurationMinutes = 25,
+        DurationSeconds = 0,
         CompletionStatus = CompletionStatus.Complete,
         Notes = null,
     };

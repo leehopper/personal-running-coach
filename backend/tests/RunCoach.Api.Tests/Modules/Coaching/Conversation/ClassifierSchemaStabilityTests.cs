@@ -25,6 +25,7 @@ public sealed class ClassifierSchemaStabilityTests
 {
     private static readonly string[] ExpectedMessageIntents = ["Question", "WorkoutLog", "Ambiguous"];
     private static readonly string[] ExpectedCompletionStatuses = ["Complete", "Partial", "Skipped"];
+    private static readonly string[] ExpectedDistanceUnits = ["Kilometers", "Miles", "Meters"];
 
     [Fact]
     public void BuildClassifierSchema_TwoCalls_ProduceByteIdenticalDictionaries()
@@ -158,15 +159,33 @@ public sealed class ClassifierSchemaStabilityTests
     public void Frozen_ConstrainsTheDraftActuals_OccurredOnDistanceDuration()
     {
         // The constrained-decoding contract for the WorkoutLog draft slot is load-bearing:
-        // the LLM must be forced to emit the create-contract actuals. Assert the snake_case
-        // draft field keys appear in the schema (string search, since the nullable workout_log
-        // slot's wrapping shape is exporter-version-dependent) so a dropped draft field fails
-        // here rather than silently relaxing the LLM constraint.
+        // the LLM must be forced to emit the runner-stated actuals (value + unit, h/m/s
+        // components) that the server converts to SI. Assert the snake_case draft field keys
+        // appear in the schema (string search, since the nullable workout_log slot's wrapping
+        // shape is exporter-version-dependent) so a dropped draft field fails here rather than
+        // silently relaxing the LLM constraint.
         var json = Encoding.UTF8.GetString(SerializeDictionaryToCanonicalJson(ClassifierSchema.Frozen));
 
         json.Should().Contain("\"occurred_on\"", "the draft must constrain the workout date");
-        json.Should().Contain("\"distance_meters\"", "the draft must constrain the distance");
-        json.Should().Contain("\"duration_seconds\"", "the draft must constrain the duration");
+        json.Should().Contain("\"distance_value\"", "the draft must constrain the runner-stated distance");
+        json.Should().Contain("\"distance_unit\"", "the draft must constrain the distance unit");
+        json.Should().Contain("\"duration_hours\"", "the draft must constrain the duration hours");
+        json.Should().Contain("\"duration_minutes\"", "the draft must constrain the duration minutes");
+        json.Should().Contain("\"duration_seconds\"", "the draft must constrain the duration seconds");
+    }
+
+    [Fact]
+    public void Frozen_SerializesDistanceUnit_AsStringEnumMembers()
+    {
+        // distance_unit is a string enum (the LLM emits "Kilometers", not 0). Assert via a
+        // string search rather than navigating the nullable workout_log slot, whose
+        // null-union wrapping shape is exporter-version-dependent.
+        var json = Encoding.UTF8.GetString(SerializeDictionaryToCanonicalJson(ClassifierSchema.Frozen));
+
+        foreach (var unit in ExpectedDistanceUnits)
+        {
+            json.Should().Contain($"\"{unit}\"", $"distance_unit must enumerate the string member {unit}");
+        }
     }
 
     private static IEnumerable<string> EnumValues(JsonElement schemaNode)
