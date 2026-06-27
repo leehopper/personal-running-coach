@@ -1,10 +1,14 @@
 using System.Security.Claims;
 using Marten;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using RunCoach.Api.Infrastructure;
+using RunCoach.Api.Modules.Coaching.Conversation.Streaming;
 
 namespace RunCoach.Api.Modules.Coaching.Conversation;
 
@@ -22,11 +26,15 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 [ApiController]
 [Route("api/v1/conversation")]
 [Authorize(Policy = AuthPolicies.CookieOrBearer)]
-public sealed class ConversationController(
+public sealed partial class ConversationController(
     IDocumentStore store,
-    RunCoachDbContext db) : ControllerBase
+    RunCoachDbContext db,
+    IConversationStreamService streamService,
+    IOptions<Microsoft.AspNetCore.Mvc.JsonOptions> jsonOptions,
+    ILogger<ConversationController> logger) : ControllerBase
 {
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
+    private const string InvalidMessageType = "https://runcoach.app/problems/invalid-conversation-message";
 
     /// <summary>GET /api/v1/conversation/turns — read the runner's adaptation + safety turns, newest-first.</summary>
     /// <param name="ct">Request cancellation token.</param>
@@ -149,6 +157,102 @@ public sealed class ConversationController(
         return Ok(new ConversationTimelineDto(turns));
     }
 
+    /// <summary>
+    /// POST /api/v1/conversation/messages — the streaming Q&amp;A endpoint (Slice 4B PR4,
+    /// the integration gate). Persists the user turn durable-first, runs the deterministic
+    /// safety gate, classifies intent, and streams the coach's response as Server-Sent
+    /// Events (<c>token</c> / <c>safety</c> / <c>card</c> / <c>error</c> / <c>done</c>
+    /// frames + an opening heartbeat). A mutation (it persists turns) ⇒ antiforgery-protected;
+    /// the response is <c>text/event-stream</c> with buffering off and a flush per frame. A
+    /// client disconnect is a clean abort, never a 500.
+    /// </summary>
+    /// <param name="request">The runner's message + client-generated message id.</param>
+    /// <param name="ct">The request-aborted token (MVC binds it to <c>HttpContext.RequestAborted</c>).</param>
+    /// <returns>An SSE stream; 401 when the user claim is missing; 400 when the antiforgery token is absent.</returns>
+    [HttpPost("messages")]
+    [RequireAntiforgeryToken]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK, "text/event-stream")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> PostMessage([FromBody] ConversationMessageRequestDto request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!TryGetUserId(out var userId))
+        {
+            return MissingUserClaim();
+        }
+
+        // Boundary validation (server-side): a blank message wastes an LLM call, and an
+        // empty client message id would collide every empty-id post on the same derived
+        // idempotency keys. Reject both with a structured 400 before the stream opens.
+        if (string.IsNullOrWhiteSpace(request.Message) || request.ClientMessageId == Guid.Empty)
+        {
+            return Problem(
+                type: InvalidMessageType,
+                title: "The message must be non-empty and carry a non-empty client message id.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // SSE headers + buffering off, set before the first body write (which starts the
+        // response). No ResponseCompression middleware is registered, so disabling
+        // buffering alone suffices for incremental delivery.
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
+
+        var writer = new SseWriter(Response.Body, jsonOptions.Value.JsonSerializerOptions);
+
+        try
+        {
+            // Open with a heartbeat so the connection is alive across the classify +
+            // time-to-first-token gap — the only meaningful idle window, since answer
+            // tokens then flow continuously and keep the connection alive themselves.
+            await writer.WriteHeartbeatAsync(ct);
+            await foreach (var frame in streamService
+                .StreamReplyAsync(userId, request.Message, request.ClientMessageId, ct)
+                .WithCancellation(ct))
+            {
+                await writer.WriteEventAsync(frame.EventName, frame, ct);
+            }
+        }
+        catch (Exception ex) when (ct.IsCancellationRequested && ex is OperationCanceledException or IOException)
+        {
+            // Client disconnected — not a server fault. A mid-stream abort surfaces as an
+            // OperationCanceledException OR an IOException (broken pipe / connection reset)
+            // depending on socket timing; both are a clean disconnect once RequestAborted is
+            // signalled, so neither is logged or framed. The filter is narrowed to those two
+            // types (not a bare `catch when (ct.IsCancellationRequested)`) so a genuine bug
+            // thrown during a cancelled request — an NRE, an InvalidCastException — still falls
+            // through to the logging catch below rather than being silently swallowed.
+        }
+        catch (Exception ex)
+        {
+            // The 200 + heartbeat already committed the response, so the exception
+            // middleware can no longer emit a 500. Infrastructure failures (a bus,
+            // Marten, or EF error from the orchestrator) would otherwise drop the
+            // connection silently with no frame — surface a typed, retryable error
+            // frame best-effort instead, then log. CancellationToken.None: ct may
+            // already be cancelled, and this last write must still be attempted.
+            LogUnhandledStreamError(logger, userId, ex);
+            try
+            {
+                await writer.WriteEventAsync(
+                    "error",
+                    new ErrorFrame("Something went wrong on my end. Try again in a moment.", Retryable: true, RetryAfterSeconds: null),
+                    CancellationToken.None);
+            }
+            catch (Exception writeEx) when (writeEx is not OutOfMemoryException and not StackOverflowException)
+            {
+                // The stream may already be broken; nothing more can be done.
+                LogErrorFrameWriteFailed(logger, userId, writeEx);
+            }
+        }
+
+        // The response was written manually; tell MVC not to write a result over it.
+        return new EmptyResult();
+    }
+
     private static ConversationTurnDto MapTurn(ConversationTurnView turn) =>
         new(
             turn.TriggeringPlanEventId,
@@ -185,6 +289,18 @@ public sealed class ConversationController(
                 turn.CreatedAt,
                 Interactive: null,
                 MapTurn(turn)));
+
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Error,
+        Message = "Unhandled error streaming the conversation reply for user {UserId}; emitting a best-effort error frame")]
+    private static partial void LogUnhandledStreamError(ILogger logger, Guid userId, Exception ex);
+
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Warning,
+        Message = "Failed to write the best-effort error frame for user {UserId}; the SSE stream was already broken")]
+    private static partial void LogErrorFrameWriteFailed(ILogger logger, Guid userId, Exception ex);
 
     private bool TryGetUserId(out Guid userId)
     {

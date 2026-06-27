@@ -55,4 +55,59 @@ public sealed class ConversationTurnIdTests
             first,
             because: "a re-send with a fresh client id must derive a separate coach turn, not collide with the original");
     }
+
+    [Fact]
+    public void DeriveSafetyTurnId_IsDeterministic_SameInputSameOutput()
+    {
+        // Act
+        var first = ConversationTurnId.DeriveSafetyTurnId(ClientMessageId);
+        var second = ConversationTurnId.DeriveSafetyTurnId(ClientMessageId);
+
+        // Assert
+        second.Should().Be(
+            first,
+            because: "a re-send after mid-stream death must re-derive the same scripted-referral idempotency key so the Amber referral is never double-appended");
+    }
+
+    [Fact]
+    public void DeriveSafetyTurnId_DiffersFromCoachTurnId_ForTheSameClientId()
+    {
+        // Act
+        var safetyTurnId = ConversationTurnId.DeriveSafetyTurnId(ClientMessageId);
+        var coachTurnId = ConversationTurnId.DeriveCoachTurnId(ClientMessageId);
+
+        // Assert
+        safetyTurnId.Should().NotBe(
+            coachTurnId,
+            because: "an Amber message persists BOTH a scripted referral turn and a streamed answer turn off the same client id; they must occupy distinct idempotency keys or one would overwrite the other");
+    }
+
+    [Fact]
+    public void DeriveSafetyTurnId_DiffersFromClientMessageId()
+    {
+        // Act
+        var actual = ConversationTurnId.DeriveSafetyTurnId(ClientMessageId);
+
+        // Assert
+        actual.Should().NotBe(
+            ClientMessageId,
+            because: "the user turn already keyed its idempotency marker on the client id; the scripted referral turn needs a distinct key");
+        actual.Should().NotBe(Guid.Empty, because: "the derived id must be a usable, non-empty GUID");
+    }
+
+    [Fact]
+    public void DeriveSafetyTurnId_DistinctClientIds_ProduceDistinctSafetyIds()
+    {
+        // Arrange
+        var otherClientId = new Guid("22222222-2222-2222-2222-222222222222");
+
+        // Act
+        var first = ConversationTurnId.DeriveSafetyTurnId(ClientMessageId);
+        var second = ConversationTurnId.DeriveSafetyTurnId(otherClientId);
+
+        // Assert
+        second.Should().NotBe(
+            first,
+            because: "two different messages each carrying an Amber signal must derive separate referral turns");
+    }
 }

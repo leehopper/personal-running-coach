@@ -42,6 +42,8 @@ public sealed class StubCoachingLlm : ICoachingLlm
 {
     private static Func<object>? _structuredBehavior;
     private static int _structuredCallCount;
+    private static Func<CancellationToken, IAsyncEnumerable<string>>? _streamBehavior;
+    private static int _streamCallCount;
 
     /// <summary>
     /// Gets the number of structured-output calls made since the last
@@ -51,6 +53,13 @@ public sealed class StubCoachingLlm : ICoachingLlm
     public static int StructuredCallCount => Volatile.Read(ref _structuredCallCount);
 
     /// <summary>
+    /// Gets the number of streaming calls made since the last <see cref="Reset"/>.
+    /// The Slice 4B SSE tests assert <c>0</c> on the non-streaming paths (Red
+    /// short-circuit, WorkoutLog card) and <c>1</c> on the Question answer path.
+    /// </summary>
+    public static int StreamCallCount => Volatile.Read(ref _streamCallCount);
+
+    /// <summary>
     /// Clears the scripted behavior and zeroes the call counter. Call from test
     /// setup/dispose so one test's script never leaks into the next.
     /// </summary>
@@ -58,6 +67,23 @@ public sealed class StubCoachingLlm : ICoachingLlm
     {
         Volatile.Write(ref _structuredBehavior, null);
         Interlocked.Exchange(ref _structuredCallCount, 0);
+        Volatile.Write(ref _streamBehavior, null);
+        Interlocked.Exchange(ref _streamCallCount, 0);
+    }
+
+    /// <summary>
+    /// Scripts the next streaming call (Slice 4B SSE endpoint): the delegate is invoked
+    /// once per <see cref="StreamAsync"/> with the request-cancellation token and returns
+    /// the token sequence to yield. A scripted iterator may yield then throw a
+    /// <see cref="CoachingLlmException"/> (mid-stream failure) or an
+    /// <see cref="IncompleteCoachingLlmException"/> (free-text-incomplete finish), or
+    /// await on the supplied token to simulate a client abort.
+    /// </summary>
+    /// <param name="behavior">The per-call streaming behavior delegate.</param>
+    public static void UseStreamBehavior(Func<CancellationToken, IAsyncEnumerable<string>> behavior)
+    {
+        ArgumentNullException.ThrowIfNull(behavior);
+        Volatile.Write(ref _streamBehavior, behavior);
     }
 
     /// <summary>
@@ -81,11 +107,18 @@ public sealed class StubCoachingLlm : ICoachingLlm
             + "generation. Script the structured surface instead, or move the coverage to the eval tier.");
 
     /// <inheritdoc />
-    public IAsyncEnumerable<string> StreamAsync(string systemPrompt, string userMessage, CancellationToken ct) =>
-        throw new InvalidOperationException(
-            "StubCoachingLlm.StreamAsync was called: no integration-tier flow scripts streaming "
-            + "generation. Streaming coverage lives in the ClaudeCoachingLlm streaming tests; add a "
-            + "dedicated streaming test seam if an integration flow needs it.");
+    public IAsyncEnumerable<string> StreamAsync(string systemPrompt, string userMessage, CancellationToken ct)
+    {
+        Interlocked.Increment(ref _streamCallCount);
+
+        var behavior = Volatile.Read(ref _streamBehavior)
+            ?? throw new InvalidOperationException(
+                "StubCoachingLlm received an unscripted streaming call. Script the token sequence "
+                + "via StubCoachingLlm.UseStreamBehavior(...) in the test arrange, or fix the flow "
+                + "under test if no streaming call was expected.");
+
+        return behavior(ct);
+    }
 
     /// <inheritdoc />
     public Task<(T Result, AnthropicUsage Usage)> GenerateStructuredAsync<T>(

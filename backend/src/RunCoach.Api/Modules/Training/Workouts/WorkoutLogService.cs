@@ -91,6 +91,11 @@ public sealed partial class WorkoutLogService(
         return new QueryWorkoutLogsResponseDto(dtos, nextCursor);
     }
 
+    /// <inheritdoc />
+    public Task<WorkoutPrescriptionSnapshot?> ResolveCandidatePrescriptionAsync(
+        Guid userId, DateOnly occurredOn, CancellationToken ct) =>
+        ResolvePrescriptionAsync(userId, occurredOn, ct);
+
     private static string? SerializeMetrics(IReadOnlyDictionary<string, JsonElement>? metrics) =>
         metrics is { Count: > 0 } ? JsonSerializer.Serialize(metrics) : null;
 
