@@ -15,4 +15,12 @@ public enum MessageIntentOutputValidationViolation
     /// WorkoutLog intent, or the intent is an unknown value.
     /// </summary>
     SlotIntentMismatch = 1,
+
+    /// <summary>
+    /// The WorkoutLog draft carries impossible runner actuals that constrained decoding
+    /// cannot reject (it forbids numerical min/max): a non-positive or non-finite distance,
+    /// an undefined distance unit, a negative duration component, minutes/seconds outside
+    /// 0..59, or a zero total duration.
+    /// </summary>
+    DraftActualsOutOfRange = 2,
 }

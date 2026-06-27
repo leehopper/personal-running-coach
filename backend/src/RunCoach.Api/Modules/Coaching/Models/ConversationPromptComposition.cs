@@ -7,11 +7,11 @@ namespace RunCoach.Api.Modules.Coaching.Models;
 /// <summary>
 /// Result of <see cref="IContextAssembler.ComposeForConversationAsync"/> — the
 /// coaching system prompt plus the grounded Q&amp;A user message for a streamed
-/// answer (Slice 4B / DEC-085). The answer reuses <c>coaching-system.v1</c> (the
-/// register re-tuned in Slice 4A — no further prompt re-tune).
+/// answer (Slice 4B / DEC-085). The answer reuses the active coaching system prompt
+/// (the register re-tuned in Slice 4A — no further prompt re-tune).
 /// </summary>
 /// <param name="SystemPrompt">
-/// The byte-stable coaching system prompt loaded from <c>Prompts/coaching-system.v1.yaml</c>.
+/// The byte-stable coaching system prompt resolved from the active prompt version.
 /// </param>
 /// <param name="UserMessage">
 /// The composed grounded context: the current plan summary, recent logged workouts

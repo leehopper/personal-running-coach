@@ -11,6 +11,19 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Conversation;
 /// </summary>
 public sealed class MessageIntentOutputValidatorTests
 {
+    public static TheoryData<StructuredLogDraft> OutOfRangeDrafts() => new()
+    {
+        SampleDraft() with { DistanceValue = 0 },
+        SampleDraft() with { DistanceValue = -5 },
+        SampleDraft() with { DistanceValue = double.NaN },
+        SampleDraft() with { DistanceUnit = (RunnerDistanceUnit)99 },
+        SampleDraft() with { DurationHours = -1 },
+        SampleDraft() with { DurationMinutes = 60 },
+        SampleDraft() with { DurationMinutes = -1 },
+        SampleDraft() with { DurationSeconds = 60 },
+        SampleDraft() with { DurationHours = 0, DurationMinutes = 0, DurationSeconds = 0 },
+    };
+
     [Fact]
     public void Validate_ReturnsValid_ForQuestion_WithNoDraft()
     {
@@ -107,6 +120,35 @@ public sealed class MessageIntentOutputValidatorTests
         // Assert
         result.IsValid.Should().BeFalse();
         result.Violation.Should().Be(MessageIntentOutputValidationViolation.SlotIntentMismatch);
+    }
+
+    [Theory]
+    [MemberData(nameof(OutOfRangeDrafts))]
+    public void Validate_ReturnsDraftActualsOutOfRange_ForImpossibleActuals(StructuredLogDraft draft)
+    {
+        // Arrange — constrained decoding cannot reject these numerically, so the validator must.
+        var output = new MessageIntentOutput { Intent = MessageIntent.WorkoutLog, WorkoutLog = draft };
+
+        // Act
+        var result = MessageIntentOutputValidator.Validate(output);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Violation.Should().Be(MessageIntentOutputValidationViolation.DraftActualsOutOfRange);
+    }
+
+    [Fact]
+    public void Validate_AllowsBoundaryDurationComponents()
+    {
+        // Arrange — 59/59 are valid; only 60+ is out of range.
+        var draft = SampleDraft() with { DurationHours = 2, DurationMinutes = 59, DurationSeconds = 59 };
+        var output = new MessageIntentOutput { Intent = MessageIntent.WorkoutLog, WorkoutLog = draft };
+
+        // Act
+        var result = MessageIntentOutputValidator.Validate(output);
+
+        // Assert
+        result.IsValid.Should().BeTrue();
     }
 
     [Fact]

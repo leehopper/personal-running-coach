@@ -437,7 +437,7 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         // This method is the single sanitization owner for the classifier prompt; the
         // caller passes the RAW message. The sanitizer wraps it in a per-call
-        // <CURRENT_USER_INPUT id="..."> spotlight delimiter (R-068 / DEC-059).
+        // `CURRENT_USER_INPUT` spotlight delimiter (R-068 / DEC-059).
         var sanitized = await _sanitizer
             .SanitizeAsync(userMessage, SanitizationPromptSection.CurrentUserMessage, ct)
             .ConfigureAwait(false);
@@ -477,9 +477,9 @@ public sealed partial class ContextAssembler : IContextAssembler
 
         ct.ThrowIfCancellationRequested();
 
-        // Reuse coaching-system.v1 (the conversation register, re-tuned in Slice 4A —
-        // no further prompt re-tune); its data_handling directive already treats
-        // <SECTION_NAME id="..."> content as data.
+        // Reuse the active coaching system prompt (the conversation register, re-tuned in
+        // Slice 4A — no further prompt re-tune); its `data_handling` directive already treats
+        // spotlight-delimited section content as data.
         var activeVersion = _promptStore.GetActiveVersion(CoachingPromptId);
         var template = await _promptStore.GetPromptAsync(CoachingPromptId, activeVersion, ct).ConfigureAwait(false);
         var systemPrompt = template.StaticSystemPrompt.TrimEnd();
@@ -488,7 +488,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         // omitted at MVP-0 (the DEC-080 posture) — the plan plus recent logs ground the answer.
         var planContext = plan is null ? "No active plan." : BuildAdaptationPlanContext(plan);
 
-        // Recent logs: newest-first, each routed through IRecentLogSanitizer then
+        // Recent logs: newest-first, each routed through the recent-log sanitizer then
         // delimiter-escaped, inside one nonce-delimited spotlight section.
         var recentLogsBlock = await BuildConversationRecentLogsAsync(_recentLogSanitizer, recentLogs, ct).ConfigureAwait(false);
 
@@ -807,13 +807,17 @@ public sealed partial class ContextAssembler : IContextAssembler
             return "No recent logged workouts.";
         }
 
-        var lines = new List<string>(recentLogs.Count);
-        foreach (var log in recentLogs.OrderByDescending(l => l.OccurredOn))
-        {
-            var sanitized = await recentLogSanitizer.SanitizeAsync(log, ct).ConfigureAwait(false);
-            lines.Add(LayeredPromptSanitizer.EscapeDelimiterBody(
-                RecentLogFormatter.FormatWorkoutDetail(sanitized)));
-        }
+        // The per-log sanitize calls are independent; run them together and keep the
+        // newest-first order from the sorted sequence (Task.WhenAll preserves it).
+        var lines = await Task.WhenAll(recentLogs
+            .OrderByDescending(l => l.OccurredOn)
+            .Select(async log =>
+            {
+                var sanitized = await recentLogSanitizer.SanitizeAsync(log, ct).ConfigureAwait(false);
+                return LayeredPromptSanitizer.EscapeDelimiterBody(
+                    RecentLogFormatter.FormatWorkoutDetail(sanitized));
+            }))
+            .ConfigureAwait(false);
 
         return string.Join("\n", lines);
     }

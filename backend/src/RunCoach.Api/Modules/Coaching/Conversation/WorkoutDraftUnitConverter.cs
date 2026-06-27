@@ -4,8 +4,8 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 /// Deterministic SI conversion for the runner-stated actuals in a
 /// <see cref="StructuredLogDraft"/> (Slice 4B, DEC-085 D3). The intent classifier
 /// reports what the runner said in their own units (value + unit, h/m/s components);
-/// this pure, unit-tested helper does the conversion the LLM must never do (REVIEW.md
-/// Architecture: distance/time conversions belong in the computation layer). Used by
+/// this pure, unit-tested helper does the conversion the LLM must never do — distance/time
+/// conversions are deterministic computation that belongs in the computation layer. Used by
 /// <see cref="StructuredLogDraftMapper"/> when a confirmed draft is mapped onto the
 /// SI-unit <c>CreateWorkoutLogRequestDto</c>.
 /// </summary>

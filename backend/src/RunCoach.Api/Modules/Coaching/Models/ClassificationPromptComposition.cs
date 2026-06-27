@@ -10,8 +10,7 @@ namespace RunCoach.Api.Modules.Coaching.Models;
 /// sanitized, delimiter-wrapped runner message (Slice 4B / DEC-085 D3).
 /// </summary>
 /// <param name="SystemPrompt">
-/// The byte-stable classifier system prompt loaded from
-/// <c>Prompts/conversation-classifier.v1.yaml</c>.
+/// The byte-stable classifier system prompt resolved from the active classifier prompt version.
 /// </param>
 /// <param name="UserMessage">
 /// The composed user message: today's date plus the sanitized, spotlight-wrapped

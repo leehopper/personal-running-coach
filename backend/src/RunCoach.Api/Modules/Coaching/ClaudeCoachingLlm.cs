@@ -667,6 +667,13 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
                 "Anthropic model ID is not configured. " +
                 "Set the 'Anthropic:ModelId' value in configuration.");
         }
+
+        if (string.IsNullOrWhiteSpace(settings.ClassifierModelId))
+        {
+            throw new InvalidOperationException(
+                "Anthropic classifier model ID is not configured. " +
+                "Set the 'Anthropic:ClassifierModelId' value in configuration.");
+        }
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Sending coaching request to {ModelId} (maxTokens={MaxTokens})")]

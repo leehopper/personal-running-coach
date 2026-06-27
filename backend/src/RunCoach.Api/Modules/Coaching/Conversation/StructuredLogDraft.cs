@@ -10,8 +10,9 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 /// deterministic <see cref="WorkoutDraftUnitConverter"/> performs the SI conversion
 /// server-side when <see cref="StructuredLogDraftMapper"/> maps a confirmed draft onto the
 /// unchanged Slice 2b <see cref="CreateWorkoutLogRequestDto"/> create contract. The LLM
-/// never converts units (REVIEW.md Architecture: distance/time conversions belong in the
-/// unit-tested computation layer). It carries <b>actuals only</b>, never a prescription:
+/// never converts units — distance/time conversions are deterministic computation that
+/// belongs in the unit-tested computation layer. It carries <b>actuals only</b>, never a
+/// prescription:
 /// the candidate prescribed-workout match is resolved server-authoritatively at confirm
 /// time (the same <c>WorkoutLogService.ResolvePrescriptionAsync</c> path), never from LLM
 /// extraction.
