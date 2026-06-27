@@ -153,7 +153,7 @@ export type GetApiV1ConversationTurnsApiResponse = /** status 200 OK */ Conversa
 export type GetApiV1ConversationTurnsApiArg = void
 export type GetApiV1ConversationTimelineApiResponse = /** status 200 OK */ ConversationTimelineDto
 export type GetApiV1ConversationTimelineApiArg = void
-export type PostApiV1ConversationMessagesApiResponse = unknown
+export type PostApiV1ConversationMessagesApiResponse = /** status 200 OK */ string
 export type PostApiV1ConversationMessagesApiArg = {
   conversationMessageRequestDto: ConversationMessageRequestDto
 }

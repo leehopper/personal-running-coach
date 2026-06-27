@@ -34,6 +34,7 @@ public sealed partial class ConversationController(
     ILogger<ConversationController> logger) : ControllerBase
 {
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
+    private const string InvalidMessageType = "https://runcoach.app/problems/invalid-conversation-message";
 
     /// <summary>GET /api/v1/conversation/turns — read the runner's adaptation + safety turns, newest-first.</summary>
     /// <param name="ct">Request cancellation token.</param>
@@ -170,7 +171,7 @@ public sealed partial class ConversationController(
     /// <returns>An SSE stream; 401 when the user claim is missing; 400 when the antiforgery token is absent.</returns>
     [HttpPost("messages")]
     [RequireAntiforgeryToken]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK, "text/event-stream")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> PostMessage([FromBody] ConversationMessageRequestDto request, CancellationToken ct)
@@ -180,6 +181,17 @@ public sealed partial class ConversationController(
         if (!TryGetUserId(out var userId))
         {
             return MissingUserClaim();
+        }
+
+        // Boundary validation (server-side): a blank message wastes an LLM call, and an
+        // empty client message id would collide every empty-id post on the same derived
+        // idempotency keys. Reject both with a structured 400 before the stream opens.
+        if (string.IsNullOrWhiteSpace(request.Message) || request.ClientMessageId == Guid.Empty)
+        {
+            return Problem(
+                type: InvalidMessageType,
+                title: "The message must be non-empty and carry a non-empty client message id.",
+                statusCode: StatusCodes.Status400BadRequest);
         }
 
         // SSE headers + buffering off, set before the first body write (which starts the
@@ -204,9 +216,12 @@ public sealed partial class ConversationController(
                 await writer.WriteEventAsync(frame.EventName, frame, ct);
             }
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        catch (Exception) when (ct.IsCancellationRequested)
         {
-            // Client disconnected — nothing more to write, and not a server fault.
+            // Client disconnected — not a server fault. A mid-stream abort can surface as
+            // an OperationCanceledException OR an IOException (broken pipe / connection
+            // reset) depending on socket timing; both are a clean disconnect once
+            // RequestAborted is signalled, so neither is logged or framed.
         }
         catch (Exception ex)
         {

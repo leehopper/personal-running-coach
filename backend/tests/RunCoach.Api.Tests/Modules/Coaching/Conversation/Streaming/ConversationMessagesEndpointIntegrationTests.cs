@@ -196,6 +196,12 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
 
         StubCoachingLlm.StreamCallCount.Should().Be(0, because: "the card path never streams");
         (await CountWorkoutLogsAsync(userId)).Should().Be(0, because: "the card commits nothing until Confirm (PR5)");
+
+        // The card branch commits NOTHING beyond the durable user turn: no coach turn, no
+        // log row — a regression that appended a coach turn for the card would be caught here.
+        var view = await LoadConversationViewAsync(userId);
+        view!.Turns.Should().ContainSingle(because: "only the durable-first user turn persists for a card")
+            .Which.Participant.Should().Be(ConversationParticipant.User);
     }
 
     [Fact]
@@ -342,6 +348,39 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         // Assert
         response.StatusCode.Should().Be(
             HttpStatusCode.BadRequest, because: "a mutation without the antiforgery token is rejected before streaming");
+        response.Content.Headers.ContentType?.MediaType.Should().Be(
+            "application/problem+json", because: "the antiforgery rejection returns structured ProblemDetails, not a bare 400");
+    }
+
+    [Fact]
+    public async Task BlankMessage_IsRejectedWith400_BeforeAnyLlmCall()
+    {
+        // Arrange — a valid antiforgery token so the request reaches the boundary validation.
+        StubCoachingLlm.Reset();
+        var (client, _, token) = await RegisterLoginAndPrimeAsync();
+
+        // Act
+        using var response = await PostMessageAsync(client, token, "   ", Guid.NewGuid());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+        StubCoachingLlm.StructuredCallCount.Should().Be(0, because: "a blank message never reaches the classifier");
+    }
+
+    [Fact]
+    public async Task EmptyClientMessageId_IsRejectedWith400()
+    {
+        // Arrange — an empty client id would collide every empty-id post on the derived keys.
+        StubCoachingLlm.Reset();
+        var (client, _, token) = await RegisterLoginAndPrimeAsync();
+
+        // Act
+        using var response = await PostMessageAsync(client, token, "How's my plan?", Guid.Empty);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        StubCoachingLlm.StructuredCallCount.Should().Be(0);
     }
 
     [Fact]
