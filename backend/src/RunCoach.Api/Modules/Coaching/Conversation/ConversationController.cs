@@ -216,12 +216,15 @@ public sealed partial class ConversationController(
                 await writer.WriteEventAsync(frame.EventName, frame, ct);
             }
         }
-        catch (Exception) when (ct.IsCancellationRequested)
+        catch (Exception ex) when (ct.IsCancellationRequested && ex is OperationCanceledException or IOException)
         {
-            // Client disconnected — not a server fault. A mid-stream abort can surface as
-            // an OperationCanceledException OR an IOException (broken pipe / connection
-            // reset) depending on socket timing; both are a clean disconnect once
-            // RequestAborted is signalled, so neither is logged or framed.
+            // Client disconnected — not a server fault. A mid-stream abort surfaces as an
+            // OperationCanceledException OR an IOException (broken pipe / connection reset)
+            // depending on socket timing; both are a clean disconnect once RequestAborted is
+            // signalled, so neither is logged or framed. The filter is narrowed to those two
+            // types (not a bare `catch when (ct.IsCancellationRequested)`) so a genuine bug
+            // thrown during a cancelled request — an NRE, an InvalidCastException — still falls
+            // through to the logging catch below rather than being silently swallowed.
         }
         catch (Exception ex)
         {

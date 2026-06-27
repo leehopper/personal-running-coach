@@ -11,12 +11,14 @@ using Microsoft.Extensions.DependencyInjection;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Conversation;
+using RunCoach.Api.Modules.Coaching.Conversation.Streaming;
 using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Identity.Contracts;
 using RunCoach.Api.Modules.Training.Plan.Models;
 using RunCoach.Api.Modules.Training.Safety;
 using RunCoach.Api.Modules.Training.Workouts;
 using RunCoach.Api.Tests.Infrastructure;
+using Wolverine;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Conversation.Streaming;
 
@@ -552,6 +554,121 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         var view = await LoadConversationViewAsync(userId);
         view!.Turns.Should().ContainSingle(t => t.Participant == ConversationParticipant.Coach)
             .Which.IsErrored.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PostHeartbeatUnhandledError_EmitsBestEffortRetryableErrorFrame_FromTheControllerCatch()
+    {
+        // Arrange — the classifier throws an InvalidOperationException, standing in for an infra
+        // failure (bus / Marten / EF) that escapes the orchestrator. It is not one of the coaching-LLM
+        // exception types the orchestrator handles in-service, so it propagates all the way into the
+        // controller's unconditional post-heartbeat error handler — the best-effort error-frame path
+        // every in-stream failure test bypasses by scripting a coaching-LLM exception the orchestrator
+        // owns. A benign Green message keeps the safety gate quiet so the sole frame is the controller's.
+        StubCoachingLlm.Reset();
+        StubCoachingLlm.UseStructuredBehavior(
+            () => throw new InvalidOperationException("infra failure escaping the orchestrator"));
+        var (client, userId, token) = await RegisterLoginAndPrimeAsync();
+        var clientMessageId = Guid.NewGuid();
+
+        // Act
+        using var response = await PostMessageAsync(client, token, "How's my training going?", clientMessageId);
+        var frames = await ReadFramesAsync(response);
+
+        // Assert — the heartbeat already committed the 200 + text/event-stream before the throw, so
+        // the failure is NOT a 500 and the stream is NOT torn: the client reads it cleanly to
+        // completion (ReadFramesAsync returns without throwing) and gets exactly one error frame.
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("text/event-stream");
+
+        var error = frames.Should().ContainSingle(f => f.Event == "error").Subject;
+        var errorPayload = Payload<ErrorPayload>(error);
+        errorPayload.Message.Should().Be(
+            "Something went wrong on my end. Try again in a moment.",
+            because: "the frame is the controller's hardcoded best-effort copy, proving the controller-level catch handled the escape rather than the orchestrator's in-service ClassifierFailedMessage path");
+        errorPayload.Retryable.Should().BeTrue(because: "the controller's best-effort error frame is always retryable");
+        errorPayload.RetryAfterSeconds.Should().BeNull(
+            because: "the controller emits no back-off hint on an unhandled escape");
+
+        frames.Should().NotContain(f => f.Event == "done", because: "an unhandled failure has no terminal done frame");
+        frames.Should().NotContain(f => f.Event == "token", because: "the throw escapes before any answer streams");
+
+        // The durable-first user turn still persisted (PersistUserTurnAsync committed before the
+        // classifier ran), proving the failure is strictly post-heartbeat and nothing beyond the
+        // user turn was written on the escape.
+        var view = await LoadConversationViewAsync(userId);
+        view!.Turns.Should().ContainSingle()
+            .Which.Participant.Should().Be(
+                ConversationParticipant.User,
+                because: "only the durable user turn persists; the unhandled escape writes no coach turn");
+    }
+
+    [Fact]
+    public async Task LoadAnswerContext_ExcludesErroredAndCurrentTurns_AndCapsAtTheRecentLimit()
+    {
+        // Arrange — seed a realistic interactive conversation through the SAME two-write bus commands
+        // the production endpoint uses (so the real InteractiveConversationProjection materializes the
+        // ConversationView): 12 ordinary turns, then one errored coach marker, then the "current" user
+        // turn keyed by the clientMessageId under test. The context loader must drop the errored marker
+        // (!IsErrored) and the current turn (TurnId != clientMessageId) from the LLM grounding, then
+        // keep only the most-recent RecentTurnLimit (10) of what remains.
+        StubCoachingLlm.Reset();
+        var userId = Guid.NewGuid();
+        var currentTurnId = Guid.NewGuid();
+        const string erroredContent = "errored marker should never ground the prompt";
+        const string currentContent = "current turn should be excluded from its own grounding";
+        var ct = TestContext.Current.CancellationToken;
+
+        using (var scope = Factory.Services.CreateScope())
+        {
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+
+            // 12 ordinary turns, oldest-first, alternating runner/coach (the first MUST be a user
+            // turn — the Conversation stream is created by a UserMessagePosted).
+            for (var i = 0; i < 12; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    await bus.InvokeForTenantAsync<ConversationTurnPostedResponse>(
+                        userId.ToString(), new PostUserConversationTurn(userId, Guid.NewGuid(), $"turn-{i:D2}"), ct);
+                }
+                else
+                {
+                    await bus.InvokeForTenantAsync<ConversationTurnPostedResponse>(
+                        userId.ToString(),
+                        new PostCoachConversationTurn(userId, Guid.NewGuid(), $"turn-{i:D2}", IsErrored: false),
+                        ct);
+                }
+            }
+
+            // An errored coach marker (the projection forces its content empty) ...
+            await bus.InvokeForTenantAsync<ConversationTurnPostedResponse>(
+                userId.ToString(),
+                new PostCoachConversationTurn(userId, Guid.NewGuid(), erroredContent, IsErrored: true),
+                ct);
+
+            // ... and the current user turn, keyed by the clientMessageId the loader is asked about.
+            await bus.InvokeForTenantAsync<ConversationTurnPostedResponse>(
+                userId.ToString(), new PostUserConversationTurn(userId, currentTurnId, currentContent), ct);
+        }
+
+        // Act
+        ConversationAnswerContext context;
+        using (var scope = Factory.Services.CreateScope())
+        {
+            var loader = scope.ServiceProvider.GetRequiredService<IConversationContextLoader>();
+            context = await loader.LoadAnswerContextAsync(userId, currentTurnId, ct);
+        }
+
+        // Assert — the errored marker and the current turn are gone, and only the 10 most-recent of
+        // the 12 ordinary turns survive the cap (turn-00 and turn-01 are dropped), in append order.
+        context.RecentTurns.Should().NotContain(
+            t => t.Content == currentContent,
+            because: "the just-persisted current turn (TurnId == clientMessageId) is excluded from its own grounding");
+        context.RecentTurns.Should().NotContain(
+            t => t.Content.Length == 0, because: "errored coach markers carry empty content and never ground the prompt");
+        context.RecentTurns.Select(t => t.Content).Should()
+            .Equal("turn-02", "turn-03", "turn-04", "turn-05", "turn-06", "turn-07", "turn-08", "turn-09", "turn-10", "turn-11");
     }
 
     /// <inheritdoc />
