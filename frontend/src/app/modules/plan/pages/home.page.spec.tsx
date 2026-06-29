@@ -1,8 +1,8 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildNudgeTurn } from '~/modules/coaching/components/conversation.fixture'
-import type { ConversationTurnsResponseDto } from '~/modules/coaching/models/conversation.model'
+import type { UseCoachStreamReturn } from '~/modules/coaching/hooks/use-coach-stream.hooks'
+import type { ConversationTimelineDto } from '~/modules/coaching/models/conversation.model'
 import { buildPlanFixture } from '~/modules/plan/components/plan-display.fixture'
 import type { PlanProjectionDto } from '~/modules/plan/models/plan.model'
 
@@ -14,15 +14,16 @@ interface QueryResult {
   refetch: () => void
 }
 
-interface ConversationQueryResult {
-  data?: ConversationTurnsResponseDto
+interface TimelineQueryResult {
+  data?: ConversationTimelineDto
   isLoading: boolean
   isError: boolean
 }
 
-const { getCurrentPlanMock, getConversationTurnsMock } = vi.hoisted(() => ({
+const { getCurrentPlanMock, getConversationTimelineMock, coachStreamMock } = vi.hoisted(() => ({
   getCurrentPlanMock: vi.fn<() => QueryResult>(),
-  getConversationTurnsMock: vi.fn<() => ConversationQueryResult>(),
+  getConversationTimelineMock: vi.fn<() => TimelineQueryResult>(),
+  coachStreamMock: vi.fn<() => UseCoachStreamReturn>(),
 }))
 
 vi.mock('~/api/plan.api', () => ({
@@ -30,8 +31,25 @@ vi.mock('~/api/plan.api', () => ({
 }))
 
 vi.mock('~/api/conversation.api', () => ({
-  useGetConversationTurnsQuery: () => getConversationTurnsMock(),
+  useGetConversationTimelineQuery: () => getConversationTimelineMock(),
+  useConfirmConversationalLogMutation: () => [vi.fn(), { isLoading: false }],
 }))
+
+vi.mock('~/modules/coaching/hooks/use-coach-stream.hooks', () => ({
+  useCoachStream: () => coachStreamMock(),
+}))
+
+const idleStream = (): UseCoachStreamReturn => ({
+  pendingUserMessage: null,
+  streamingText: '',
+  isStreaming: false,
+  safety: null,
+  card: null,
+  error: null,
+  send: vi.fn(),
+  retry: vi.fn(),
+  dismissCard: vi.fn(),
+})
 
 import { HomePage } from './home.page'
 
@@ -45,13 +63,16 @@ const renderHome = () =>
 describe('HomePage', () => {
   beforeEach(() => {
     getCurrentPlanMock.mockReset()
-    getConversationTurnsMock.mockReset()
-    // Default: no turns yet — the read-only panel renders nothing.
-    getConversationTurnsMock.mockReturnValue({
+    getConversationTimelineMock.mockReset()
+    coachStreamMock.mockReset()
+    // Default: an empty timeline + an idle stream — the chat renders its
+    // composer with no turns yet.
+    getConversationTimelineMock.mockReturnValue({
       data: { turns: [] },
       isLoading: false,
       isError: false,
     })
+    coachStreamMock.mockReturnValue(idleStream())
   })
 
   afterEach(() => {
@@ -175,48 +196,37 @@ describe('HomePage', () => {
     expect(screen.getByTestId('home-page-error')).toBeInTheDocument()
   })
 
-  it('renders the read-only conversation panel between today-card and upcoming-list when turns exist', () => {
-    const nudge = buildNudgeTurn()
+  it('renders the interactive coach chat between today-card and upcoming-list', () => {
     getCurrentPlanMock.mockReturnValue({
       data: buildPlanFixture(),
       isLoading: false,
       isError: false,
       refetch: vi.fn(),
     })
-    getConversationTurnsMock.mockReturnValue({
-      data: { turns: [nudge] },
-      isLoading: false,
-      isError: false,
-    })
     renderHome()
 
-    const panel = screen.getByTestId('conversation-panel')
-    expect(within(panel).getByTestId('nudge-turn')).toHaveTextContent(nudge.content)
-    // Document order: the coach's explanation reads in today's context,
-    // before the forward-looking upcoming stack.
+    expect(screen.getByTestId('coach-chat')).toBeInTheDocument()
+    // Document order: the coach chat reads in today's context, before the
+    // forward-looking upcoming stack.
     const home = screen.getByTestId('home-page')
     const order = [...home.querySelectorAll('[data-testid]')].map((node) =>
       node.getAttribute('data-testid'),
     )
-    expect(order.indexOf('conversation-panel')).toBeGreaterThan(order.indexOf('today-card'))
-    expect(order.indexOf('conversation-panel')).toBeLessThan(order.indexOf('upcoming-list'))
+    expect(order.indexOf('coach-chat')).toBeGreaterThan(order.indexOf('today-card'))
+    expect(order.indexOf('coach-chat')).toBeLessThan(order.indexOf('upcoming-list'))
   })
 
-  it('renders no conversation panel when the turns query errors (supplementary surface)', () => {
+  it('still renders the coach chat (composer) when the timeline is empty', () => {
     getCurrentPlanMock.mockReturnValue({
       data: buildPlanFixture(),
       isLoading: false,
       isError: false,
       refetch: vi.fn(),
     })
-    getConversationTurnsMock.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-    })
     renderHome()
 
-    expect(screen.queryByTestId('conversation-panel')).toBeNull()
+    expect(screen.getByTestId('coach-chat')).toBeInTheDocument()
+    expect(screen.getByTestId('coach-composer')).toBeInTheDocument()
     expect(screen.getByTestId('today-card')).toBeInTheDocument()
     expect(screen.getByTestId('upcoming-list')).toBeInTheDocument()
   })

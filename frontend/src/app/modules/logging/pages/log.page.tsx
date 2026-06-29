@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 
+import type { StructuredLogDraft } from '~/api/generated'
 import { useCreateWorkoutLogMutation } from '~/api/workout-log.api'
 import { reportClientError } from '~/error-boundary/report-client-error'
 import { LogForm } from '~/modules/logging/components/log-form.component'
+import { draftToWorkoutLogFormFields } from '~/modules/logging/draft-to-form.helpers'
 import {
   makeDefaultWorkoutLogFormFields,
   toCreateWorkoutLogRequest,
@@ -14,6 +16,11 @@ import {
   type WorkoutLogFormFields,
   type WorkoutLogFormValues,
 } from '~/modules/logging/schemas/workout-log-form.schema'
+
+/** Router state carried by the conversational-logging "Edit" affordance. */
+interface LogPageLocationState {
+  draft?: StructuredLogDraft
+}
 
 /**
  * The `/log` route — a mobile-first workout-logging form. Owns the form state,
@@ -25,18 +32,43 @@ import {
  */
 const LogPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [createWorkoutLog, { isLoading }] = useCreateWorkoutLogMutation()
   const [formAlert, setFormAlert] = useState<string | null>(null)
   // One key per mounted form so a retry after a transient failure reuses it and
   // the server dedupes rather than double-logging (DEC-077).
   const idempotencyKey = useMemo(() => crypto.randomUUID(), [])
 
+  // The conversational-logging "Edit" affordance navigates here with the parsed
+  // draft in router state — pre-fill the form from it (Slice 4B). An edited
+  // submit still goes through the normal create path with its own idempotency
+  // key, not the confirm endpoint.
+  const editDraft = (location.state as LogPageLocationState | null)?.draft ?? null
+  const defaultValues = useMemo(
+    () =>
+      editDraft !== null
+        ? draftToWorkoutLogFormFields(editDraft)
+        : makeDefaultWorkoutLogFormFields(),
+    [editDraft],
+  )
+
   const form = useForm<WorkoutLogFormFields, unknown, WorkoutLogFormValues>({
     resolver: zodResolver(workoutLogFormSchema),
     mode: 'onChange',
     shouldUnregister: false,
-    defaultValues: makeDefaultWorkoutLogFormFields(),
+    defaultValues,
   })
+
+  // `mode: 'onChange'` leaves `isValid` false until the first validation pass, so
+  // a pre-filled Edit form needs an explicit trigger to enable Save without the
+  // user touching a field.
+  useEffect(() => {
+    if (editDraft === null) return
+    const enableSaveForPrefill = async (): Promise<void> => {
+      await form.trigger()
+    }
+    void enableSaveForPrefill()
+  }, [editDraft, form])
 
   const onSubmit = async (values: WorkoutLogFormValues): Promise<void> => {
     setFormAlert(null)

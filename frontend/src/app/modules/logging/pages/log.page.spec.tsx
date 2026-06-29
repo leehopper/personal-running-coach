@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Toaster } from '@/components/ui/sonner'
-import type { CreateWorkoutLogRequest } from '~/api/generated'
+import type { CreateWorkoutLogRequest, StructuredLogDraft } from '~/api/generated'
 import { toIsoDateOnly } from '~/modules/logging/schemas/workout-log-form.schema'
 
 // vi.mock is hoisted above imports, so the mock fns must come from vi.hoisted.
@@ -205,5 +205,32 @@ describe('LogPage', () => {
     const submit = screen.getByTestId('log-form-submit')
     expect(submit).toBeDisabled()
     expect(submit).toHaveTextContent(/saving/i)
+  })
+
+  it('pre-fills the form from a conversational-log Edit draft and enables Save', async () => {
+    const draft: StructuredLogDraft = {
+      occurredOn: '2026-06-20',
+      distanceValue: 5,
+      distanceUnit: 1, // miles
+      durationHours: 0,
+      durationMinutes: 25,
+      durationSeconds: 0,
+      completionStatus: 0,
+      notes: 'felt good',
+    }
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/log', state: { draft } }]}>
+        <LogPage />
+        <Toaster />
+      </MemoryRouter>,
+    )
+
+    expect((screen.getByLabelText('Distance (km)') as HTMLInputElement).value).toBe(
+      String(5 * 1.609344),
+    )
+    expect((screen.getByLabelText('Duration (minutes)') as HTMLInputElement).value).toBe('25')
+    expect((screen.getByLabelText('Date') as HTMLInputElement).value).toBe('2026-06-20')
+    // A pre-filled Edit form is valid without the user touching a field.
+    await waitFor(() => expect(screen.getByTestId('log-form-submit')).toBeEnabled())
   })
 })
