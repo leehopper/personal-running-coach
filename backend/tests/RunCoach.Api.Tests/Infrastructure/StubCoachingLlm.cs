@@ -136,6 +136,12 @@ public sealed class StubCoachingLlm : ICoachingLlm
                 + "StubCoachingLlm.UseGenerateBehavior(...) in the test arrange, or fix the flow under "
                 + "test if no free-text generation was expected. Voice coverage lives in the eval tier.");
 
+        // Honor the cancellation token so the free-text ack path can model a client abort: the
+        // production adapter surfaces OperationCanceledException on a canceled call, and
+        // ConfirmConversationalLogService treats that as the one ack failure that must propagate
+        // rather than fall back to a scripted ack — a test passing a canceled token exercises it.
+        ct.ThrowIfCancellationRequested();
+
         // The delegate may throw a CoachingLlmException to exercise the ack's scripted-fallback
         // path; anything it throws propagates exactly as the production adapter's failures would.
         return Task.FromResult(behavior());

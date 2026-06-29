@@ -11,11 +11,13 @@ public static class ConversationAckScripts
 {
     /// <summary>
     /// The ack when the adaptation rode back <c>Kind=Error</c> (a terminal review failure or a
-    /// lost race). The log is saved; the review retries on a re-confirm (DEC-080/081 posture). The
-    /// LLM is NOT called again — the review just failed.
+    /// lost race). The log is saved; the LLM is NOT called again — the review just failed. The copy
+    /// is deliberately neutral and does NOT instruct a resend: on the lost-race branch a re-confirm
+    /// re-derives the same <c>WorkoutLog</c>/adaptation marker and is a no-op, so "send it again"
+    /// would loop the runner uselessly (DEC-080/081 posture).
     /// </summary>
     public const string SavedReviewRetrying =
-        "Saved your run. I couldn't review it against your plan just now — send it again and I'll pick it up.";
+        "Saved your run. I couldn't finish reviewing it against your plan just now. Check your plan again in a moment.";
 
     /// <summary>
     /// The ack when the plan adapted cleanly but the LLM ack generation itself failed. The log is

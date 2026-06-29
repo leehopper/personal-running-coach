@@ -44,13 +44,22 @@ internal sealed class AuthorizeOperationFilter : IOperationFilter
         // bound to the host `OpenApiDocument` (the second constructor argument) so
         // the serializer can resolve the scheme name from the document's
         // `components/securitySchemes` section and emit the expected
-        // `{"cookieAuth": [], "bearerAuth": []}` JSON shape. Without the host
-        // document, the reference cannot be resolved and serializes as `{}`.
+        // `{"cookieAuth": []}` JSON shape. Without the host document, the reference
+        // cannot be resolved and serializes as `{}`.
+        //
+        // The endpoints satisfy the `CookieOrBearer` policy — EITHER scheme is
+        // sufficient. In OpenAPI, schemes listed inside ONE requirement object are
+        // AND-ed, while SEPARATE requirement objects are OR-ed. Emit two distinct
+        // requirements so generated clients model cookie-or-bearer correctly rather
+        // than treating both as mandatory.
         var document = context.Document;
         operation.Security ??= new List<OpenApiSecurityRequirement>();
         operation.Security.Add(new OpenApiSecurityRequirement
         {
             [new OpenApiSecuritySchemeReference("cookieAuth", document)] = [],
+        });
+        operation.Security.Add(new OpenApiSecurityRequirement
+        {
             [new OpenApiSecuritySchemeReference("bearerAuth", document)] = [],
         });
     }

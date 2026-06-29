@@ -412,7 +412,7 @@ public sealed class ConfirmConversationalLogEndpointIntegrationTests : DbBackedI
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/register");
         request.Headers.Add(AuthCookieNames.AntiforgeryHeader, token);
         request.Content = JsonContent.Create(new RegisterRequestDto(email, password));
-        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.Created, because: "register helper must succeed");
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
@@ -426,7 +426,7 @@ public sealed class ConfirmConversationalLogEndpointIntegrationTests : DbBackedI
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login");
         request.Headers.Add(AuthCookieNames.AntiforgeryHeader, token);
         request.Content = JsonContent.Create(new LoginRequestDto(email, password));
-        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK, because: "login helper must succeed");
     }
 

@@ -941,8 +941,8 @@ public sealed partial class ContextAssembler : IContextAssembler
         sb.AppendLine("ACKNOWLEDGMENT REQUEST");
         sb.AppendLine();
         sb.AppendLine(
-            "The runner just confirmed and logged this workout, and your deterministic review has "
-            + "already updated their plan. Write a brief spoken acknowledgment in your coaching voice.");
+            "The runner just confirmed and logged this workout, and your deterministic review is "
+            + "complete. Write a brief spoken acknowledgment in your coaching voice.");
         sb.AppendLine();
         sb.AppendLine("=== LOGGED WORKOUT ===");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Date: {draft.OccurredOn:yyyy-MM-dd}");
@@ -964,7 +964,7 @@ public sealed partial class ContextAssembler : IContextAssembler
         sb.AppendLine("=== INSTRUCTIONS ===");
         sb.AppendLine("- One or two sentences. No greeting, no sign-off.");
         sb.AppendLine("- Name what they ran. If a note is present, acknowledge it plainly.");
-        sb.AppendLine("- State the outcome above in plain terms and point them at their plan for the details.");
+        sb.AppendLine("- State the outcome above in plain terms. If the outcome changed the plan, point them at their plan for the details.");
         sb.Append("- Do not invent or restate the specific workout changes — the plan view shows the exact change.");
 
         return sb.ToString();

@@ -308,7 +308,7 @@ public sealed partial class ConversationController(
             return Problem(
                 type: InvalidConfirmType,
                 title: "The confirmed workout draft is invalid.",
-                detail: ex.Message,
+                detail: "One or more confirmed workout fields are outside the supported range.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
     }

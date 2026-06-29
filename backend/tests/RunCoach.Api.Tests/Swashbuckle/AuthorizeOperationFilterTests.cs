@@ -33,15 +33,16 @@ public sealed class AuthorizeOperationFilterTests
         // Act
         _sut.Apply(operation, context);
 
-        // Assert
+        // Assert — the CookieOrBearer policy is OR semantics, so each scheme is emitted as its
+        // OWN requirement object (separate objects are OR-ed; schemes within one object are AND-ed).
         operation.Security.Should().NotBeNullOrEmpty();
-        operation.Security.Should().HaveCount(1);
+        operation.Security.Should().HaveCount(2);
 
-        var requirement = operation.Security[0];
-        requirement.Keys
-            .Select(k => k.Reference.Id)
+        operation.Security
+            .Select(requirement => requirement.Keys.Single().Reference.Id)
             .Should().BeEquivalentTo("cookieAuth", "bearerAuth");
-        requirement.Values.Should().AllSatisfy(scopes => scopes.Should().BeEmpty());
+        operation.Security.Should().AllSatisfy(requirement =>
+            requirement.Values.Should().AllSatisfy(scopes => scopes.Should().BeEmpty()));
     }
 
     [Fact]
