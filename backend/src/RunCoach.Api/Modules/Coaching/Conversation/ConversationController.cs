@@ -30,11 +30,13 @@ public sealed partial class ConversationController(
     IDocumentStore store,
     RunCoachDbContext db,
     IConversationStreamService streamService,
+    IConfirmConversationalLogService confirmService,
     IOptions<Microsoft.AspNetCore.Mvc.JsonOptions> jsonOptions,
     ILogger<ConversationController> logger) : ControllerBase
 {
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
     private const string InvalidMessageType = "https://runcoach.app/problems/invalid-conversation-message";
+    private const string InvalidConfirmType = "https://runcoach.app/problems/invalid-conversation-log-confirm";
 
     /// <summary>GET /api/v1/conversation/turns — read the runner's adaptation + safety turns, newest-first.</summary>
     /// <param name="ct">Request cancellation token.</param>
@@ -253,6 +255,64 @@ public sealed partial class ConversationController(
         return new EmptyResult();
     }
 
+    /// <summary>
+    /// POST /api/v1/conversation/logs/confirm — the confirm-then-commit endpoint (Slice 4B PR5,
+    /// DEC-085 D4). Commits the runner's explicitly-confirmed workout draft through the unchanged
+    /// Slice 2b create path + the identical post-create adaptation seam, then persists a single
+    /// coach acknowledgment turn on the user's conversation stream. A plain JSON mutation (not SSE):
+    /// the ack and any proactive adaptation/safety turns surface via the timeline + plan read
+    /// models, which the frontend refetches by invalidating its query tags. A mutation ⇒
+    /// antiforgery-protected. An adaptation failure never fails the save — it rides the envelope.
+    /// </summary>
+    /// <param name="request">The confirmed draft + the card's client message id.</param>
+    /// <param name="ct">Request cancellation token.</param>
+    /// <returns>200 with the committed log id + adaptation envelope; 400 on an invalid draft or empty client id; 401 when the user claim is missing.</returns>
+    [HttpPost("logs/confirm")]
+    [RequireAntiforgeryToken]
+    [ProducesResponseType(typeof(ConfirmConversationalLogResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ConfirmLog(
+        [FromBody] ConfirmConversationalLogRequestDto request,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!TryGetUserId(out var userId))
+        {
+            return MissingUserClaim();
+        }
+
+        // JsonRequired enforces presence, not a non-default value. An all-zeros client id would
+        // collapse every confirm onto one derived (EF key, coach-turn id) pair — reject it at the
+        // boundary, mirroring the messages endpoint and WorkoutLogsController.CreateLog.
+        if (request.ClientMessageId == Guid.Empty)
+        {
+            return Problem(
+                type: InvalidConfirmType,
+                title: "The confirmation must carry a non-empty client message id.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        try
+        {
+            var response = await confirmService.ConfirmAsync(userId, request, ct);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            // A domain-invariant violation surfacing from value-object construction (a negative
+            // distance/duration in the confirmed draft) is a 400, not a 500 — scoped to the create
+            // mapping, the same boundary WorkoutLogsController.CreateLog enforces. Nothing committed.
+            LogConfirmRejectedInvalid(logger, userId, ex);
+            return Problem(
+                type: InvalidConfirmType,
+                title: "The confirmed workout draft is invalid.",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+    }
+
     private static ConversationTurnDto MapTurn(ConversationTurnView turn) =>
         new(
             turn.TriggeringPlanEventId,
@@ -301,6 +361,12 @@ public sealed partial class ConversationController(
         Level = LogLevel.Warning,
         Message = "Failed to write the best-effort error frame for user {UserId}; the SSE stream was already broken")]
     private static partial void LogErrorFrameWriteFailed(ILogger logger, Guid userId, Exception ex);
+
+    [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Information,
+        Message = "Conversational log confirm rejected as invalid for user {UserId}.")]
+    private static partial void LogConfirmRejectedInvalid(ILogger logger, Guid userId, Exception ex);
 
     private bool TryGetUserId(out Guid userId)
     {

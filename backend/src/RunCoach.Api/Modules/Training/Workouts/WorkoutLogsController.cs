@@ -1,6 +1,4 @@
 using System.Security.Claims;
-using JasperFx;
-using JasperFx.Events;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +6,6 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Adaptation;
 using RunCoach.Api.Modules.Training.Adaptation;
-using Wolverine;
 
 namespace RunCoach.Api.Modules.Training.Workouts;
 
@@ -24,7 +21,7 @@ namespace RunCoach.Api.Modules.Training.Workouts;
 [Authorize(Policy = AuthPolicies.CookieOrBearer)]
 public sealed partial class WorkoutLogsController(
     IWorkoutLogService service,
-    IMessageBus bus,
+    IAdaptationEvaluationDispatcher adaptationDispatcher,
     ILogger<WorkoutLogsController> logger) : ControllerBase
 {
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
@@ -125,8 +122,9 @@ public sealed partial class WorkoutLogsController(
         // EXISTING log id. The handler's WorkoutLogId-keyed idempotency marker
         // makes a re-dispatch for an already-evaluated log a designed no-op,
         // and a marker miss (crash before the Marten commit) lets the replayed
-        // create recover the missing evaluation.
-        var adaptation = await EvaluateAdaptationAsync(workoutLogId, userId, ct);
+        // create recover the missing evaluation. The shared dispatcher owns the
+        // lost-race-to-Kind=Error mapping (Slice 4B reuses the identical seam).
+        var adaptation = await adaptationDispatcher.EvaluateAsync(workoutLogId, userId, ct);
 
         return Created(
             $"/api/v1/workouts/logs/{workoutLogId}",
@@ -200,12 +198,6 @@ public sealed partial class WorkoutLogsController(
 
     [LoggerMessage(
         Level = LogLevel.Warning,
-        Message = "Adaptation evaluation conflicted after bounded retries for workout log {WorkoutLogId}, user {UserId}; create still answers 201 with a retryable error envelope.")]
-    private static partial void LogAdaptationDispatchConflicted(
-        ILogger logger, Guid workoutLogId, Guid userId, Exception exception);
-
-    [LoggerMessage(
-        Level = LogLevel.Warning,
         Message = "Workout log query rejected: authenticated user id claim was missing or malformed.")]
     private static partial void LogQueryRejectedMissingUser(ILogger logger);
 
@@ -213,61 +205,6 @@ public sealed partial class WorkoutLogsController(
         Level = LogLevel.Information,
         Message = "Workout log query rejected for user {UserId}: the supplied cursor was malformed.")]
     private static partial void LogQueryRejectedInvalidCursor(ILogger logger, Guid userId);
-
-    /// <summary>
-    /// Synchronously evaluates the just-committed log for plan adaptation via the
-    /// Wolverine inline pipeline. <c>InvokeForTenantAsync</c> sets the user id as
-    /// Marten's conjoined tenant on the handler's auto-applied
-    /// <c>IDocumentSession</c> — without it the handler's session has no TenantId
-    /// and its multi-tenant document loads fail to resolve.
-    /// </summary>
-    private async Task<AdaptationResponseDto> EvaluateAdaptationAsync(
-        Guid workoutLogId,
-        Guid userId,
-        CancellationToken ct)
-    {
-        try
-        {
-            return await bus.InvokeForTenantAsync<AdaptationResponseDto>(
-                userId.ToString(),
-                new EvaluateAdaptationCommand(workoutLogId, userId),
-                ct);
-        }
-        catch (Exception ex) when (
-            ex is EventStreamUnexpectedMaxEventIdException or DocumentAlreadyExistsException)
-        {
-            // A lost adaptation race a bounded number of retries could not resolve
-            // escapes here. The log row is already committed, so the create must
-            // still answer 201 — the conflict maps to a generic retryable
-            // Kind=Error envelope instead of a 5xx, and the client's "try again"
-            // replays the winner's committed adaptation via the idempotency marker.
-            //
-            // Two surfaces are caught, both meaning "the other evaluation won":
-            // - `EventStreamUnexpectedMaxEventIdException` (a `JasperFx.ConcurrencyException`):
-            //   the event-appending paths' lost Rich-append-mode race — Marten
-            //   transforms the loser's (stream id, version) unique violation into
-            //   this type. The chain-scoped retry normally replays the winner's
-            //   marker instead, so this only fires when the conflict outlives the
-            //   bounded retries.
-            // - `DocumentAlreadyExistsException`: the marker-only paths (off-plan
-            //   no-op, L0 absorb, Red short-circuit) stage just the WorkoutLogId-keyed
-            //   marker; a concurrent duplicate's `Insert` loses the race and surfaces
-            //   this. It is NOT retried by the chain rule (keyed solely on the
-            //   stream-version exception), so it would otherwise 5xx the create.
-            //
-            // `Marten.Exceptions.ConcurrentUpdateException` is deliberately NOT
-            // caught: the signal-state document has no optimistic concurrency (its
-            // Store is last-write-wins), so that surface is unreachable for this
-            // command — a catch for it would be dead code.
-            LogAdaptationDispatchConflicted(logger, workoutLogId, userId, ex);
-            return new AdaptationResponseDto
-            {
-                Kind = AdaptationResponseKind.Error,
-                ErrorMessage = "Your workout was saved, but your coach could not review it just now. Submitting the same log again will retry the review.",
-                Retryable = true,
-            };
-        }
-    }
 
     private bool TryGetUserId(out Guid userId)
     {

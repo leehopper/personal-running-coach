@@ -44,6 +44,8 @@ public sealed class StubCoachingLlm : ICoachingLlm
     private static int _structuredCallCount;
     private static Func<CancellationToken, IAsyncEnumerable<string>>? _streamBehavior;
     private static int _streamCallCount;
+    private static Func<string>? _generateBehavior;
+    private static int _generateCallCount;
 
     /// <summary>
     /// Gets the number of structured-output calls made since the last
@@ -60,6 +62,14 @@ public sealed class StubCoachingLlm : ICoachingLlm
     public static int StreamCallCount => Volatile.Read(ref _streamCallCount);
 
     /// <summary>
+    /// Gets the number of free-text <see cref="GenerateAsync"/> calls made since the last
+    /// <see cref="Reset"/>. The Slice 4B confirm-then-commit ack is the first integration flow to
+    /// use it; tests assert exactly <c>1</c> on the LLM-ack path and <c>0</c> on the scripted-ack
+    /// (Kind=Error) path.
+    /// </summary>
+    public static int GenerateCallCount => Volatile.Read(ref _generateCallCount);
+
+    /// <summary>
     /// Clears the scripted behavior and zeroes the call counter. Call from test
     /// setup/dispose so one test's script never leaks into the next.
     /// </summary>
@@ -69,6 +79,20 @@ public sealed class StubCoachingLlm : ICoachingLlm
         Interlocked.Exchange(ref _structuredCallCount, 0);
         Volatile.Write(ref _streamBehavior, null);
         Interlocked.Exchange(ref _streamCallCount, 0);
+        Volatile.Write(ref _generateBehavior, null);
+        Interlocked.Exchange(ref _generateCallCount, 0);
+    }
+
+    /// <summary>
+    /// Scripts the next free-text <see cref="GenerateAsync"/> call (Slice 4B confirm-then-commit
+    /// ack): the delegate runs once per call and either returns the ack text or throws a
+    /// <see cref="CoachingLlmException"/> to exercise the scripted-fallback path.
+    /// </summary>
+    /// <param name="behavior">The per-call free-text behavior delegate.</param>
+    public static void UseGenerateBehavior(Func<string> behavior)
+    {
+        ArgumentNullException.ThrowIfNull(behavior);
+        Volatile.Write(ref _generateBehavior, behavior);
     }
 
     /// <summary>
@@ -101,10 +125,21 @@ public sealed class StubCoachingLlm : ICoachingLlm
     }
 
     /// <inheritdoc />
-    public Task<string> GenerateAsync(string systemPrompt, string userMessage, CancellationToken ct) =>
-        throw new InvalidOperationException(
-            "StubCoachingLlm.GenerateAsync was called: no integration-tier flow scripts free-text "
-            + "generation. Script the structured surface instead, or move the coverage to the eval tier.");
+    public Task<string> GenerateAsync(string systemPrompt, string userMessage, CancellationToken ct)
+    {
+        Interlocked.Increment(ref _generateCallCount);
+
+        var behavior = Volatile.Read(ref _generateBehavior)
+            ?? throw new InvalidOperationException(
+                "StubCoachingLlm received an unscripted free-text GenerateAsync call. The Slice 4B "
+                + "confirm ack is the first integration flow to use it — script the text via "
+                + "StubCoachingLlm.UseGenerateBehavior(...) in the test arrange, or fix the flow under "
+                + "test if no free-text generation was expected. Voice coverage lives in the eval tier.");
+
+        // The delegate may throw a CoachingLlmException to exercise the ack's scripted-fallback
+        // path; anything it throws propagates exactly as the production adapter's failures would.
+        return Task.FromResult(behavior());
+    }
 
     /// <inheritdoc />
     public IAsyncEnumerable<string> StreamAsync(string systemPrompt, string userMessage, CancellationToken ct)

@@ -193,6 +193,27 @@ public interface IContextAssembler
         CancellationToken ct = default);
 
     /// <summary>
+    /// Composes the system prompt + user message for the short acknowledgment turn the coach
+    /// streams after a conversational-logging confirm commits its log and the adaptation has
+    /// run (Slice 4B PR5 / DEC-085). Reuses <c>coaching-system.v1</c> (the gruff-direct register
+    /// re-tuned in Slice 4A — no further prompt re-tune) so the ack inherits the voice lock. The
+    /// user message renders the deterministic logged-run facts (date, runner-stated distance,
+    /// duration, completion), the adaptation outcome cue for <paramref name="outcome"/>, and the
+    /// runner's note when present — sanitized + spotlight-wrapped via the DEC-059 sanitizer (this
+    /// assembler is the single sanitization owner). The instruction forbids inventing the specific
+    /// plan change: the deterministic plan diff is authoritative and rendered separately on the
+    /// plan timeline, so the ack points at the plan rather than restating the change.
+    /// </summary>
+    /// <param name="loggedDraft">The confirmed workout draft just committed; supplies the run facts and the optional note.</param>
+    /// <param name="outcome">The plan-change kind the deterministic adaptation resolved, driving the outcome cue.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The composed ack prompt — system + user message + sanitization audit trail.</returns>
+    Task<AckPromptComposition> ComposeForAckAsync(
+        StructuredLogDraft loggedDraft,
+        AdaptationKind outcome,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Estimates the token count for a given text using the character ratio method
     /// (characters / 4 with a 10% safety margin).
     /// </summary>

@@ -33,6 +33,15 @@ public static class ConversationTurnId
     // the coach namespace — arbitrary but stable; never change it.
     private static readonly Guid SafetyTurnNamespace = new("3a8c5e1d-6f29-4b7a-8d3c-9e1f2a4b6c8d");
 
+    // A third fixed namespace for the EF-row idempotency key the confirm-then-commit
+    // path derives from the card's client message id (Slice 4B PR5). The confirm flow
+    // keys THREE distinct idempotency mechanisms off the same client id — the EF
+    // `WorkoutLog` row (this key, DEC-077), the adaptation evaluation (its own
+    // `WorkoutLogId` marker), and the streamed ack coach turn (the coach namespace) —
+    // so this must occupy its own namespace or a double-confirm would conflate the
+    // markers. Arbitrary but stable; never change it.
+    private static readonly Guid WorkoutLogIdempotencyNamespace = new("5e2b8d4c-1f37-4a6d-9c8b-0a2e4f6d8c1b");
+
     /// <summary>Derives the deterministic coach-turn id for a given user-turn client message id.</summary>
     /// <param name="clientMessageId">The user turn's client-generated message id.</param>
     /// <returns>A stable, well-formed GUID distinct from <paramref name="clientMessageId"/>.</returns>
@@ -50,6 +59,18 @@ public static class ConversationTurnId
     /// <returns>A stable, well-formed GUID distinct from both <paramref name="clientMessageId"/> and <see cref="DeriveCoachTurnId"/>.</returns>
     public static Guid DeriveSafetyTurnId(Guid clientMessageId) =>
         DeriveTurnId(SafetyTurnNamespace, clientMessageId);
+
+    /// <summary>
+    /// Derives the deterministic EF-row idempotency key (DEC-077) for the workout log a
+    /// confirm-then-commit request commits (Slice 4B PR5). Idempotent on the card's client
+    /// message id so a double-confirm replays the same key and commits exactly one
+    /// <c>WorkoutLog</c>; by using a namespace distinct from the coach/safety turn ids it
+    /// never collides with the ack coach turn derived from the same client id.
+    /// </summary>
+    /// <param name="clientMessageId">The confirmed card's client-generated message id.</param>
+    /// <returns>A stable, well-formed GUID distinct from <paramref name="clientMessageId"/>, <see cref="DeriveCoachTurnId"/>, and <see cref="DeriveSafetyTurnId"/>.</returns>
+    public static Guid DeriveWorkoutLogIdempotencyKey(Guid clientMessageId) =>
+        DeriveTurnId(WorkoutLogIdempotencyNamespace, clientMessageId);
 
     private static Guid DeriveTurnId(Guid turnNamespace, Guid clientMessageId)
     {
