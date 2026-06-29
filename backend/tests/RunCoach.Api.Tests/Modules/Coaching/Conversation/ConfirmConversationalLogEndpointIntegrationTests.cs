@@ -279,6 +279,25 @@ public sealed class ConfirmConversationalLogEndpointIntegrationTests : DbBackedI
         StubCoachingLlm.GenerateCallCount.Should().Be(0, because: "the boundary rejects before any commit or ack");
     }
 
+    [Fact]
+    public async Task Confirm_OutOfRangeDraft_IsRejectedWith400_AndCommitsNoLog()
+    {
+        // Arrange — a negative distance violates the workout value-object invariant, surfacing as an
+        // ArgumentException from the create mapping (the same boundary WorkoutLogsController.CreateLog
+        // enforces). Mirrors the form-logged endpoint's DistanceMeters = -1.0 -> 400 coverage.
+        var ct = TestContext.Current.CancellationToken;
+        var (client, userId, token) = await RegisterLoginAndPrimeAsync();
+
+        // Act
+        using var response = await PostConfirmAsync(client, token, NegativeDistanceDraft(), Guid.NewGuid(), ct);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+        (await CountWorkoutLogsAsync(userId)).Should().Be(0, because: "an invalid draft commits nothing");
+        StubCoachingLlm.GenerateCallCount.Should().Be(0, because: "the create rejects before any ack");
+    }
+
     /// <inheritdoc />
     public override async ValueTask DisposeAsync()
     {
@@ -325,6 +344,20 @@ public sealed class ConfirmConversationalLogEndpointIntegrationTests : DbBackedI
         DurationMinutes = 0,
         DurationSeconds = 0,
         CompletionStatus = CompletionStatus.Skipped,
+        Notes = null,
+    };
+
+    // A negative distance is out of range for the workout value object — the create path throws an
+    // ArgumentException the controller maps to a 400, with nothing committed.
+    private static StructuredLogDraft NegativeDistanceDraft() => new()
+    {
+        OccurredOn = OffPlanDay,
+        DistanceValue = -1,
+        DistanceUnit = RunnerDistanceUnit.Kilometers,
+        DurationHours = 0,
+        DurationMinutes = 30,
+        DurationSeconds = 0,
+        CompletionStatus = CompletionStatus.Complete,
         Notes = null,
     };
 

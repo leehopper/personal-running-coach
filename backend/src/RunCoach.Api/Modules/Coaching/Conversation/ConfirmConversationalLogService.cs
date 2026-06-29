@@ -56,6 +56,11 @@ public sealed partial class ConfirmConversationalLogService(
 
     [LoggerMessage(
         Level = LogLevel.Warning,
+        Message = "Composing the acknowledgment turn failed for user {UserId} after the log committed and adapted; the confirm still succeeds and the ack recovers on a re-confirm.")]
+    private static partial void LogAckCompositionFailed(ILogger logger, Guid userId, Exception exception);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
         Message = "Persisting the acknowledgment turn failed for user {UserId} after the log committed and adapted; the confirm still succeeds and the ack recovers on a re-confirm.")]
     private static partial void LogAckPersistenceFailed(ILogger logger, Guid userId, Exception exception);
 
@@ -65,15 +70,26 @@ public sealed partial class ConfirmConversationalLogService(
         AdaptationResponseDto adaptation,
         CancellationToken ct)
     {
-        // The log committed and the adaptation already ran; the ack is best-effort. A failure
-        // composing or appending it (a prompt-store I/O blip, a transient Marten/Npgsql append
-        // error) must NOT fail the confirm — the committed log always wins (the contract). It is
-        // recovered on a re-confirm: the idempotent create + adaptation replay, then a fresh ack.
-        // A genuine client abort (OperationCanceledException) is excluded so it still surfaces.
+        // The log committed and the adaptation already ran; the ack is best-effort. Neither a
+        // composition failure nor a persistence failure may fail the confirm — the committed log
+        // always wins (the contract), and both recover on a re-confirm (the idempotent create +
+        // adaptation replay, then a fresh ack). A client abort (OperationCanceledException) is
+        // excluded throughout so it still surfaces. The two phases are caught separately so the
+        // diagnostic names the layer that actually failed: a non-LLM compose fault (a prompt-store
+        // I/O blip, an unexpected InvalidOperationException) is distinct from a Marten/Npgsql append.
+        string ackContent;
         try
         {
-            var ackContent = await ComposeAckContentAsync(request.Draft, adaptation, ct).ConfigureAwait(false);
+            ackContent = await ComposeAckContentAsync(request.Draft, adaptation, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogAckCompositionFailed(logger, userId, ex);
+            return;
+        }
 
+        try
+        {
             // Idempotent on the server-derived coach turn id (DeriveCoachTurnId(clientMessageId)) —
             // a re-confirm re-derives the same id and the append short-circuits.
             await bus.InvokeForTenantAsync<ConversationTurnPostedResponse>(

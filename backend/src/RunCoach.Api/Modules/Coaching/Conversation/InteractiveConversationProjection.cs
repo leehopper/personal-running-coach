@@ -55,6 +55,27 @@ public sealed partial class InteractiveConversationProjection : SingleStreamProj
         return view;
     }
 
+    /// <summary>
+    /// Defensive create overload for a stream whose first event is a
+    /// <see cref="CoachMessagePosted"/>. The real product flow always persists
+    /// <see cref="UserMessagePosted"/> durable-first, so a coach-first stream is unreachable today;
+    /// this overload exists only so a non-conforming client (or a future first-class consumer that
+    /// POSTs a confirm ack before any message) seeds <see cref="ConversationView.UserId"/> from the
+    /// event rather than leaving it <see cref="System.Guid.Empty"/> on a projection rebuild.
+    /// </summary>
+    /// <param name="event">The stream-creation coach-message event with Marten metadata.</param>
+    /// <returns>The initial <see cref="ConversationView"/> for the stream.</returns>
+    public static ConversationView Create(IEvent<CoachMessagePosted> @event)
+    {
+        var view = new ConversationView
+        {
+            Id = @event.Data.UserId,
+            UserId = @event.Data.UserId,
+        };
+        Upsert(view, InteractiveTurnView.FromCoach(@event));
+        return view;
+    }
+
     /// <summary>Appends a runner-authored turn for a subsequent <see cref="UserMessagePosted"/> event.</summary>
     /// <param name="event">The user-message event with Marten metadata.</param>
     /// <param name="view">The conversation view being mutated.</param>
