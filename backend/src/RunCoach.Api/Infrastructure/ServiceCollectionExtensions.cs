@@ -79,6 +79,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWorkoutLogRepository, WorkoutLogRepository>();
         services.AddScoped<IWorkoutLogService, WorkoutLogService>();
 
+        // Shared post-create adaptation seam (Slice 3 § Unit 5 / DEC-073) — dispatches
+        // EvaluateAdaptationCommand under the user tenant and maps the two lost-race surfaces
+        // to a retryable Kind=Error envelope. Reused verbatim by the form-logged create path and
+        // the Slice 4B conversational-logging confirm path (scoped, consumes IMessageBus).
+        services.AddScoped<IAdaptationEvaluationDispatcher, AdaptationEvaluationDispatcher>();
+
         // Coaching module — prompt store is singleton (caches templates for app lifetime).
         services.AddSingleton<IPromptStore, YamlPromptStore>();
 
@@ -111,6 +117,12 @@ public static class ServiceCollectionExtensions
             configuration.GetSection(ConversationStreamOptions.SectionName));
         services.AddScoped<IConversationContextLoader, ConversationContextLoader>();
         services.AddScoped<IConversationStreamService, ConversationStreamService>();
+
+        // Conversational-logging confirm-then-commit orchestrator (Slice 4B PR5 / DEC-085 D4) —
+        // maps the confirmed draft onto the unchanged create path, runs the identical adaptation
+        // seam, and persists the coach ack turn afterward. Scoped (consumes the scoped create
+        // service + adaptation dispatcher + IMessageBus).
+        services.AddScoped<IConfirmConversationalLogService, ConfirmConversationalLogService>();
 
         // Prompt-injection sanitizer (Slice 1 § Unit 6 / DEC-059 / R-068).
         // Stateless layered sanitizer — singleton-safe; the pattern catalog

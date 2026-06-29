@@ -68,6 +68,16 @@ const injectedRtkApi = api.injectEndpoints({
         body: queryArg.conversationMessageRequestDto,
       }),
     }),
+    postApiV1ConversationLogsConfirm: build.mutation<
+      PostApiV1ConversationLogsConfirmApiResponse,
+      PostApiV1ConversationLogsConfirmApiArg
+    >({
+      query: (queryArg) => ({
+        url: `/api/v1/conversation/logs/confirm`,
+        method: 'POST',
+        body: queryArg.confirmConversationalLogRequestDto,
+      }),
+    }),
     postApiV1OnboardingTurns: build.mutation<
       PostApiV1OnboardingTurnsApiResponse,
       PostApiV1OnboardingTurnsApiArg
@@ -156,6 +166,11 @@ export type GetApiV1ConversationTimelineApiArg = void
 export type PostApiV1ConversationMessagesApiResponse = /** status 200 OK */ string
 export type PostApiV1ConversationMessagesApiArg = {
   conversationMessageRequestDto: ConversationMessageRequestDto
+}
+export type PostApiV1ConversationLogsConfirmApiResponse =
+  /** status 200 OK */ ConfirmConversationalLogResponseDto
+export type PostApiV1ConversationLogsConfirmApiArg = {
+  confirmConversationalLogRequestDto: ConfirmConversationalLogRequestDto
 }
 export type PostApiV1OnboardingTurnsApiResponse = /** status 200 OK */ OnboardingTurnResponseDto
 export type PostApiV1OnboardingTurnsApiArg = {
@@ -324,6 +339,40 @@ export type ConversationTimelineDto = {
 }
 export type ConversationMessageRequestDto = {
   message: string
+  clientMessageId: string
+}
+export type AdaptationResponseKind = 0 | 1
+export type AdaptationResponseDto = {
+  kind: AdaptationResponseKind
+  adaptationKind: AdaptationKind
+  errorMessage?: string | null
+  retryable: boolean
+  retryAfterSeconds?: number | null
+}
+export type ConfirmConversationalLogResponseDto = {
+  workoutLogId: string
+  adaptation: AdaptationResponseDto
+}
+export type RunnerDistanceUnit = 0 | 1 | 2
+export type CompletionStatus = 0 | 1 | 2
+export type StructuredLogDraft = {
+  /** The calendar date the workout occurred on, as an ISO-8601 date (YYYY-MM-DD), resolved against today's date for relative references like "this morning" or "yesterday". */
+  occurredOn: string
+  /** The distance the runner stated, as a number in the unit named by distance_unit. Report exactly what the runner said (e.g. 5 for "5 km", 3.1 for "3.1 miles"). Do not convert units yourself. */
+  distanceValue: number
+  distanceUnit: RunnerDistanceUnit
+  /** The whole hours of the run's elapsed time (0 if under an hour). Report the components the runner stated; do not convert to seconds. */
+  durationHours: number
+  /** The whole minutes of the run's elapsed time, 0 to 59 (e.g. 25 for "25 minutes", 30 for "1 hour 30 minutes"). */
+  durationMinutes: number
+  /** The whole seconds of the run's elapsed time, 0 to 59 (e.g. 30 for "22:30"). Use 0 when the runner gave no seconds. */
+  durationSeconds: number
+  completionStatus: CompletionStatus
+  /** Any free-text note the runner included about how it felt or went (e.g. "legs felt heavy"). Null when there is none. */
+  notes: string | null
+}
+export type ConfirmConversationalLogRequestDto = {
+  draft: StructuredLogDraft
   clientMessageId: string
 }
 export type OnboardingTurnKind = 0 | 1 | 2
@@ -523,19 +572,10 @@ export type RegeneratePlanRequestDto = {
   idempotencyKey: string
   intent: RegenerationIntentRequestDto
 }
-export type AdaptationResponseKind = 0 | 1
-export type AdaptationResponseDto = {
-  kind: AdaptationResponseKind
-  adaptationKind: AdaptationKind
-  errorMessage?: string | null
-  retryable: boolean
-  retryAfterSeconds?: number | null
-}
 export type CreateWorkoutLogResponseDto = {
   workoutLogId: string
   adaptation: AdaptationResponseDto
 }
-export type CompletionStatus = 0 | 1 | 2
 export type WorkoutLogSplitDto = {
   index: number
   distanceMeters: number
@@ -585,6 +625,7 @@ export const {
   useGetApiV1ConversationTurnsQuery,
   useGetApiV1ConversationTimelineQuery,
   usePostApiV1ConversationMessagesMutation,
+  usePostApiV1ConversationLogsConfirmMutation,
   usePostApiV1OnboardingTurnsMutation,
   useGetApiV1OnboardingStateQuery,
   usePostApiV1OnboardingAnswersReviseMutation,

@@ -222,7 +222,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -260,7 +262,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -357,7 +361,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -412,7 +418,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -467,7 +475,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -551,7 +561,105 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
+    "/api/v1/conversation/logs/confirm": {
+      "post": {
+        "tags": [
+          "Conversation"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmConversationalLogRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmConversationalLogRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmConversationalLogRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmConversationalLogResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmConversationalLogResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmConversationalLogResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -645,7 +753,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -700,7 +810,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -774,7 +886,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -849,7 +963,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -963,7 +1079,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -1057,7 +1175,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -1151,7 +1271,9 @@
         },
         "security": [
           {
-            "cookieAuth": [ ],
+            "cookieAuth": [ ]
+          },
+          {
             "bearerAuth": [ ]
           }
         ]
@@ -1289,6 +1411,40 @@
         ],
         "type": "integer",
         "format": "int32"
+      },
+      "ConfirmConversationalLogRequestDto": {
+        "required": [
+          "clientMessageId",
+          "draft"
+        ],
+        "type": "object",
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/StructuredLogDraft"
+          },
+          "clientMessageId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConfirmConversationalLogResponseDto": {
+        "required": [
+          "adaptation",
+          "workoutLogId"
+        ],
+        "type": "object",
+        "properties": {
+          "workoutLogId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "adaptation": {
+            "$ref": "#/components/schemas/AdaptationResponseDto"
+          }
+        },
+        "additionalProperties": false
       },
       "ConversationMessageRequestDto": {
         "required": [
@@ -2301,6 +2457,15 @@
         },
         "additionalProperties": false
       },
+      "RunnerDistanceUnit": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "SafetyTier": {
         "enum": [
           0,
@@ -2318,6 +2483,58 @@
           "Cooldown"
         ],
         "type": "string"
+      },
+      "StructuredLogDraft": {
+        "required": [
+          "completionStatus",
+          "distanceUnit",
+          "distanceValue",
+          "durationHours",
+          "durationMinutes",
+          "durationSeconds",
+          "notes",
+          "occurredOn"
+        ],
+        "type": "object",
+        "properties": {
+          "occurredOn": {
+            "type": "string",
+            "description": "The calendar date the workout occurred on, as an ISO-8601 date (YYYY-MM-DD), resolved against today's date for relative references like \"this morning\" or \"yesterday\".",
+            "format": "date"
+          },
+          "distanceValue": {
+            "type": "number",
+            "description": "The distance the runner stated, as a number in the unit named by distance_unit. Report exactly what the runner said (e.g. 5 for \"5 km\", 3.1 for \"3.1 miles\"). Do not convert units yourself.",
+            "format": "double"
+          },
+          "distanceUnit": {
+            "$ref": "#/components/schemas/RunnerDistanceUnit"
+          },
+          "durationHours": {
+            "type": "integer",
+            "description": "The whole hours of the run's elapsed time (0 if under an hour). Report the components the runner stated; do not convert to seconds.",
+            "format": "int32"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "description": "The whole minutes of the run's elapsed time, 0 to 59 (e.g. 25 for \"25 minutes\", 30 for \"1 hour 30 minutes\").",
+            "format": "int32"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "description": "The whole seconds of the run's elapsed time, 0 to 59 (e.g. 30 for \"22:30\"). Use 0 when the runner gave no seconds.",
+            "format": "int32"
+          },
+          "completionStatus": {
+            "$ref": "#/components/schemas/CompletionStatus"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Any free-text note the runner included about how it felt or went (e.g. \"legs felt heavy\"). Null when there is none.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "SuggestedInputType": {
         "enum": [

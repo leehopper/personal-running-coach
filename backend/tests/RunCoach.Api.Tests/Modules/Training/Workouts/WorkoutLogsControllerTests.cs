@@ -1,8 +1,5 @@
-using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using FluentAssertions;
-using JasperFx;
-using JasperFx.Events;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -11,44 +8,40 @@ using NSubstitute;
 using RunCoach.Api.Modules.Coaching.Adaptation;
 using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Workouts;
-using Wolverine;
 
 namespace RunCoach.Api.Tests.Modules.Training.Workouts;
 
 /// <summary>
 /// Unit tests for the <see cref="WorkoutLogsController.CreateLog"/> adaptation
-/// trigger boundary (Slice 3 § Unit 5): the synchronous post-commit
-/// <see cref="EvaluateAdaptationCommand"/> dispatch, the
+/// trigger boundary (Slice 3 § Unit 5): the synchronous post-commit adaptation
+/// dispatch via the shared <see cref="IAdaptationEvaluationDispatcher"/>, the
 /// <see cref="AdaptationResponseDto"/> envelope riding the 201 body, and the
-/// never-fail-the-create error semantics. Full end-to-end adaptation scenarios
-/// live in the integration suite; these tests pin the controller's wiring with
-/// substituted <see cref="IWorkoutLogService"/> + <see cref="IMessageBus"/>.
+/// never-fail-the-create error semantics. The lost-race-to-Kind=Error mapping now
+/// lives in (and is tested by) <see cref="Adaptation.AdaptationEvaluationDispatcherTests"/>;
+/// these tests pin the controller's wiring with substituted
+/// <see cref="IWorkoutLogService"/> + <see cref="IAdaptationEvaluationDispatcher"/>.
 /// </summary>
 public class WorkoutLogsControllerTests
 {
     [Fact]
-    public async Task CreateLog_DispatchesEvaluateAdaptation_AfterCreateCommits()
+    public async Task CreateLog_DispatchesAdaptation_AfterCreateCommits()
     {
         // Arrange
         var userId = Guid.NewGuid();
         var workoutLogId = Guid.NewGuid();
-        var (controller, service, bus) = CreateController(userId, workoutLogId);
+        var (controller, service, dispatcher) = CreateController(userId, workoutLogId);
         var request = ValidRequest();
         var ct = TestContext.Current.CancellationToken;
 
         // Act
         await controller.CreateLog(request, ct);
 
-        // Assert — the command carries the committed log id + user id, dispatched
-        // under the user's Marten tenant, strictly AFTER the EF create returned.
+        // Assert — adaptation is evaluated for the committed log id + user id, strictly
+        // AFTER the EF create returned.
         Received.InOrder(() =>
         {
             service.CreateAsync(userId, request, Arg.Any<CancellationToken>());
-            bus.InvokeForTenantAsync<AdaptationResponseDto>(
-                userId.ToString(),
-                new EvaluateAdaptationCommand(workoutLogId, userId),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<TimeSpan?>());
+            dispatcher.EvaluateAsync(workoutLogId, userId, Arg.Any<CancellationToken>());
         });
     }
 
@@ -65,7 +58,7 @@ public class WorkoutLogsControllerTests
         // Act
         var actual = await controller.CreateLog(ValidRequest(), ct);
 
-        // Assert — envelope passthrough: the handler's response surfaces verbatim.
+        // Assert — envelope passthrough: the dispatcher's response surfaces verbatim.
         var created = actual.Should().BeOfType<CreatedResult>().Subject;
         created.StatusCode.Should().Be(StatusCodes.Status201Created);
         created.Location.Should().Be($"/api/v1/workouts/logs/{workoutLogId}");
@@ -75,8 +68,8 @@ public class WorkoutLogsControllerTests
     [Fact]
     public async Task CreateLog_ErrorEnvelope_NeverFailsTheCreate()
     {
-        // Arrange — the handler already mapped a terminal coaching-LLM failure to
-        // Kind=Error (DEC-073); the create must still answer 201 with that envelope.
+        // Arrange — the dispatcher mapped a terminal failure (or lost race) to Kind=Error
+        // (DEC-073); the create must still answer 201 with that envelope.
         var userId = Guid.NewGuid();
         var workoutLogId = Guid.NewGuid();
         var errorEnvelope = new AdaptationResponseDto
@@ -99,74 +92,6 @@ public class WorkoutLogsControllerTests
     }
 
     [Fact]
-    public async Task CreateLog_ConcurrencyConflictEscapesDispatch_MapsToRetryableErrorEnvelope()
-    {
-        // Arrange — the one known failure shape that escapes the handler's bounded
-        // retries: the stream-version conflict a lost Rich-append-mode race
-        // actually throws (`EventStreamUnexpectedMaxEventIdException`, a
-        // `JasperFx.ConcurrencyException`). The log row is already committed, so
-        // the boundary maps it to a generic retryable Kind=Error envelope instead
-        // of a 5xx.
-        var userId = Guid.NewGuid();
-        var workoutLogId = Guid.NewGuid();
-        var (controller, _, bus) = CreateController(userId, workoutLogId);
-        bus.InvokeForTenantAsync<AdaptationResponseDto>(
-                Arg.Any<string>(), Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
-            .Returns<Task<AdaptationResponseDto>>(_ =>
-                throw new EventStreamUnexpectedMaxEventIdException(
-                    Guid.NewGuid(), aggregateType: null, expected: 12, actual: 13));
-        var ct = TestContext.Current.CancellationToken;
-
-        // Act
-        var actual = await controller.CreateLog(ValidRequest(), ct);
-
-        // Assert — still 201; the envelope reports the saved log + retryable error.
-        var created = actual.Should().BeOfType<CreatedResult>().Subject;
-        created.StatusCode.Should().Be(StatusCodes.Status201Created);
-        var body = created.Value.Should().BeOfType<CreateWorkoutLogResponseDto>().Subject;
-        body.WorkoutLogId.Should().Be(workoutLogId);
-        body.Adaptation.Kind.Should().Be(AdaptationResponseKind.Error);
-        body.Adaptation.Retryable.Should().BeTrue();
-        body.Adaptation.ErrorMessage.Should().NotBeNullOrWhiteSpace();
-        body.Adaptation.AdaptationKind.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task CreateLog_DuplicateMarkerConflictEscapesDispatch_MapsToRetryableErrorEnvelope()
-    {
-        // Arrange — the marker-only adaptation paths (off-plan no-op, L0 absorb, Red
-        // short-circuit) stage just the WorkoutLogId-keyed idempotency marker; a
-        // concurrent duplicate's Insert loses the race and surfaces
-        // DocumentAlreadyExistsException. The chain-scoped retry is keyed only on the
-        // stream-version conflict, so this surface escapes the dispatch — the create
-        // must still answer 201 with a retryable envelope rather than 5xx. (The
-        // instance is created without its constructor: only the catch's type match
-        // and the 201-envelope mapping are under test.)
-        var userId = Guid.NewGuid();
-        var workoutLogId = Guid.NewGuid();
-        var (controller, _, bus) = CreateController(userId, workoutLogId);
-        var conflict = (DocumentAlreadyExistsException)RuntimeHelpers.GetUninitializedObject(
-            typeof(DocumentAlreadyExistsException));
-        bus.InvokeForTenantAsync<AdaptationResponseDto>(
-                Arg.Any<string>(), Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
-            .Returns<Task<AdaptationResponseDto>>(_ => throw conflict);
-        var ct = TestContext.Current.CancellationToken;
-
-        // Act
-        var actual = await controller.CreateLog(ValidRequest(), ct);
-
-        // Assert — still 201; the envelope reports the saved log + retryable error.
-        var created = actual.Should().BeOfType<CreatedResult>().Subject;
-        created.StatusCode.Should().Be(StatusCodes.Status201Created);
-        var body = created.Value.Should().BeOfType<CreateWorkoutLogResponseDto>().Subject;
-        body.WorkoutLogId.Should().Be(workoutLogId);
-        body.Adaptation.Kind.Should().Be(AdaptationResponseKind.Error);
-        body.Adaptation.Retryable.Should().BeTrue();
-        body.Adaptation.ErrorMessage.Should().NotBeNullOrWhiteSpace();
-        body.Adaptation.AdaptationKind.Should().BeNull();
-    }
-
-    [Fact]
     public async Task CreateLog_ReplayedCreate_DispatchesUnconditionally()
     {
         // Arrange — DEC-077: CreateAsync may return an EXISTING log id on a
@@ -175,18 +100,14 @@ public class WorkoutLogsControllerTests
         // recovers a missing evaluation after a crash between the two commits).
         var userId = Guid.NewGuid();
         var existingLogId = Guid.NewGuid();
-        var (controller, _, bus) = CreateController(userId, existingLogId);
+        var (controller, _, dispatcher) = CreateController(userId, existingLogId);
         var ct = TestContext.Current.CancellationToken;
 
         // Act
         await controller.CreateLog(ValidRequest(), ct);
 
         // Assert
-        await bus.Received(1).InvokeForTenantAsync<AdaptationResponseDto>(
-            userId.ToString(),
-            new EvaluateAdaptationCommand(existingLogId, userId),
-            Arg.Any<CancellationToken>(),
-            Arg.Any<TimeSpan?>());
+        await dispatcher.Received(1).EvaluateAsync(existingLogId, userId, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -195,7 +116,7 @@ public class WorkoutLogsControllerTests
         // Arrange — a domain-invariant rejection means nothing committed, so no
         // adaptation evaluation may run.
         var userId = Guid.NewGuid();
-        var (controller, service, bus) = CreateController(userId, Guid.NewGuid());
+        var (controller, service, dispatcher) = CreateController(userId, Guid.NewGuid());
         service.CreateAsync(Arg.Any<Guid>(), Arg.Any<CreateWorkoutLogRequestDto>(), Arg.Any<CancellationToken>())
             .Returns<Task<Guid>>(_ => throw new ArgumentException("Distance must be non-negative."));
         var ct = TestContext.Current.CancellationToken;
@@ -206,7 +127,7 @@ public class WorkoutLogsControllerTests
         // Assert
         actual.Should().BeOfType<ObjectResult>()
             .Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
-        bus.ReceivedCalls().Should().BeEmpty();
+        dispatcher.ReceivedCalls().Should().BeEmpty();
     }
 
     private static CreateWorkoutLogRequestDto ValidRequest() =>
@@ -220,7 +141,7 @@ public class WorkoutLogsControllerTests
             Metrics: null,
             Splits: null);
 
-    private static (WorkoutLogsController Controller, IWorkoutLogService Service, IMessageBus Bus) CreateController(
+    private static (WorkoutLogsController Controller, IWorkoutLogService Service, IAdaptationEvaluationDispatcher Dispatcher) CreateController(
         Guid userId,
         Guid workoutLogId,
         AdaptationResponseDto? envelope = null)
@@ -229,9 +150,8 @@ public class WorkoutLogsControllerTests
         service.CreateAsync(Arg.Any<Guid>(), Arg.Any<CreateWorkoutLogRequestDto>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(workoutLogId));
 
-        var bus = Substitute.For<IMessageBus>();
-        bus.InvokeForTenantAsync<AdaptationResponseDto>(
-                Arg.Any<string>(), Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
+        var dispatcher = Substitute.For<IAdaptationEvaluationDispatcher>();
+        dispatcher.EvaluateAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(envelope ?? AdaptationResponseDto.Adapted(AdaptationKind.Absorb)));
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
@@ -239,7 +159,7 @@ public class WorkoutLogsControllerTests
             authenticationType: "TestAuth"));
 
         var controller = new WorkoutLogsController(
-            service, bus, NullLogger<WorkoutLogsController>.Instance)
+            service, dispatcher, NullLogger<WorkoutLogsController>.Instance)
         {
             ControllerContext = new ControllerContext
             {
@@ -248,7 +168,7 @@ public class WorkoutLogsControllerTests
             ProblemDetailsFactory = StubProblemDetailsFactory(),
         };
 
-        return (controller, service, bus);
+        return (controller, service, dispatcher);
     }
 
     private static ProblemDetailsFactory StubProblemDetailsFactory()

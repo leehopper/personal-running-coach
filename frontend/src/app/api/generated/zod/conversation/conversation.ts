@@ -427,3 +427,53 @@ export const PostApiV1ConversationMessagesBody = zod.strictObject({
 })
 
 export const PostApiV1ConversationMessagesResponse = zod.unknown()
+
+export const PostApiV1ConversationLogsConfirmBody = zod.strictObject({
+  draft: zod.strictObject({
+    occurredOn: zod.iso
+      .date()
+      .describe(
+        'The calendar date the workout occurred on, as an ISO-8601 date (YYYY-MM-DD), resolved against today\'s date for relative references like \"this morning\" or \"yesterday\".',
+      ),
+    distanceValue: zod
+      .number()
+      .describe(
+        'The distance the runner stated, as a number in the unit named by distance_unit. Report exactly what the runner said (e.g. 5 for \"5 km\", 3.1 for \"3.1 miles\"). Do not convert units yourself.',
+      ),
+    distanceUnit: zod.union([zod.literal(0), zod.literal(1), zod.literal(2)]),
+    durationHours: zod
+      .number()
+      .describe(
+        "The whole hours of the run's elapsed time (0 if under an hour). Report the components the runner stated; do not convert to seconds.",
+      ),
+    durationMinutes: zod
+      .number()
+      .describe(
+        'The whole minutes of the run\'s elapsed time, 0 to 59 (e.g. 25 for \"25 minutes\", 30 for \"1 hour 30 minutes\").',
+      ),
+    durationSeconds: zod
+      .number()
+      .describe(
+        'The whole seconds of the run\'s elapsed time, 0 to 59 (e.g. 30 for \"22:30\"). Use 0 when the runner gave no seconds.',
+      ),
+    completionStatus: zod.union([zod.literal(0), zod.literal(1), zod.literal(2)]),
+    notes: zod
+      .string()
+      .nullable()
+      .describe(
+        'Any free-text note the runner included about how it felt or went (e.g. \"legs felt heavy\"). Null when there is none.',
+      ),
+  }),
+  clientMessageId: zod.uuid(),
+})
+
+export const PostApiV1ConversationLogsConfirmResponse = zod.strictObject({
+  workoutLogId: zod.uuid(),
+  adaptation: zod.strictObject({
+    kind: zod.union([zod.literal(0), zod.literal(1)]),
+    adaptationKind: zod.union([zod.literal(0), zod.literal(1), zod.literal(2)]),
+    errorMessage: zod.string().nullish(),
+    retryable: zod.boolean(),
+    retryAfterSeconds: zod.number().nullish(),
+  }),
+})
