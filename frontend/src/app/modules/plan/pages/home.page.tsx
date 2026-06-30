@@ -78,7 +78,7 @@ interface PlanLayoutProps {
  * `goalDescription` reflects the absence of a named race — no special-casing
  * required at the page level.
  *
- * The interactive coach chat (Slice 4B) sits between today's workout and the
+ * The interactive coach chat sits between today's workout and the
  * upcoming stack: the streamed conversation + composed timeline (interactive
  * turns plus the proactive adaptation/safety explanations) read in today's
  * context before the forward-looking sections. It owns its own queries and

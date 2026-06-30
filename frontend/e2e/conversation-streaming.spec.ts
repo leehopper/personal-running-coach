@@ -1,17 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { expect, test, type Page, type Route } from '@playwright/test'
 
-// Slice 4B Unit 6 end-to-end — the streaming conversation UX.
+// End-to-end coverage for the streaming conversation UX.
 //
-// Strategy (mirrors workout-logging.spec.ts):
+// Strategy:
 //   1. `register` hits the REAL backend so the session cookie + antiforgery
 //      pair are seeded exactly as the runtime app expects (the hand-rolled SSE
 //      POST reads the `__Host-Xsrf-Request` cookie and sets `X-XSRF-TOKEN`).
 //   2. Onboarding state + plan/current are stubbed so the home page renders the
 //      plan view with the interactive coach chat mounted.
-//   3. The conversation endpoints are stubbed at the wire (per the 2a/2b E2E
-//      pattern): `GET /conversation/timeline`, the SSE `POST /conversation/
-//      messages`, and the JSON `POST /conversation/logs/confirm`.
+//   3. The conversation endpoints are stubbed at the wire: `GET /conversation/
+//      timeline`, the SSE `POST /conversation/messages`, and the JSON
+//      `POST /conversation/logs/confirm`.
 //
 // NOTE on streaming: Playwright's `route.fulfill` delivers the whole SSE body in
 // one shot — it does not stream incrementally — so token-by-token paint is

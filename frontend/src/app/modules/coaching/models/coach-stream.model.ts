@@ -8,8 +8,8 @@
 // here by `toCoachStreamFrame`.
 //
 // Conversation enums (`SafetyTier`, `ReferralCategory`) cross the wire as
-// integers — see `conversation.model.ts`. Renaming a frame member requires a
-// paired change in the backend record.
+// integers and are imported here as their shared typed unions. Renaming a frame
+// member requires a paired change in the backend record.
 
 import type { StructuredLogDraft } from '~/api/generated'
 import type { ReferralCategory, SafetyTier } from '~/modules/coaching/models/conversation.model'

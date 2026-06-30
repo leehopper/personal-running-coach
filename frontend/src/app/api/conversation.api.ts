@@ -14,15 +14,18 @@ import type {
 // URL segments are relative to the global `/api` prefix supplied by the base
 // query.
 //
-// `getConversationTurns` (newest-first proactive turns) feeds the read-only
-// Slice 3 "Explain-the-change" panel; `getConversationTimeline` (oldest-first
-// interactive + proactive union) feeds the Slice 4B interactive chat. Both are
-// tagged `Conversation`, so the `createWorkoutLog` and `confirmConversationalLog`
-// mutations refetch them in the same interaction as the plan view.
+// `getConversationTurns` (newest-first proactive turns) is the read-only
+// "Explain-the-change" feed; `getConversationTimeline` (oldest-first
+// interactive + proactive union) feeds the interactive coach chat mounted on
+// the home route. Both are tagged `Conversation`, so `createWorkoutLog` and
+// `confirmConversationalLog` refetch them in the same interaction as the plan
+// view. The turns feed currently has no mounted consumer — the home route
+// renders the timeline-backed chat instead — but its query, hook, and tag
+// wiring are retained for reuse.
 //
 // The streaming Q&A endpoint (`POST /v1/conversation/messages`) is intentionally
-// NOT modelled here — `fetchBaseQuery` cannot stream, so `useCoachStream`
-// hand-rolls a `fetch` reader (see `coaching/hooks/use-coach-stream.hooks.ts`).
+// NOT modelled here — `fetchBaseQuery` cannot stream, so the coach chat
+// hand-rolls a `fetch` reader for it instead.
 export const conversationApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getConversationTurns: builder.query<ConversationTurnsResponseDto, undefined>({

@@ -165,7 +165,7 @@ describe('CoachChat', () => {
     expect(screen.getByTestId('transcript-scroller')).toBeInTheDocument()
   })
 
-  it('renders streamed coach prose as plain text and never mentions VDOT', () => {
+  it('renders streamed coach prose as plain text using approved pace-zone wording', () => {
     setTimeline([coachTurn('Run **easy** today, not your pace-zone limit.')])
     streamMock.mockReturnValue(idleStream())
 
@@ -173,7 +173,8 @@ describe('CoachChat', () => {
 
     // Markdown is not rendered — the asterisks render literally.
     expect(screen.getByText(/Run \*\*easy\*\* today/)).toBeInTheDocument()
-    expect(screen.queryByText(/vdot/i)).toBeNull()
+    // Approved exercise-physiology wording renders verbatim.
+    expect(screen.getByText(/pace-zone limit/)).toBeInTheDocument()
   })
 
   it('shows the live user bubble and streaming coach bubble during an exchange', () => {
@@ -238,7 +239,8 @@ describe('CoachChat', () => {
     await user.click(screen.getByRole('button', { name: /^confirm$/i }))
 
     // The card stays for retry; the user is told it failed and a diagnostic
-    // trail is left (mirrors log.page.tsx's handled-rejection handling).
+    // trail is left for the handled `.unwrap()` rejection (otherwise invisible
+    // to the global error reporter).
     expect(dismissCard).not.toHaveBeenCalled()
     expect(toastErrorMock).toHaveBeenCalledOnce()
     expect(reportClientErrorMock).toHaveBeenCalledOnce()

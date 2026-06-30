@@ -95,10 +95,26 @@ const parseSafety = (d: Record<string, unknown>): SafetyFrame | null =>
       }
     : null
 
+// Validates the card draft's primitive shape so a structurally-wrong draft is
+// dropped at the boundary rather than flowing into the confirmation card and the
+// log-prefill mapper. Mirrors the sibling parsers' typeof checks; covers every
+// field `StructuredLogDraft` declares.
+const isDraftShape = (d: Record<string, unknown>): boolean =>
+  typeof d.occurredOn === 'string' &&
+  typeof d.distanceValue === 'number' &&
+  typeof d.distanceUnit === 'number' &&
+  typeof d.durationHours === 'number' &&
+  typeof d.durationMinutes === 'number' &&
+  typeof d.durationSeconds === 'number' &&
+  typeof d.completionStatus === 'number' &&
+  (d.notes === null || typeof d.notes === 'string')
+
 const parseCard = (d: Record<string, unknown>): CardFrame | null =>
-  isObject(d.draft)
+  isObject(d.draft) && isDraftShape(d.draft)
     ? {
         event: 'card',
+        // The draft shape is checked above; the cast records that validated
+        // narrowing (the boolean guard can't carry it through the type system).
         draft: d.draft as unknown as StructuredLogDraft,
         prescription: isObject(d.prescription)
           ? (d.prescription as unknown as CandidatePrescriptionDto)
@@ -122,10 +138,10 @@ const parseDone = (d: Record<string, unknown>): DoneFrame | null =>
 /**
  * Maps a raw SSE event to a typed {@link CoachStreamFrame}. Returns null for an
  * unknown event name, malformed JSON, or a frame missing its required primitive
- * fields (the discriminant fields are validated; the nested `draft` /
- * `prescription` payloads are server-trusted and rendered field-by-field with
- * safe formatting). The caller tolerates a null (it skips `ping`/unknown SSE
- * events the same way), so a bad frame is dropped rather than producing an
+ * fields. The discriminant fields and the `card` frame's `draft` shape are
+ * validated; the nested `prescription` payload is server-trusted (only its
+ * `workoutType` is read). The caller tolerates a null (it skips `ping`/unknown
+ * SSE events the same way), so a bad frame is dropped rather than producing an
  * object with `undefined` members.
  */
 export const toCoachStreamFrame = (raw: SseEvent): CoachStreamFrame | null => {

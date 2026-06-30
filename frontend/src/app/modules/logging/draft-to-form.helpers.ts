@@ -1,7 +1,7 @@
 // Inverse mapper for the conversational-logging "Edit" affordance: a parsed
 // `StructuredLogDraft` (the card's wire shape, in the runner's stated units with
-// h:m:s components) → the all-strings `WorkoutLogFormFields` the Slice 2b log
-// form consumes. It mirrors the backend `WorkoutDraftUnitConverter` in reverse:
+// h:m:s components) → the all-strings `WorkoutLogFormFields` the log form
+// consumes. It mirrors the backend `WorkoutDraftUnitConverter` in reverse:
 // distance is collapsed to the form's km-only field and duration to a single
 // total-minutes field. A zero/non-positive distance or duration maps to blank
 // (not "0"), because the form's `> 0` range check runs regardless of completion
@@ -38,7 +38,7 @@ const draftDistanceKm = (value: number, unit: RunnerDistanceUnit): number => {
 const positiveString = (value: number): string => (value > 0 ? String(value) : '')
 
 /**
- * Maps a parsed workout-log {@link StructuredLogDraft} to the Slice 2b form's
+ * Maps a parsed workout-log {@link StructuredLogDraft} to the log form's
  * input fields, ready to seed `defaultValues`. The optional metric fields
  * (`rpe`/`hrAvg`/`hrMax`/`elevationGain`) stay blank — the draft carries no
  * metrics.

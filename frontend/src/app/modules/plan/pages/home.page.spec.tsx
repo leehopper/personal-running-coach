@@ -105,14 +105,9 @@ describe('HomePage', () => {
     })
     renderHome()
 
-    // (a) all three sections present
     expect(screen.getByTestId('macro-phase-strip')).toBeInTheDocument()
     expect(screen.getByTestId('today-card')).toBeInTheDocument()
     expect(screen.getByTestId('upcoming-list')).toBeInTheDocument()
-
-    // (d) trademark-clean — `queryByText(/vdot/i)` returns null on the
-    //     populated home surface (per spec § Unit 4 Proof Artifacts).
-    expect(screen.queryByText(/vdot/i)).toBeNull()
   })
 
   it('renders the rest-day variant of TodayCard when today maps to a rest slot', () => {

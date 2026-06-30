@@ -41,8 +41,16 @@ const makeControlledStream = () => {
     }),
     enqueue: (text: string): void => controller.enqueue(encoder.encode(text)),
     close: (): void => controller.close(),
+    // Reject the in-flight `reader.read()` — what a signal-honouring `fetch`
+    // raises once its AbortController fires (the stubbed fetch ignores the signal).
+    error: (reason: unknown): void => controller.error(reason),
   }
 }
+
+const abortError = (): DOMException => new DOMException('The user aborted a request.', 'AbortError')
+
+const messageSignal = (call: unknown[]): AbortSignal =>
+  (call[1] as RequestInit).signal as AbortSignal
 
 const makeStore = () =>
   configureStore({
@@ -294,5 +302,228 @@ describe('useCoachStream', () => {
     })
 
     expect(result.current.safety).toEqual({ content: 'Call 988', tier: 2, category: 1 })
+  })
+
+  it('aborts the live request when a new send starts, without duplicating the user turn', async () => {
+    const first = makeControlledStream()
+    const second = makeControlledStream()
+    let messageCall = 0
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = urlOf(input)
+      if (url.includes('/conversation/timeline'))
+        return Promise.resolve(jsonResponse({ turns: [] }))
+      if (url.includes('/messages')) {
+        messageCall += 1
+        return Promise.resolve(messageCall === 1 ? first.response : second.response)
+      }
+      return Promise.resolve(jsonResponse({}))
+    })
+    const store = makeStore()
+    await primeTimeline(store)
+    const { result } = renderHook(() => useCoachStream(), { wrapper: makeWrapper(store) })
+
+    let firstSend!: Promise<void>
+    act(() => {
+      firstSend = result.current.send('first question')
+    })
+    first.enqueue(frame('token', { delta: 'partial' }))
+    await waitFor(() => expect(result.current.streamingText).toBe('partial'))
+
+    // A second send before the first terminates must abort the first request.
+    let secondSend!: Promise<void>
+    act(() => {
+      secondSend = result.current.send('second question')
+    })
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter((c) => urlOf(c[0]).includes('/messages'))).toHaveLength(2),
+    )
+    const messageCalls = fetchMock.mock.calls.filter((c) => urlOf(c[0]).includes('/messages'))
+    expect(messageSignal(messageCalls[0]).aborted).toBe(true)
+
+    // Let the aborted first reader unwind silently, then complete the second.
+    first.error(abortError())
+    await firstSend
+    second.enqueue(frame('done', { turnId: 'coach-2' }))
+    second.close()
+    await act(async () => {
+      await secondSend
+    })
+
+    const userTurns = timelineTurns(store).filter((turn) => turn.kind === 0)
+    expect(userTurns).toHaveLength(1)
+    expect(userTurns[0]?.interactive?.content).toBe('second question')
+    expect(result.current.error).toBeNull()
+  })
+
+  it('aborts the in-flight reader on unmount and cancels silently', async () => {
+    const controlled = makeControlledStream()
+    routeFetch(controlled.response)
+    const store = makeStore()
+    await primeTimeline(store)
+    const { result, unmount } = renderHook(() => useCoachStream(), { wrapper: makeWrapper(store) })
+
+    let sendPromise!: Promise<void>
+    act(() => {
+      sendPromise = result.current.send('how was my run?')
+    })
+    controlled.enqueue(frame('token', { delta: 'partial' }))
+    await waitFor(() => expect(result.current.streamingText).toBe('partial'))
+
+    const signal = messageSignal(
+      fetchMock.mock.calls.find((c) => urlOf(c[0]).includes('/messages')) as unknown[],
+    )
+    expect(signal.aborted).toBe(false)
+
+    // Unmounting mid-stream aborts the controller; simulate the reader rejection
+    // a signal-honouring fetch would then raise.
+    unmount()
+    expect(signal.aborted).toBe(true)
+    controlled.error(abortError())
+    await act(async () => {
+      await sendPromise
+    })
+
+    // Silent cancel: no terminal error surfaced and no turn reconciled.
+    expect(result.current.error).toBeNull()
+    expect(timelineTurns(store)).toHaveLength(0)
+  })
+
+  it('surfaces a retryable error on a non-401 failure response and appends no turn', async () => {
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = urlOf(input)
+      if (url.includes('/conversation/timeline'))
+        return Promise.resolve(jsonResponse({ turns: [] }))
+      if (url.includes('/messages'))
+        return Promise.resolve(new Response('upstream unavailable', { status: 500 }))
+      return Promise.resolve(jsonResponse({}))
+    })
+    const store = makeStore()
+    await primeTimeline(store)
+    const { result } = renderHook(() => useCoachStream(), { wrapper: makeWrapper(store) })
+
+    await act(async () => {
+      await result.current.send('how was my run?')
+    })
+
+    expect(result.current.error?.retryable).toBe(true)
+    expect(result.current.isStreaming).toBe(false)
+    expect(store.getState().auth.status).not.toBe('unauthenticated')
+    expect(timelineTurns(store)).toHaveLength(0)
+  })
+
+  it('surfaces a retryable error when a 200 response carries no body', async () => {
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = urlOf(input)
+      if (url.includes('/conversation/timeline'))
+        return Promise.resolve(jsonResponse({ turns: [] }))
+      if (url.includes('/messages')) return Promise.resolve(new Response(null, { status: 200 }))
+      return Promise.resolve(jsonResponse({}))
+    })
+    const store = makeStore()
+    await primeTimeline(store)
+    const { result } = renderHook(() => useCoachStream(), { wrapper: makeWrapper(store) })
+
+    await act(async () => {
+      await result.current.send('how was my run?')
+    })
+
+    expect(result.current.error?.retryable).toBe(true)
+    expect(result.current.isStreaming).toBe(false)
+  })
+
+  it('surfaces a retryable error when the network request rejects', async () => {
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = urlOf(input)
+      if (url.includes('/conversation/timeline'))
+        return Promise.resolve(jsonResponse({ turns: [] }))
+      if (url.includes('/messages')) return Promise.reject(new TypeError('Failed to fetch'))
+      return Promise.resolve(jsonResponse({}))
+    })
+    const store = makeStore()
+    await primeTimeline(store)
+    const { result } = renderHook(() => useCoachStream(), { wrapper: makeWrapper(store) })
+
+    await act(async () => {
+      await result.current.send('how was my run?')
+    })
+
+    expect(result.current.error?.retryable).toBe(true)
+    expect(result.current.isStreaming).toBe(false)
+    expect(timelineTurns(store)).toHaveLength(0)
+  })
+
+  it('reconciles via cache invalidation when the optimistic push lands on a cold timeline', async () => {
+    // Server truth the post-stream refetch returns — by `done` the backend has
+    // persisted both turns. The mount GET is held pending through the stream so
+    // the optimistic push has no cache `data` to patch.
+    const serverTurns = [
+      {
+        kind: 0,
+        turnId: 'u1',
+        createdAt: '2026-06-30T00:00:00Z',
+        interactive: { content: 'how was my run?', isErrored: false },
+        proactive: null,
+      },
+      {
+        kind: 1,
+        turnId: 'coach-1',
+        createdAt: '2026-06-30T00:00:01Z',
+        interactive: { content: 'You ran well.', isErrored: false },
+        proactive: null,
+      },
+    ]
+    let timelineCalls = 0
+    let resolveMountTimeline!: () => void
+    const mountTimeline = new Promise<void>((resolve) => {
+      resolveMountTimeline = resolve
+    })
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = urlOf(input)
+      if (url.includes('/conversation/timeline')) {
+        timelineCalls += 1
+        // The mount GET stays pending through the stream; the post-invalidation
+        // refetch returns the server-persisted turns.
+        return timelineCalls === 1
+          ? mountTimeline.then(() => jsonResponse({ turns: [] }))
+          : Promise.resolve(jsonResponse({ turns: serverTurns }))
+      }
+      if (url.includes('/messages'))
+        return Promise.resolve(
+          sseResponse([
+            heartbeat,
+            frame('token', { delta: 'You ran well.' }),
+            frame('done', { turnId: 'coach-1' }),
+          ]),
+        )
+      return Promise.resolve(jsonResponse({}))
+    })
+    const store = makeStore()
+    // Subscribe to the timeline (mirrors the mounted chat) but DO NOT await it —
+    // the cache stays cold while the GET is in flight.
+    const subscription = store.dispatch(
+      conversationApi.endpoints.getConversationTimeline.initiate(undefined),
+    )
+    const { result } = renderHook(() => useCoachStream(), { wrapper: makeWrapper(store) })
+
+    await act(async () => {
+      await result.current.send('how was my run?')
+    })
+
+    // The optimistic push silently no-op'd on the cold cache.
+    expect(timelineTurns(store)).toHaveLength(0)
+
+    // Settle the mount GET; the deferred invalidation now flushes and refetches.
+    await act(async () => {
+      resolveMountTimeline()
+      await mountTimeline
+    })
+    await waitFor(() => expect(timelineCalls).toBeGreaterThanOrEqual(2))
+    await waitFor(() =>
+      expect(
+        timelineTurns(store).some((turn) => turn.interactive?.content === 'You ran well.'),
+      ).toBe(true),
+    )
+
+    subscription.unsubscribe()
   })
 })

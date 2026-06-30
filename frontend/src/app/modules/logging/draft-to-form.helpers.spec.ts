@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest'
 
 import { draftToWorkoutLogFormFields } from './draft-to-form.helpers'
 
-// The confirmation card's "Edit" affordance pre-fills the Slice 2b log form
-// from the parsed wire draft. The form is km-only with a single total-minutes
-// field, so the mapper must collapse the draft's stated unit + h:m:s components
-// and emit the all-strings `WorkoutLogFormFields` shape.
+// The confirmation card's "Edit" affordance pre-fills the log form from the
+// parsed wire draft. The form is km-only with a single total-minutes field, so
+// the mapper must collapse the draft's stated unit + h:m:s components and emit
+// the all-strings `WorkoutLogFormFields` shape.
 
 const baseDraft: StructuredLogDraft = {
   occurredOn: '2026-06-20',

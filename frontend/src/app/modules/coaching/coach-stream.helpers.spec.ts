@@ -131,6 +131,18 @@ describe('toCoachStreamFrame', () => {
     expect(toCoachStreamFrame({ event: 'card', data: '{"prescription":null}' })).toBeNull()
   })
 
+  it('returns null for a card frame whose draft is missing required fields', () => {
+    // A structurally-wrong draft is dropped at the boundary rather than flowing
+    // into the confirmation card and the log-prefill mapper as `undefined` members.
+    const malformedDraft = { occurredOn: '2026-06-29', distanceValue: 5 }
+    expect(
+      toCoachStreamFrame({
+        event: 'card',
+        data: JSON.stringify({ draft: malformedDraft, prescription: null }),
+      }),
+    ).toBeNull()
+  })
+
   it('returns null for a done frame missing its turnId', () => {
     expect(toCoachStreamFrame({ event: 'done', data: '{}' })).toBeNull()
   })

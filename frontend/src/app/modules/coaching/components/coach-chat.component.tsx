@@ -127,7 +127,7 @@ export const CoachChat = (): ReactElement => {
     } catch (error) {
       // The awaited `.unwrap()` rejection is a *handled* rejection, invisible to
       // the global error reporter + error boundary, so forward it explicitly and
-      // tell the user — the card stays open for retry (mirrors log.page.tsx).
+      // tell the user — the card stays open for retry.
       reportClientError({
         kind: 'unhandled-rejection',
         error: error instanceof Error ? error : new Error(String(error)),

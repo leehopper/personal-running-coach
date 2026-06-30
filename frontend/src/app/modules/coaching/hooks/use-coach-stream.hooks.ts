@@ -283,11 +283,22 @@ export const useCoachStream = (): UseCoachStreamReturn => {
 
   const appendTimelineTurn = useCallback(
     (turn: ConversationTimelineTurnDto): void => {
-      reduxDispatch(
+      const patch = reduxDispatch(
         conversationApi.util.updateQueryData('getConversationTimeline', undefined, (draft) => {
           draft.turns.push(turn)
         }),
       )
+      // Cold-start race: when the mount-time timeline GET is still in flight (or
+      // was never initiated), the cache entry has no `data`, so `updateQueryData`
+      // silently no-ops — patching nothing. The optimistic turn would be lost and,
+      // because this streaming endpoint invalidates no tag, nothing would refetch
+      // it back. Fall back to invalidating the `Conversation` tag: RTK defers the
+      // invalidation behind the in-flight GET and refetches the server-persisted
+      // turns once it settles. On the warm path the recipe patches in place and
+      // produces patches, so this fallback is skipped (no extra fetch).
+      if (patch.patches.length === 0) {
+        reduxDispatch(conversationApi.util.invalidateTags(['Conversation']))
+      }
     },
     [reduxDispatch],
   )

@@ -40,9 +40,9 @@ const LogPage = () => {
   const idempotencyKey = useMemo(() => crypto.randomUUID(), [])
 
   // The conversational-logging "Edit" affordance navigates here with the parsed
-  // draft in router state — pre-fill the form from it (Slice 4B). An edited
-  // submit still goes through the normal create path with its own idempotency
-  // key, not the confirm endpoint.
+  // draft in router state — pre-fill the form from it. An edited submit still
+  // goes through the normal create path with its own idempotency key, not the
+  // confirm endpoint.
   const editDraft = (location.state as LogPageLocationState | null)?.draft ?? null
   const defaultValues = useMemo(
     () =>

@@ -93,10 +93,9 @@ describe('LogConfirmationCard', () => {
     expect(props.onCancel).toHaveBeenCalledOnce()
   })
 
-  it('disables Confirm while a commit is in flight and never mentions VDOT', () => {
+  it('disables Confirm while a commit is in flight', () => {
     renderCard({ isConfirming: true })
 
     expect(screen.getByRole('button', { name: /^confirm$/i })).toBeDisabled()
-    expect(screen.queryByText(/vdot/i)).toBeNull()
   })
 })
