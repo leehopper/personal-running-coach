@@ -134,7 +134,20 @@ const reducer = (state: CoachStreamState, action: CoachStreamAction): CoachStrea
       // `done`: the user + coach turns are now in the timeline cache.
       return { ...state, pendingUserMessage: null, streamingText: '', isStreaming: false }
     case 'streamEnded':
-      return { ...state, isStreaming: false }
+      // Normally a no-op — the card flow already cleared the live state and a
+      // done/error frame returns before this. Defense in depth: if the body
+      // closed after tokens with no terminal frame, surface a retry rather than
+      // freezing a partial bubble.
+      if (state.pendingUserMessage === null && state.streamingText.length === 0) {
+        return { ...state, isStreaming: false }
+      }
+      return {
+        ...state,
+        isStreaming: false,
+        pendingUserMessage: null,
+        streamingText: '',
+        error: { message: GENERIC_ERROR_MESSAGE, retryable: true, retryAfterSeconds: null },
+      }
     case 'dismissCard':
       return { ...state, card: null }
     default:

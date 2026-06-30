@@ -116,4 +116,33 @@ describe('toCoachStreamFrame', () => {
   it('returns null for malformed JSON data', () => {
     expect(toCoachStreamFrame({ event: 'token', data: '{not json' })).toBeNull()
   })
+
+  it('returns null for a token frame missing its delta (guards against "undefined" text)', () => {
+    expect(toCoachStreamFrame({ event: 'token', data: '{"foo":"bar"}' })).toBeNull()
+  })
+
+  it('returns null for a safety frame whose tier is not a number', () => {
+    expect(
+      toCoachStreamFrame({ event: 'safety', data: '{"content":"x","tier":"red","category":1}' }),
+    ).toBeNull()
+  })
+
+  it('returns null for a card frame missing its draft', () => {
+    expect(toCoachStreamFrame({ event: 'card', data: '{"prescription":null}' })).toBeNull()
+  })
+
+  it('returns null for a done frame missing its turnId', () => {
+    expect(toCoachStreamFrame({ event: 'done', data: '{}' })).toBeNull()
+  })
+
+  it('coerces a missing retryAfterSeconds on an error frame to null', () => {
+    expect(
+      toCoachStreamFrame({ event: 'error', data: '{"message":"x","retryable":true}' }),
+    ).toEqual({
+      event: 'error',
+      message: 'x',
+      retryable: true,
+      retryAfterSeconds: null,
+    })
+  })
 })

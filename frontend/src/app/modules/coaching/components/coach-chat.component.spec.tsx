@@ -9,15 +9,23 @@ import type {
   ConversationTimelineTurnDto,
 } from '~/modules/coaching/models/conversation.model'
 
-const { timelineMock, streamMock, confirmTrigger, confirmUnwrap, navigateMock } = vi.hoisted(
-  () => ({
-    timelineMock: vi.fn(),
-    streamMock: vi.fn(),
-    confirmTrigger: vi.fn(),
-    confirmUnwrap: vi.fn(),
-    navigateMock: vi.fn(),
-  }),
-)
+const {
+  timelineMock,
+  streamMock,
+  confirmTrigger,
+  confirmUnwrap,
+  navigateMock,
+  toastErrorMock,
+  reportClientErrorMock,
+} = vi.hoisted(() => ({
+  timelineMock: vi.fn(),
+  streamMock: vi.fn(),
+  confirmTrigger: vi.fn(),
+  confirmUnwrap: vi.fn(),
+  navigateMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+  reportClientErrorMock: vi.fn(),
+}))
 
 vi.mock('~/api/conversation.api', () => ({
   useGetConversationTimelineQuery: () => timelineMock(),
@@ -29,6 +37,10 @@ vi.mock('~/modules/coaching/hooks/use-coach-stream.hooks', () => ({
 vi.mock('react-router-dom', async (importActual) => ({
   ...(await importActual<typeof import('react-router-dom')>()),
   useNavigate: () => navigateMock,
+}))
+vi.mock('sonner', () => ({ toast: { error: toastErrorMock } }))
+vi.mock('~/error-boundary/report-client-error', () => ({
+  reportClientError: reportClientErrorMock,
 }))
 
 import { CoachChat } from './coach-chat.component'
@@ -212,6 +224,25 @@ describe('CoachChat', () => {
       clientMessageId: 'cm-1',
     })
     expect(dismissCard).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the card open and surfaces an error when the confirm fails', async () => {
+    const user = userEvent.setup()
+    const dismissCard = vi.fn()
+    confirmUnwrap.mockRejectedValue(new Error('confirm boom'))
+    confirmTrigger.mockReturnValue({ unwrap: confirmUnwrap })
+    setTimeline([])
+    streamMock.mockReturnValue(idleStream({ card: sampleCard, dismissCard }))
+
+    renderChat()
+    await user.click(screen.getByRole('button', { name: /^confirm$/i }))
+
+    // The card stays for retry; the user is told it failed and a diagnostic
+    // trail is left (mirrors log.page.tsx's handled-rejection handling).
+    expect(dismissCard).not.toHaveBeenCalled()
+    expect(toastErrorMock).toHaveBeenCalledOnce()
+    expect(reportClientErrorMock).toHaveBeenCalledOnce()
+    expect(screen.getByTestId('log-confirmation-card')).toBeInTheDocument()
   })
 
   it('opens the log form pre-filled on Edit and dismisses the card', async () => {

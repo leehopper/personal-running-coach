@@ -1,11 +1,13 @@
 import { useCallback, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
   useConfirmConversationalLogMutation,
   useGetConversationTimelineQuery,
 } from '~/api/conversation.api'
+import { reportClientError } from '~/error-boundary/report-client-error'
 import {
   useCoachStream,
   type CoachSafetyNotice,
@@ -122,7 +124,15 @@ export const CoachChat = (): ReactElement => {
       // `unwrap` only throws on an HTTP failure, so the card dismisses and the
       // success-gated invalidation refetches the timeline + plan.
       await confirmLog({ draft: card.draft, clientMessageId: card.clientMessageId }).unwrap()
-    } catch {
+    } catch (error) {
+      // The awaited `.unwrap()` rejection is a *handled* rejection, invisible to
+      // the global error reporter + error boundary, so forward it explicitly and
+      // tell the user — the card stays open for retry (mirrors log.page.tsx).
+      reportClientError({
+        kind: 'unhandled-rejection',
+        error: error instanceof Error ? error : new Error(String(error)),
+      })
+      toast.error('We could not save your log. Try again in a moment.')
       return
     }
     dismissCard()

@@ -1,11 +1,14 @@
 // Pure helpers for the streaming Q&A SSE wire (`POST /api/v1/conversation/messages`).
 // `createSseDecoder` is an incremental parser that buffers across chunk
 // boundaries, skips comment lines (the `: hb` heartbeat), and surfaces each
-// completed `event:`/`data:` block once. `toCoachStreamFrame` narrows a raw
-// event into the typed {@link CoachStreamFrame} union. Both are kept side-effect
+// completed `event:`/`data:` block once. `toCoachStreamFrame` maps a raw event
+// into the typed {@link CoachStreamFrame} union, validating the discriminant
+// primitive fields at the stream boundary so a malformed frame is dropped rather
+// than producing an object with `undefined` members. Both are kept side-effect
 // free so the hand-rolled `useCoachStream` fetch reader stays thin and testable.
 
 import type {
+  CandidatePrescriptionDto,
   CardFrame,
   CoachStreamFrame,
   DoneFrame,
@@ -13,6 +16,8 @@ import type {
   SafetyFrame,
   TokenFrame,
 } from '~/modules/coaching/models/coach-stream.model'
+import type { ReferralCategory, SafetyTier } from '~/modules/coaching/models/conversation.model'
+import type { StructuredLogDraft } from '~/api/generated'
 
 /** A decoded SSE block: the `event:` name (default `message`) and joined `data:`. */
 export interface SseEvent {
@@ -74,10 +79,54 @@ const parseBlock = (block: string): SseEvent | null => {
   return { event: eventName, data: dataLines.join('\n') }
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const parseToken = (d: Record<string, unknown>): TokenFrame | null =>
+  typeof d.delta === 'string' ? { event: 'token', delta: d.delta } : null
+
+const parseSafety = (d: Record<string, unknown>): SafetyFrame | null =>
+  typeof d.content === 'string' && typeof d.tier === 'number' && typeof d.category === 'number'
+    ? {
+        event: 'safety',
+        content: d.content,
+        tier: d.tier as SafetyTier,
+        category: d.category as ReferralCategory,
+      }
+    : null
+
+const parseCard = (d: Record<string, unknown>): CardFrame | null =>
+  isObject(d.draft)
+    ? {
+        event: 'card',
+        draft: d.draft as unknown as StructuredLogDraft,
+        prescription: isObject(d.prescription)
+          ? (d.prescription as unknown as CandidatePrescriptionDto)
+          : null,
+      }
+    : null
+
+const parseError = (d: Record<string, unknown>): ErrorFrame | null =>
+  typeof d.message === 'string' && typeof d.retryable === 'boolean'
+    ? {
+        event: 'error',
+        message: d.message,
+        retryable: d.retryable,
+        retryAfterSeconds: typeof d.retryAfterSeconds === 'number' ? d.retryAfterSeconds : null,
+      }
+    : null
+
+const parseDone = (d: Record<string, unknown>): DoneFrame | null =>
+  typeof d.turnId === 'string' ? { event: 'done', turnId: d.turnId } : null
+
 /**
- * Narrows a raw SSE event into a typed {@link CoachStreamFrame}, returning null
- * for an unknown event name or malformed JSON (`ping`/unknown SSE events are
- * tolerated by the caller).
+ * Maps a raw SSE event to a typed {@link CoachStreamFrame}. Returns null for an
+ * unknown event name, malformed JSON, or a frame missing its required primitive
+ * fields (the discriminant fields are validated; the nested `draft` /
+ * `prescription` payloads are server-trusted and rendered field-by-field with
+ * safe formatting). The caller tolerates a null (it skips `ping`/unknown SSE
+ * events the same way), so a bad frame is dropped rather than producing an
+ * object with `undefined` members.
  */
 export const toCoachStreamFrame = (raw: SseEvent): CoachStreamFrame | null => {
   let data: unknown
@@ -86,18 +135,19 @@ export const toCoachStreamFrame = (raw: SseEvent): CoachStreamFrame | null => {
   } catch {
     return null
   }
+  if (!isObject(data)) return null
 
   switch (raw.event) {
     case 'token':
-      return { event: 'token', ...(data as Omit<TokenFrame, 'event'>) }
+      return parseToken(data)
     case 'safety':
-      return { event: 'safety', ...(data as Omit<SafetyFrame, 'event'>) }
+      return parseSafety(data)
     case 'card':
-      return { event: 'card', ...(data as Omit<CardFrame, 'event'>) }
+      return parseCard(data)
     case 'error':
-      return { event: 'error', ...(data as Omit<ErrorFrame, 'event'>) }
+      return parseError(data)
     case 'done':
-      return { event: 'done', ...(data as Omit<DoneFrame, 'event'>) }
+      return parseDone(data)
     default:
       return null
   }

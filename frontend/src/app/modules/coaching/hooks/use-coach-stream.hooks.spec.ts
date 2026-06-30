@@ -259,6 +259,24 @@ describe('useCoachStream', () => {
     expect(result.current.card).toBeNull()
   })
 
+  it('surfaces a retry if the body closes after tokens with no terminal frame', async () => {
+    // Defense in depth: the backend always emits a done/error frame on a live
+    // connection, but a body that closes mid-stream must not freeze a partial.
+    routeFetch(sseResponse([heartbeat, frame('token', { delta: 'partial answer' })]))
+    const store = makeStore()
+    await primeTimeline(store)
+    const { result } = renderHook(() => useCoachStream(), { wrapper: makeWrapper(store) })
+
+    await act(async () => {
+      await result.current.send('how was my run?')
+    })
+
+    expect(result.current.error?.retryable).toBe(true)
+    expect(result.current.streamingText).toBe('')
+    expect(result.current.pendingUserMessage).toBeNull()
+    expect(result.current.isStreaming).toBe(false)
+  })
+
   it('surfaces a safety notice from a safety frame', async () => {
     routeFetch(
       sseResponse([
