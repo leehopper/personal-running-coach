@@ -185,3 +185,77 @@ export type ConversationTurnDto = AdaptationTurnDto | SafetyTurnDto
 export interface ConversationTurnsResponseDto {
   turns: ConversationTurnDto[]
 }
+
+// ---------------------------------------------------------------------------
+// Composed conversation timeline (slice-4B Unit 3, GET /api/v1/conversation/timeline)
+// ---------------------------------------------------------------------------
+
+/**
+ * The participant/kind of a composed-timeline turn. Mirrors
+ * `RunCoach.Api.Modules.Coaching.Conversation.ConversationTimelineTurnKind`.
+ * `user` / `coach` carry an {@link InteractiveTurnDto}; `adaptation` / `safety`
+ * carry a proactive {@link ConversationTurnDto}.
+ */
+export type ConversationTimelineTurnKind = 0 | 1 | 2 | 3
+
+/** Named members of {@link ConversationTimelineTurnKind}. */
+export const CONVERSATION_TIMELINE_TURN_KIND = {
+  user: 0,
+  coach: 1,
+  adaptation: 2,
+  safety: 3,
+} as const satisfies Record<string, ConversationTimelineTurnKind>
+
+/**
+ * An interactive chat turn — the runner's message or the coach's streamed
+ * reply. Mirrors `RunCoach...InteractiveTurnDto`. `content` is empty and
+ * `isErrored` is true when a coach stream died mid-flight; `isErrored` is always
+ * false for a user turn.
+ */
+export interface InteractiveTurnDto {
+  content: string
+  isErrored: boolean
+}
+
+/**
+ * A `user` / `coach` timeline turn carrying its {@link InteractiveTurnDto}.
+ */
+export interface InteractiveTimelineTurnDto {
+  kind: typeof CONVERSATION_TIMELINE_TURN_KIND.user | typeof CONVERSATION_TIMELINE_TURN_KIND.coach
+  turnId: string
+  createdAt: string
+  interactive: InteractiveTurnDto
+  proactive: null
+}
+
+/**
+ * An `adaptation` / `safety` timeline turn carrying its proactive
+ * {@link ConversationTurnDto}.
+ */
+export interface ProactiveTimelineTurnDto {
+  kind:
+    | typeof CONVERSATION_TIMELINE_TURN_KIND.adaptation
+    | typeof CONVERSATION_TIMELINE_TURN_KIND.safety
+  turnId: string
+  createdAt: string
+  interactive: null
+  proactive: ConversationTurnDto
+}
+
+/**
+ * One turn in the composed oldest-first timeline, discriminated on `kind`.
+ * Exactly one of `interactive` / `proactive` is non-null — the generated type
+ * marks both required (the repo-wide `$ref` nullability limitation), so this
+ * hand-written union is the accurate contract. Narrow on `kind` before reading
+ * either payload.
+ */
+export type ConversationTimelineTurnDto = InteractiveTimelineTurnDto | ProactiveTimelineTurnDto
+
+/**
+ * GET /api/v1/conversation/timeline response — interactive turns unioned with
+ * the active plan's proactive adaptation/safety turns, **oldest-first**. Mirrors
+ * `RunCoach.Api.Modules.Coaching.Conversation.ConversationTimelineDto`.
+ */
+export interface ConversationTimelineDto {
+  turns: ConversationTimelineTurnDto[]
+}

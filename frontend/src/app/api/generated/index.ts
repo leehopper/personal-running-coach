@@ -107,6 +107,25 @@ export type {
   WeeklyTargetChange,
 } from './rtk/api'
 
+// Slice 4B conversational-logging + streaming DTOs (Units 4/5/6). The intent
+// classifier's structured draft, the confirm-then-commit request/response, the
+// adaptation envelope, and the SSE message request body. Re-exported type-only
+// (same reasoning as the workout-log DTOs) so the wire shapes stay generated; a
+// backend rename ripples here via `codegen:check` + `tsc`. The hand-rolled SSE
+// frame union and the accurate discriminated timeline model live in
+// `coaching/models` — the generated `ConversationTimelineTurnDto` marks
+// `interactive`/`proactive` both required despite C# nullability (the same
+// `$ref` limitation as the conversation read DTOs above).
+export type {
+  StructuredLogDraft,
+  RunnerDistanceUnit,
+  ConfirmConversationalLogRequestDto,
+  ConfirmConversationalLogResponseDto,
+  AdaptationResponseDto,
+  AdaptationResponseKind,
+  ConversationMessageRequestDto,
+} from './rtk/api'
+
 export const completionStatusSchema = createWorkoutLogRequestSchema.shape.completionStatus
 export type CompletionStatus = z.infer<typeof completionStatusSchema>
 
