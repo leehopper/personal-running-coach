@@ -1,0 +1,25 @@
+{
+  "messages": [
+    {
+      "createdAt": "2026-06-30T18:09:37.754624+00:00",
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "The long run this weekend should be easy pace throughout: 5:08 to 5:53 per km.\n\nThat's a wide band, so here's how to work within it. Start at the slower end, around 5:40 to 5:53. If you feel good after 45 to 60 minutes, drifting toward 5:08 to 5:20 is fine. But drift, not push.\n\nA few things are worth knowing about why easy pace matters so much here.\n\nYour 3:15 marathon target works out to 4:37 per km. The physiological case for running your long runs slower than that is solid. Easy pace builds aerobic base and fat-burning capacity without accumulating the kind of fatigue that compromises your quality sessions mid-week. Running your long runs too fast is one of the most common ways runners stall out in marathon builds.\n\nYour last three weeks show solid consistency, 52 to 60 km with long runs at 22 to 26 km. That's good context. This weekend's long run sits in a natural continuation of that pattern.\n\nOne practical suggestion: if you run with a GPS watch, you might consider checking pace only at km markers rather than constantly. Runners who watch pace continuously tend to push when they feel good. Checking periodically keeps you honest without making the run mechanical.\n\nWhat distance are you planning for Sunday?"
+        }
+      ],
+      "messageId": "msg_01HndVr2RhUjK8jbqBh48NmR"
+    }
+  ],
+  "responseId": "msg_01HndVr2RhUjK8jbqBh48NmR",
+  "modelId": "claude-sonnet-4-6",
+  "createdAt": "2026-06-30T18:09:37.754624+00:00",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 1997,
+    "outputTokenCount": 312,
+    "totalTokenCount": 2309,
+    "cachedInputTokenCount": 0
+  }
+}

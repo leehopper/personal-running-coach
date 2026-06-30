@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"intent\": \"WorkoutLog\", \"workout_log\": {\"occurred_on\": \"2026-06-30\", \"distance_value\": 5, \"distance_unit\": \"Kilometers\", \"duration_hours\": 0, \"duration_minutes\": 24, \"duration_seconds\": 10, \"completion_status\": \"Complete\", \"notes\": null}}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-haiku-4-5-20251001\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2026,
+    "outputTokenCount": 83,
+    "totalTokenCount": 2109
+  }
+}

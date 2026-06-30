@@ -341,6 +341,19 @@ public abstract class EvalTestBase : IAsyncDisposable
         Directory.Exists(Path.Combine(GetCacheStoragePath("sonnet"), "cache", scenario));
 
     /// <summary>
+    /// Returns whether a cached Haiku fixture exists on disk for the given scenario.
+    /// The Haiku twin of <see cref="SonnetFixtureExists"/>: the conversation intent
+    /// classifier (Slice 4B Unit 4) runs on the Haiku binding, so its accuracy eval
+    /// guards a not-yet-recorded scenario with this probe to <c>Assert.Skip</c> before
+    /// issuing any call, keeping the eval suite green in Replay until a funded-key
+    /// recording lands.
+    /// </summary>
+    /// <param name="scenario">The scenario name passed to <see cref="CreateHaikuScenarioRunAsync"/>.</param>
+    /// <returns><c>true</c> when the scenario's cache directory exists; <c>false</c> otherwise.</returns>
+    protected static bool HaikuFixtureExists(string scenario) =>
+        Directory.Exists(Path.Combine(GetCacheStoragePath("haiku"), "cache", scenario));
+
+    /// <summary>
     /// Builds the full user message text from the assembled prompt sections.
     /// </summary>
     protected static string BuildUserMessageFromSections(AssembledPrompt assembled)

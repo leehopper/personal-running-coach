@@ -1,0 +1,20 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "{\"intent\": \"Ambiguous\", \"workout_log\": null}"
+        }
+      ]
+    }
+  ],
+  "modelId": "\"claude-haiku-4-5-20251001\"",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 2019,
+    "outputTokenCount": 18,
+    "totalTokenCount": 2037
+  }
+}
