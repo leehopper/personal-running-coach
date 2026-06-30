@@ -49,8 +49,20 @@ const makeControlledStream = () => {
 
 const abortError = (): DOMException => new DOMException('The user aborted a request.', 'AbortError')
 
-const messageSignal = (call: unknown[]): AbortSignal =>
-  (call[1] as RequestInit).signal as AbortSignal
+// Pulls the AbortSignal off a recorded `fetch(input, init)` call, narrowing at
+// runtime rather than asserting a fixed call shape.
+const messageSignal = (call: unknown[] | undefined): AbortSignal => {
+  const init = call?.[1]
+  if (
+    typeof init === 'object' &&
+    init !== null &&
+    'signal' in init &&
+    init.signal instanceof AbortSignal
+  ) {
+    return init.signal
+  }
+  throw new Error('expected the fetch call to carry an AbortSignal')
+}
 
 const makeStore = () =>
   configureStore({
@@ -370,7 +382,7 @@ describe('useCoachStream', () => {
     await waitFor(() => expect(result.current.streamingText).toBe('partial'))
 
     const signal = messageSignal(
-      fetchMock.mock.calls.find((c) => urlOf(c[0]).includes('/messages')) as unknown[],
+      fetchMock.mock.calls.find((c) => urlOf(c[0]).includes('/messages')),
     )
     expect(signal.aborted).toBe(false)
 
