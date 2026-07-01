@@ -34,26 +34,45 @@ public sealed class UserSettingsService(
     {
         var now = _timeProvider.GetUtcNow();
 
-        var row = await _db.UserSettings
+        var existing = await _db.UserSettings
             .SingleOrDefaultAsync(s => s.UserId == userId, ct)
             .ConfigureAwait(false);
 
-        if (row is null)
+        if (existing is not null)
         {
-            _db.UserSettings.Add(new UserSettings
-            {
-                UserId = userId,
-                PreferredUnits = preferredUnits,
-                CreatedOn = now,
-                ModifiedOn = now,
-            });
-        }
-        else
-        {
-            row.PreferredUnits = preferredUnits;
-            row.ModifiedOn = now;
+            existing.PreferredUnits = preferredUnits;
+            existing.ModifiedOn = now;
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            return;
         }
 
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        var inserted = new UserSettings
+        {
+            UserId = userId,
+            PreferredUnits = preferredUnits,
+            CreatedOn = now,
+            ModifiedOn = now,
+        };
+        _db.UserSettings.Add(inserted);
+
+        try
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent first write inserted the row first (unique PK on UserId).
+            // Detach the failed insert, reload the winner, and apply our value so the
+            // documented last-write-wins semantics hold under the race rather than
+            // surfacing a 500. A genuine non-conflict fault re-throws when the reload
+            // finds no row.
+            _db.Entry(inserted).State = EntityState.Detached;
+            var winner = await _db.UserSettings
+                .SingleAsync(s => s.UserId == userId, ct)
+                .ConfigureAwait(false);
+            winner.PreferredUnits = preferredUnits;
+            winner.ModifiedOn = now;
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
     }
 }

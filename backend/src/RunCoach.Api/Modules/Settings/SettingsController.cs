@@ -18,7 +18,9 @@ namespace RunCoach.Api.Modules.Settings;
 [ApiController]
 [Route("api/v1/settings")]
 [Authorize(Policy = AuthPolicies.CookieOrBearer)]
-public sealed class SettingsController(IUserSettingsService service) : ControllerBase
+public sealed partial class SettingsController(
+    IUserSettingsService service,
+    ILogger<SettingsController> logger) : ControllerBase
 {
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
     private const string InvalidUnitPreferenceType = "https://runcoach.app/problems/invalid-unit-preference";
@@ -37,6 +39,7 @@ public sealed class SettingsController(IUserSettingsService service) : Controlle
     {
         if (!TryGetUserId(out var userId))
         {
+            LogMissingUserClaim(logger);
             return MissingUserClaim();
         }
 
@@ -62,6 +65,7 @@ public sealed class SettingsController(IUserSettingsService service) : Controlle
 
         if (!TryGetUserId(out var userId))
         {
+            LogMissingUserClaim(logger);
             return MissingUserClaim();
         }
 
@@ -69,6 +73,7 @@ public sealed class SettingsController(IUserSettingsService service) : Controlle
         // integer still deserializes to an undefined enum. Reject it explicitly.
         if (!Enum.IsDefined(request.PreferredUnits))
         {
+            LogInvalidUnitPreference(logger, userId, (int)request.PreferredUnits);
             return Problem(
                 type: InvalidUnitPreferenceType,
                 title: "Invalid unit preference",
@@ -79,6 +84,16 @@ public sealed class SettingsController(IUserSettingsService service) : Controlle
         await service.SetPreferredUnitsAsync(userId, request.PreferredUnits, ct).ConfigureAwait(false);
         return Ok(new UnitPreferenceDto(request.PreferredUnits));
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Settings request rejected: authenticated user id claim was missing or malformed.")]
+    private static partial void LogMissingUserClaim(ILogger logger);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Set-units rejected for user {UserId}: preferredUnits {PreferredUnits} is not a defined value.")]
+    private static partial void LogInvalidUnitPreference(ILogger logger, Guid userId, int preferredUnits);
 
     private bool TryGetUserId(out Guid userId)
     {
