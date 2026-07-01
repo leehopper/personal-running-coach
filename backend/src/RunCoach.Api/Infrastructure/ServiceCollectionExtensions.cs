@@ -4,6 +4,7 @@ using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Conversation.Streaming;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Coaching.Sanitization;
+using RunCoach.Api.Modules.Settings;
 using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Computations;
 using RunCoach.Api.Modules.Training.Plan;
@@ -78,6 +79,10 @@ public static class ServiceCollectionExtensions
         // Training module — workout-log persistence (scoped, shares the request DbContext).
         services.AddScoped<IWorkoutLogRepository, WorkoutLogRepository>();
         services.AddScoped<IWorkoutLogService, WorkoutLogService>();
+
+        // Settings module — per-user settings store (Slice 4C-units / DEC-086).
+        // Scoped, shares the request DbContext; a plain EF read/upsert, no projection.
+        services.AddScoped<IUserSettingsService, UserSettingsService>();
 
         // Shared post-create adaptation seam (Slice 3 § Unit 5 / DEC-073) — dispatches
         // EvaluateAdaptationCommand under the user tenant and maps the two lost-race surfaces

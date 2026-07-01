@@ -117,6 +117,22 @@ const injectedRtkApi = api.injectEndpoints({
         body: queryArg.regeneratePlanRequestDto,
       }),
     }),
+    getApiV1SettingsUnits: build.query<
+      GetApiV1SettingsUnitsApiResponse,
+      GetApiV1SettingsUnitsApiArg
+    >({
+      query: () => ({ url: `/api/v1/settings/units` }),
+    }),
+    putApiV1SettingsUnits: build.mutation<
+      PutApiV1SettingsUnitsApiResponse,
+      PutApiV1SettingsUnitsApiArg
+    >({
+      query: (queryArg) => ({
+        url: `/api/v1/settings/units`,
+        method: 'PUT',
+        body: queryArg.unitPreferenceDto,
+      }),
+    }),
     postApiV1WorkoutsLogs: build.mutation<
       PostApiV1WorkoutsLogsApiResponse,
       PostApiV1WorkoutsLogsApiArg
@@ -187,6 +203,12 @@ export type GetApiV1PlanCurrentApiArg = void
 export type PostApiV1PlanRegenerateApiResponse = /** status 200 OK */ RegeneratePlanResponse
 export type PostApiV1PlanRegenerateApiArg = {
   regeneratePlanRequestDto: RegeneratePlanRequestDto
+}
+export type GetApiV1SettingsUnitsApiResponse = /** status 200 OK */ UnitPreferenceDto
+export type GetApiV1SettingsUnitsApiArg = void
+export type PutApiV1SettingsUnitsApiResponse = /** status 200 OK */ UnitPreferenceDto
+export type PutApiV1SettingsUnitsApiArg = {
+  unitPreferenceDto: UnitPreferenceDto
 }
 export type PostApiV1WorkoutsLogsApiResponse = /** status 201 Created */ CreateWorkoutLogResponseDto
 export type PostApiV1WorkoutsLogsApiArg = {
@@ -572,6 +594,9 @@ export type RegeneratePlanRequestDto = {
   idempotencyKey: string
   intent: RegenerationIntentRequestDto
 }
+export type UnitPreferenceDto = {
+  preferredUnits: PreferredUnits
+}
 export type CreateWorkoutLogResponseDto = {
   workoutLogId: string
   adaptation: AdaptationResponseDto
@@ -631,6 +656,8 @@ export const {
   usePostApiV1OnboardingAnswersReviseMutation,
   useGetApiV1PlanCurrentQuery,
   usePostApiV1PlanRegenerateMutation,
+  useGetApiV1SettingsUnitsQuery,
+  usePutApiV1SettingsUnitsMutation,
   usePostApiV1WorkoutsLogsMutation,
   usePostApiV1WorkoutsLogsQueryMutation,
 } = injectedRtkApi

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Identity.Entities;
+using RunCoach.Api.Modules.Settings;
 using RunCoach.Api.Modules.Training.Workouts;
 
 namespace RunCoach.Api.Infrastructure;
@@ -26,6 +27,8 @@ public class RunCoachDbContext(DbContextOptions<RunCoachDbContext> options)
     public DbSet<RunnerOnboardingProfile> RunnerOnboardingProfiles => Set<RunnerOnboardingProfile>();
 
     public DbSet<WorkoutLog> WorkoutLogs => Set<WorkoutLog>();
+
+    public DbSet<UserSettings> UserSettings => Set<UserSettings>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
