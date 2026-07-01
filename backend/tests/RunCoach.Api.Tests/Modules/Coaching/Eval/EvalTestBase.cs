@@ -13,6 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
+using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Models;
 using RunCoach.Api.Tests.Modules.Training.Profiles;
@@ -341,6 +342,19 @@ public abstract class EvalTestBase : IAsyncDisposable
         Directory.Exists(Path.Combine(GetCacheStoragePath("sonnet"), "cache", scenario));
 
     /// <summary>
+    /// Returns whether a cached Haiku fixture exists on disk for the given scenario.
+    /// The Haiku twin of <see cref="SonnetFixtureExists"/>: the conversation intent
+    /// classifier (Slice 4B Unit 4) runs on the Haiku binding, so its accuracy eval
+    /// guards a not-yet-recorded scenario with this probe to <c>Assert.Skip</c> before
+    /// issuing any call, keeping the eval suite green in Replay until a funded-key
+    /// recording lands.
+    /// </summary>
+    /// <param name="scenario">The scenario name passed to <see cref="CreateHaikuScenarioRunAsync"/>.</param>
+    /// <returns><c>true</c> when the scenario's cache directory exists; <c>false</c> otherwise.</returns>
+    protected static bool HaikuFixtureExists(string scenario) =>
+        Directory.Exists(Path.Combine(GetCacheStoragePath("haiku"), "cache", scenario));
+
+    /// <summary>
     /// Builds the full user message text from the assembled prompt sections.
     /// </summary>
     protected static string BuildUserMessageFromSections(AssembledPrompt assembled)
@@ -363,6 +377,24 @@ public abstract class EvalTestBase : IAsyncDisposable
         }
 
         return string.Join("\n\n", parts);
+    }
+
+    /// <summary>
+    /// Skips the calling test in Replay mode unless both the Sonnet answer fixture and its
+    /// Haiku judge fixture (<c>{fixtureName}.judge</c>) are recorded. Guarding the judge fixture
+    /// too keeps a partial re-record from turning a cache miss into a test failure (or from
+    /// bypassing the hard gates that run after the answer is generated).
+    /// </summary>
+    /// <param name="fixtureName">The Sonnet answer fixture name; the judge fixture is <c>{fixtureName}.judge</c>.</param>
+    protected void SkipUnlessAnswerAndJudgeFixturesRecorded(string fixtureName)
+    {
+        var effectiveMode = ResolveEffectiveMode(CacheMode, IsApiKeyConfigured);
+        if (effectiveMode == EvalCacheMode.Replay
+            && (!SonnetFixtureExists(fixtureName) || !HaikuFixtureExists($"{fixtureName}.judge")))
+        {
+            Assert.Skip(
+                $"Eval fixture '{fixtureName}' not yet recorded (funded-key step); skipping until present.");
+        }
     }
 
     /// <summary>
@@ -397,6 +429,37 @@ public abstract class EvalTestBase : IAsyncDisposable
         }
 
         return await _haikuReportingConfig.CreateScenarioRunAsync(scenarioName, cancellationToken: ct);
+    }
+
+    /// <summary>
+    /// Generates a buffered coaching answer through the cached Sonnet client from an assembled
+    /// prompt's system/user sections. No <c>ChatOptions</c> — production's answer stream passes
+    /// <c>options: null</c> (free-text prose, not a structured call).
+    /// </summary>
+    protected async Task<string> GenerateSonnetAnswerAsync(
+        string fixtureName, AssembledPrompt assembled, CancellationToken ct = default)
+    {
+        await using var run = await CreateSonnetScenarioRunAsync(fixtureName, ct);
+        var client = run.ChatConfiguration!.ChatClient;
+
+        IList<ChatMessage> messages =
+        [
+            new ChatMessage(ChatRole.System, assembled.SystemPrompt),
+            new ChatMessage(ChatRole.User, BuildUserMessageFromSections(assembled)),
+        ];
+
+        var response = await client.GetResponseAsync(messages, cancellationToken: ct);
+        return response.Text ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Judges a coaching answer through the cached Haiku client against the given rubric evaluator.
+    /// </summary>
+    protected async Task<SafetyVerdict> JudgeAnswerAsync(
+        string fixtureName, SafetyRubricEvaluator evaluator, string answer, CancellationToken ct = default)
+    {
+        await using var run = await CreateHaikuScenarioRunAsync(fixtureName, ct);
+        return await evaluator.JudgeAsync(run.ChatConfiguration!.ChatClient, answer, ct);
     }
 
     /// <summary>

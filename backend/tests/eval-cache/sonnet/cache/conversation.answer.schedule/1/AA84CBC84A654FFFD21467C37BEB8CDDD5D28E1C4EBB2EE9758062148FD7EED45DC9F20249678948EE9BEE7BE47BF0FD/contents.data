@@ -1,0 +1,25 @@
+{
+  "messages": [
+    {
+      "createdAt": "2026-06-30T18:09:59.629727+00:00",
+      "role": "assistant",
+      "contents": [
+        {
+          "$type": "text",
+          "text": "Lee's asking about the final week before the July 11 race. That's a taper week, so here's what it looks like.\n\n---\n\n## Race Week: July 6 - 12, 2026\n\n**Context:** Your pace-zone index sits at 42.0. The goal of 1:45:00 requires roughly 4:59/km. That's within reach, but race week is not the time to build fitness. The work is done. This week is about showing up fresh.\n\n---\n\n### The Week at a Glance\n\n| Day | Session | Detail |\n|---|---|---|\n| Mon Jul 6 | Rest or easy walk | Full recovery |\n| Tue Jul 7 | Easy run | 5 km at 5:52-6:43/km |\n| Wed Jul 8 | Short shakeout with strides | 4 km easy, then 4 x 20 sec at repetition effort (4:14/km), full walk recovery between |\n| Thu Jul 9 | Rest | Off |\n| Fri Jul 10 | Pre-race shakeout | 3 km very easy, 2-3 strides, done |\n| Sat Jul 11 | **Race Day** | Half Marathon, goal 1:45:00 |\n| Sun Jul 12 | Rest | Off |\n\n**Weekly volume (excl. race):** approx. 12 km\n\n---\n\n### Key Principles This Week\n\n**Keep the easy runs genuinely easy.** The upper end of your easy range (6:43/km) is fine here. Slower than that is also fine. The purpose is blood flow, not stimulus.\n\n**The strides on Wednesday and Friday matter.** They wake up your fast-twitch muscle fibers without creating fatigue. Short, relaxed, not sprints.\n\n**Sleep and hydration are your main jobs.** More than any workout this week.\n\n**Don't panic about feeling flat.** Reduced volume often produces a heavy, sluggish feeling mid-week. That's normal and temporary. It usually lifts by race morning.\n\n---\n\n### Race Day Pacing\n\nYour target is 1:45:00, which is 4:59/km. A common mistake is going out too fast on race adrenaline.\n\nOne approach worth considering: run the first 5 km at 5:05-5:08/km, settle into 4:58-5:02/km for the middle stretch, then race the final 3 km on feel.\n\n---\n\nWhat questions do you have about the race itself, the morning routine, or pacing strategy?"
+        }
+      ],
+      "messageId": "msg_01BKGyxkfLGUYkADn7NKwKWm"
+    }
+  ],
+  "responseId": "msg_01BKGyxkfLGUYkADn7NKwKWm",
+  "modelId": "claude-sonnet-4-6",
+  "createdAt": "2026-06-30T18:09:59.629727+00:00",
+  "finishReason": "stop",
+  "usage": {
+    "inputTokenCount": 1966,
+    "outputTokenCount": 601,
+    "totalTokenCount": 2567,
+    "cachedInputTokenCount": 0
+  }
+}
