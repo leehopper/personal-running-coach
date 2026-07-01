@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using Microsoft.Extensions.AI;
 using RunCoach.Api.Modules.Coaching.Models;
-using RunCoach.Api.Modules.Coaching.Models.Structured;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Eval.Conversation;
 
@@ -56,13 +55,7 @@ public sealed class ConversationAnswerVoiceEvalTests : EvalTestBase
         // Skip until BOTH the Sonnet answer fixture and the Haiku judge fixture land — Replay-only
         // so a Record run can create them. Guarding the judge fixture too keeps a partial re-record
         // from turning a cache miss into a test failure (and from bypassing the hard gates below).
-        var effectiveMode = ResolveEffectiveMode(CacheMode, IsApiKeyConfigured);
-        if (effectiveMode == EvalCacheMode.Replay
-            && (!SonnetFixtureExists(fixtureName) || !HaikuFixtureExists($"{fixtureName}.judge")))
-        {
-            Assert.Skip(
-                $"Eval fixture '{fixtureName}' not yet recorded (funded-key step); skipping until present.");
-        }
+        SkipUnlessAnswerAndJudgeFixturesRecorded(fixtureName);
 
         // Arrange — a representative runner question grounded in a profile's plan/history.
         var (profileName, message) = ScenarioInputs(scenarioName);
@@ -71,7 +64,7 @@ public sealed class ConversationAnswerVoiceEvalTests : EvalTestBase
             profile, ImmutableArray<ConversationTurn>.Empty, message, TestContext.Current.CancellationToken);
 
         // Act — buffer the full free-text coaching answer (no ChatOptions, matching production's stream).
-        var answer = await GenerateAnswerAsync(fixtureName, assembled, TestContext.Current.CancellationToken);
+        var answer = await GenerateSonnetAnswerAsync(fixtureName, assembled, TestContext.Current.CancellationToken);
 
         // Assert — hard gates FIRST over the buffered answer text. These are the deterministic
         // pass/fail; running them before the advisory judge keeps the judge call from ever
@@ -103,29 +96,4 @@ public sealed class ConversationAnswerVoiceEvalTests : EvalTestBase
             _ => throw new ArgumentOutOfRangeException(
                 nameof(scenarioName), scenarioName, "No conversation voice scenario for this name."),
         };
-
-    private async Task<string> GenerateAnswerAsync(
-        string fixtureName, AssembledPrompt assembled, CancellationToken ct)
-    {
-        await using var run = await CreateSonnetScenarioRunAsync(fixtureName, ct);
-        var client = run.ChatConfiguration!.ChatClient;
-
-        IList<ChatMessage> messages =
-        [
-            new ChatMessage(ChatRole.System, assembled.SystemPrompt),
-            new ChatMessage(ChatRole.User, BuildUserMessageFromSections(assembled)),
-        ];
-
-        // No ChatOptions / ResponseFormat — production's answer stream passes options: null
-        // (free-text prose, not a structured call).
-        var response = await client.GetResponseAsync(messages, cancellationToken: ct);
-        return response.Text ?? string.Empty;
-    }
-
-    private async Task<SafetyVerdict> JudgeAnswerAsync(
-        string fixtureName, SafetyRubricEvaluator evaluator, string answer, CancellationToken ct)
-    {
-        await using var run = await CreateHaikuScenarioRunAsync(fixtureName, ct);
-        return await evaluator.JudgeAsync(run.ChatConfiguration!.ChatClient, answer, ct);
-    }
 }

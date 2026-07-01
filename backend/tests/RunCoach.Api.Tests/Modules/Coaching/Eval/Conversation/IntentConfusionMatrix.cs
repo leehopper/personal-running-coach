@@ -14,9 +14,9 @@ namespace RunCoach.Api.Tests.Modules.Coaching.Eval.Conversation;
 /// </summary>
 internal sealed class IntentConfusionMatrix
 {
-    private static readonly MessageIntent[] Classes = [.. Enum.GetValues<MessageIntent>()];
+    private static readonly MessageIntent[] _classes = [.. Enum.GetValues<MessageIntent>()];
 
-    private readonly int[,] _matrix = new int[Classes.Length, Classes.Length];
+    private readonly int[,] _matrix = new int[_classes.Length, _classes.Length];
 
     /// <summary>Gets the total number of scored predictions.</summary>
     internal int Total
@@ -39,7 +39,7 @@ internal sealed class IntentConfusionMatrix
         get
         {
             var correct = 0;
-            for (var i = 0; i < Classes.Length; i++)
+            for (var i = 0; i < _classes.Length; i++)
             {
                 correct += _matrix[i, i];
             }
@@ -77,10 +77,10 @@ internal sealed class IntentConfusionMatrix
     /// <returns>An object suitable for JSON serialization.</returns>
     internal object ToSnapshot() => new
     {
-        Rows = Classes.Select(expected => new
+        Rows = _classes.Select(expected => new
         {
             Expected = expected.ToString(),
-            Predicted = Classes.ToDictionary(
+            Predicted = _classes.ToDictionary(
                 predicted => predicted.ToString(),
                 predicted => _matrix[(int)expected, (int)predicted]),
         }),

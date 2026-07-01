@@ -63,12 +63,14 @@ public sealed class IntentClassificationEvalTests : EvalTestBase
             return;
         }
 
+        // Arrange
         var effectiveMode = ResolveEffectiveMode(CacheMode, IsApiKeyConfigured);
         var matrix = new IntentConfusionMatrix();
         var predictions = new List<object>();
         var regressions = new List<string>();
         var skipped = new List<string>();
 
+        // Act
         foreach (var scenario in IntentScenarioLibrary.Scenarios)
         {
             var fixtureName = FixtureName(scenario);
@@ -82,13 +84,13 @@ public sealed class IntentClassificationEvalTests : EvalTestBase
                 continue;
             }
 
-            var predicted = await ClassifyAsync(fixtureName, scenario.Message, TestContext.Current.CancellationToken);
-            matrix.Record(scenario.Expected, predicted);
-            predictions.Add(new { scenario.Id, scenario.Message, Expected = scenario.Expected.ToString(), Predicted = predicted.ToString() });
+            var actual = await ClassifyAsync(fixtureName, scenario.Message, TestContext.Current.CancellationToken);
+            matrix.Record(scenario.Expected, actual);
+            predictions.Add(new { scenario.Id, scenario.Message, Expected = scenario.Expected.ToString(), Predicted = actual.ToString() });
 
-            if (predicted != scenario.Expected)
+            if (actual != scenario.Expected)
             {
-                regressions.Add($"{scenario.Id}: expected {scenario.Expected} but classifier resolved {predicted}");
+                regressions.Add($"{scenario.Id}: expected {scenario.Expected} but classifier resolved {actual}");
             }
         }
 
@@ -105,6 +107,7 @@ public sealed class IntentClassificationEvalTests : EvalTestBase
                 "No conversation intent-classifier fixtures recorded yet (funded-key step); skipping until present.");
         }
 
+        // Assert
         // Bias-to-ask is the dangerous direction (DEC-085): a confident class on a truly-Ambiguous
         // message, or a reported run silently answered as a question. Gate it explicitly.
         matrix.AnyDangerous.Should().BeFalse(
@@ -121,15 +124,15 @@ public sealed class IntentClassificationEvalTests : EvalTestBase
     [Fact]
     public void Catalog_CoversEachIntentWithMinimumPerClass()
     {
-        // Pure checks (no LLM, always runs). The accuracy eval drives the cached Haiku JUDGE
-        // binding as a stand-in for the classifier's Haiku model; both default to the same alias.
-        // Guard that they stay aligned so the eval never silently measures a different model than
-        // production's classifier.
+        // Arrange — pure checks (no LLM, always runs).
+        // Act / Assert — the accuracy eval drives the cached Haiku JUDGE binding as a stand-in
+        // for the classifier's Haiku model; both default to the same alias. Guard that they stay
+        // aligned so the eval never silently measures a different model than production's classifier.
         Settings.ClassifierModelId.Should().Be(
             Settings.JudgeModelId,
             because: "the classifier eval drives the Haiku judge binding; a divergent classifier id would measure the wrong model");
 
-        // The confusion matrix is only meaningful with enough labelled examples per class.
+        // Assert — the confusion matrix is only meaningful with enough labelled examples per class.
         foreach (var intent in Enum.GetValues<MessageIntent>())
         {
             var count = IntentScenarioLibrary.Scenarios.Count(s => s.Expected == intent);
@@ -202,7 +205,7 @@ public sealed class IntentClassificationEvalTests : EvalTestBase
         var output = JsonSerializer.Deserialize<MessageIntentOutput>(text, DeserializeOptions)
             ?? throw new InvalidOperationException($"Failed to deserialize MessageIntentOutput for '{fixtureName}'.");
 
-        // Mirror MessageIntentClassifier: a structurally-invalid union or out-of-range
+        // Mirror `MessageIntentClassifier`: a structurally-invalid union or out-of-range
         // draft is coerced to Ambiguous (DEC-085 bias-to-ask) before routing.
         var validation = MessageIntentOutputValidator.Validate(output);
         return validation.IsValid ? output.Intent : MessageIntent.Ambiguous;
