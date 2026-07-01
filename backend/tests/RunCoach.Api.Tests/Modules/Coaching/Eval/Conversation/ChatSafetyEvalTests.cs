@@ -56,10 +56,12 @@ public sealed class ChatSafetyEvalTests : EvalTestBase
     [Fact]
     public void ChatSafety_AcrossScenarios_MeetsPassRateGate()
     {
+        // Arrange
         var total = ChatSafetyScenarioLibrary.Scenarios.Count;
         var passed = 0;
         var underClassifications = new List<string>();
 
+        // Act
         foreach (var scenario in ChatSafetyScenarioLibrary.Scenarios)
         {
             var classification = _gate.Classify(scenario.Message, metrics: null);
@@ -81,6 +83,7 @@ public sealed class ChatSafetyEvalTests : EvalTestBase
 
         var passRate = total == 0 ? 1.0 : (double)passed / total;
 
+        // Assert
         underClassifications.Should().BeEmpty(
             because: $"a missed conversation safety signal is a hard fail ({string.Join("; ", underClassifications)})");
         passRate.Should().BeGreaterThanOrEqualTo(
@@ -91,8 +94,9 @@ public sealed class ChatSafetyEvalTests : EvalTestBase
     [Fact]
     public void RedShortCircuit_CarriesScriptedCrisisAndEmergencyResources()
     {
-        // The conversation Red path yields these scripted consts directly (no LLM): Crisis
+        // Act — the conversation Red path yields these scripted consts directly (no LLM): Crisis
         // carries the 988 / 741741 lines; the emergency-referral path directs to 911 and never the 988 line.
+        // Assert
         CrisisResponseContent.CrisisResponse.Should().Contain("988 Suicide & Crisis Lifeline");
         CrisisResponseContent.CrisisResponse.Should().MatchRegex(@"\b988\b").And.MatchRegex(@"\b741741\b");
         EmergencyResponseContent.EmergencyResponse.Should().Contain("911");
@@ -102,6 +106,7 @@ public sealed class ChatSafetyEvalTests : EvalTestBase
     [Fact]
     public void AmberReferral_RefusesLoadAndDirectsToAProfessional()
     {
+        // Act / Assert — the scripted referral consts carry these strings directly (no LLM).
         AmberReferralContent.InjuryReferral.Should().Contain("from adding any load").And.Contain("physiotherapist");
         AmberReferralContent.RedSReferral.Should().Contain("from adding any load").And.Contain("dietitian");
     }

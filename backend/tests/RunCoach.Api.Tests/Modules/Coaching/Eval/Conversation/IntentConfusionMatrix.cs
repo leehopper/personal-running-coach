@@ -57,7 +57,12 @@ internal sealed class IntentConfusionMatrix
     /// message (the classifier failed to ask), or answering a reported run as a
     /// question (<see cref="MessageIntent.WorkoutLog"/> ignored). The safe,
     /// over-cautious errors (predicting Ambiguous when the truth is Question or
-    /// WorkoutLog) are NOT counted here — they ask rather than guess.
+    /// WorkoutLog) are NOT counted here — they ask rather than guess. A
+    /// <see cref="MessageIntent.Question"/>-predicted-as-<see cref="MessageIntent.WorkoutLog"/>
+    /// confusion is also deliberately excluded: DEC-085 D4 (confirm-then-commit) means
+    /// the resulting draft log card is advisory and commits nothing without an explicit
+    /// user confirm, so the failure mode is UX friction (an unwanted card, the question
+    /// unanswered), not the silent data-loss/false-guess harm this metric guards against.
     /// </summary>
     internal int DangerousMisclassifications =>
         _matrix[(int)MessageIntent.Ambiguous, (int)MessageIntent.Question]
