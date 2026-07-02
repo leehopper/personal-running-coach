@@ -6,22 +6,21 @@
 // only, and the LLM performs zero unit conversion.
 //
 // The kilometre output is byte-identical to the pre-existing km-only helpers, so
-// consumers' existing null/ceiling guards continue to hold once those helpers are
-// consolidated behind this module (PR4): pace parity is with
-// `plan/utils/pace-format.helpers.ts` `formatPacePerKm`/`formatPaceRangePerKm`,
-// and distance parity is `formatDistanceMeters` ↔
-// `logging/history/history-format.helpers.ts` `formatDistanceKm`. NOTE the unit
-// contracts differ by the same name: history's `formatDistanceKm` takes METRES,
-// whereas this module's `formatDistanceKm` takes KILOMETRES — metre-carrying call
-// sites must move to `formatDistanceMeters`, never this `formatDistanceKm`. The
-// miles path is a net-new inverse conversion.
+// consumers' existing null/ceiling guards continue to hold when those helpers are
+// consolidated behind this module: pace parity is with `formatPacePerKm` /
+// `formatPaceRangePerKm`, and distance parity is `formatDistanceMeters` ↔ the
+// existing metre-taking `formatDistanceKm`. NOTE the unit contracts differ by the
+// same name: the existing `formatDistanceKm` takes METRES, whereas this module's
+// `formatDistanceKm` takes KILOMETRES — metre-carrying call sites must use
+// `formatDistanceMeters`, never this `formatDistanceKm`. The miles path is a
+// net-new inverse conversion.
 //
 // Per the root/`frontend` `CLAUDE.md` trademark rule, the user-facing suffixes
 // are the literal `/km`, `/mi`, `km`, `mi`; no zone-name coupling lives here.
 //
 // Race distances (`5K`/`10K`/half/marathon) and track intervals (`400m`) are
-// literal proper nouns handled at the render sites (PR4/PR5) — not this pure
-// numeric layer.
+// literal proper nouns handled at their render sites — not this pure numeric
+// layer.
 
 import { PreferredUnits } from '~/api/generated'
 

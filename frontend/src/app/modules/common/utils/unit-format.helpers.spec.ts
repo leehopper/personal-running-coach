@@ -74,9 +74,9 @@ describe('formatDistanceMeters', () => {
 
 describe('formatDistanceMeters — kilometres path is byte-identical to history formatDistanceKm', () => {
   // Locks the load-bearing km distance parity to the SOURCE (not just literals),
-  // mirroring the pace-parity tests. PR4 consolidates history's `formatDistanceKm`
-  // (which takes metres) behind `formatDistanceMeters`, so their km output must
-  // match including the null (skipped-run) contract.
+  // mirroring the pace-parity tests: the existing metre-taking `formatDistanceKm`
+  // and this module's `formatDistanceMeters` must agree on km output — including
+  // the null (skipped-run) contract — when the two are consolidated.
   it.each([8000, 5000, 42195, 1, 0, -100])(
     'matches history formatDistanceKm for %d metres',
     (meters) => {
