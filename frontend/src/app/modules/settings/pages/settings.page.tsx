@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { useGetCurrentPlanQuery } from '~/api/plan.api'
 import { RegeneratePlanDialog } from '~/modules/settings/components/regenerate-plan-dialog.component'
 import { ThemeToggle } from '~/modules/settings/components/theme-toggle.component'
+import { UnitsToggle } from '~/modules/settings/components/units-toggle.component'
 
 /**
  * `/settings` route surface. Renders the "Plan" section: current plan's
@@ -59,6 +60,14 @@ export const SettingsPage = (): ReactElement => {
           Choose how RunCoach looks. System follows your device setting.
         </p>
         <ThemeToggle />
+      </Card>
+
+      <Card className="gap-2 p-6" data-testid="settings-units-section">
+        <h2 className="text-lg font-semibold text-foreground">Units</h2>
+        <p className="text-sm text-muted-foreground">
+          Choose how distances and paces are displayed.
+        </p>
+        <UnitsToggle />
       </Card>
 
       <RegeneratePlanDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
