@@ -187,3 +187,22 @@ type _CompletionStatusConstMembers = (typeof CompletionStatus)[keyof typeof Comp
 type _CompletionStatusUnionMinusConst = Exclude<CompletionStatus, _CompletionStatusConstMembers>
 type _CompletionStatusExhaustive = _CompletionStatusUnionMinusConst extends never ? true : never
 export const _completionStatusExhaustivenessGuard: _CompletionStatusExhaustive = true
+
+// Settings km/miles display preference (slice 4C-units). Re-export the generated
+// wire *type* (`0 | 1`, numeric on the wire — no `JsonStringEnumConverter`) and
+// pair it with an `as const` enum-shaped object so the shared unit-format module
+// and the Settings toggle read `PreferredUnits.Miles` instead of the magic
+// integer `1`. Kept in lockstep with the backend by the same bidirectional guard
+// used for {@link CompletionStatus}: `satisfies` covers const ⊆ union, and the
+// guard below covers union ⊆ const.
+export type PreferredUnits = import('./rtk/api').PreferredUnits
+
+export const PreferredUnits = {
+  Kilometers: 0,
+  Miles: 1,
+} as const satisfies Record<string, PreferredUnits>
+
+type _PreferredUnitsConstMembers = (typeof PreferredUnits)[keyof typeof PreferredUnits]
+type _PreferredUnitsUnionMinusConst = Exclude<PreferredUnits, _PreferredUnitsConstMembers>
+type _PreferredUnitsExhaustive = _PreferredUnitsUnionMinusConst extends never ? true : never
+export const _preferredUnitsExhaustivenessGuard: _PreferredUnitsExhaustive = true

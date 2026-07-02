@@ -9,6 +9,7 @@
 
 import type { RunnerDistanceUnit, StructuredLogDraft } from '~/api/generated'
 
+import { METERS_PER_MILE } from '~/modules/common/utils/unit-format.helpers'
 import {
   makeDefaultWorkoutLogFormFields,
   type WorkoutLogFormFields,
@@ -21,7 +22,6 @@ const RUNNER_DISTANCE_UNIT = {
 } as const satisfies Record<string, RunnerDistanceUnit>
 
 const METERS_PER_KILOMETER = 1000
-const METERS_PER_MILE = 1609.344
 
 const draftDistanceKm = (value: number, unit: RunnerDistanceUnit): number => {
   switch (unit) {
