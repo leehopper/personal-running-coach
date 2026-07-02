@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { PreferredUnits } from '~/api/generated'
+import { formatDistanceKm as historyFormatDistanceKm } from '~/modules/logging/history/history-format.helpers'
 import { formatPacePerKm, formatPaceRangePerKm } from '~/modules/plan/utils/pace-format.helpers'
 
 import {
@@ -69,6 +70,19 @@ describe('formatDistanceMeters', () => {
     expect(formatDistanceMeters(meters, KM)).toBeNull()
     expect(formatDistanceMeters(meters, MI)).toBeNull()
   })
+})
+
+describe('formatDistanceMeters — kilometres path is byte-identical to history formatDistanceKm', () => {
+  // Locks the load-bearing km distance parity to the SOURCE (not just literals),
+  // mirroring the pace-parity tests. PR4 consolidates history's `formatDistanceKm`
+  // (which takes metres) behind `formatDistanceMeters`, so their km output must
+  // match including the null (skipped-run) contract.
+  it.each([8000, 5000, 42195, 1, 0, -100])(
+    'matches history formatDistanceKm for %d metres',
+    (meters) => {
+      expect(formatDistanceMeters(meters, KM)).toBe(historyFormatDistanceKm(meters))
+    },
+  )
 })
 
 describe('formatPaceSecPerKm — kilometres path is byte-identical to formatPacePerKm', () => {
@@ -158,20 +172,32 @@ describe('formatPaceRangeSecPerKm — miles path', () => {
   it('collapses to a single pace when both bounds round equal in miles', () => {
     expect(formatPaceRangeSecPerKm(300, 300, MI)).toBe('08:03/mi')
   })
+
+  it('orders a fractional miles range faster-first regardless of argument order', () => {
+    // 300.4 sec/km -> 483 sec/mi (08:03); 300.6 sec/km -> 484 sec/mi (08:04):
+    // distinct in the display unit, so ordering is observable and must be stable
+    // under argument order.
+    expect(formatPaceRangeSecPerKm(300.4, 300.6, MI)).toBe('08:03-08:04/mi')
+    expect(formatPaceRangeSecPerKm(300.6, 300.4, MI)).toBe('08:03-08:04/mi')
+  })
 })
 
 describe('formatPaceRangeSecPerKm — invalid contract', () => {
-  it.each([KM, MI])('returns the valid side when the first bound is invalid (units %d)', (units) => {
-    expect(formatPaceRangeSecPerKm(Number.NaN, 330, units)).toBe(formatPaceSecPerKm(330, units))
-  })
+  it.each([KM, MI])(
+    'returns the valid side when the first bound is invalid (units %d)',
+    (units) => {
+      expect(formatPaceRangeSecPerKm(Number.NaN, 330, units)).toBe(formatPaceSecPerKm(330, units))
+    },
+  )
 
-  it.each([KM, MI])('returns the valid side when the second bound is invalid (units %d)', (units) => {
-    expect(formatPaceRangeSecPerKm(240, -1, units)).toBe(formatPaceSecPerKm(240, units))
-  })
+  it.each([KM, MI])(
+    'returns the valid side when the second bound is invalid (units %d)',
+    (units) => {
+      expect(formatPaceRangeSecPerKm(240, -1, units)).toBe(formatPaceSecPerKm(240, units))
+    },
+  )
 
   it.each([KM, MI])('returns null when both bounds are invalid (units %d)', (units) => {
-    expect(
-      formatPaceRangeSecPerKm(Number.NaN, Number.POSITIVE_INFINITY, units),
-    ).toBeNull()
+    expect(formatPaceRangeSecPerKm(Number.NaN, Number.POSITIVE_INFINITY, units)).toBeNull()
   })
 })

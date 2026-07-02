@@ -5,12 +5,16 @@
 // km-native (DEC-010 / DEC-041 / DEC-086) — this module converts for *display*
 // only, and the LLM performs zero unit conversion.
 //
-// The kilometre output is byte-identical to the pre-existing km-only helpers
-// (`plan/utils/pace-format.helpers.ts` `formatPacePerKm`/`formatPaceRangePerKm`
-// and `logging/history/history-format.helpers.ts` `formatDistanceKm`) so
-// consumers' existing null/ceiling guards continue to hold once those helpers
-// are consolidated behind this module (PR4). The miles path is a net-new inverse
-// conversion.
+// The kilometre output is byte-identical to the pre-existing km-only helpers, so
+// consumers' existing null/ceiling guards continue to hold once those helpers are
+// consolidated behind this module (PR4): pace parity is with
+// `plan/utils/pace-format.helpers.ts` `formatPacePerKm`/`formatPaceRangePerKm`,
+// and distance parity is `formatDistanceMeters` ↔
+// `logging/history/history-format.helpers.ts` `formatDistanceKm`. NOTE the unit
+// contracts differ by the same name: history's `formatDistanceKm` takes METRES,
+// whereas this module's `formatDistanceKm` takes KILOMETRES — metre-carrying call
+// sites must move to `formatDistanceMeters`, never this `formatDistanceKm`. The
+// miles path is a net-new inverse conversion.
 //
 // Per the root/`frontend` `CLAUDE.md` trademark rule, the user-facing suffixes
 // are the literal `/km`, `/mi`, `km`, `mi`; no zone-name coupling lives here.
@@ -34,8 +38,9 @@ const KM_PER_MILE = METERS_PER_MILE / METERS_PER_KM
 const MAX_PACE_SECONDS_PER_KM = 99 * SECONDS_PER_MINUTE + 59
 
 /**
- * Miles pace ceiling: the mile-equivalent of the `99:59/km` guard, so the
- * miles path rejects exactly the paces the km path would.
+ * Miles pace ceiling: the mile-equivalent of the `99:59/km` guard, so the miles
+ * path rejects the same integer-second paces the km path would (the backend emits
+ * integer seconds; the two ceilings can diverge only on sub-second inputs).
  */
 const MAX_PACE_SECONDS_PER_MILE = MAX_PACE_SECONDS_PER_KM * KM_PER_MILE
 
@@ -95,10 +100,7 @@ const formatPaceSeconds = (seconds: number, ceiling: number, suffix: string): st
  * `99:59/km` for kilometres and its mile-equivalent for miles — so consumers'
  * existing null-guards continue to hold.
  */
-export const formatPaceSecPerKm = (
-  secondsPerKm: number,
-  units: PreferredUnits,
-): string | null => {
+export const formatPaceSecPerKm = (secondsPerKm: number, units: PreferredUnits): string | null => {
   if (!Number.isFinite(secondsPerKm)) {
     return null
   }
@@ -137,22 +139,21 @@ export const formatPaceRangeSecPerKm = (
     return formattedFast
   }
 
-  // Order by the rounded value in the *display* unit so the faster pace renders
-  // first and equal-in-display bounds collapse (miles rounding can differ from
-  // km rounding).
-  const miles = isMiles(units)
-  const factor = miles ? KM_PER_MILE : 1
-  const fastRounded = Math.round(fastSecondsPerKm * factor)
-  const slowRounded = Math.round(slowSecondsPerKm * factor)
+  // Faster pace (fewer seconds) renders first. Ordering by the canonical
+  // seconds-per-km is identical to ordering by the display-unit value — the
+  // km→unit factor is a single positive constant, so it preserves order — and
+  // any two inputs that round to the same display MM:SS collapse via the
+  // `first === second` branch below regardless of order.
   const [first, second] =
-    fastRounded <= slowRounded ? [formattedFast, formattedSlow] : [formattedSlow, formattedFast]
+    fastSecondsPerKm <= slowSecondsPerKm
+      ? [formattedFast, formattedSlow]
+      : [formattedSlow, formattedFast]
 
   if (first === second) {
     return first
   }
 
   // Strip the trailing unit suffix from the first half so it is shown once.
-  const suffix = miles ? '/mi' : '/km'
-  const firstWithoutSuffix = first.slice(0, -suffix.length)
-  return `${firstWithoutSuffix}-${second}`
+  const suffix = isMiles(units) ? '/mi' : '/km'
+  return `${first.slice(0, -suffix.length)}-${second}`
 }
