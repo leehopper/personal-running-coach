@@ -72,11 +72,12 @@ describe('formatDistanceMeters', () => {
   })
 })
 
-describe('formatDistanceMeters — kilometres path is byte-identical to history formatDistanceKm', () => {
-  // Locks the load-bearing km distance parity to the SOURCE (not just literals),
-  // mirroring the pace-parity tests: the existing metre-taking `formatDistanceKm`
-  // and this module's `formatDistanceMeters` must agree on km output — including
-  // the null (skipped-run) contract — when the two are consolidated.
+describe('formatDistanceMeters — km path agrees with the km-pinned history formatDistanceKm delegate', () => {
+  // As of slice 4C-units the legacy `formatDistanceKm` delegates to this
+  // module pinned to Kilometers, so this block now guards that the delegation
+  // passes Kilometers (a Miles-pinned delegate would diverge here) rather than
+  // independently re-verifying the km formatting — the literal-expectation tests
+  // above pin the byte output, including the null (skipped-run) contract.
   it.each([8000, 5000, 42195, 1, 0, -100])(
     'matches history formatDistanceKm for %d metres',
     (meters) => {
@@ -85,7 +86,7 @@ describe('formatDistanceMeters — kilometres path is byte-identical to history 
   )
 })
 
-describe('formatPaceSecPerKm — kilometres path is byte-identical to formatPacePerKm', () => {
+describe('formatPaceSecPerKm — km path agrees with the km-pinned formatPacePerKm delegate', () => {
   it.each([0, 59, 60, 240, 300, 330, 600, 99 * 60 + 59])(
     'matches formatPacePerKm for %d sec/km',
     (secondsPerKm) => {
@@ -149,7 +150,7 @@ describe('formatPaceSecPerKm — ceiling and invalid contract', () => {
   })
 })
 
-describe('formatPaceRangeSecPerKm — kilometres path is byte-identical to formatPaceRangePerKm', () => {
+describe('formatPaceRangeSecPerKm — km path agrees with the km-pinned formatPaceRangePerKm delegate', () => {
   it.each([
     [240, 330],
     [330, 240],

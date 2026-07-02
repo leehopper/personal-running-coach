@@ -39,6 +39,30 @@ describe('MicroWorkoutCard', () => {
     expect(segments[1].textContent).toMatch(/06:26\/mi/u)
   })
 
+  it('renders unit-aware placeholders in miles when distance and pace are unavailable', () => {
+    // A skipped/zero-distance workout with unusable paces exercises the null
+    // fallbacks: distance -> "—" and the miles pace placeholder -> "—/mi".
+    const workout = {
+      ...fixtureWeekOneWorkouts()[0],
+      targetDistanceKm: 0,
+      targetPaceFastSecPerKm: Number.NaN,
+      targetPaceEasySecPerKm: Number.NaN,
+    }
+    render(<MicroWorkoutCard workout={workout} units={PreferredUnits.Miles} />)
+    expect(screen.getByTestId('micro-workout-distance').textContent).toBe('—')
+    expect(screen.getByTestId('micro-workout-pace').textContent).toBe('—/mi')
+  })
+
+  it('falls back to the km pace placeholder when the pace is unavailable in kilometres', () => {
+    const workout = {
+      ...fixtureWeekOneWorkouts()[0],
+      targetPaceFastSecPerKm: Number.NaN,
+      targetPaceEasySecPerKm: Number.NaN,
+    }
+    render(<MicroWorkoutCard workout={workout} />)
+    expect(screen.getByTestId('micro-workout-pace').textContent).toBe('—/km')
+  })
+
   it('renders structured segments with intensity labels and trademark-clean phrasing', () => {
     const workout = fixtureWeekOneWorkouts()[1] // Threshold intervals
     render(<MicroWorkoutCard workout={workout} />)

@@ -46,6 +46,19 @@ describe('MesoWeekBlock', () => {
     expect(screen.getByText(/13\.7 mi/u)).toBeInTheDocument()
   })
 
+  it('renders a placeholder when a weekly target is unavailable', () => {
+    const plan = buildPlanFixture()
+    // Zero out the first week's target so `formatDistanceKm` returns null and
+    // the "—" fallback renders (the only em-dash source in a meso card).
+    const weeks = plan.mesoWeeks.map((week, index) =>
+      index === 0 ? { ...week, weeklyTargetKm: 0 } : week,
+    )
+    render(<MesoWeekBlock weeks={weeks} currentWeek={1} />)
+    const firstCard = screen.getAllByTestId('meso-week-card')[0]
+    expect(firstCard.textContent).toContain('—')
+    expect(firstCard.textContent).not.toMatch(/0\.0 km/u)
+  })
+
   it('renders all cards in the neutral state when currentWeek is null', () => {
     const plan = buildPlanFixture()
     render(<MesoWeekBlock weeks={plan.mesoWeeks} currentWeek={null} />)

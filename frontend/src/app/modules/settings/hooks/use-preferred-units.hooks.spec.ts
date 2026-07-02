@@ -36,7 +36,11 @@ describe('usePreferredUnits', () => {
     expect(result.current).toBe(PreferredUnits.Miles)
   })
 
-  it('returns the persisted Kilometers preference (0 is not treated as absent)', () => {
+  it('returns the persisted Kilometers preference', () => {
+    // Kilometers is the enum value 0, which also happens to be the fallback, so
+    // this case cannot by itself distinguish `??` from `||` — over the whole
+    // {undefined, 0, 1} domain the two operators are provably equivalent here.
+    // It still guards that a persisted Kilometers reads back as Kilometers.
     getQueryRef.data = { preferredUnits: PreferredUnits.Kilometers }
     const { result } = renderHook(() => usePreferredUnits())
     expect(result.current).toBe(PreferredUnits.Kilometers)
