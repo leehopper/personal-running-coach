@@ -39,6 +39,14 @@ vi.mock('~/modules/coaching/hooks/use-coach-stream.hooks', () => ({
   useCoachStream: () => coachStreamMock(),
 }))
 
+// `HomePage` reads the unit preference via this hook, which wraps a real RTK
+// Query hook; the page renders here without a Redux store, so stub it to a
+// concrete unit. Kilometers keeps the existing km-based assertions intact.
+vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', async () => {
+  const { PreferredUnits } = await import('~/api/generated')
+  return { usePreferredUnits: () => PreferredUnits.Kilometers }
+})
+
 const idleStream = (): UseCoachStreamReturn => ({
   pendingUserMessage: null,
   streamingText: '',

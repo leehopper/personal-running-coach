@@ -12,6 +12,7 @@ import {
   usePlan,
 } from '~/modules/plan/hooks/use-plan.hooks'
 import type { PlanProjectionDto } from '~/modules/plan/models/plan.model'
+import { usePreferredUnits } from '~/modules/settings/hooks/use-preferred-units.hooks'
 
 /**
  * Top-level container for the protected home route (`/`). Composes the
@@ -88,6 +89,7 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
   const currentWeek = resolveCurrentWeek(plan)
   const currentWeekTemplate = findCurrentMesoWeek(plan, currentWeek)
   const currentWeekWorkouts = findCurrentWeekWorkouts(plan, currentWeek)
+  const units = usePreferredUnits()
 
   return (
     <main
@@ -107,7 +109,11 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
       )}
 
       {currentWeekTemplate === undefined ? null : (
-        <TodayCard currentWeek={currentWeekTemplate} workouts={currentWeekWorkouts} />
+        <TodayCard
+          currentWeek={currentWeekTemplate}
+          workouts={currentWeekWorkouts}
+          units={units}
+        />
       )}
 
       <CoachChat />
@@ -116,6 +122,7 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
         currentWeekWorkouts={currentWeekWorkouts}
         weeks={plan.mesoWeeks}
         currentWeek={currentWeek}
+        units={units}
       />
     </main>
   )

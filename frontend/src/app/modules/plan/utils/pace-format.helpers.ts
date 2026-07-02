@@ -1,88 +1,42 @@
-// Pace formatting helpers for the plan view.
+// Kilometre-fixed pace formatters for the still-km logging/history surfaces.
 //
 // The backend emits paces as integer **seconds-per-kilometer** on the
-// structured-output records (`TargetPaceEasySecPerKm`,
-// `TargetPaceFastSecPerKm`, `WorkoutSegmentOutput.TargetPaceSecPerKm`). The
-// home surface renders them as `MM:SS/km` strings.
+// structured-output records (`TargetPaceEasySecPerKm`, `TargetPaceFastSecPerKm`,
+// `WorkoutSegmentOutput.TargetPaceSecPerKm`) and on logged splits.
 //
-// Distances are expressed in kilometers (spec 13 § Unit 4 R04.6).
+// As of slice 4C-units the single home for `MM:SS` pace formatting is the
+// shared, preference-aware `unit-format.helpers` module. These two helpers stay
+// as thin km-pinned adapters over it: the plan render sites now read the unit
+// preference directly, but the logging/history render sites (`workout-log-*`,
+// `history-format.helpers`) are still km-only until they are wired to the
+// preference. Pinning `PreferredUnits.Kilometers` here keeps their output
+// byte-identical while removing the duplicate rounding/ceiling/formatting logic.
 //
 // Per the trademark rule in the root `CLAUDE.md`, the user-facing strings
-// produced here use the literal `/km` suffix; no zone-name coupling lives
-// in this module.
+// produced here use the literal `/km` suffix; no zone-name coupling lives here.
 
-/** Maximum pace value the formatter accepts, in seconds-per-kilometer. */
-const MAX_PACE_SECONDS_PER_KM = 99 * 60 + 59 // 99:59/km
-const SECONDS_PER_MINUTE = 60
+import { PreferredUnits } from '~/api/generated'
+import {
+  formatPaceRangeSecPerKm,
+  formatPaceSecPerKm,
+} from '~/modules/common/utils/unit-format.helpers'
 
 /**
  * Formats a pace expressed in **seconds per kilometer** as a `MM:SS/km`
- * string suitable for direct rendering.
- *
- * Inputs are rounded to the nearest whole second before formatting — the
- * structured-output schema already emits integer seconds, but the helper is
- * defensive against fractional inputs that future logged-workout surfaces
- * may produce.
- *
- * Returns `null` when the input is invalid (NaN, infinite, negative, or
- * above the documented `99:59/km` ceiling). Callers render a placeholder
- * (`—/km` or similar) on `null` rather than crashing.
+ * string. Returns `null` when the input is invalid (NaN, infinite, negative,
+ * or above the documented `99:59/km` ceiling); callers render a placeholder.
  */
-export const formatPacePerKm = (secondsPerKm: number): string | null => {
-  if (!Number.isFinite(secondsPerKm)) {
-    return null
-  }
-
-  const rounded = Math.round(secondsPerKm)
-  if (rounded < 0 || rounded > MAX_PACE_SECONDS_PER_KM) {
-    return null
-  }
-
-  const minutes = Math.floor(rounded / SECONDS_PER_MINUTE)
-  const seconds = rounded - minutes * SECONDS_PER_MINUTE
-  const paddedMinutes = minutes.toString().padStart(2, '0')
-  const paddedSeconds = seconds.toString().padStart(2, '0')
-  return `${paddedMinutes}:${paddedSeconds}/km`
-}
+export const formatPacePerKm = (secondsPerKm: number): string | null =>
+  formatPaceSecPerKm(secondsPerKm, PreferredUnits.Kilometers)
 
 /**
- * Formats a pace **range** (typically from `targetPaceEasySecPerKm` and
- * `targetPaceFastSecPerKm` on `MicroWorkoutCardDto`) as a single
- * `FAST-SLOW/km` string. Faster (smaller seconds-per-km) is rendered first
- * to match the conventional display order.
- *
- * When the two values resolve to the same `MM:SS` after rounding, returns
- * the single-pace formatting (no degenerate `MM:SS-MM:SS/km`). When either
- * value is invalid, returns whichever side is valid; when both are invalid,
- * returns `null`.
+ * Formats a pace **range** (both bounds in seconds-per-kilometer) as a single
+ * `FAST-SLOW/km` string, faster (smaller seconds) first. Collapses to a single
+ * pace when both bounds round equal; returns whichever side is valid when one
+ * is invalid; returns `null` when both are invalid.
  */
 export const formatPaceRangePerKm = (
   fastSecondsPerKm: number,
   slowSecondsPerKm: number,
-): string | null => {
-  const formattedFast = formatPacePerKm(fastSecondsPerKm)
-  const formattedSlow = formatPacePerKm(slowSecondsPerKm)
-
-  if (formattedFast === null && formattedSlow === null) {
-    return null
-  }
-  if (formattedFast === null) {
-    return formattedSlow
-  }
-  if (formattedSlow === null) {
-    return formattedFast
-  }
-
-  // Order so the **faster** pace (lower seconds) renders first.
-  const fastRounded = Math.round(fastSecondsPerKm)
-  const slowRounded = Math.round(slowSecondsPerKm)
-  const [first, second] =
-    fastRounded <= slowRounded ? [formattedFast, formattedSlow] : [formattedSlow, formattedFast]
-
-  if (first === second) {
-    return first
-  }
-  // Strip the trailing `/km` from the first half so the suffix is shown once.
-  const firstWithoutSuffix = first.replace(/\/km$/u, '')
-  return `${firstWithoutSuffix}-${second}`
-}
+): string | null =>
+  formatPaceRangeSecPerKm(fastSecondsPerKm, slowSecondsPerKm, PreferredUnits.Kilometers)
