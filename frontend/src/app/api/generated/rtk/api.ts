@@ -268,13 +268,7 @@ export type SafetyTier = 0 | 1 | 2
 export type ReferralCategory = 0 | 1 | 2 | 3 | 4
 export type AdaptationKind = 0 | 1 | 2
 export type WorkoutType =
-  | 'Easy'
-  | 'LongRun'
-  | 'Tempo'
-  | 'Interval'
-  | 'Repetition'
-  | 'Recovery'
-  | 'CrossTrain'
+  'Easy' | 'LongRun' | 'Tempo' | 'Interval' | 'Repetition' | 'Recovery' | 'CrossTrain'
 export type SegmentType = 'Warmup' | 'Work' | 'Recovery' | 'Cooldown'
 export type IntensityProfile = 'Easy' | 'Moderate' | 'Threshold' | 'VO2Max' | 'Repetition'
 export type WorkoutSegmentOutput = {
