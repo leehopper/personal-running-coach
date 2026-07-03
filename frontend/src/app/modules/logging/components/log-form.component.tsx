@@ -24,6 +24,8 @@ export interface LogFormProps {
   onSubmit: (values: WorkoutLogFormValues) => void | Promise<void>
   isLoading: boolean
   formAlert: string | null
+  /** The distance field label, unit-aware (e.g. `Distance (km)` / `Distance (mi)`). */
+  distanceLabel: string
 }
 
 /**
@@ -32,7 +34,7 @@ export interface LogFormProps {
  * The container owns `useForm` + the create mutation + navigation; this renders
  * the field stack and gates submit on validity / in-flight state.
  */
-export const LogForm = ({ form, onSubmit, isLoading, formAlert }: LogFormProps) => {
+export const LogForm = ({ form, onSubmit, isLoading, formAlert, distanceLabel }: LogFormProps) => {
   const isSubmitDisabled = !form.formState.isValid || form.formState.isSubmitting || isLoading
 
   return (
@@ -67,7 +69,7 @@ export const LogForm = ({ form, onSubmit, isLoading, formAlert }: LogFormProps) 
           )}
         />
 
-        <LogNumericField control={form.control} name="distanceKm" label="Distance (km)" autoFocus />
+        <LogNumericField control={form.control} name="distance" label={distanceLabel} autoFocus />
         <LogNumericField control={form.control} name="durationMinutes" label="Duration (minutes)" />
 
         <CompletionStatusField control={form.control} name="completionStatus" />

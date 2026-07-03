@@ -1,9 +1,15 @@
 // Shared, deterministic unit-format layer (slice 4C-units).
 //
-// A single preference-aware home for rendering canonical km/SI values in the
-// runner's chosen display unit. Storage, the wire, and the plan-gen prompt stay
-// km-native (DEC-010 / DEC-041 / DEC-086) — this module converts for *display*
-// only, and the LLM performs zero unit conversion.
+// A single preference-aware home for the runner's chosen display unit. Storage,
+// the wire, and the plan-gen prompt stay km-native (DEC-010 / DEC-041 / DEC-086),
+// and the LLM performs zero unit conversion. This module owns BOTH the display
+// formatters (canonical value → string in the preferred unit) AND the numeric
+// conversions the one real write site needs — {@link preferredDistanceToMeters}
+// (the runner's typed distance, in their preferred unit, → canonical metres) and
+// its inverse {@link metresToPreferredDistance} (used to pre-fill the log form
+// from a parsed draft). Keeping the write conversion here — not scattered at the
+// call site — is the "one shared module, one write site" guarantee: there is
+// exactly one `1609.344` in the frontend.
 //
 // The kilometre output is byte-identical to the pre-existing km-only helpers, so
 // consumers' existing null/ceiling guards continue to hold when those helpers are
@@ -44,6 +50,32 @@ const MAX_PACE_SECONDS_PER_KM = 99 * SECONDS_PER_MINUTE + 59
 const MAX_PACE_SECONDS_PER_MILE = MAX_PACE_SECONDS_PER_KM * KM_PER_MILE
 
 const isMiles = (units: PreferredUnits): boolean => units === PreferredUnits.Miles
+
+/**
+ * The user-facing distance-unit suffix for the preferred unit — the literal
+ * `km` / `mi` (trademark rule: no zone-name coupling). Used for input labels and
+ * validation-message wording so the log form speaks the runner's unit.
+ */
+export const distanceUnitLabel = (units: PreferredUnits): 'km' | 'mi' =>
+  isMiles(units) ? 'mi' : 'km'
+
+/**
+ * Interprets a distance the runner **typed in their preferred unit** and returns
+ * canonical **metres** for the wire — the single miles→km/SI write conversion
+ * (`× 1609.344` for miles; `× 1000` for kilometres, byte-identical to the prior
+ * `distanceKm * 1000`). The LLM never performs this; it is deterministic here.
+ */
+export const preferredDistanceToMeters = (value: number, units: PreferredUnits): number =>
+  isMiles(units) ? value * METERS_PER_MILE : value * METERS_PER_KM
+
+/**
+ * Inverse of {@link preferredDistanceToMeters}: canonical **metres** → the
+ * numeric value in the preferred unit, for pre-filling the log form from a parsed
+ * draft. Callers that already hold the value in the target unit should skip this
+ * (identity conversions accrue avoidable floating-point drift).
+ */
+export const metresToPreferredDistance = (metres: number, units: PreferredUnits): number =>
+  isMiles(units) ? metres / METERS_PER_MILE : metres / METERS_PER_KM
 
 /**
  * Formats a canonical distance in **kilometres** in the preferred unit as a

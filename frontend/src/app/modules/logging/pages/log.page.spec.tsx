@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Toaster } from '@/components/ui/sonner'
 import type { CreateWorkoutLogRequest, StructuredLogDraft } from '~/api/generated'
+import { PreferredUnits } from '~/api/generated'
+import { METERS_PER_MILE } from '~/modules/common/utils/unit-format.helpers'
+import type { PreferredUnitsResolution } from '~/modules/settings/hooks/use-preferred-units.hooks'
 import { toIsoDateOnly } from '~/modules/logging/schemas/workout-log-form.schema'
 
 // vi.mock is hoisted above imports, so the mock fns must come from vi.hoisted.
@@ -15,6 +18,7 @@ const {
   mutationStateRef,
   navigateMock,
   reportClientErrorMock,
+  preferredUnitsResolutionMock,
 } = vi.hoisted(() => {
   const createWorkoutLogUnwrap = vi.fn()
   return {
@@ -27,6 +31,7 @@ const {
     mutationStateRef: { isLoading: false },
     navigateMock: vi.fn(),
     reportClientErrorMock: vi.fn(),
+    preferredUnitsResolutionMock: vi.fn<() => PreferredUnitsResolution>(),
   }
 })
 
@@ -36,6 +41,13 @@ vi.mock('~/api/workout-log.api', () => ({
 
 vi.mock('~/error-boundary/report-client-error', () => ({
   reportClientError: reportClientErrorMock,
+}))
+
+// The page reads the unit preference via this hook (it wraps a real RTK Query
+// hook); the page renders here without a Redux store, so stub it through a
+// mockable ref — mirroring history.page.spec / coach-chat.component.spec.
+vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
+  usePreferredUnitsResolution: () => preferredUnitsResolutionMock(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -78,6 +90,12 @@ describe('LogPage', () => {
     mutationStateRef.isLoading = false
     navigateMock.mockReset()
     reportClientErrorMock.mockReset()
+    // Default: preference resolved to Kilometers (the common case). Individual
+    // tests override for Miles / still-loading.
+    preferredUnitsResolutionMock.mockReturnValue({
+      units: PreferredUnits.Kilometers,
+      isResolved: true,
+    })
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-00000000abcd')
   })
 
@@ -232,5 +250,52 @@ describe('LogPage', () => {
     expect((screen.getByLabelText('Date') as HTMLInputElement).value).toBe('2026-06-20')
     // A pre-filled Edit form is valid without the user touching a field.
     await waitFor(() => expect(screen.getByTestId('log-form-submit')).toBeEnabled())
+  })
+
+  it('interprets distance as miles and converts to km/SI on write under a Miles preference', async () => {
+    preferredUnitsResolutionMock.mockReturnValue({ units: PreferredUnits.Miles, isResolved: true })
+    const { user } = renderPage()
+    await user.type(screen.getByLabelText('Distance (mi)'), '5')
+    await user.type(screen.getByLabelText('Duration (minutes)'), '30')
+    await clickSave(user)
+
+    await waitFor(() => expect(createWorkoutLogTrigger).toHaveBeenCalledTimes(1))
+    // 5 mi -> 5 * 1609.344 m; the wire stays canonical km/SI metres.
+    expect(createWorkoutLogTrigger.mock.calls[0][0].distanceMeters).toBe(5 * METERS_PER_MILE)
+  })
+
+  it('pre-fills a miles-stated Edit draft in miles under a Miles preference (no km round trip)', async () => {
+    preferredUnitsResolutionMock.mockReturnValue({ units: PreferredUnits.Miles, isResolved: true })
+    const draft: StructuredLogDraft = {
+      occurredOn: '2026-06-20',
+      distanceValue: 5,
+      distanceUnit: 1, // miles
+      durationHours: 0,
+      durationMinutes: 25,
+      durationSeconds: 0,
+      completionStatus: 0,
+      notes: 'felt good',
+    }
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/log', state: { draft } }]}>
+        <LogPage />
+        <Toaster />
+      </MemoryRouter>,
+    )
+
+    // The 5 mi draft pre-fills the miles field as "5" (identity, not converted).
+    expect((screen.getByLabelText('Distance (mi)') as HTMLInputElement).value).toBe('5')
+    await waitFor(() => expect(screen.getByTestId('log-form-submit')).toBeEnabled())
+  })
+
+  it('shows a loading state and no form until the unit preference resolves', () => {
+    preferredUnitsResolutionMock.mockReturnValue({
+      units: PreferredUnits.Kilometers,
+      isResolved: false,
+    })
+    renderPage()
+
+    expect(screen.getByTestId('log-page-loading')).toBeInTheDocument()
+    expect(screen.queryByTestId('log-form')).toBeNull()
   })
 })

@@ -6,22 +6,23 @@ interface UnitPreference {
   preferredUnits: PreferredUnits
 }
 
-// The hook only reads `data` off the query result, so a plain hoisted ref
-// standing in for `useGetUnitPreferenceQuery` keeps the test free of a Redux
+// The hooks read `data` + `isLoading` off the query result, so a plain hoisted
+// ref standing in for `useGetUnitPreferenceQuery` keeps the test free of a Redux
 // store while exercising the real fallback/selection logic.
 const { getQueryRef } = vi.hoisted(() => ({
-  getQueryRef: { data: undefined as UnitPreference | undefined },
+  getQueryRef: { data: undefined as UnitPreference | undefined, isLoading: false },
 }))
 
 vi.mock('~/api/settings.api', () => ({
   useGetUnitPreferenceQuery: () => getQueryRef,
 }))
 
-import { usePreferredUnits } from './use-preferred-units.hooks'
+import { usePreferredUnits, usePreferredUnitsResolution } from './use-preferred-units.hooks'
 
 describe('usePreferredUnits', () => {
   beforeEach(() => {
     getQueryRef.data = undefined
+    getQueryRef.isLoading = false
   })
 
   it('falls back to Kilometers while the preference is unresolved', () => {
@@ -44,5 +45,33 @@ describe('usePreferredUnits', () => {
     getQueryRef.data = { preferredUnits: PreferredUnits.Kilometers }
     const { result } = renderHook(() => usePreferredUnits())
     expect(result.current).toBe(PreferredUnits.Kilometers)
+  })
+})
+
+describe('usePreferredUnitsResolution', () => {
+  beforeEach(() => {
+    getQueryRef.data = undefined
+    getQueryRef.isLoading = false
+  })
+
+  it('is unresolved (Kilometers) while the preference query is loading', () => {
+    getQueryRef.data = undefined
+    getQueryRef.isLoading = true
+    const { result } = renderHook(() => usePreferredUnitsResolution())
+    expect(result.current).toEqual({ units: PreferredUnits.Kilometers, isResolved: false })
+  })
+
+  it('resolves to the persisted Miles preference once the query settles', () => {
+    getQueryRef.data = { preferredUnits: PreferredUnits.Miles }
+    getQueryRef.isLoading = false
+    const { result } = renderHook(() => usePreferredUnitsResolution())
+    expect(result.current).toEqual({ units: PreferredUnits.Miles, isResolved: true })
+  })
+
+  it('resolves to the Kilometers default once settled with no row (read-or-default 200)', () => {
+    getQueryRef.data = undefined
+    getQueryRef.isLoading = false
+    const { result } = renderHook(() => usePreferredUnitsResolution())
+    expect(result.current).toEqual({ units: PreferredUnits.Kilometers, isResolved: true })
   })
 })

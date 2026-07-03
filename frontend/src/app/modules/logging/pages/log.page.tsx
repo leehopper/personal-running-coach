@@ -4,56 +4,62 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 
-import type { StructuredLogDraft } from '~/api/generated'
+import { PreferredUnits, type StructuredLogDraft } from '~/api/generated'
 import { useCreateWorkoutLogMutation } from '~/api/workout-log.api'
 import { reportClientError } from '~/error-boundary/report-client-error'
+import { distanceUnitLabel } from '~/modules/common/utils/unit-format.helpers'
 import { LogForm } from '~/modules/logging/components/log-form.component'
 import { draftToWorkoutLogFormFields } from '~/modules/logging/draft-to-form.helpers'
 import {
   makeDefaultWorkoutLogFormFields,
+  makeWorkoutLogFormSchema,
   toCreateWorkoutLogRequest,
-  workoutLogFormSchema,
   type WorkoutLogFormFields,
   type WorkoutLogFormValues,
 } from '~/modules/logging/schemas/workout-log-form.schema'
+import { usePreferredUnitsResolution } from '~/modules/settings/hooks/use-preferred-units.hooks'
 
 /** Router state carried by the conversational-logging "Edit" affordance. */
 interface LogPageLocationState {
   draft?: StructuredLogDraft
 }
 
+interface WorkoutLogFormViewProps {
+  /** The runner's resolved display unit — the entered distance is read in this unit. */
+  units: PreferredUnits
+  editDraft: StructuredLogDraft | null
+}
+
 /**
- * The `/log` route — a mobile-first workout-logging form. Owns the form state,
- * the create mutation, and post-submit navigation. Create is pessimistic
- * (DEC-075): await success → success toast → navigate home; the mutation
- * invalidates the `WorkoutLog` tag so history (PR7) refetches. `OccurredOn`
- * defaults to today; the prescription snapshot is resolved server-side, so the
+ * The form itself, mounted only once the unit preference has resolved (see
+ * {@link LogPage}). Because `units` is known and stable before this mounts, the
+ * schema, the distance label, the draft pre-fill, and the miles→km write
+ * conversion are all computed once against the correct unit — no mid-form schema
+ * swap and no reset dance. Owns the form state, the create mutation, and
+ * post-submit navigation. Create is pessimistic (DEC-075): await success →
+ * success toast → navigate home; the mutation invalidates the `WorkoutLog` tag so
+ * history refetches. The prescription snapshot is resolved server-side, so the
  * form never sends prescribed values (DEC-076).
  */
-const LogPage = () => {
+const WorkoutLogFormView = ({ units, editDraft }: WorkoutLogFormViewProps) => {
   const navigate = useNavigate()
-  const location = useLocation()
   const [createWorkoutLog, { isLoading }] = useCreateWorkoutLogMutation()
   const [formAlert, setFormAlert] = useState<string | null>(null)
   // One key per mounted form so a retry after a transient failure reuses it and
   // the server dedupes rather than double-logging (DEC-077).
   const idempotencyKey = useMemo(() => crypto.randomUUID(), [])
 
-  // The conversational-logging "Edit" affordance navigates here with the parsed
-  // draft in router state — pre-fill the form from it. An edited submit still
-  // goes through the normal create path with its own idempotency key, not the
-  // confirm endpoint.
-  const editDraft = (location.state as LogPageLocationState | null)?.draft ?? null
+  const schema = useMemo(() => makeWorkoutLogFormSchema(units), [units])
   const defaultValues = useMemo(
     () =>
       editDraft !== null
-        ? draftToWorkoutLogFormFields(editDraft)
+        ? draftToWorkoutLogFormFields(editDraft, units)
         : makeDefaultWorkoutLogFormFields(),
-    [editDraft],
+    [editDraft, units],
   )
 
   const form = useForm<WorkoutLogFormFields, unknown, WorkoutLogFormValues>({
-    resolver: zodResolver(workoutLogFormSchema),
+    resolver: zodResolver(schema),
     mode: 'onChange',
     shouldUnregister: false,
     defaultValues,
@@ -73,7 +79,7 @@ const LogPage = () => {
   const onSubmit = async (values: WorkoutLogFormValues): Promise<void> => {
     setFormAlert(null)
     try {
-      await createWorkoutLog(toCreateWorkoutLogRequest(values, idempotencyKey)).unwrap()
+      await createWorkoutLog(toCreateWorkoutLogRequest(values, idempotencyKey, units)).unwrap()
       toast.success('Workout logged')
       navigate('/', { replace: true })
     } catch (error) {
@@ -91,6 +97,30 @@ const LogPage = () => {
   }
 
   return (
+    <LogForm
+      form={form}
+      onSubmit={onSubmit}
+      isLoading={isLoading}
+      formAlert={formAlert}
+      distanceLabel={`Distance (${distanceUnitLabel(units)})`}
+    />
+  )
+}
+
+/**
+ * The `/log` route — a mobile-first workout-logging form. The form's numeric
+ * write interprets the entered distance in the runner's unit preference, so it
+ * defers the form until that preference has resolved (usually instant — the
+ * preference is cached app-wide; only a cold `/log` refresh shows the brief
+ * loading state). This keeps a miles-preferring runner's input from ever being
+ * converted against the loading-time km fallback (DEC-086).
+ */
+const LogPage = () => {
+  const location = useLocation()
+  const editDraft = (location.state as LogPageLocationState | null)?.draft ?? null
+  const { units, isResolved } = usePreferredUnitsResolution()
+
+  return (
     <main
       className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 bg-background px-4 py-8"
       data-testid="log-page"
@@ -99,7 +129,13 @@ const LogPage = () => {
         <h1 className="text-2xl font-semibold text-foreground">Log a workout</h1>
         <p className="text-sm text-muted-foreground">Record what you actually ran.</p>
       </header>
-      <LogForm form={form} onSubmit={onSubmit} isLoading={isLoading} formAlert={formAlert} />
+      {isResolved ? (
+        <WorkoutLogFormView units={units} editDraft={editDraft} />
+      ) : (
+        <p role="status" className="text-sm text-muted-foreground" data-testid="log-page-loading">
+          Loading…
+        </p>
+      )}
     </main>
   )
 }
