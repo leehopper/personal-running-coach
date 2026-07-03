@@ -126,6 +126,13 @@ export type {
   ConversationMessageRequestDto,
 } from './rtk/api'
 
+// Slice 4C units — the unit-preference DTO consumed by the settings RTK slice
+// (`settings.api.ts`). Re-exported type-only (same reasoning as the workout-log
+// DTOs above) so the wire shape stays generated, not hand-mirrored; a backend
+// rename ripples here via `codegen:check` + `tsc`. (`PreferredUnits` itself is
+// re-exported below, paired with its `as const` enum.)
+export type { UnitPreferenceDto } from './rtk/api'
+
 export const completionStatusSchema = createWorkoutLogRequestSchema.shape.completionStatus
 export type CompletionStatus = z.infer<typeof completionStatusSchema>
 

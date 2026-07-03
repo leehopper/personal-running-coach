@@ -1,18 +1,26 @@
 import type { ReactElement } from 'react'
+import { PreferredUnits } from '~/api/generated'
+import { formatPaceSecPerKm } from '~/modules/common/utils/unit-format.helpers'
 import type { WorkoutSegmentDto } from '~/modules/plan/models/plan.model'
-import { formatPacePerKm } from '~/modules/plan/utils/pace-format.helpers'
 import { INTENSITY_LABELS } from './plan-display.helpers'
 
 export interface MicroWorkoutSegmentRowProps {
   segment: WorkoutSegmentDto
   index: number
+  /**
+   * Display unit for the segment pace. Defaults to Kilometers so callers that
+   * predate the unit preference (and isolated tests) render the km form
+   * unchanged.
+   */
+  units?: PreferredUnits
 }
 
 export const MicroWorkoutSegmentRow = ({
   segment,
   index,
+  units = PreferredUnits.Kilometers,
 }: MicroWorkoutSegmentRowProps): ReactElement => {
-  const pace = formatPacePerKm(segment.targetPaceSecPerKm)
+  const pace = formatPaceSecPerKm(segment.targetPaceSecPerKm, units)
   return (
     <li
       data-testid="micro-workout-segment"

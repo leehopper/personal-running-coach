@@ -1,6 +1,10 @@
 import type { ReactElement } from 'react'
+import { PreferredUnits } from '~/api/generated'
+import {
+  formatDistanceKm,
+  formatPaceRangeSecPerKm,
+} from '~/modules/common/utils/unit-format.helpers'
 import type { MicroWorkoutCardDto } from '~/modules/plan/models/plan.model'
-import { formatPaceRangePerKm } from '~/modules/plan/utils/pace-format.helpers'
 import { MicroWorkoutSegmentRow } from './micro-workout-segment-row.component'
 import { DAY_OF_WEEK_LABELS, WORKOUT_TYPE_LABELS } from './plan-display.helpers'
 
@@ -10,29 +14,41 @@ export interface MicroWorkoutCardProps {
   workout: MicroWorkoutCardDto
   /** Optional emphasis flag used by `TodayCard` to render the prominent variant. */
   emphasized?: boolean
+  /**
+   * Display unit for the distance + pace. Defaults to Kilometers so callers
+   * that predate the unit preference (and isolated tests) render the km form
+   * unchanged.
+   */
+  units?: PreferredUnits
   className?: string
 }
 
 /**
  * Detail card for a single workout. Renders title, workout-type label,
- * target distance, target pace range (`MM:SS/km`), structured segments,
- * and the LLM-emitted coaching note. Segment list collapses cleanly when
- * the structured-output schema emits zero segments (typical for an easy run).
+ * target distance, target pace range (`MM:SS/km` or `MM:SS/mi`), structured
+ * segments, and the LLM-emitted coaching note. Segment list collapses cleanly
+ * when the structured-output schema emits zero segments (typical for an easy
+ * run).
  *
- * The pace string flows through `formatPaceRangePerKm` from `pace-format.helpers`
- * — the single home for `MM:SS/km` formatting in this module. Workout-type
- * labels and intensity labels live in `plan-display.helpers.ts` to keep
- * trademark-clean phrasing in one auditable place.
+ * Distance and pace flow through the shared `unit-format.helpers` module — the
+ * single preference-aware home for km/mi formatting — so the card renders in the
+ * runner's chosen unit (`units`). Workout-type and intensity labels live in
+ * `plan-display.helpers.ts` to keep trademark-clean phrasing in one auditable
+ * place. The stored/wire values stay km-native; conversion is display-only.
  */
 export const MicroWorkoutCard = ({
   workout,
   emphasized = false,
+  units = PreferredUnits.Kilometers,
   className,
 }: MicroWorkoutCardProps): ReactElement => {
-  const paceRange = formatPaceRangePerKm(
+  const distance = formatDistanceKm(workout.targetDistanceKm, units)
+  const paceRange = formatPaceRangeSecPerKm(
     workout.targetPaceFastSecPerKm,
     workout.targetPaceEasySecPerKm,
+    units,
   )
+  const pacePlaceholder = units === PreferredUnits.Miles ? '—/mi' : '—/km'
   const dayLabel = DAY_OF_WEEK_LABELS[workout.dayOfWeek] ?? ''
 
   return (
@@ -64,8 +80,8 @@ export const MicroWorkoutCard = ({
           <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Distance
           </dt>
-          <dd className="text-base font-semibold text-foreground">
-            {workout.targetDistanceKm.toFixed(1)} km
+          <dd data-testid="micro-workout-distance" className="text-base font-semibold text-foreground">
+            {distance ?? '—'}
           </dd>
         </div>
         <div>
@@ -73,7 +89,7 @@ export const MicroWorkoutCard = ({
             Target pace
           </dt>
           <dd data-testid="micro-workout-pace" className="text-base font-semibold text-foreground">
-            {paceRange ?? '—/km'}
+            {paceRange ?? pacePlaceholder}
           </dd>
         </div>
       </dl>
@@ -93,6 +109,7 @@ export const MicroWorkoutCard = ({
               key={`${segment.segmentType}-${index}`}
               segment={segment}
               index={index}
+              units={units}
             />
           ))}
         </ul>
