@@ -4,13 +4,19 @@ import { ChevronDownIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import type { WorkoutLogSplitDto } from '~/api/generated'
-import { formatPacePerKm } from '~/modules/plan/utils/pace-format.helpers'
+import { PreferredUnits, type WorkoutLogSplitDto } from '~/api/generated'
+import { formatPaceSecPerKm } from '~/modules/common/utils/unit-format.helpers'
 import { formatHistoryDistanceKm, formatDuration } from './history-format.helpers'
 
 export interface WorkoutLogSplitsProps {
   /** The per-lap splits of a logged workout (display-only at MVP-0). */
   splits: readonly WorkoutLogSplitDto[]
+  /**
+   * Display unit for the split distance + pace. Defaults to Kilometers so
+   * callers that predate the unit preference (and isolated tests) render the
+   * km form unchanged.
+   */
+  units?: PreferredUnits
 }
 
 const headerCellClass =
@@ -24,7 +30,10 @@ const dataCellClass = 'px-3 py-2 text-foreground'
  * The HR column appears only when at least one split carries a heart rate, so a
  * GPS-only import doesn't show an empty column.
  */
-export const WorkoutLogSplits = ({ splits }: WorkoutLogSplitsProps): ReactElement | null => {
+export const WorkoutLogSplits = ({
+  splits,
+  units = PreferredUnits.Kilometers,
+}: WorkoutLogSplitsProps): ReactElement | null => {
   const [open, setOpen] = useState(false)
 
   if (splits.length === 0) {
@@ -32,6 +41,7 @@ export const WorkoutLogSplits = ({ splits }: WorkoutLogSplitsProps): ReactElemen
   }
 
   const summary = `${splits.length} split${splits.length === 1 ? '' : 's'}`
+  const pacePlaceholder = units === PreferredUnits.Miles ? '—/mi' : '—/km'
   const showHeartRate = splits.some(
     (split) => split.averageHeartRate !== null && split.averageHeartRate !== undefined,
   )
@@ -86,10 +96,12 @@ export const WorkoutLogSplits = ({ splits }: WorkoutLogSplitsProps): ReactElemen
               <tr key={split.index} className="border-b border-border last:border-0">
                 <td className={dataCellClass}>{split.index + 1}</td>
                 <td className={dataCellClass}>
-                  {formatHistoryDistanceKm(split.distanceMeters) ?? '—'}
+                  {formatHistoryDistanceKm(split.distanceMeters, units) ?? '—'}
                 </td>
                 <td className={dataCellClass}>{formatDuration(split.durationSeconds) ?? '—'}</td>
-                <td className={dataCellClass}>{formatPacePerKm(split.paceSecPerKm) ?? '—/km'}</td>
+                <td className={dataCellClass}>
+                  {formatPaceSecPerKm(split.paceSecPerKm, units) ?? pacePlaceholder}
+                </td>
                 {showHeartRate ? (
                   <td className={dataCellClass}>{split.averageHeartRate ?? '—'}</td>
                 ) : null}

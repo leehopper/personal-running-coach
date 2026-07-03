@@ -2,9 +2,10 @@ import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import type { WorkoutLogDto } from '~/api/generated'
+import type { PreferredUnits, WorkoutLogDto } from '~/api/generated'
 import { useGetWorkoutLogHistoryInfiniteQuery } from '~/api/workout-log.api'
 import { WorkoutHistoryList } from '~/modules/logging/history/workout-history-list.component'
+import { usePreferredUnits } from '~/modules/settings/hooks/use-preferred-units.hooks'
 
 interface HistoryBodyProps {
   logs: WorkoutLogDto[]
@@ -13,6 +14,7 @@ interface HistoryBodyProps {
   hasNextPage: boolean
   isFetchingNextPage: boolean
   loadOlder: () => void
+  units: PreferredUnits
 }
 
 /**
@@ -27,6 +29,7 @@ const HistoryBody = ({
   hasNextPage,
   isFetchingNextPage,
   loadOlder,
+  units,
 }: HistoryBodyProps): ReactElement => {
   if (isLoading) {
     return (
@@ -69,7 +72,7 @@ const HistoryBody = ({
 
   return (
     <>
-      <WorkoutHistoryList logs={logs} />
+      <WorkoutHistoryList logs={logs} units={units} />
       {hasNextPage ? (
         <Button
           type="button"
@@ -96,6 +99,7 @@ const HistoryBody = ({
 export const HistoryPage = (): ReactElement => {
   const { data, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useGetWorkoutLogHistoryInfiniteQuery(undefined)
+  const units = usePreferredUnits()
 
   const logs = data?.pages.flatMap((logPage) => logPage.logs) ?? []
 
@@ -120,6 +124,7 @@ export const HistoryPage = (): ReactElement => {
         loadOlder={() => {
           void fetchNextPage()
         }}
+        units={units}
       />
     </main>
   )

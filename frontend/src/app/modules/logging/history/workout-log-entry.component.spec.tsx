@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import type { WorkoutLogDto } from '~/api/generated'
-import { CompletionStatus } from '~/api/generated'
+import { CompletionStatus, PreferredUnits } from '~/api/generated'
 import { WorkoutLogEntry } from './workout-log-entry.component'
 
 const baseLog = (overrides: Partial<WorkoutLogDto> = {}): WorkoutLogDto => ({
@@ -23,6 +23,15 @@ describe('WorkoutLogEntry', () => {
     expect(screen.getByText('5.0 km')).toBeInTheDocument()
     expect(screen.getByText('30:00')).toBeInTheDocument()
     expect(screen.getByText('06:00/km')).toBeInTheDocument()
+  })
+
+  it('renders distance and pace in miles when units=Miles', () => {
+    render(<WorkoutLogEntry log={baseLog()} units={PreferredUnits.Miles} />)
+
+    // 5000 m / 1609.344 = 3.107... -> 3.1 mi
+    expect(screen.getByText('3.1 mi')).toBeInTheDocument()
+    // 360 s/km * 1.609344 = 579.36 -> 579 -> 09:39/mi.
+    expect(screen.getByText('09:39/mi')).toBeInTheDocument()
   })
 
   it('renders the freeform note when present', () => {

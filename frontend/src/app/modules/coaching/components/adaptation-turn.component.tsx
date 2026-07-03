@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 
+import { PreferredUnits } from '~/api/generated'
 import {
   ADAPTATION_KIND,
   type AdaptationTurnDto,
@@ -8,6 +9,12 @@ import { BeforeAfterDiff } from './before-after-diff.component'
 
 export interface AdaptationTurnProps {
   turn: AdaptationTurnDto
+  /**
+   * Display unit for the restructure diff's distances. Defaults to
+   * Kilometers so callers that predate the unit preference (and isolated
+   * tests) render the km form unchanged.
+   */
+  units?: PreferredUnits
 }
 
 /**
@@ -23,7 +30,10 @@ export interface AdaptationTurnProps {
  *     left-edge amber accent. No loud badges — the `--warning` accent is a
  *     supplementary indicator; severity is conveyed by the copy itself.
  */
-export const AdaptationTurn = ({ turn }: AdaptationTurnProps): ReactElement | null => {
+export const AdaptationTurn = ({
+  turn,
+  units = PreferredUnits.Kilometers,
+}: AdaptationTurnProps): ReactElement | null => {
   if (turn.adaptationKind === ADAPTATION_KIND.absorb) {
     return null
   }
@@ -42,7 +52,7 @@ export const AdaptationTurn = ({ turn }: AdaptationTurnProps): ReactElement | nu
       className="flex flex-col gap-2 rounded-md border border-l-2 border-l-warning bg-card p-4"
     >
       <p className="text-sm whitespace-pre-wrap text-card-foreground">{turn.content}</p>
-      <BeforeAfterDiff diff={turn.diff} />
+      <BeforeAfterDiff diff={turn.diff} units={units} />
     </article>
   )
 }

@@ -6,13 +6,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { QueryWorkoutLogsResponseDto, WorkoutLogDto } from '~/api/generated'
 import { CompletionStatus } from '~/api/generated'
 
-const { historyQueryMock, fetchNextPageMock } = vi.hoisted(() => ({
+const { historyQueryMock, fetchNextPageMock, preferredUnitsMock } = vi.hoisted(() => ({
   historyQueryMock: vi.fn(),
   fetchNextPageMock: vi.fn(),
+  // Kilometers (`0`) by default so the existing km-based assertions hold.
+  preferredUnitsMock: vi.fn(() => 0),
 }))
 
 vi.mock('~/api/workout-log.api', () => ({
   useGetWorkoutLogHistoryInfiniteQuery: () => historyQueryMock(),
+}))
+// `HistoryPage` reads the unit preference via this hook, which wraps a real
+// RTK Query hook; the page renders here without a Redux store, so stub it
+// through a mockable ref.
+vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
+  usePreferredUnits: () => preferredUnitsMock(),
 }))
 
 import HistoryPage from './history.page'
@@ -138,5 +146,14 @@ describe('HistoryPage', () => {
     setQueryState({ data: dataOf(page([log('2026-06-07')])) })
     renderPage()
     expect(screen.getByRole('link', { name: /back to plan/i })).toHaveAttribute('href', '/')
+  })
+
+  it('renders entries in miles when the unit preference is Miles', () => {
+    preferredUnitsMock.mockReturnValueOnce(1) // PreferredUnits.Miles
+    setQueryState({ data: dataOf(page([log('2026-06-07')])) })
+    renderPage()
+
+    // 5000 m / 1609.344 = 3.107... -> 3.1 mi
+    expect(screen.getByText('3.1 mi')).toBeInTheDocument()
   })
 })

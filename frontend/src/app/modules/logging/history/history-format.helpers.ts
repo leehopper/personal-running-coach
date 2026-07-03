@@ -8,8 +8,10 @@
 // lives here — only neutral distance/duration/pace strings.
 
 import { CompletionStatus, PreferredUnits } from '~/api/generated'
-import { formatDistanceMeters } from '~/modules/common/utils/unit-format.helpers'
-import { formatPacePerKm } from '~/modules/plan/utils/pace-format.helpers'
+import {
+  formatDistanceMeters,
+  formatPaceSecPerKm,
+} from '~/modules/common/utils/unit-format.helpers'
 
 const METERS_PER_KM = 1000
 const SECONDS_PER_MINUTE = 60
@@ -35,17 +37,19 @@ const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as cons
 const pad2 = (value: number): string => value.toString().padStart(2, '0')
 
 /**
- * Formats a distance in metres as one-decimal kilometres (e.g. `"5.0 km"`).
- * Returns `null` for a non-positive or non-finite distance — a skipped run
- * persists `0 m`, which the caller renders as a placeholder rather than
- * a misleading `"0.0 km"`.
+ * Formats a distance in metres in the preferred unit (e.g. `"5.0 km"` /
+ * `"3.1 mi"`). Returns `null` for a non-positive or non-finite distance — a
+ * skipped run persists `0 m`, which the caller renders as a placeholder
+ * rather than a misleading `"0.0 km"`.
  *
- * Km-pinned adapter over the shared `formatDistanceMeters`. Output is
- * byte-identical to the previous inline `(metres / 1000).toFixed(1)`
- * implementation.
+ * Defaults to Kilometers so callers that predate the unit preference (and
+ * isolated tests) render the km form unchanged — byte-identical to the
+ * previous inline `(metres / 1000).toFixed(1)` implementation.
  */
-export const formatHistoryDistanceKm = (distanceMeters: number): string | null =>
-  formatDistanceMeters(distanceMeters, PreferredUnits.Kilometers)
+export const formatHistoryDistanceKm = (
+  distanceMeters: number,
+  units: PreferredUnits = PreferredUnits.Kilometers,
+): string | null => formatDistanceMeters(distanceMeters, units)
 
 /**
  * Formats a duration in seconds as `M:SS` under an hour and `H:MM:SS` at or
@@ -66,11 +70,17 @@ export const formatDuration = (durationSeconds: number): string | null => {
 }
 
 /**
- * Derives average pace from distance + duration and formats it as `MM:SS/km`.
- * Returns `null` when either input is non-positive (no meaningful pace for a
- * zero-distance or zero-duration log).
+ * Derives average pace from distance + duration and formats it in the
+ * preferred unit (`MM:SS/km` / `MM:SS/mi`). Returns `null` when either input
+ * is non-positive (no meaningful pace for a zero-distance or zero-duration
+ * log). Defaults to Kilometers so callers that predate the unit preference
+ * (and isolated tests) render the km form unchanged.
  */
-export const formatLogPace = (distanceMeters: number, durationSeconds: number): string | null => {
+export const formatLogPace = (
+  distanceMeters: number,
+  durationSeconds: number,
+  units: PreferredUnits = PreferredUnits.Kilometers,
+): string | null => {
   if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) {
     return null
   }
@@ -78,7 +88,7 @@ export const formatLogPace = (distanceMeters: number, durationSeconds: number): 
     return null
   }
   const kilometres = distanceMeters / METERS_PER_KM
-  return formatPacePerKm(durationSeconds / kilometres)
+  return formatPaceSecPerKm(durationSeconds / kilometres, units)
 }
 
 /**

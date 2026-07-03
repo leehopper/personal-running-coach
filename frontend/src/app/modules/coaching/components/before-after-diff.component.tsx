@@ -4,6 +4,7 @@ import { ChevronDownIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { PreferredUnits } from '~/api/generated'
 import type { PlanAdaptationDiffDto } from '~/modules/coaching/models/conversation.model'
 import {
   describeWeeklyTargetChange,
@@ -14,6 +15,12 @@ import {
 
 export interface BeforeAfterDiffProps {
   diff: PlanAdaptationDiffDto
+  /**
+   * Display unit for the before/after distances. Defaults to Kilometers so
+   * callers that predate the unit preference (and isolated tests) render the
+   * km form unchanged.
+   */
+  units?: PreferredUnits
 }
 
 /**
@@ -23,7 +30,10 @@ export interface BeforeAfterDiffProps {
  * meso volume-target edits — as a definition list, never parsed prose. An
  * empty diff renders nothing (no dangling toggle).
  */
-export const BeforeAfterDiff = ({ diff }: BeforeAfterDiffProps): ReactElement | null => {
+export const BeforeAfterDiff = ({
+  diff,
+  units = PreferredUnits.Kilometers,
+}: BeforeAfterDiffProps): ReactElement | null => {
   const [isOpen, setIsOpen] = useState(false)
 
   if (diff.workoutChanges.length === 0 && diff.weeklyTargetChanges.length === 0) {
@@ -55,7 +65,7 @@ export const BeforeAfterDiff = ({ diff }: BeforeAfterDiffProps): ReactElement | 
       >
         <dl className="flex flex-col gap-2 text-sm">
           {diff.workoutChanges.map((change) => {
-            const description = describeWorkoutChange(change)
+            const description = describeWorkoutChange(change, units)
             if (description === null) {
               return null
             }
@@ -69,7 +79,9 @@ export const BeforeAfterDiff = ({ diff }: BeforeAfterDiffProps): ReactElement | 
           {diff.weeklyTargetChanges.map((change) => (
             <div key={`weekly-target-${change.weekNumber}`}>
               <dt className="text-muted-foreground">{weeklyTargetChangeLocus(change)}</dt>
-              <dd data-testid="diff-weekly-target-change">{describeWeeklyTargetChange(change)}</dd>
+              <dd data-testid="diff-weekly-target-change">
+                {describeWeeklyTargetChange(change, units)}
+              </dd>
             </div>
           ))}
         </dl>
