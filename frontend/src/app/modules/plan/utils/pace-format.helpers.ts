@@ -4,16 +4,13 @@
 // structured-output records (`TargetPaceEasySecPerKm`, `TargetPaceFastSecPerKm`,
 // `WorkoutSegmentOutput.TargetPaceSecPerKm`) and on logged splits.
 //
-// As of slice 4C-units the single home for `MM:SS` pace formatting is the
-// shared, preference-aware `unit-format.helpers` module. These two helpers stay
-// as thin km-pinned adapters over it: the plan render sites now read the unit
-// preference directly, but the logging/history render sites (`workout-log-*`,
-// `history-format.helpers`) are still km-only until they are wired to the
-// preference. Pinning `PreferredUnits.Kilometers` here keeps their output
+// The single home for `MM:SS` pace formatting is the shared, preference-aware
+// `unit-format.helpers` module. These two helpers stay as thin km-pinned
+// adapters over it, pinning `PreferredUnits.Kilometers` to keep their output
 // byte-identical while removing the duplicate rounding/ceiling/formatting logic.
 //
-// Per the trademark rule in the root `CLAUDE.md`, the user-facing strings
-// produced here use the literal `/km` suffix; no zone-name coupling lives here.
+// The user-facing strings produced here use the literal `/km` suffix and no
+// zone-name coupling, per the trademark restriction on the VDOT mark (DEC-042).
 
 import { PreferredUnits } from '~/api/generated'
 import {

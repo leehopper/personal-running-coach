@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { PreferredUnits } from '~/api/generated'
-import { formatDistanceKm as historyFormatDistanceKm } from '~/modules/logging/history/history-format.helpers'
+import { formatHistoryDistanceKm as historyFormatDistanceKm } from '~/modules/logging/history/history-format.helpers'
 import { formatPacePerKm, formatPaceRangePerKm } from '~/modules/plan/utils/pace-format.helpers'
 
 import {

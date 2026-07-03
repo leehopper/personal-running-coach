@@ -3,22 +3,22 @@ import { describe, expect, it } from 'vitest'
 import { CompletionStatus } from '~/api/generated'
 import {
   COMPLETION_STATUS_LABELS,
-  formatDistanceKm,
+  formatHistoryDistanceKm,
   formatDuration,
   formatLogDate,
   formatLogPace,
 } from './history-format.helpers'
 
-describe('formatDistanceKm', () => {
+describe('formatHistoryDistanceKm', () => {
   it('renders metres as one-decimal kilometres', () => {
-    expect(formatDistanceKm(5000)).toBe('5.0 km')
-    expect(formatDistanceKm(1234)).toBe('1.2 km')
+    expect(formatHistoryDistanceKm(5000)).toBe('5.0 km')
+    expect(formatHistoryDistanceKm(1234)).toBe('1.2 km')
   })
 
   it('returns null for a non-positive distance (e.g. a skipped run)', () => {
-    expect(formatDistanceKm(0)).toBeNull()
-    expect(formatDistanceKm(-10)).toBeNull()
-    expect(formatDistanceKm(Number.NaN)).toBeNull()
+    expect(formatHistoryDistanceKm(0)).toBeNull()
+    expect(formatHistoryDistanceKm(-10)).toBeNull()
+    expect(formatHistoryDistanceKm(Number.NaN)).toBeNull()
   })
 })
 

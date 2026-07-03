@@ -40,11 +40,11 @@ const pad2 = (value: number): string => value.toString().padStart(2, '0')
  * persists `0 m`, which the caller renders as a placeholder rather than
  * a misleading `"0.0 km"`.
  *
- * Km-pinned adapter over the shared `formatDistanceMeters`; the history render
- * sites become preference-aware in a later 4C-units PR. Output is byte-identical
- * to the previous inline `(metres / 1000).toFixed(1)` implementation.
+ * Km-pinned adapter over the shared `formatDistanceMeters`. Output is
+ * byte-identical to the previous inline `(metres / 1000).toFixed(1)`
+ * implementation.
  */
-export const formatDistanceKm = (distanceMeters: number): string | null =>
+export const formatHistoryDistanceKm = (distanceMeters: number): string | null =>
   formatDistanceMeters(distanceMeters, PreferredUnits.Kilometers)
 
 /**

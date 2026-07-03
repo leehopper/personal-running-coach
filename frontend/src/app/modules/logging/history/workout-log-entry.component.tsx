@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import type { WorkoutLogDto } from '~/api/generated'
 import {
   COMPLETION_STATUS_LABELS,
-  formatDistanceKm,
+  formatHistoryDistanceKm,
   formatDuration,
   formatLogDate,
   formatLogPace,
@@ -23,7 +23,7 @@ interface CoreStat {
 
 const buildCoreStats = (log: WorkoutLogDto): CoreStat[] => {
   const stats: CoreStat[] = []
-  const distance = formatDistanceKm(log.distanceMeters)
+  const distance = formatHistoryDistanceKm(log.distanceMeters)
   if (distance !== null) {
     stats.push({ label: 'Distance', value: distance })
   }
