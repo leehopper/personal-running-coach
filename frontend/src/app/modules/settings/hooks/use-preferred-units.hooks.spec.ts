@@ -6,12 +6,21 @@ interface UnitPreference {
   preferredUnits: PreferredUnits
 }
 
-// The hooks read `data` + `isLoading` off the query result, so a plain hoisted
-// ref standing in for `useGetUnitPreferenceQuery` keeps the test free of a Redux
-// store while exercising the real fallback/selection logic.
-const { getQueryRef } = vi.hoisted(() => ({
-  getQueryRef: { data: undefined as UnitPreference | undefined, isLoading: false },
-}))
+// The hooks read `data` + the settled flags off the query result, so a plain
+// hoisted ref standing in for `useGetUnitPreferenceQuery` keeps the test free of
+// a Redux store while exercising the real fallback/selection logic.
+const { getQueryRef, refetchMock } = vi.hoisted(() => {
+  const refetchMock = vi.fn()
+  return {
+    refetchMock,
+    getQueryRef: {
+      data: undefined as UnitPreference | undefined,
+      isSuccess: false,
+      isError: false,
+      refetch: refetchMock,
+    },
+  }
+})
 
 vi.mock('~/api/settings.api', () => ({
   useGetUnitPreferenceQuery: () => getQueryRef,
@@ -22,7 +31,9 @@ import { usePreferredUnits, usePreferredUnitsResolution } from './use-preferred-
 describe('usePreferredUnits', () => {
   beforeEach(() => {
     getQueryRef.data = undefined
-    getQueryRef.isLoading = false
+    getQueryRef.isSuccess = false
+    getQueryRef.isError = false
+    refetchMock.mockClear()
   })
 
   it('falls back to Kilometers while the preference is unresolved', () => {
@@ -51,27 +62,56 @@ describe('usePreferredUnits', () => {
 describe('usePreferredUnitsResolution', () => {
   beforeEach(() => {
     getQueryRef.data = undefined
-    getQueryRef.isLoading = false
+    getQueryRef.isSuccess = false
+    getQueryRef.isError = false
+    refetchMock.mockClear()
   })
 
   it('is unresolved (Kilometers) while the preference query is loading', () => {
     getQueryRef.data = undefined
-    getQueryRef.isLoading = true
+    getQueryRef.isSuccess = false
+    getQueryRef.isError = false
     const { result } = renderHook(() => usePreferredUnitsResolution())
-    expect(result.current).toEqual({ units: PreferredUnits.Kilometers, isResolved: false })
+    expect(result.current.units).toBe(PreferredUnits.Kilometers)
+    expect(result.current.isResolved).toBe(false)
+    expect(result.current.isError).toBe(false)
   })
 
-  it('resolves to the persisted Miles preference once the query settles', () => {
+  it('resolves to the persisted Miles preference once the query succeeds', () => {
     getQueryRef.data = { preferredUnits: PreferredUnits.Miles }
-    getQueryRef.isLoading = false
+    getQueryRef.isSuccess = true
     const { result } = renderHook(() => usePreferredUnitsResolution())
-    expect(result.current).toEqual({ units: PreferredUnits.Miles, isResolved: true })
+    expect(result.current.units).toBe(PreferredUnits.Miles)
+    expect(result.current.isResolved).toBe(true)
+    expect(result.current.isError).toBe(false)
   })
 
-  it('resolves to the Kilometers default once settled with no row (read-or-default 200)', () => {
+  it('resolves to the Kilometers default once the query succeeds with no row (read-or-default 200)', () => {
     getQueryRef.data = undefined
-    getQueryRef.isLoading = false
+    getQueryRef.isSuccess = true
     const { result } = renderHook(() => usePreferredUnitsResolution())
-    expect(result.current).toEqual({ units: PreferredUnits.Kilometers, isResolved: true })
+    expect(result.current.units).toBe(PreferredUnits.Kilometers)
+    expect(result.current.isResolved).toBe(true)
+    expect(result.current.isError).toBe(false)
+  })
+
+  it('reports isError (never resolved) when the preference query errors, so the write path stays gated', () => {
+    // RTK Query's `isLoading` goes false on error too; gating on `isSuccess`
+    // keeps an errored settings GET from being treated as a resolved km default,
+    // which would silently convert a Miles runner's distance at km magnitude.
+    getQueryRef.data = undefined
+    getQueryRef.isSuccess = false
+    getQueryRef.isError = true
+    const { result } = renderHook(() => usePreferredUnitsResolution())
+    expect(result.current.isResolved).toBe(false)
+    expect(result.current.isError).toBe(true)
+    expect(result.current.units).toBe(PreferredUnits.Kilometers)
+  })
+
+  it('exposes refetch for the error-state retry affordance', () => {
+    getQueryRef.isError = true
+    const { result } = renderHook(() => usePreferredUnitsResolution())
+    result.current.refetch()
+    expect(refetchMock).toHaveBeenCalledTimes(1)
   })
 })

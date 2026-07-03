@@ -22,15 +22,25 @@ export const usePreferredUnits = (): PreferredUnits => {
   return data?.preferredUnits ?? PreferredUnits.Kilometers
 }
 
-export interface PreferredUnitsResolution {
-  /** The resolved preference, or the {@link PreferredUnits.Kilometers} default once settled. */
+export interface UsePreferredUnitsResolutionReturn {
+  /** The resolved preference, or the {@link PreferredUnits.Kilometers} default once settled successfully. */
   units: PreferredUnits
   /**
-   * `false` until the preference query has settled (success OR error). The write
+   * `false` until the preference query has settled **successfully**. The write
    * path must wait for this before interpreting a typed distance, so a miles
    * runner's input is never converted against the loading-time km fallback.
    */
   isResolved: boolean
+  /**
+   * `true` when the preference query settled in error. The write path must not
+   * silently interpret a typed distance against the km fallback in this state:
+   * `GET /settings/units` and the log `POST` are independent endpoints, so an
+   * isolated GET failure can leave a miles runner submitting at km magnitude.
+   * The `/log` page surfaces a retry instead of rendering the form.
+   */
+  isError: boolean
+  /** Re-runs the preference query — wired to the error-state retry affordance. */
+  refetch: () => void
 }
 
 /**
@@ -38,15 +48,18 @@ export interface PreferredUnitsResolution {
  * a settled flag so a numeric write (the log form) can hold off until the runner's
  * unit is actually known, rather than converting against the display fallback.
  *
- * `isResolved` flips true on both success and error: once the query has settled,
- * the {@link PreferredUnits.Kilometers} default is authoritative (the `GET` is
- * read-or-default 200, so an error means the whole API — including the log `POST`
- * — is unavailable, and no wrong-unit write can be persisted anyway).
+ * `isResolved` is `true` only on **success**. An errored read is reported via
+ * `isError` (not folded into the km fallback): a settings-GET failure does not
+ * imply the log `POST` endpoint is also down, so silently defaulting to km could
+ * persist a miles runner's distance at ~1.6× the wrong magnitude. Callers gate
+ * the write on `isResolved` and offer a retry on `isError`.
  */
-export const usePreferredUnitsResolution = (): PreferredUnitsResolution => {
-  const { data, isLoading } = useGetUnitPreferenceQuery(undefined)
+export const usePreferredUnitsResolution = (): UsePreferredUnitsResolutionReturn => {
+  const { data, isSuccess, isError, refetch } = useGetUnitPreferenceQuery(undefined)
   return {
     units: data?.preferredUnits ?? PreferredUnits.Kilometers,
-    isResolved: !isLoading,
+    isResolved: isSuccess,
+    isError,
+    refetch,
   }
 }

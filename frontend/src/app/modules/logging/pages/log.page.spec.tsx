@@ -8,7 +8,7 @@ import { Toaster } from '@/components/ui/sonner'
 import type { CreateWorkoutLogRequest, StructuredLogDraft } from '~/api/generated'
 import { PreferredUnits } from '~/api/generated'
 import { METERS_PER_MILE } from '~/modules/common/utils/unit-format.helpers'
-import type { PreferredUnitsResolution } from '~/modules/settings/hooks/use-preferred-units.hooks'
+import type { UsePreferredUnitsResolutionReturn } from '~/modules/settings/hooks/use-preferred-units.hooks'
 import { toIsoDateOnly } from '~/modules/logging/schemas/workout-log-form.schema'
 
 // vi.mock is hoisted above imports, so the mock fns must come from vi.hoisted.
@@ -19,6 +19,7 @@ const {
   navigateMock,
   reportClientErrorMock,
   preferredUnitsResolutionMock,
+  refetchUnitsMock,
 } = vi.hoisted(() => {
   const createWorkoutLogUnwrap = vi.fn()
   return {
@@ -31,8 +32,21 @@ const {
     mutationStateRef: { isLoading: false },
     navigateMock: vi.fn(),
     reportClientErrorMock: vi.fn(),
-    preferredUnitsResolutionMock: vi.fn<() => PreferredUnitsResolution>(),
+    preferredUnitsResolutionMock: vi.fn<() => UsePreferredUnitsResolutionReturn>(),
+    refetchUnitsMock: vi.fn(),
   }
+})
+
+// Builds a units-resolution return, defaulting the settled/error flags so each
+// test overrides only the field it exercises.
+const unitsResolution = (
+  overrides: Partial<UsePreferredUnitsResolutionReturn> = {},
+): UsePreferredUnitsResolutionReturn => ({
+  units: PreferredUnits.Kilometers,
+  isResolved: true,
+  isError: false,
+  refetch: refetchUnitsMock,
+  ...overrides,
 })
 
 vi.mock('~/api/workout-log.api', () => ({
@@ -90,12 +104,10 @@ describe('LogPage', () => {
     mutationStateRef.isLoading = false
     navigateMock.mockReset()
     reportClientErrorMock.mockReset()
+    refetchUnitsMock.mockReset()
     // Default: preference resolved to Kilometers (the common case). Individual
-    // tests override for Miles / still-loading.
-    preferredUnitsResolutionMock.mockReturnValue({
-      units: PreferredUnits.Kilometers,
-      isResolved: true,
-    })
+    // tests override for Miles / still-loading / errored.
+    preferredUnitsResolutionMock.mockReturnValue(unitsResolution())
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-00000000abcd')
   })
 
@@ -253,7 +265,7 @@ describe('LogPage', () => {
   })
 
   it('interprets distance as miles and converts to km/SI on write under a Miles preference', async () => {
-    preferredUnitsResolutionMock.mockReturnValue({ units: PreferredUnits.Miles, isResolved: true })
+    preferredUnitsResolutionMock.mockReturnValue(unitsResolution({ units: PreferredUnits.Miles }))
     const { user } = renderPage()
     await user.type(screen.getByLabelText('Distance (mi)'), '5')
     await user.type(screen.getByLabelText('Duration (minutes)'), '30')
@@ -265,7 +277,7 @@ describe('LogPage', () => {
   })
 
   it('pre-fills a miles-stated Edit draft in miles under a Miles preference (no km round trip)', async () => {
-    preferredUnitsResolutionMock.mockReturnValue({ units: PreferredUnits.Miles, isResolved: true })
+    preferredUnitsResolutionMock.mockReturnValue(unitsResolution({ units: PreferredUnits.Miles }))
     const draft: StructuredLogDraft = {
       occurredOn: '2026-06-20',
       distanceValue: 5,
@@ -289,13 +301,27 @@ describe('LogPage', () => {
   })
 
   it('shows a loading state and no form until the unit preference resolves', () => {
-    preferredUnitsResolutionMock.mockReturnValue({
-      units: PreferredUnits.Kilometers,
-      isResolved: false,
-    })
+    preferredUnitsResolutionMock.mockReturnValue(unitsResolution({ isResolved: false }))
     renderPage()
 
     expect(screen.getByTestId('log-page-loading')).toBeInTheDocument()
     expect(screen.queryByTestId('log-form')).toBeNull()
+  })
+
+  it('gates the form behind a retry when the unit-preference query errors', async () => {
+    // An errored settings GET must NOT fall through to the km default and render
+    // the form — a Miles runner would otherwise submit at km magnitude. The page
+    // surfaces a retry that re-runs the preference query instead.
+    preferredUnitsResolutionMock.mockReturnValue(
+      unitsResolution({ isResolved: false, isError: true }),
+    )
+    const { user } = renderPage()
+
+    expect(screen.getByTestId('log-page-units-error')).toBeInTheDocument()
+    expect(screen.queryByTestId('log-form')).toBeNull()
+    expect(screen.queryByTestId('log-page-loading')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /retry/i }))
+    expect(refetchUnitsMock).toHaveBeenCalledTimes(1)
   })
 })

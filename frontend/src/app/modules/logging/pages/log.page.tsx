@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 
+import { Button } from '@/components/ui/button'
 import { PreferredUnits, type StructuredLogDraft } from '~/api/generated'
 import { useCreateWorkoutLogMutation } from '~/api/workout-log.api'
 import { reportClientError } from '~/error-boundary/report-client-error'
@@ -107,18 +108,85 @@ const WorkoutLogFormView = ({ units, editDraft }: WorkoutLogFormViewProps) => {
   )
 }
 
+interface UnitPreferenceUnavailableProps {
+  onRetry: () => void
+}
+
+/**
+ * Shown when the unit-preference query errors. The form stays gated rather than
+ * falling back to km, because `GET /settings/units` and the log `POST` are
+ * independent endpoints — silently defaulting to km could persist a miles
+ * runner's distance at ~1.6× the wrong magnitude (DEC-086). Retry re-runs the
+ * preference query.
+ */
+const UnitPreferenceUnavailable = ({ onRetry }: UnitPreferenceUnavailableProps) => (
+  <div
+    role="alert"
+    data-testid="log-page-units-error"
+    className="flex flex-col items-center gap-3 py-8 text-center"
+  >
+    <p className="text-sm text-muted-foreground">
+      We couldn’t load your distance-unit preference. Check your connection and try again.
+    </p>
+    <Button type="button" size="sm" onClick={onRetry}>
+      Retry
+    </Button>
+  </div>
+)
+
+interface LogPageContentProps {
+  units: PreferredUnits
+  isResolved: boolean
+  isError: boolean
+  refetch: () => void
+  editDraft: StructuredLogDraft | null
+  /** `location.key` — remounts the form on each fresh /log navigation (see below). */
+  formKey: string
+}
+
+/**
+ * Selects what renders below the `/log` header based on the preference query
+ * state: a retry on error, a loading placeholder until settled, otherwise the
+ * form. Split out of {@link LogPage} so the three states read as early returns
+ * rather than a nested ternary.
+ */
+const LogPageContent = ({
+  units,
+  isResolved,
+  isError,
+  refetch,
+  editDraft,
+  formKey,
+}: LogPageContentProps) => {
+  if (isError) {
+    return <UnitPreferenceUnavailable onRetry={refetch} />
+  }
+  if (!isResolved) {
+    return (
+      <p role="status" className="text-sm text-muted-foreground" data-testid="log-page-loading">
+        Loading…
+      </p>
+    )
+  }
+  // Key on `location.key` so re-navigating to /log with a different draft remounts
+  // the form: `useForm` only seeds `defaultValues` on mount, so a new editDraft
+  // would otherwise leave the previous draft's fields in place.
+  return <WorkoutLogFormView key={formKey} units={units} editDraft={editDraft} />
+}
+
 /**
  * The `/log` route — a mobile-first workout-logging form. The form's numeric
  * write interprets the entered distance in the runner's unit preference, so it
  * defers the form until that preference has resolved (usually instant — the
  * preference is cached app-wide; only a cold `/log` refresh shows the brief
  * loading state). This keeps a miles-preferring runner's input from ever being
- * converted against the loading-time km fallback (DEC-086).
+ * converted against the loading-time km fallback (DEC-086); an errored read
+ * surfaces a retry rather than falling through to km.
  */
 const LogPage = () => {
   const location = useLocation()
   const editDraft = (location.state as LogPageLocationState | null)?.draft ?? null
-  const { units, isResolved } = usePreferredUnitsResolution()
+  const { units, isResolved, isError, refetch } = usePreferredUnitsResolution()
 
   return (
     <main
@@ -129,13 +197,14 @@ const LogPage = () => {
         <h1 className="text-2xl font-semibold text-foreground">Log a workout</h1>
         <p className="text-sm text-muted-foreground">Record what you actually ran.</p>
       </header>
-      {isResolved ? (
-        <WorkoutLogFormView units={units} editDraft={editDraft} />
-      ) : (
-        <p role="status" className="text-sm text-muted-foreground" data-testid="log-page-loading">
-          Loading…
-        </p>
-      )}
+      <LogPageContent
+        units={units}
+        isResolved={isResolved}
+        isError={isError}
+        refetch={refetch}
+        editDraft={editDraft}
+        formKey={location.key}
+      />
     </main>
   )
 }
