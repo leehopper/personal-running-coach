@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { PreferredUnits } from '~/api/generated'
+import { formatDistanceKm } from '~/modules/common/utils/unit-format.helpers'
 import type { MesoWeekTemplateDto } from '~/modules/plan/models/plan.model'
 import { labelForPhase } from './plan-display.helpers'
 
@@ -13,6 +15,12 @@ export interface MesoWeekBlockProps {
    * (used by tests and previews).
    */
   currentWeek: number | null
+  /**
+   * Display unit for the weekly target volume. Defaults to Kilometers so
+   * callers that predate the unit preference (and isolated tests) render the
+   * km form unchanged.
+   */
+  units?: PreferredUnits
   className?: string
 }
 
@@ -53,6 +61,7 @@ const STATE_STYLES: Record<'past' | 'current' | 'future' | 'neutral', string> = 
 export const MesoWeekBlock = ({
   weeks,
   currentWeek,
+  units = PreferredUnits.Kilometers,
   className,
 }: MesoWeekBlockProps): ReactElement => (
   <ol
@@ -79,7 +88,9 @@ export const MesoWeekBlock = ({
             </span>
             <span className="text-xs font-medium opacity-80">{labelForPhase(week.phaseType)}</span>
           </header>
-          <p className="text-lg font-semibold leading-tight">{week.weeklyTargetKm.toFixed(1)} km</p>
+          <p className="text-lg font-semibold leading-tight">
+            {formatDistanceKm(week.weeklyTargetKm, units) ?? '—'}
+          </p>
           {week.isDeloadWeek ? (
             <Badge
               variant="secondary"

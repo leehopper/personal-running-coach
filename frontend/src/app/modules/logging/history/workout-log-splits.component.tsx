@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import type { WorkoutLogSplitDto } from '~/api/generated'
 import { formatPacePerKm } from '~/modules/plan/utils/pace-format.helpers'
-import { formatDistanceKm, formatDuration } from './history-format.helpers'
+import { formatHistoryDistanceKm, formatDuration } from './history-format.helpers'
 
 export interface WorkoutLogSplitsProps {
   /** The per-lap splits of a logged workout (display-only at MVP-0). */
@@ -85,7 +85,9 @@ export const WorkoutLogSplits = ({ splits }: WorkoutLogSplitsProps): ReactElemen
             {splits.map((split) => (
               <tr key={split.index} className="border-b border-border last:border-0">
                 <td className={dataCellClass}>{split.index + 1}</td>
-                <td className={dataCellClass}>{formatDistanceKm(split.distanceMeters) ?? '—'}</td>
+                <td className={dataCellClass}>
+                  {formatHistoryDistanceKm(split.distanceMeters) ?? '—'}
+                </td>
                 <td className={dataCellClass}>{formatDuration(split.durationSeconds) ?? '—'}</td>
                 <td className={dataCellClass}>{formatPacePerKm(split.paceSecPerKm) ?? '—/km'}</td>
                 {showHeartRate ? (

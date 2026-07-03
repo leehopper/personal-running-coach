@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
+import { PreferredUnits } from '~/api/generated'
 import { TodayCard, type TodayCardProps } from './today-card.component'
 import { buildPlanFixture, fixtureWeekOneWorkouts } from './plan-display.fixture'
 
@@ -34,6 +35,18 @@ describe('TodayCard', () => {
     expect(screen.getByRole('heading', { name: 'Easy aerobic shakeout' })).toBeInTheDocument()
     const inner = screen.getByTestId('micro-workout-card')
     expect(inner.dataset.emphasized).toBe('true')
+  })
+
+  it('threads the unit preference into the embedded workout card', () => {
+    const plan = buildPlanFixture()
+    renderCard({
+      currentWeek: plan.mesoWeeks[0],
+      workouts: fixtureWeekOneWorkouts(),
+      today: monday,
+      units: PreferredUnits.Miles,
+    })
+    // Monday's easy run is 6 km -> 3.7 mi
+    expect(screen.getByTestId('micro-workout-distance').textContent).toBe('3.7 mi')
   })
 
   it('renders a "Log run" action linking to /log in the workout variant', () => {

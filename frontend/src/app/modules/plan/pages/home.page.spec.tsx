@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PreferredUnits } from '~/api/generated'
 import type { UseCoachStreamReturn } from '~/modules/coaching/hooks/use-coach-stream.hooks'
 import type { ConversationTimelineDto } from '~/modules/coaching/models/conversation.model'
 import { buildPlanFixture } from '~/modules/plan/components/plan-display.fixture'
@@ -20,11 +21,13 @@ interface TimelineQueryResult {
   isError: boolean
 }
 
-const { getCurrentPlanMock, getConversationTimelineMock, coachStreamMock } = vi.hoisted(() => ({
-  getCurrentPlanMock: vi.fn<() => QueryResult>(),
-  getConversationTimelineMock: vi.fn<() => TimelineQueryResult>(),
-  coachStreamMock: vi.fn<() => UseCoachStreamReturn>(),
-}))
+const { getCurrentPlanMock, getConversationTimelineMock, coachStreamMock, preferredUnitsMock } =
+  vi.hoisted(() => ({
+    getCurrentPlanMock: vi.fn<() => QueryResult>(),
+    getConversationTimelineMock: vi.fn<() => TimelineQueryResult>(),
+    coachStreamMock: vi.fn<() => UseCoachStreamReturn>(),
+    preferredUnitsMock: vi.fn<() => PreferredUnits>(),
+  }))
 
 vi.mock('~/api/plan.api', () => ({
   useGetCurrentPlanQuery: () => getCurrentPlanMock(),
@@ -37,6 +40,15 @@ vi.mock('~/api/conversation.api', () => ({
 
 vi.mock('~/modules/coaching/hooks/use-coach-stream.hooks', () => ({
   useCoachStream: () => coachStreamMock(),
+}))
+
+// `HomePage` reads the unit preference via this hook, which wraps a real RTK
+// Query hook; the page renders here without a Redux store, so stub it through a
+// mockable ref. Defaulted to Kilometers in `beforeEach` (keeps the existing
+// km-based assertions intact); the miles-wiring test overrides it to prove the
+// page actually threads the preference into the render sections.
+vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
+  usePreferredUnits: () => preferredUnitsMock(),
 }))
 
 const idleStream = (): UseCoachStreamReturn => ({
@@ -73,6 +85,7 @@ describe('HomePage', () => {
       isError: false,
     })
     coachStreamMock.mockReturnValue(idleStream())
+    preferredUnitsMock.mockReturnValue(PreferredUnits.Kilometers)
   })
 
   afterEach(() => {
@@ -108,6 +121,29 @@ describe('HomePage', () => {
     expect(screen.getByTestId('macro-phase-strip')).toBeInTheDocument()
     expect(screen.getByTestId('today-card')).toBeInTheDocument()
     expect(screen.getByTestId('upcoming-list')).toBeInTheDocument()
+  })
+
+  it('threads the Miles preference from the hook into the rendered distances', () => {
+    vi.useFakeTimers()
+    // Monday of training week 1 (planStartDate 2026-04-19), so the fixture's
+    // Monday easy run is the prominent workout card and week-1 micro workouts
+    // populate the upcoming list.
+    vi.setSystemTime(new Date(2026, 3, 20)) // Mon 2026-04-20 → dayOfWeek = 1, week 1
+    preferredUnitsMock.mockReturnValue(PreferredUnits.Miles)
+
+    getCurrentPlanMock.mockReturnValue({
+      data: buildPlanFixture(),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+    renderHome()
+
+    // Monday's easy run is 6 km -> 3.7 mi (today card); meso targets 30 km -> 18.6 mi.
+    expect(screen.getByTestId('today-card').textContent).toContain('3.7 mi')
+    expect(screen.getAllByText(/18\.6 mi/u).length).toBeGreaterThan(0)
+    // Nothing on the plan surface should still be rendering kilometres.
+    expect(screen.queryByText(/\d\.\d km/u)).not.toBeInTheDocument()
   })
 
   it('renders the rest-day variant of TodayCard when today maps to a rest slot', () => {

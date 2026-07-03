@@ -39,6 +39,14 @@ vi.mock('~/modules/settings/components/theme-toggle.component', () => ({
   ThemeToggle: () => <div data-testid="theme-toggle-stub">theme toggle</div>,
 }))
 
+// `UnitsToggle` drives the `settings.api` RTK hooks, which need the store
+// mounted in `main.tsx` and not in this page-scoped tree. Stubbed here — its
+// own behaviour is covered by `units-toggle.component.spec.tsx` — so this
+// suite stays focused on the SettingsPage's plan logic.
+vi.mock('~/modules/settings/components/units-toggle.component', () => ({
+  UnitsToggle: () => <div data-testid="units-toggle-stub">units toggle</div>,
+}))
+
 import { SettingsPage } from './settings.page'
 
 const renderPage = () =>
