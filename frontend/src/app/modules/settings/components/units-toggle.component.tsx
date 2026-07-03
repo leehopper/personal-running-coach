@@ -30,8 +30,9 @@ const parsePreferredUnits = (value: string): PreferredUnits =>
  * query. While the preference is still loading it falls back to Kilometers so
  * the control always renders with a selection.
  *
- * This control only records the preference. It does not affect how distances or
- * paces are currently rendered elsewhere in the app.
+ * This preference drives the plan render tree (`TodayCard`, `UpcomingList`,
+ * `MesoWeekBlock`, `MicroWorkoutCard`) via `usePreferredUnits`. The
+ * logging/history and adaptation surfaces remain km-only.
  */
 export const UnitsToggle = (): ReactElement => {
   const { data } = useGetUnitPreferenceQuery(undefined)

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { PreferredUnits } from '~/api/generated'
 import { UpcomingList } from './upcoming-list.component'
 import { buildPlanFixture, fixtureWeekOneWorkouts } from './plan-display.fixture'
 
@@ -24,6 +25,25 @@ describe('UpcomingList', () => {
     const cards = screen.getAllByTestId('micro-workout-card')
     const titles = cards.map((card) => card.querySelector('h3')?.textContent ?? '')
     expect(titles).toEqual(['Threshold intervals', 'Long aerobic run'])
+  })
+
+  it('threads the unit preference into both the workout cards and the meso block', () => {
+    const plan = buildPlanFixture()
+    render(
+      <UpcomingList
+        currentWeekWorkouts={fixtureWeekOneWorkouts()}
+        weeks={plan.mesoWeeks}
+        currentWeek={1}
+        today={monday}
+        units={PreferredUnits.Miles}
+      />,
+    )
+    // Wednesday interval 9 km -> 5.6 mi (a remaining workout card); meso 30 km -> 18.6 mi
+    const distances = screen
+      .getAllByTestId('micro-workout-distance')
+      .map((cell) => cell.textContent)
+    expect(distances).toContain('5.6 mi')
+    expect(screen.getAllByText(/18\.6 mi/u).length).toBeGreaterThan(0)
   })
 
   it('omits the rest-of-week section when no workouts remain', () => {

@@ -7,7 +7,8 @@
 // presentation. Per the root `CLAUDE.md` trademark rule, no zone-name coupling
 // lives here — only neutral distance/duration/pace strings.
 
-import { CompletionStatus } from '~/api/generated'
+import { CompletionStatus, PreferredUnits } from '~/api/generated'
+import { formatDistanceMeters } from '~/modules/common/utils/unit-format.helpers'
 import { formatPacePerKm } from '~/modules/plan/utils/pace-format.helpers'
 
 const METERS_PER_KM = 1000
@@ -38,13 +39,13 @@ const pad2 = (value: number): string => value.toString().padStart(2, '0')
  * Returns `null` for a non-positive or non-finite distance — a skipped run
  * persists `0 m`, which the caller renders as a placeholder rather than
  * a misleading `"0.0 km"`.
+ *
+ * Km-pinned adapter over the shared `formatDistanceMeters`. Output is
+ * byte-identical to the previous inline `(metres / 1000).toFixed(1)`
+ * implementation.
  */
-export const formatDistanceKm = (distanceMeters: number): string | null => {
-  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) {
-    return null
-  }
-  return `${(distanceMeters / METERS_PER_KM).toFixed(1)} km`
-}
+export const formatHistoryDistanceKm = (distanceMeters: number): string | null =>
+  formatDistanceMeters(distanceMeters, PreferredUnits.Kilometers)
 
 /**
  * Formats a duration in seconds as `M:SS` under an hour and `H:MM:SS` at or

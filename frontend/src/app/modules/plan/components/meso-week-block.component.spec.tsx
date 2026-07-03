@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { PreferredUnits } from '~/api/generated'
 import { MesoWeekBlock } from './meso-week-block.component'
 import { buildPlanFixture } from './plan-display.fixture'
 
@@ -35,6 +36,27 @@ describe('MesoWeekBlock', () => {
     render(<MesoWeekBlock weeks={plan.mesoWeeks} currentWeek={1} />)
     expect(screen.getAllByText(/30\.0 km/u).length).toBeGreaterThan(0)
     expect(screen.getByText(/aerobic base/u)).toBeInTheDocument()
+  })
+
+  it('renders weekly target volume in miles when units=Miles', () => {
+    const plan = buildPlanFixture()
+    render(<MesoWeekBlock weeks={plan.mesoWeeks} currentWeek={1} units={PreferredUnits.Miles} />)
+    // Standard weeks 30 km / 1.609344 = 18.64 -> 18.6 mi; deload 22 km -> 13.7 mi
+    expect(screen.getAllByText(/18\.6 mi/u).length).toBeGreaterThan(0)
+    expect(screen.getByText(/13\.7 mi/u)).toBeInTheDocument()
+  })
+
+  it('renders a placeholder when a weekly target is unavailable', () => {
+    const plan = buildPlanFixture()
+    // Zero out the first week's target so `formatDistanceKm` returns null and
+    // the "—" fallback renders (the only em-dash source in a meso card).
+    const weeks = plan.mesoWeeks.map((week, index) =>
+      index === 0 ? { ...week, weeklyTargetKm: 0 } : week,
+    )
+    render(<MesoWeekBlock weeks={weeks} currentWeek={1} />)
+    const firstCard = screen.getAllByTestId('meso-week-card')[0]
+    expect(firstCard.textContent).toContain('—')
+    expect(firstCard.textContent).not.toMatch(/0\.0 km/u)
   })
 
   it('renders all cards in the neutral state when currentWeek is null', () => {

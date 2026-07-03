@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { PreferredUnits } from '~/api/generated'
 import type { MesoWeekTemplateDto, MicroWorkoutCardDto } from '~/modules/plan/models/plan.model'
 import { MesoWeekBlock } from './meso-week-block.component'
 import { MicroWorkoutCard } from './micro-workout-card.component'
@@ -17,6 +18,8 @@ export interface UpcomingListProps {
   currentWeek: number
   /** Local date used to compute "today's" day-of-week index. */
   today?: Date
+  /** Display unit for the embedded workout cards + meso block. Defaults to Kilometers. */
+  units?: PreferredUnits
   className?: string
 }
 
@@ -35,6 +38,7 @@ export const UpcomingList = ({
   weeks,
   currentWeek,
   today,
+  units = PreferredUnits.Kilometers,
   className,
 }: UpcomingListProps): ReactElement => {
   const date = today ?? new Date()
@@ -62,7 +66,7 @@ export const UpcomingList = ({
               // because the structured-output schema emits one workout per
               // day at most.
               <li key={`day-${workout.dayOfWeek}`} data-testid="upcoming-workout-item">
-                <MicroWorkoutCard workout={workout} />
+                <MicroWorkoutCard workout={workout} units={units} />
               </li>
             ))}
           </ol>
@@ -72,7 +76,7 @@ export const UpcomingList = ({
       {weeks.length > 0 ? (
         <div className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold text-foreground">Upcoming weeks</h2>
-          <MesoWeekBlock weeks={weeks} currentWeek={currentWeek} />
+          <MesoWeekBlock weeks={weeks} currentWeek={currentWeek} units={units} />
         </div>
       ) : null}
     </section>
