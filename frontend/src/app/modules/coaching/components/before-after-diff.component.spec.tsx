@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { PreferredUnits } from '~/api/generated'
 import { buildDiff, buildDiffWorkout } from './conversation.fixture'
-import { describeWorkoutChange } from './before-after-diff.helpers'
+import { describeWeeklyTargetChange, describeWorkoutChange } from './before-after-diff.helpers'
 import { BeforeAfterDiff } from './before-after-diff.component'
 
 describe('BeforeAfterDiff', () => {
@@ -90,5 +90,29 @@ describe('BeforeAfterDiff', () => {
     expect(
       describeWorkoutChange({ weekNumber: 1, dayOfWeek: 1, before: null, after: null }),
     ).toBeNull()
+  })
+
+  it('renders an em-dash placeholder for a non-positive workout distance', () => {
+    // A zero/non-positive `targetDistanceKm` yields `null` from the shared
+    // formatter; the helper substitutes an em-dash rather than a misleading
+    // `0.0 km`/`0.0 mi`.
+    expect(
+      describeWorkoutChange({
+        weekNumber: 1,
+        dayOfWeek: 1,
+        before: null,
+        after: buildDiffWorkout({ title: 'Cross-Train', targetDistanceKm: 0 }),
+      }),
+    ).toBe('Added Cross-Train (—)')
+  })
+
+  it('renders an em-dash placeholder for a non-positive weekly volume target', () => {
+    expect(
+      describeWeeklyTargetChange({
+        weekNumber: 3,
+        beforeWeeklyTargetKm: 0,
+        afterWeeklyTargetKm: 28,
+      }),
+    ).toBe('— → 28.0 km')
   })
 })

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import { PreferredUnits } from '~/api/generated'
 import { formatHistoryDistanceKm as historyFormatDistanceKm } from '~/modules/logging/history/history-format.helpers'
-import { formatPacePerKm, formatPaceRangePerKm } from '~/modules/plan/utils/pace-format.helpers'
 
 import {
   formatDistanceKm,
@@ -86,13 +85,15 @@ describe('formatDistanceMeters — km path agrees with the km-pinned history for
   )
 })
 
-describe('formatPaceSecPerKm — km path agrees with the km-pinned formatPacePerKm delegate', () => {
-  it.each([0, 59, 60, 240, 300, 330, 600, 99 * 60 + 59])(
-    'matches formatPacePerKm for %d sec/km',
-    (secondsPerKm) => {
-      expect(formatPaceSecPerKm(secondsPerKm, KM)).toBe(formatPacePerKm(secondsPerKm))
-    },
-  )
+describe('formatPaceSecPerKm — km path', () => {
+  it.each([
+    { input: 0, expected: '00:00/km' },
+    { input: 59, expected: '00:59/km' },
+    { input: 60, expected: '01:00/km' },
+    { input: 600, expected: '10:00/km' },
+  ])('renders $input sec/km as $expected', ({ input, expected }) => {
+    expect(formatPaceSecPerKm(input, KM)).toBe(expected)
+  })
 
   it.each([
     { input: 300, expected: '05:00/km' },
@@ -150,14 +151,18 @@ describe('formatPaceSecPerKm — ceiling and invalid contract', () => {
   })
 })
 
-describe('formatPaceRangeSecPerKm — km path agrees with the km-pinned formatPaceRangePerKm delegate', () => {
-  it.each([
-    [240, 330],
-    [330, 240],
-    [300, 300],
-    [300.1, 299.9],
-  ])('matches formatPaceRangePerKm for (%d, %d) sec/km', (fast, slow) => {
-    expect(formatPaceRangeSecPerKm(fast, slow, KM)).toBe(formatPaceRangePerKm(fast, slow))
+describe('formatPaceRangeSecPerKm — km path', () => {
+  it('renders the faster pace first with a single /km suffix', () => {
+    expect(formatPaceRangeSecPerKm(240, 330, KM)).toBe('04:00-05:30/km')
+  })
+
+  it('reorders so the faster pace is first when called slow then fast', () => {
+    expect(formatPaceRangeSecPerKm(330, 240, KM)).toBe('04:00-05:30/km')
+  })
+
+  it('collapses to a single pace when both bounds round equal in km', () => {
+    expect(formatPaceRangeSecPerKm(300, 300, KM)).toBe('05:00/km')
+    expect(formatPaceRangeSecPerKm(300.1, 299.9, KM)).toBe('05:00/km')
   })
 })
 
