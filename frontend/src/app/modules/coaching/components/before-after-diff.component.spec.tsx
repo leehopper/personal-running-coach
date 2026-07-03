@@ -38,6 +38,10 @@ describe('BeforeAfterDiff', () => {
     await user.click(screen.getByTestId('diff-toggle'))
     // 38 km / 1.609344 = 23.61... -> 23.6 mi ; 36 km -> 22.4 mi
     expect(screen.getByText('23.6 mi → 22.4 mi')).toBeInTheDocument()
+    // 10 km (before) -> 6.2 mi ; 8 km (after) -> 5.0 mi
+    expect(
+      screen.getByText('Threshold Intervals (6.2 mi) → Easy Aerobic Run (5.0 mi)'),
+    ).toBeInTheDocument()
   })
 
   it('renders an added workout (null before) as an Added line', async () => {
