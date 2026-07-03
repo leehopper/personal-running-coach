@@ -4,11 +4,14 @@ import { PreferredUnits } from '~/api/generated'
 import { formatHistoryDistanceKm as historyFormatDistanceKm } from '~/modules/logging/history/history-format.helpers'
 
 import {
+  distanceUnitLabel,
   formatDistanceKm,
   formatDistanceMeters,
   formatPaceRangeSecPerKm,
   formatPaceSecPerKm,
   METERS_PER_MILE,
+  metresToPreferredDistance,
+  preferredDistanceToMeters,
 } from './unit-format.helpers'
 
 const KM = PreferredUnits.Kilometers
@@ -19,6 +22,48 @@ describe('METERS_PER_MILE', () => {
     // Asserted via the string form to pin the exact value without a
     // floating-point equality comparison (sonarjs/no-floating-point-equality).
     expect(METERS_PER_MILE.toString()).toBe('1609.344')
+  })
+})
+
+describe('distanceUnitLabel', () => {
+  it('is the literal km/mi suffix for the preferred unit', () => {
+    expect(distanceUnitLabel(KM)).toBe('km')
+    expect(distanceUnitLabel(MI)).toBe('mi')
+  })
+})
+
+describe('preferredDistanceToMeters — the single write conversion', () => {
+  it('leaves the km path byte-identical to the prior `distanceKm * 1000`', () => {
+    // Exact integers on the km path so a persisted 5 km stays 5000 m (no drift).
+    expect(preferredDistanceToMeters(5, KM)).toBe(5000)
+    expect(preferredDistanceToMeters(0, KM)).toBe(0)
+    expect(preferredDistanceToMeters(42.195, KM)).toBe(42195)
+  })
+
+  it('interprets the value as miles and converts to metres on the miles path', () => {
+    // 5 mi * 1609.344 = 8046.72 m. Asserted via the exact expression (string form
+    // pins byte-exact equality without a floating-point `===`).
+    expect(String(preferredDistanceToMeters(5, MI))).toBe(String(5 * METERS_PER_MILE))
+    expect(String(preferredDistanceToMeters(3.1, MI))).toBe(String(3.1 * METERS_PER_MILE))
+  })
+
+  it('maps a zero distance to zero metres in either unit (skipped-run fallback)', () => {
+    expect(preferredDistanceToMeters(0, KM)).toBe(0)
+    expect(preferredDistanceToMeters(0, MI)).toBe(0)
+  })
+})
+
+describe('metresToPreferredDistance — inverse for draft pre-fill', () => {
+  it('divides metres into the preferred unit', () => {
+    expect(metresToPreferredDistance(5000, KM)).toBe(5)
+    expect(String(metresToPreferredDistance(8046.72, MI))).toBe(String(8046.72 / METERS_PER_MILE))
+  })
+
+  it('round-trips a preferred-unit distance through metres and back', () => {
+    for (const units of [KM, MI]) {
+      const metres = preferredDistanceToMeters(7.3, units)
+      expect(metresToPreferredDistance(metres, units)).toBeCloseTo(7.3, 10)
+    }
   })
 })
 

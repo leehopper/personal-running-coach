@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Toaster } from '@/components/ui/sonner'
 import type { CreateWorkoutLogRequest, StructuredLogDraft } from '~/api/generated'
+import { PreferredUnits } from '~/api/generated'
+import { METERS_PER_MILE } from '~/modules/common/utils/unit-format.helpers'
+import type { UsePreferredUnitsResolutionReturn } from '~/modules/settings/hooks/use-preferred-units.hooks'
 import { toIsoDateOnly } from '~/modules/logging/schemas/workout-log-form.schema'
 
 // vi.mock is hoisted above imports, so the mock fns must come from vi.hoisted.
@@ -15,6 +18,8 @@ const {
   mutationStateRef,
   navigateMock,
   reportClientErrorMock,
+  preferredUnitsResolutionMock,
+  refetchUnitsMock,
 } = vi.hoisted(() => {
   const createWorkoutLogUnwrap = vi.fn()
   return {
@@ -27,7 +32,21 @@ const {
     mutationStateRef: { isLoading: false },
     navigateMock: vi.fn(),
     reportClientErrorMock: vi.fn(),
+    preferredUnitsResolutionMock: vi.fn<() => UsePreferredUnitsResolutionReturn>(),
+    refetchUnitsMock: vi.fn(),
   }
+})
+
+// Builds a units-resolution return, defaulting the settled/error flags so each
+// test overrides only the field it exercises.
+const unitsResolution = (
+  overrides: Partial<UsePreferredUnitsResolutionReturn> = {},
+): UsePreferredUnitsResolutionReturn => ({
+  units: PreferredUnits.Kilometers,
+  isResolved: true,
+  isError: false,
+  refetch: refetchUnitsMock,
+  ...overrides,
 })
 
 vi.mock('~/api/workout-log.api', () => ({
@@ -36,6 +55,13 @@ vi.mock('~/api/workout-log.api', () => ({
 
 vi.mock('~/error-boundary/report-client-error', () => ({
   reportClientError: reportClientErrorMock,
+}))
+
+// The page reads the unit preference via this hook (it wraps a real RTK Query
+// hook); the page renders here without a Redux store, so stub it through a
+// mockable ref — mirroring history.page.spec / coach-chat.component.spec.
+vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
+  usePreferredUnitsResolution: () => preferredUnitsResolutionMock(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -78,6 +104,10 @@ describe('LogPage', () => {
     mutationStateRef.isLoading = false
     navigateMock.mockReset()
     reportClientErrorMock.mockReset()
+    refetchUnitsMock.mockReset()
+    // Default: preference resolved to Kilometers (the common case). Individual
+    // tests override for Miles / still-loading / errored.
+    preferredUnitsResolutionMock.mockReturnValue(unitsResolution())
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-00000000abcd')
   })
 
@@ -232,5 +262,66 @@ describe('LogPage', () => {
     expect((screen.getByLabelText('Date') as HTMLInputElement).value).toBe('2026-06-20')
     // A pre-filled Edit form is valid without the user touching a field.
     await waitFor(() => expect(screen.getByTestId('log-form-submit')).toBeEnabled())
+  })
+
+  it('interprets distance as miles and converts to km/SI on write under a Miles preference', async () => {
+    preferredUnitsResolutionMock.mockReturnValue(unitsResolution({ units: PreferredUnits.Miles }))
+    const { user } = renderPage()
+    await user.type(screen.getByLabelText('Distance (mi)'), '5')
+    await user.type(screen.getByLabelText('Duration (minutes)'), '30')
+    await clickSave(user)
+
+    await waitFor(() => expect(createWorkoutLogTrigger).toHaveBeenCalledTimes(1))
+    // 5 mi -> 5 * 1609.344 m; the wire stays canonical km/SI metres.
+    expect(createWorkoutLogTrigger.mock.calls[0][0].distanceMeters).toBe(5 * METERS_PER_MILE)
+  })
+
+  it('pre-fills a miles-stated Edit draft in miles under a Miles preference (no km round trip)', async () => {
+    preferredUnitsResolutionMock.mockReturnValue(unitsResolution({ units: PreferredUnits.Miles }))
+    const draft: StructuredLogDraft = {
+      occurredOn: '2026-06-20',
+      distanceValue: 5,
+      distanceUnit: 1, // miles
+      durationHours: 0,
+      durationMinutes: 25,
+      durationSeconds: 0,
+      completionStatus: 0,
+      notes: 'felt good',
+    }
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/log', state: { draft } }]}>
+        <LogPage />
+        <Toaster />
+      </MemoryRouter>,
+    )
+
+    // The 5 mi draft pre-fills the miles field as "5" (identity, not converted).
+    expect((screen.getByLabelText('Distance (mi)') as HTMLInputElement).value).toBe('5')
+    await waitFor(() => expect(screen.getByTestId('log-form-submit')).toBeEnabled())
+  })
+
+  it('shows a loading state and no form until the unit preference resolves', () => {
+    preferredUnitsResolutionMock.mockReturnValue(unitsResolution({ isResolved: false }))
+    renderPage()
+
+    expect(screen.getByTestId('log-page-loading')).toBeInTheDocument()
+    expect(screen.queryByTestId('log-form')).toBeNull()
+  })
+
+  it('gates the form behind a retry when the unit-preference query errors', async () => {
+    // An errored settings GET must NOT fall through to the km default and render
+    // the form — a Miles runner would otherwise submit at km magnitude. The page
+    // surfaces a retry that re-runs the preference query instead.
+    preferredUnitsResolutionMock.mockReturnValue(
+      unitsResolution({ isResolved: false, isError: true }),
+    )
+    const { user } = renderPage()
+
+    expect(screen.getByTestId('log-page-units-error')).toBeInTheDocument()
+    expect(screen.queryByTestId('log-form')).toBeNull()
+    expect(screen.queryByTestId('log-page-loading')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /retry/i }))
+    expect(refetchUnitsMock).toHaveBeenCalledTimes(1)
   })
 })
