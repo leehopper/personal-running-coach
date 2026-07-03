@@ -1,8 +1,9 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { PreferredUnits } from '~/api/generated'
 import type { UseCoachStreamReturn } from '~/modules/coaching/hooks/use-coach-stream.hooks'
 import type {
   ConversationTimelineDto,
@@ -27,8 +28,7 @@ const {
   navigateMock: vi.fn(),
   toastErrorMock: vi.fn(),
   reportClientErrorMock: vi.fn(),
-  // Kilometers (`0`) by default so the existing km-based assertions hold.
-  preferredUnitsMock: vi.fn(() => 0),
+  preferredUnitsMock: vi.fn<() => PreferredUnits>(),
 }))
 
 vi.mock('~/api/conversation.api', () => ({
@@ -153,6 +153,10 @@ const renderChat = (): void => {
 }
 
 describe('CoachChat', () => {
+  beforeEach(() => {
+    preferredUnitsMock.mockReturnValue(PreferredUnits.Kilometers)
+  })
+
   afterEach(() => {
     vi.clearAllMocks()
   })
@@ -179,7 +183,7 @@ describe('CoachChat', () => {
 
   it('threads the unit preference into the restructure diff when units=Miles', async () => {
     const user = userEvent.setup()
-    preferredUnitsMock.mockReturnValueOnce(1) // PreferredUnits.Miles
+    preferredUnitsMock.mockReturnValueOnce(PreferredUnits.Miles)
     setTimeline([
       restructureTurn({
         workoutChanges: [],

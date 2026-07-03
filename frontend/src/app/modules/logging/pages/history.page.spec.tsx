@@ -1,16 +1,15 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QueryWorkoutLogsResponseDto, WorkoutLogDto } from '~/api/generated'
-import { CompletionStatus } from '~/api/generated'
+import { CompletionStatus, PreferredUnits } from '~/api/generated'
 
 const { historyQueryMock, fetchNextPageMock, preferredUnitsMock } = vi.hoisted(() => ({
   historyQueryMock: vi.fn(),
   fetchNextPageMock: vi.fn(),
-  // Kilometers (`0`) by default so the existing km-based assertions hold.
-  preferredUnitsMock: vi.fn(() => 0),
+  preferredUnitsMock: vi.fn<() => PreferredUnits>(),
 }))
 
 vi.mock('~/api/workout-log.api', () => ({
@@ -80,6 +79,10 @@ const renderPage = () => {
 }
 
 describe('HistoryPage', () => {
+  beforeEach(() => {
+    preferredUnitsMock.mockReturnValue(PreferredUnits.Kilometers)
+  })
+
   afterEach(() => {
     vi.clearAllMocks()
   })
@@ -149,7 +152,7 @@ describe('HistoryPage', () => {
   })
 
   it('renders entries in miles when the unit preference is Miles', () => {
-    preferredUnitsMock.mockReturnValueOnce(1) // PreferredUnits.Miles
+    preferredUnitsMock.mockReturnValueOnce(PreferredUnits.Miles)
     setQueryState({ data: dataOf(page([log('2026-06-07')])) })
     renderPage()
 
