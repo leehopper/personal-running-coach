@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import type { PreferredUnits } from '~/api/generated'
 import {
   useConfirmConversationalLogMutation,
   useGetConversationTimelineQuery,
@@ -19,6 +20,7 @@ import {
   SAFETY_TIER,
   type ConversationTimelineTurnDto,
 } from '~/modules/coaching/models/conversation.model'
+import { usePreferredUnits } from '~/modules/settings/hooks/use-preferred-units.hooks'
 import { AdaptationTurn } from './adaptation-turn.component'
 import { CoachComposer } from './coach-composer.component'
 import { LogConfirmationCard } from './log-confirmation-card.component'
@@ -85,7 +87,13 @@ const RetryAffordance = ({ error, onRetry }: RetryAffordanceProps): ReactElement
   </div>
 )
 
-const TimelineRow = ({ turn }: { turn: ConversationTimelineTurnDto }): ReactElement | null => {
+const TimelineRow = ({
+  turn,
+  units,
+}: {
+  turn: ConversationTimelineTurnDto
+  units: PreferredUnits
+}): ReactElement | null => {
   // Narrow on the payload null-ness — exactly one of interactive/proactive is set.
   if (turn.interactive !== null) {
     if (turn.interactive.isErrored) return <ErroredCoachNote />
@@ -96,13 +104,14 @@ const TimelineRow = ({ turn }: { turn: ConversationTimelineTurnDto }): ReactElem
   return turn.proactive.role === CONVERSATION_ROLE.systemSafety ? (
     <SafetyTurn turn={turn.proactive} />
   ) : (
-    <AdaptationTurn turn={turn.proactive} />
+    <AdaptationTurn turn={turn.proactive} units={units} />
   )
 }
 
 export const CoachChat = (): ReactElement => {
   const { data } = useGetConversationTimelineQuery(undefined)
   const timeline = data?.turns ?? NO_TURNS
+  const units = usePreferredUnits()
   const {
     pendingUserMessage,
     streamingText,
@@ -162,7 +171,7 @@ export const CoachChat = (): ReactElement => {
         className="max-h-[28rem] rounded-md border border-border bg-card p-4"
       >
         {timeline.map((turn) => (
-          <TimelineRow key={turn.turnId} turn={turn} />
+          <TimelineRow key={turn.turnId} turn={turn} units={units} />
         ))}
         {pendingUserMessage !== null && <ChatBubble role="user" text={pendingUserMessage} />}
         {streamingText.length > 0 && <ChatBubble role="assistant" text={streamingText} pending />}

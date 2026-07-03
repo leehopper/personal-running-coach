@@ -85,10 +85,10 @@ describe('ConversationPanel', () => {
     expect(diff).toBeVisible()
     expect(within(diff).getByText('Week 1 · Tuesday')).toBeInTheDocument()
     expect(
-      within(diff).getByText('Threshold Intervals (10 km) → Easy Aerobic Run (8 km)'),
+      within(diff).getByText('Threshold Intervals (10.0 km) → Easy Aerobic Run (8.0 km)'),
     ).toBeInTheDocument()
     expect(within(diff).getByText('Week 1 volume')).toBeInTheDocument()
-    expect(within(diff).getByText('36 km → 28 km')).toBeInTheDocument()
+    expect(within(diff).getByText('36.0 km → 28.0 km')).toBeInTheDocument()
 
     await user.click(screen.getByTestId('diff-toggle'))
     expect(screen.getByTestId('before-after-diff')).not.toBeVisible()

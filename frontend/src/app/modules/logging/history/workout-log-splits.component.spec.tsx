@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
-import type { WorkoutLogSplitDto } from '~/api/generated'
+import { PreferredUnits, type WorkoutLogSplitDto } from '~/api/generated'
 import { WorkoutLogSplits } from './workout-log-splits.component'
 
 const split = (index: number, overrides: Partial<WorkoutLogSplitDto> = {}): WorkoutLogSplitDto => ({
@@ -56,5 +56,16 @@ describe('WorkoutLogSplits', () => {
   it('renders nothing when there are no splits', () => {
     const { container } = render(<WorkoutLogSplits splits={[]} />)
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('renders split distance and pace in miles when units=Miles', async () => {
+    const user = userEvent.setup()
+    render(<WorkoutLogSplits splits={[split(0)]} units={PreferredUnits.Miles} />)
+
+    await user.click(screen.getByRole('button', { name: /1 split/i }))
+    // 1000 m / 1609.344 = 0.6213... -> 0.6 mi
+    expect(screen.getByText('0.6 mi')).toBeInTheDocument()
+    // 300 s/km * 1.609344 = 482.8 -> 483 -> 08:03/mi.
+    expect(screen.getByText('08:03/mi')).toBeInTheDocument()
   })
 })

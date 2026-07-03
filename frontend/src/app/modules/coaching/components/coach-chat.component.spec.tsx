@@ -1,12 +1,14 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { PreferredUnits } from '~/api/generated'
 import type { UseCoachStreamReturn } from '~/modules/coaching/hooks/use-coach-stream.hooks'
 import type {
   ConversationTimelineDto,
   ConversationTimelineTurnDto,
+  PlanAdaptationDiffDto,
 } from '~/modules/coaching/models/conversation.model'
 
 const {
@@ -17,6 +19,7 @@ const {
   navigateMock,
   toastErrorMock,
   reportClientErrorMock,
+  preferredUnitsMock,
 } = vi.hoisted(() => ({
   timelineMock: vi.fn(),
   streamMock: vi.fn(),
@@ -25,6 +28,7 @@ const {
   navigateMock: vi.fn(),
   toastErrorMock: vi.fn(),
   reportClientErrorMock: vi.fn(),
+  preferredUnitsMock: vi.fn<() => PreferredUnits>(),
 }))
 
 vi.mock('~/api/conversation.api', () => ({
@@ -41,6 +45,12 @@ vi.mock('react-router-dom', async (importActual) => ({
 vi.mock('sonner', () => ({ toast: { error: toastErrorMock } }))
 vi.mock('~/error-boundary/report-client-error', () => ({
   reportClientError: reportClientErrorMock,
+}))
+// `CoachChat` reads the unit preference via this hook, which wraps a real RTK
+// Query hook; the component renders here without a Redux store, so stub it
+// through a mockable ref (see `preferredUnitsMock` above).
+vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
+  usePreferredUnits: () => preferredUnitsMock(),
 }))
 
 import { CoachChat } from './coach-chat.component'
@@ -74,7 +84,9 @@ const coachTurn = (content: string): ConversationTimelineTurnDto => ({
   proactive: null,
 })
 
-const restructureTurn = (): ConversationTimelineTurnDto => ({
+const restructureTurn = (
+  diff: PlanAdaptationDiffDto = { workoutChanges: [], weeklyTargetChanges: [] },
+): ConversationTimelineTurnDto => ({
   kind: 2,
   turnId: 'a1',
   createdAt: '2026-06-29T10:00:02Z',
@@ -87,7 +99,7 @@ const restructureTurn = (): ConversationTimelineTurnDto => ({
     safetyTier: 0,
     referralCategory: 0,
     adaptationKind: 2,
-    diff: { workoutChanges: [], weeklyTargetChanges: [] },
+    diff,
     triggeringWorkoutLogId: 'w1',
     createdAt: '2026-06-29T10:00:02Z',
   },
@@ -141,6 +153,10 @@ const renderChat = (): void => {
 }
 
 describe('CoachChat', () => {
+  beforeEach(() => {
+    preferredUnitsMock.mockReturnValue(PreferredUnits.Kilometers)
+  })
+
   afterEach(() => {
     vi.clearAllMocks()
   })
@@ -163,6 +179,24 @@ describe('CoachChat', () => {
     ).toBeInTheDocument()
     expect(within(screen.getByTestId('safety-turn')).getByText(/call 988/i)).toBeInTheDocument()
     expect(screen.getByTestId('transcript-scroller')).toBeInTheDocument()
+  })
+
+  it('threads the unit preference into the restructure diff when units=Miles', async () => {
+    const user = userEvent.setup()
+    preferredUnitsMock.mockReturnValueOnce(PreferredUnits.Miles)
+    setTimeline([
+      restructureTurn({
+        workoutChanges: [],
+        weeklyTargetChanges: [{ weekNumber: 1, beforeWeeklyTargetKm: 36, afterWeeklyTargetKm: 28 }],
+      }),
+    ])
+    streamMock.mockReturnValue(idleStream())
+
+    renderChat()
+    await user.click(within(screen.getByTestId('restructure-turn')).getByTestId('diff-toggle'))
+
+    // 36 km / 1.609344 = 22.37... -> 22.4 mi ; 28 km -> 17.4 mi
+    expect(screen.getByText('22.4 mi → 17.4 mi')).toBeInTheDocument()
   })
 
   it('renders streamed coach prose as plain text using approved pace-zone wording', () => {

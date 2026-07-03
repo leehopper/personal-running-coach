@@ -1,12 +1,18 @@
 import type { ReactElement } from 'react'
 
-import type { WorkoutLogDto } from '~/api/generated'
+import { PreferredUnits, type WorkoutLogDto } from '~/api/generated'
 import { WorkoutLogEntry } from './workout-log-entry.component'
 import { groupLogsByIsoWeek } from './week-grouping.helpers'
 
 export interface WorkoutHistoryListProps {
   /** The full merged, newest-first log list across all fetched pages. */
   logs: readonly WorkoutLogDto[]
+  /**
+   * Display unit for each entry's distance + pace. Defaults to Kilometers so
+   * callers that predate the unit preference (and isolated tests) render the
+   * km form unchanged.
+   */
+  units?: PreferredUnits
 }
 
 /**
@@ -16,7 +22,10 @@ export interface WorkoutHistoryListProps {
  * list (not per page), so a week split across a page boundary renders under a
  * single header (spec § Unit 7).
  */
-export const WorkoutHistoryList = ({ logs }: WorkoutHistoryListProps): ReactElement => {
+export const WorkoutHistoryList = ({
+  logs,
+  units = PreferredUnits.Kilometers,
+}: WorkoutHistoryListProps): ReactElement => {
   const weeks = groupLogsByIsoWeek(logs)
 
   return (
@@ -32,7 +41,7 @@ export const WorkoutHistoryList = ({ logs }: WorkoutHistoryListProps): ReactElem
           <ul className="flex flex-col gap-3">
             {week.logs.map((log) => (
               <li key={log.workoutLogId}>
-                <WorkoutLogEntry log={log} />
+                <WorkoutLogEntry log={log} units={units} />
               </li>
             ))}
           </ul>

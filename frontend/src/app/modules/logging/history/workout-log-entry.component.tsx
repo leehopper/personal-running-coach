@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 
-import type { WorkoutLogDto } from '~/api/generated'
+import { PreferredUnits, type WorkoutLogDto } from '~/api/generated'
 import {
   COMPLETION_STATUS_LABELS,
   formatHistoryDistanceKm,
@@ -14,6 +14,12 @@ import { WorkoutLogSplits } from './workout-log-splits.component'
 export interface WorkoutLogEntryProps {
   /** A single logged workout from the history query. */
   log: WorkoutLogDto
+  /**
+   * Display unit for the distance + pace. Defaults to Kilometers so callers
+   * that predate the unit preference (and isolated tests) render the km form
+   * unchanged.
+   */
+  units?: PreferredUnits
 }
 
 interface CoreStat {
@@ -21,9 +27,9 @@ interface CoreStat {
   value: string
 }
 
-const buildCoreStats = (log: WorkoutLogDto): CoreStat[] => {
+const buildCoreStats = (log: WorkoutLogDto, units: PreferredUnits): CoreStat[] => {
   const stats: CoreStat[] = []
-  const distance = formatHistoryDistanceKm(log.distanceMeters)
+  const distance = formatHistoryDistanceKm(log.distanceMeters, units)
   if (distance !== null) {
     stats.push({ label: 'Distance', value: distance })
   }
@@ -31,7 +37,7 @@ const buildCoreStats = (log: WorkoutLogDto): CoreStat[] => {
   if (duration !== null) {
     stats.push({ label: 'Duration', value: duration })
   }
-  const pace = formatLogPace(log.distanceMeters, log.durationSeconds)
+  const pace = formatLogPace(log.distanceMeters, log.durationSeconds, units)
   if (pace !== null) {
     stats.push({ label: 'Pace', value: pace })
   }
@@ -48,8 +54,11 @@ const hasText = (value: string | null | undefined): value is string =>
  * and the display-only splits collapsible (spec § Unit 7). All colour is
  * semantic-token-based and animations pair a `motion-reduce:` variant.
  */
-export const WorkoutLogEntry = ({ log }: WorkoutLogEntryProps): ReactElement => {
-  const coreStats = buildCoreStats(log)
+export const WorkoutLogEntry = ({
+  log,
+  units = PreferredUnits.Kilometers,
+}: WorkoutLogEntryProps): ReactElement => {
+  const coreStats = buildCoreStats(log, units)
 
   return (
     <article
@@ -92,7 +101,7 @@ export const WorkoutLogEntry = ({ log }: WorkoutLogEntryProps): ReactElement => 
       ) : null}
 
       {log.splits !== null && log.splits !== undefined && log.splits.length > 0 ? (
-        <WorkoutLogSplits splits={log.splits} />
+        <WorkoutLogSplits splits={log.splits} units={units} />
       ) : null}
     </article>
   )
