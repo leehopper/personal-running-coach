@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Marten;
+using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Coaching.Sanitization;
@@ -149,13 +150,17 @@ public sealed partial class OnboardingTurnHandler
             .ConfigureAwait(false);
 
         // (2) bootstrap the stream on the very first turn — `OnboardingStarted`
-        //     is the create event the Marten projection's `Create` overload
-        //     keys off. The session call stages the stream creation; commit
+        //     is the create event the Marten projection's `Create` overload keys
+        //     off. Start-or-append on physical stream existence (not OnboardingView
+        //     existence): a runner who chatted before onboarding already has the
+        //     shared per-user stream, so a StartStream here would collide. Commit
         //     happens after the handler returns under Wolverine's transaction.
         var isFirstTurn = view is null;
         if (isFirstTurn)
         {
-            session.Events.StartStream<OnboardingView>(streamId, new OnboardingStarted(streamId, now));
+            await session
+                .StartStreamOrAppendAsync<OnboardingView>(streamId, new OnboardingStarted(streamId, now), ct)
+                .ConfigureAwait(false);
         }
         else if (view!.Status == OnboardingStatus.Completed)
         {

@@ -12,8 +12,9 @@ using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Conversation.Streaming;
-using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
+using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Identity.Contracts;
+using RunCoach.Api.Modules.Training.Plan;
 using RunCoach.Api.Modules.Training.Plan.Models;
 using RunCoach.Api.Modules.Training.Safety;
 using RunCoach.Api.Modules.Training.Workouts;
@@ -41,6 +42,14 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
 
     private static readonly Uri BaseUri = new("https://localhost");
     private static readonly DateTimeOffset PlanGeneratedAt = new(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
+
+    // The Sunday that opens PlanGeneratedAt's training week (week 1, day 0). SeedActivePlanAsync's
+    // canonical plan only prescribes a workout on that day-0 Sunday, so it is the one OccurredOn
+    // that resolves a server-authoritative on-plan prescription. Wall-clock "today" would land in
+    // a later week the stub leaves without micro detail, resolving no prescription.
+    private static readonly DateOnly Week1SundayRunDate =
+        PlanCalendar.StartOfTrainingWeek(DateOnly.FromDateTime(PlanGeneratedAt.UtcDateTime));
+
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
@@ -179,7 +188,7 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
     {
         // Arrange
         StubCoachingLlm.Reset();
-        StubCoachingLlm.UseStructuredBehavior(() => WorkoutLog(LocalToday()));
+        StubCoachingLlm.UseStructuredBehavior(() => WorkoutLog(Week1SundayRunDate));
         var (client, userId, token) = await RegisterLoginAndPrimeAsync();
         await SeedActivePlanAsync(userId);
         var clientMessageId = Guid.NewGuid();
@@ -194,6 +203,11 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         var payload = Payload<CardPayload>(card);
         payload.Draft.DistanceValue.Should().Be(5);
         payload.Draft.DistanceUnit.Should().Be(RunnerDistanceUnit.Kilometers);
+        payload.Prescription.Should().NotBeNull(
+            because: "the seeded active plan resolves a server-authoritative on-plan prescription for "
+                + "the week-1/day-0 run (the onboarding-event seed survives the reprojection)");
+        payload.Prescription!.WorkoutType.Should().Be(
+            "Easy", because: "the seeded plan prescribes an Easy run on the week-1 Sunday");
         frames.Should().NotContain(f => f.Event == "token", because: "a workout-log card streams no answer");
 
         StubCoachingLlm.StreamCallCount.Should().Be(0, because: "the card path never streams");
@@ -204,6 +218,35 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         var view = await LoadConversationViewAsync(userId);
         view!.Turns.Should().ContainSingle(because: "only the durable-first user turn persists for a card")
             .Which.Participant.Should().Be(ConversationParticipant.User);
+    }
+
+    [Fact]
+    public async Task PostMessage_AfterOnboardingCreatedTheStream_AppendsWithoutStreamCollision()
+    {
+        // Arrange — SeedActivePlanAsync onboards the runner, which starts the per-user event
+        // stream (id = user id). The runner's first chat message must append to that stream,
+        // not StartStream: a StartStream over the existing onboarding stream would throw
+        // ExistingStreamIdCollisionException (the regression this guards).
+        StubCoachingLlm.Reset();
+        StubCoachingLlm.UseStructuredBehavior(() => Question());
+        StubCoachingLlm.UseStreamBehavior(_ => YieldTokensAsync("Welcome back."));
+        var (client, userId, token) = await RegisterLoginAndPrimeAsync();
+        await SeedActivePlanAsync(userId);
+        var clientMessageId = Guid.NewGuid();
+
+        // Act
+        using var response = await PostMessageAsync(client, token, "What's on tap today?", clientMessageId);
+        var frames = await ReadFramesAsync(response);
+
+        // Assert — a collision would surface as an error frame; instead the stream appends and the
+        // InteractiveConversationProjection creates the view from this first UserMessagePosted.
+        frames.Should().NotContain(
+            f => f.Event == "error",
+            because: "the first message after onboarding appends to the existing per-user stream");
+        frames.Should().Contain(f => f.Event == "token");
+        var view = await LoadConversationViewAsync(userId);
+        view!.Turns.Should().Contain(t => t.Participant == ConversationParticipant.User
+            && t.TurnId == clientMessageId);
     }
 
     [Fact]
@@ -819,8 +862,6 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
             request, HttpCompletionOption.ResponseHeadersRead, TestContext.Current.CancellationToken);
     }
 
-    private static DateOnly LocalToday() => DateOnly.FromDateTime(DateTime.UtcNow);
-
     private static (HttpClient Client, System.Net.CookieContainer Container) CreateCookieClient(RunCoachAppFactory factory)
     {
         var container = new System.Net.CookieContainer();
@@ -906,40 +947,29 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
     private async Task SeedActivePlanAsync(Guid userId)
     {
         var planId = Guid.NewGuid();
-        using (var scope = Factory.Services.CreateScope())
-        {
-            var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
-            await using var session = store.LightweightSession(userId.ToString());
-            var sequence = StubPlanGenerationService.BuildCanonicalSequence(
-                planId, userId, goal: "Half Marathon", PlanGeneratedAt, previousPlanId: null);
-            session.Events.StartStream<PlanProjectionDto>(planId, [.. sequence.ToEvents()]);
-            await session.SaveChangesAsync(TestContext.Current.CancellationToken);
-        }
+        using var scope = Factory.Services.CreateScope();
+        var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
+        await using var session = store.LightweightSession(userId.ToString());
 
-        using (var scope = Factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<RunCoachDbContext>();
-            var profile = await EntityFrameworkQueryableExtensions.SingleOrDefaultAsync(
-                db.RunnerOnboardingProfiles.Where(p => p.UserId == userId), TestContext.Current.CancellationToken);
-            if (profile is null)
-            {
-                var now = DateTimeOffset.UtcNow;
-                db.RunnerOnboardingProfiles.Add(new RunnerOnboardingProfile
-                {
-                    UserId = userId,
-                    TenantId = userId.ToString(),
-                    CurrentPlanId = planId,
-                    CreatedOn = now,
-                    ModifiedOn = now,
-                });
-            }
-            else
-            {
-                profile.CurrentPlanId = planId;
-            }
+        var sequence = StubPlanGenerationService.BuildCanonicalSequence(
+            planId, userId, goal: "Half Marathon", PlanGeneratedAt, previousPlanId: null);
+        session.Events.StartStream<PlanProjectionDto>(planId, [.. sequence.ToEvents()]);
 
-            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        }
+        // Seed the runner's profile through their onboarding event stream (id = user id),
+        // exactly as production does — the PlanLinkedToUser event drives the inline
+        // UserProfileFromOnboardingProjection to set CurrentPlanId. A direct EF insert would
+        // NOT survive the SSE flow: onboarding and conversation share one per-user stream, so
+        // the first UserMessagePosted starts that stream and the single-stream projection runs
+        // with a null snapshot, whose default branch returns null — Marten then DELETES the
+        // manually inserted UserProfile row outright (not merely clearing CurrentPlanId).
+        var now = DateTimeOffset.UtcNow;
+        session.Events.StartStream<OnboardingView>(
+            userId,
+            new OnboardingStarted(userId, now),
+            new PlanLinkedToUser(userId, planId),
+            new OnboardingCompleted(planId, now));
+
+        await session.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     private sealed record SseFrame(string Event, string Data);
