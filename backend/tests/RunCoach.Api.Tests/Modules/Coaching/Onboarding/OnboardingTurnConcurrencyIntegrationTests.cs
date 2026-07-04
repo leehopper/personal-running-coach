@@ -172,7 +172,7 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
     public async Task FirstOnboardingTurn_WhenConversationStreamAlreadyExists_AppendsWithoutCollision()
     {
         // Arrange — a runner who has chatted (their per-user stream exists, tagged
-        // ConversationView) but has never onboarded (no OnboardingView document yet).
+        // `ConversationView`) but has never onboarded (no `OnboardingView` document yet).
         var userId = await SeedUserAsync();
         await PreseedConversationStreamAsync(userId);
 
@@ -191,9 +191,9 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
             scope.Dispose();
         }
 
-        // Assert — the OnboardingView materialized from the appended OnboardingStarted, proving
-        // the projection's Create ran on the bootstrap event even though it was not the stream's
-        // first event.
+        // Assert — the `OnboardingView` materialized from the appended `OnboardingStarted`,
+        // proving the projection's `Create` ran on the bootstrap event even though it was not
+        // the stream's first event.
         using var readScope = Factory.Services.CreateScope();
         var store = readScope.ServiceProvider.GetRequiredService<IDocumentStore>();
         await using var readSession = store.LightweightSession(userId.ToString());

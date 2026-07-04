@@ -43,8 +43,8 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
     private static readonly Uri BaseUri = new("https://localhost");
     private static readonly DateTimeOffset PlanGeneratedAt = new(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
 
-    // The Sunday that opens PlanGeneratedAt's training week (week 1, day 0). SeedActivePlanAsync's
-    // canonical plan only prescribes a workout on that day-0 Sunday, so it is the one OccurredOn
+    // The Sunday that opens `PlanGeneratedAt`'s training week (week 1, day 0). The seeded
+    // canonical plan only prescribes a workout on that day-0 Sunday, so it is the one run date
     // that resolves a server-authoritative on-plan prescription. Wall-clock "today" would land in
     // a later week the stub leaves without micro detail, resolving no prescription.
     private static readonly DateOnly Week1SundayRunDate =
@@ -223,10 +223,10 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
     [Fact]
     public async Task PostMessage_AfterOnboardingCreatedTheStream_AppendsWithoutStreamCollision()
     {
-        // Arrange — SeedActivePlanAsync onboards the runner, which starts the per-user event
-        // stream (id = user id). The runner's first chat message must append to that stream,
-        // not StartStream: a StartStream over the existing onboarding stream would throw
-        // ExistingStreamIdCollisionException (the regression this guards).
+        // Arrange — `SeedActivePlanAsync` onboards the runner, which starts the per-user event
+        // stream (id = user id). The runner's first chat message must append to that stream
+        // rather than start it again — starting an already-existing stream throws
+        // `ExistingStreamIdCollisionException` (the regression this guards).
         StubCoachingLlm.Reset();
         StubCoachingLlm.UseStructuredBehavior(() => Question());
         StubCoachingLlm.UseStreamBehavior(_ => YieldTokensAsync("Welcome back."));
@@ -245,8 +245,10 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
             because: "the first message after onboarding appends to the existing per-user stream");
         frames.Should().Contain(f => f.Event == "token");
         var view = await LoadConversationViewAsync(userId);
-        view!.Turns.Should().Contain(t => t.Participant == ConversationParticipant.User
-            && t.TurnId == clientMessageId);
+        view!.Turns.Should().ContainSingle(
+            t => t.Participant == ConversationParticipant.User
+                && t.TurnId == clientMessageId,
+            because: "the first chat message appends exactly one durable user turn");
     }
 
     [Fact]
@@ -956,12 +958,12 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         session.Events.StartStream<PlanProjectionDto>(planId, [.. sequence.ToEvents()]);
 
         // Seed the runner's profile through their onboarding event stream (id = user id),
-        // exactly as production does — the PlanLinkedToUser event drives the inline
-        // UserProfileFromOnboardingProjection to set CurrentPlanId. A direct EF insert would
-        // NOT survive the SSE flow: onboarding and conversation share one per-user stream, so
-        // the first UserMessagePosted starts that stream and the single-stream projection runs
-        // with a null snapshot, whose default branch returns null — Marten then DELETES the
-        // manually inserted UserProfile row outright (not merely clearing CurrentPlanId).
+        // exactly as production does — the `PlanLinkedToUser` event drives the inline
+        // `UserProfileFromOnboardingProjection` to set the current plan. A direct EF insert
+        // would NOT survive the streaming flow: onboarding and conversation share one per-user
+        // stream, so the first `UserMessagePosted` starts that stream and the single-stream
+        // projection runs from a null snapshot whose default branch returns null — Marten then
+        // deletes the manually inserted profile row outright (not merely clearing the plan id).
         var now = DateTimeOffset.UtcNow;
         session.Events.StartStream<OnboardingView>(
             userId,
