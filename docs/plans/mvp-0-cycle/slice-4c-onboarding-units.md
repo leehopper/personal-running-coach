@@ -163,7 +163,7 @@ Schema/prompt edits (if any) → re-freeze OnboardingSchema.Frozen + DEC-074 man
 
 ## Research gate
 
-- **R-085 (`batch-31a`) — form-first hybrid onboarding intake over an event-sourced Pattern-B flow. ✅ LANDED + INTEGRATED 2026-07-04.** Artifact at [`docs/research/artifacts/batch-31a-form-first-onboarding-redesign.md`](../../research/artifacts/batch-31a-form-first-onboarding-redesign.md); prompt at `docs/research/prompts/batch-31a-form-first-onboarding-redesign.md`; marked `Done` in `docs/research/research-queue.md`. Findings integrated in § "R-085 findings integrated" above. **The 4C-onboarding gate is now clear — its spec can be written.** (4C-units already shipped in parallel, all 6 PRs merged.)
+- **R-085 (`batch-31a`) — form-first hybrid onboarding intake over an event-sourced Pattern-B flow. ✅ LANDED + INTEGRATED 2026-07-04.** Artifact at [`docs/research/artifacts/batch-31a-form-first-onboarding-redesign.md`](../../research/artifacts/batch-31a-form-first-onboarding-redesign.md); prompt at `docs/research/prompts/batch-31a-form-first-onboarding-redesign.md`; marked `Integrated` in `docs/research/research-queue.md`. Findings integrated in § "R-085 findings integrated" above. **The 4C-onboarding gate is now clear — its spec can be written.** (4C-units already shipped in parallel, all 6 PRs merged.)
 
 ## Open / deferred items
 
