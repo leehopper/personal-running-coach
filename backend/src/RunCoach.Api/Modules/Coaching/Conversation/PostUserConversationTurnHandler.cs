@@ -1,5 +1,6 @@
 using Marten;
 using Microsoft.Extensions.Logging;
+using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Infrastructure.Idempotency;
 
 namespace RunCoach.Api.Modules.Coaching.Conversation;
@@ -7,11 +8,13 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 /// <summary>
 /// Wolverine command handler for <see cref="PostUserConversationTurn"/> (Slice 4B
 /// Unit 3, DEC-085) — the durable-first user-turn write. Idempotent on the client
-/// message id, so a retried POST appends nothing the second time. Bootstraps the
-/// user-scoped <c>Conversation</c> stream on the runner's first message, then
-/// appends to it on subsequent turns. Wolverine's transactional middleware brackets
-/// a single Marten <c>SaveChangesAsync</c> around the handler; it never calls
-/// <c>SaveChangesAsync</c> itself.
+/// message id, so a retried POST appends nothing the second time. Onboarding and
+/// conversation both materialize from a single physical per-user Marten stream (both
+/// projections are keyed by the bare user id), so this handler bootstraps that stream
+/// only when it does not yet physically exist and appends otherwise — including the
+/// first chat message after onboarding already created the stream. Wolverine's
+/// transactional middleware brackets a single Marten <c>SaveChangesAsync</c> around the
+/// handler; it never calls <c>SaveChangesAsync</c> itself.
 /// </summary>
 /// <remarks>
 /// Two-write persistence (DEC-085): this user-turn write and the
@@ -59,22 +62,14 @@ public sealed partial class PostUserConversationTurnHandler
         }
 
         var streamId = cmd.UserId;
-        var view = await session
-            .LoadAsync<ConversationView>(streamId, ct)
-            .ConfigureAwait(false);
-
         var @event = new UserMessagePosted(cmd.UserId, cmd.ClientMessageId, cmd.Content);
 
-        // First message bootstraps the stream; subsequent messages append. The inline
-        // InteractiveConversationProjection materializes the view in the same transaction.
-        if (view is null)
-        {
-            session.Events.StartStream<ConversationView>(streamId, @event);
-        }
-        else
-        {
-            session.Events.Append(streamId, @event);
-        }
+        // Bootstrap on physical stream existence, not ConversationView existence: a runner who
+        // onboarded already has the shared per-user stream (no ConversationView yet), so a
+        // StartStream here would collide on the first chat message. See StartStreamOrAppendAsync.
+        await session
+            .StartStreamOrAppendAsync<ConversationView>(streamId, @event, ct)
+            .ConfigureAwait(false);
 
         var response = new ConversationTurnPostedResponse(cmd.ClientMessageId);
         idempotency.Record(cmd.ClientMessageId, response);

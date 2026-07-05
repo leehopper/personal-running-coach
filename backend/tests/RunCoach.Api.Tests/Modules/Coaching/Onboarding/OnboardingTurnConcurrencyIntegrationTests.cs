@@ -11,6 +11,7 @@ using Npgsql;
 using NSubstitute;
 using RunCoach.Api.Infrastructure.Idempotency;
 using RunCoach.Api.Modules.Coaching;
+using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
@@ -158,6 +159,49 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
         }
     }
 
+    /// <summary>
+    /// Regression guard for the shared per-user event stream: onboarding and the interactive
+    /// conversation both materialize from the bare-user-id stream. A runner who chats before
+    /// onboarding creates that stream via the conversation handler; their first onboarding turn
+    /// must then APPEND <c>OnboardingStarted</c>, not <c>StartStream</c> — a <c>StartStream</c>
+    /// over the already-existing stream throws <see cref="ExistingStreamIdCollisionException"/>,
+    /// which <c>OnboardingController</c> does not catch, so it would surface as an unhandled 500
+    /// that permanently blocks the account from ever completing onboarding.
+    /// </summary>
+    [Fact]
+    public async Task FirstOnboardingTurn_WhenConversationStreamAlreadyExists_AppendsWithoutCollision()
+    {
+        // Arrange — a runner who has chatted (their per-user stream exists, tagged
+        // `ConversationView`) but has never onboarded (no `OnboardingView` document yet).
+        var userId = await SeedUserAsync();
+        await PreseedConversationStreamAsync(userId);
+
+        // Act — stage the first onboarding turn, then commit (standing in for Wolverine's
+        // transactional middleware). The commit must not throw a stream-collision.
+        var (scope, session) = await PrepareFirstTurnAsync(userId, idempotencyKey: Guid.NewGuid());
+        try
+        {
+            Func<Task> commit = () => session.SaveChangesAsync(TestContext.Current.CancellationToken);
+            await commit.Should().NotThrowAsync(
+                because: "the first onboarding turn appends OnboardingStarted to the existing shared per-user stream instead of StartStream, which would collide");
+        }
+        finally
+        {
+            await session.DisposeAsync();
+            scope.Dispose();
+        }
+
+        // Assert — the `OnboardingView` materialized from the appended `OnboardingStarted`,
+        // proving the projection's `Create` ran on the bootstrap event even though it was not
+        // the stream's first event.
+        using var readScope = Factory.Services.CreateScope();
+        var store = readScope.ServiceProvider.GetRequiredService<IDocumentStore>();
+        await using var readSession = store.LightweightSession(userId.ToString());
+        var view = await readSession.LoadAsync<OnboardingView>(userId, TestContext.Current.CancellationToken);
+        view.Should().NotBeNull(
+            because: "OnboardingProjection.Create runs on the appended OnboardingStarted mid-stream");
+    }
+
     /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {
@@ -224,6 +268,21 @@ public sealed class OnboardingTurnConcurrencyIntegrationTests(RunCoachAppFactory
         result.Succeeded.Should()
             .BeTrue(because: $"seed must succeed — got [{string.Join(", ", result.Errors.Select(e => e.Code))}]");
         return user.Id;
+    }
+
+    /// <summary>
+    /// Creates the runner's per-user event stream via a conversation turn (as if they chatted
+    /// before onboarding), tagging the physical stream <c>ConversationView</c> with no
+    /// onboarding events on it yet.
+    /// </summary>
+    private async Task PreseedConversationStreamAsync(Guid userId)
+    {
+        using var scope = Factory.Services.CreateScope();
+        var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
+        await using var session = store.LightweightSession(userId.ToString());
+        session.Events.StartStream<ConversationView>(
+            userId, new UserMessagePosted(userId, Guid.NewGuid(), "hey coach"));
+        await session.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>
