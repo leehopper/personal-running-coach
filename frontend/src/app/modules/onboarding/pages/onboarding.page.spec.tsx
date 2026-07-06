@@ -126,6 +126,13 @@ describe('OnboardingPage gating', () => {
     expect(screen.getByTestId('onboarding-loading')).toBeInTheDocument()
   })
 
+  it('shows a loading placeholder while the onboarding state is still loading', () => {
+    getOnboardingStateMock.mockReturnValue(stateQuery({ isLoading: true }))
+    render(<OnboardingPage />)
+    expect(screen.getByTestId('onboarding-loading')).toBeInTheDocument()
+    expect(screen.queryByTestId('onboarding-form-stub')).toBeNull()
+  })
+
   it('shows a retry on a non-404 onboarding-state error', () => {
     getOnboardingStateMock.mockReturnValue(stateQuery({ isError: true, error: { status: 500 } }))
     render(<OnboardingPage />)
@@ -235,6 +242,8 @@ describe('OnboardingPage gating', () => {
     // 10 km → 6.2 mi. This guards the `initialFields={seed ?? hydrated}` wiring:
     // switching it to `{hydrated}` (or dropping setSeed) would show '6.2' and fail.
     expect(after).toHaveAttribute('data-typical-weekly', '12.4')
+    // The resolved unit has now caught up to the pending target, so the pending flag clears.
+    expect(after).toHaveAttribute('data-pending', 'false')
   })
 
   it('marks the units control pending while a change is in flight', async () => {
