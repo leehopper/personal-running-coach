@@ -2,10 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiSlice } from '~/api/api-slice'
 import type { ConfirmConversationalLogRequestDto, StructuredLogDraft } from '~/api/generated'
-import type {
-  ConversationTimelineDto,
-  ConversationTurnsResponseDto,
-} from '~/modules/coaching/models/conversation.model'
+import type { ConversationTimelineDto } from '~/modules/coaching/models/conversation.model'
 import { conversationApi } from './conversation.api'
 import { planApi } from './plan.api'
 import { clearXsrfCookie, PatchedRequest, seedXsrfCookie } from './test-helpers'
@@ -26,7 +23,6 @@ const makeStore = () =>
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(apiSlice.middleware),
   })
 
-const EMPTY_RESPONSE: ConversationTurnsResponseDto = { turns: [] }
 const EMPTY_TIMELINE: ConversationTimelineDto = { turns: [] }
 
 const SAMPLE_DRAFT: StructuredLogDraft = {
@@ -44,34 +40,6 @@ const SAMPLE_CONFIRM_BODY: ConfirmConversationalLogRequestDto = {
   draft: SAMPLE_DRAFT,
   clientMessageId: '00000000-0000-0000-0000-0000000000c1',
 }
-
-describe('conversationApi.getConversationTurns query factory', () => {
-  let fetchMock: ReturnType<typeof vi.fn>
-
-  beforeEach(() => {
-    fetchMock = vi.fn().mockResolvedValue(jsonResponse(EMPTY_RESPONSE))
-    vi.stubGlobal('fetch', fetchMock)
-    vi.stubGlobal('Request', PatchedRequest)
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('issues a GET to /api/v1/conversation/turns and surfaces the turns payload', async () => {
-    const store = makeStore()
-    const result = await store.dispatch(
-      conversationApi.endpoints.getConversationTurns.initiate(undefined),
-    )
-
-    expect(result.data).toEqual(EMPTY_RESPONSE)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const request = fetchMock.mock.calls[0][0] as Request
-    expect(request).toBeInstanceOf(Request)
-    expect(request.method).toBe('GET')
-    expect(request.url).toContain('/api/v1/conversation/turns')
-  })
-})
 
 describe('conversationApi.getConversationTimeline query factory', () => {
   let fetchMock: ReturnType<typeof vi.fn>

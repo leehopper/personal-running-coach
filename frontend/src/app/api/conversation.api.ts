@@ -3,10 +3,7 @@ import type {
   ConfirmConversationalLogRequestDto,
   ConfirmConversationalLogResponseDto,
 } from '~/api/generated'
-import type {
-  ConversationTimelineDto,
-  ConversationTurnsResponseDto,
-} from '~/modules/coaching/models/conversation.model'
+import type { ConversationTimelineDto } from '~/modules/coaching/models/conversation.model'
 
 // Conversation endpoints are injected into the root `apiSlice` so every
 // request shares the same cookie + antiforgery base query. The reads take no
@@ -14,24 +11,16 @@ import type {
 // URL segments are relative to the global `/api` prefix supplied by the base
 // query.
 //
-// `getConversationTurns` (newest-first proactive turns) is the read-only
-// "Explain-the-change" feed; `getConversationTimeline` (oldest-first
-// interactive + proactive union) feeds the interactive coach chat mounted on
-// the home route. Both are tagged `Conversation`, so `createWorkoutLog` and
-// `confirmConversationalLog` refetch them in the same interaction as the plan
-// view. The turns feed currently has no mounted consumer — the home route
-// renders the timeline-backed chat instead — but its query, hook, and tag
-// wiring are retained for reuse.
+// `getConversationTimeline` (oldest-first interactive + proactive union) feeds
+// the interactive coach chat mounted on the home route. It is tagged
+// `Conversation`, so `createWorkoutLog` and `confirmConversationalLog` refetch
+// it in the same interaction as the plan view.
 //
 // The streaming Q&A endpoint (`POST /v1/conversation/messages`) is intentionally
 // NOT modelled here — `fetchBaseQuery` cannot stream, so the coach chat
 // hand-rolls a `fetch` reader for it instead.
 export const conversationApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getConversationTurns: builder.query<ConversationTurnsResponseDto, undefined>({
-      query: () => ({ url: '/v1/conversation/turns', method: 'GET' }),
-      providesTags: ['Conversation'],
-    }),
     getConversationTimeline: builder.query<ConversationTimelineDto, undefined>({
       query: () => ({ url: '/v1/conversation/timeline', method: 'GET' }),
       providesTags: ['Conversation'],
@@ -53,9 +42,5 @@ export const conversationApi = apiSlice.injectEndpoints({
 })
 
 /** Auto-generated RTK Query hooks for the conversation endpoints. */
-export const {
-  useGetConversationTurnsQuery,
-  useLazyGetConversationTurnsQuery,
-  useGetConversationTimelineQuery,
-  useConfirmConversationalLogMutation,
-} = conversationApi
+export const { useGetConversationTimelineQuery, useConfirmConversationalLogMutation } =
+  conversationApi
