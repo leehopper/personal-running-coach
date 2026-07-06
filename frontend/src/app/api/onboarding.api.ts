@@ -1,52 +1,42 @@
 import { apiSlice } from '~/api/api-slice'
 import type {
   OnboardingStateDto,
-  OnboardingTurnRequestDto,
-  OnboardingTurnResponse,
-  ReviseAnswerRequestDto,
+  SubmitStructuredAnswersRequest,
 } from '~/modules/onboarding/models/onboarding.model'
 
 // Onboarding endpoints are injected into the root `apiSlice` so every request
 // shares the cookie + antiforgery base query from Slice 0 — `credentials:
-// 'include'` lifts the auth cookie, `prepareHeaders` adds the
-// `X-XSRF-TOKEN` header on mutations from the double-submit cookie pair.
-// Routes match `backend/src/RunCoach.Api/Modules/Coaching/Onboarding/
-// OnboardingController.cs` with the global `/api/v1` prefix supplied by
-// `base-query.ts#baseUrl`.
+// 'include'` lifts the auth cookie, `prepareHeaders` adds the `X-XSRF-TOKEN`
+// header on mutations from the double-submit cookie pair. Routes match
+// `backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingController.cs`
+// with the global `/api/v1` prefix supplied by `base-query.ts#baseUrl`.
 //
-// The response shape for `submitOnboardingTurn` is the discriminated union
-// declared in `~/modules/onboarding/models/onboarding.model.ts`. Runtime
-// validation lives in the corresponding Zod schema and is applied by the
-// page-level hook before the union is narrowed — keeping the RTK cache
-// untouched lets us preserve raw responses for replay debugging.
+// Slice 4C-onboarding replaced the turn-based chat with the deterministic,
+// form-first intake (DEC-086): `submitStructuredAnswers` posts every completed
+// topic in one request to `POST /answers`, and the per-turn `submitOnboardingTurn`
+// / `reviseAnswer` endpoints were removed. `getOnboardingState` is retained for
+// the redirect guard and the resume-hydrate.
 export const onboardingApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getOnboardingState: builder.query<OnboardingStateDto, undefined>({
       query: () => ({ url: '/v1/onboarding/state', method: 'GET' }),
       providesTags: ['Onboarding'],
     }),
-    submitOnboardingTurn: builder.mutation<OnboardingTurnResponse, OnboardingTurnRequestDto>({
+    submitStructuredAnswers: builder.mutation<OnboardingStateDto, SubmitStructuredAnswersRequest>({
       query: (body) => ({
-        url: '/v1/onboarding/turns',
+        url: '/v1/onboarding/answers',
         method: 'POST',
         body,
       }),
-      // Intentionally NOT invalidating ['Onboarding'] here. The submit
-      // response itself carries the next-topic / suggestedInputType /
-      // progress fields, and the page-level `useOnboardingTurn` hook merges
-      // those directly into the Redux slice. Re-fetching `getOnboardingState`
-      // would race the slice merge and cause `transcriptReplaced` to wipe the
-      // freshly appended turns (the state endpoint does not surface the
-      // verbatim transcript). The revise endpoint still invalidates because
-      // it overwrites a captured answer outside the chat dispatcher.
-    }),
-    reviseAnswer: builder.mutation<OnboardingStateDto, ReviseAnswerRequestDto>({
-      query: (body) => ({
-        url: '/v1/onboarding/answers/revise',
-        method: 'POST',
-        body,
-      }),
-      invalidatesTags: ['Onboarding'],
+      // Success-gated invalidation: on a completed submission the reloaded state
+      // reports `isComplete: true`, so refetching `getOnboardingState` lets the
+      // `OnboardingRedirectGuard` (subscribed to the same tag) route the runner to
+      // `/` in the same interaction. The callback form returns `[]` on error — RTK
+      // Query applies a *static* `invalidatesTags` array on rejected-with-value
+      // mutations too, and a rejected submit (400/409/422) leaves onboarding
+      // exactly where it was, so a refetch would be pointless. Mirrors
+      // `settings.api.ts#putUnitPreference`.
+      invalidatesTags: (_result, error) => (error === undefined ? ['Onboarding'] : []),
     }),
   }),
 })
@@ -54,6 +44,5 @@ export const onboardingApi = apiSlice.injectEndpoints({
 export const {
   useGetOnboardingStateQuery,
   useLazyGetOnboardingStateQuery,
-  useSubmitOnboardingTurnMutation,
-  useReviseAnswerMutation,
+  useSubmitStructuredAnswersMutation,
 } = onboardingApi
