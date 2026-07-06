@@ -300,3 +300,179 @@ export const PostApiV1OnboardingAnswersReviseResponse = zod.strictObject({
   }),
   currentPlanId: zod.uuid().nullish(),
 })
+
+export const PostApiV1OnboardingAnswersBody = zod.strictObject({
+  idempotencyKey: zod.uuid(),
+  primaryGoal: zod.strictObject({
+    goal: zod.union([
+      zod.literal(0),
+      zod.literal(1),
+      zod.literal(2),
+      zod.literal(3),
+      zod.literal(4),
+    ]),
+    description: zod.string().nullish(),
+  }),
+  targetEvent: zod.strictObject({
+    eventName: zod.string(),
+    distanceKm: zod.number(),
+    eventDateIso: zod.string(),
+    targetFinishTimeIso: zod.string().nullish(),
+  }),
+  currentFitness: zod.strictObject({
+    typicalWeeklyKm: zod.number(),
+    longestRecentRunKm: zod.number(),
+    recentRaceDistanceKm: zod.number().nullish(),
+    recentRaceTimeIso: zod.string().nullish(),
+    description: zod.string().nullish(),
+  }),
+  weeklySchedule: zod.strictObject({
+    maxRunDaysPerWeek: zod.number(),
+    typicalSessionMinutes: zod.number(),
+    monday: zod.boolean(),
+    tuesday: zod.boolean(),
+    wednesday: zod.boolean(),
+    thursday: zod.boolean(),
+    friday: zod.boolean(),
+    saturday: zod.boolean(),
+    sunday: zod.boolean(),
+    description: zod.string().nullish(),
+  }),
+  injuryHistory: zod.strictObject({
+    hasActiveInjury: zod.boolean(),
+    activeInjuryDescription: zod.string().nullish(),
+    pastInjurySummary: zod.string().nullish(),
+  }),
+  preferences: zod.strictObject({
+    preferredUnits: zod.union([zod.literal(0), zod.literal(1)]),
+    preferTrail: zod.boolean(),
+    comfortableWithIntensity: zod.boolean(),
+    description: zod.string().nullish(),
+  }),
+})
+
+export const PostApiV1OnboardingAnswersResponse = zod.strictObject({
+  userId: zod.uuid(),
+  status: zod.union([zod.literal(0), zod.literal(1), zod.literal(2)]),
+  currentTopic: zod.union([
+    zod.literal(0),
+    zod.literal(1),
+    zod.literal(2),
+    zod.literal(3),
+    zod.literal(4),
+    zod.literal(5),
+  ]),
+  completedTopics: zod.number(),
+  totalTopics: zod.number(),
+  isComplete: zod.boolean(),
+  outstandingClarifications: zod.array(
+    zod.union([
+      zod.literal(0),
+      zod.literal(1),
+      zod.literal(2),
+      zod.literal(3),
+      zod.literal(4),
+      zod.literal(5),
+    ]),
+  ),
+  primaryGoal: zod.strictObject({
+    goal: zod.union([
+      zod.literal(0),
+      zod.literal(1),
+      zod.literal(2),
+      zod.literal(3),
+      zod.literal(4),
+    ]),
+    description: zod
+      .string()
+      .describe('Runner-supplied free-text description that informed the categorical mapping.'),
+  }),
+  targetEvent: zod.strictObject({
+    eventName: zod
+      .string()
+      .describe("Name of the goal race or event, such as 'Berlin Marathon' or 'Local 10K'."),
+    distanceKm: zod.number().describe('Target distance in kilometers for the event.'),
+    eventDateIso: zod
+      .string()
+      .describe('Target event date in ISO-8601 calendar form (yyyy-MM-dd).'),
+    targetFinishTimeIso: zod
+      .string()
+      .nullable()
+      .describe(
+        'Optional target finishing time as ISO-8601 duration (e.g. PT1H45M30S). Null if the runner has no specific time goal.',
+      ),
+  }),
+  currentFitness: zod.strictObject({
+    typicalWeeklyKm: zod
+      .number()
+      .describe('Typical weekly running distance in kilometers over the past four weeks.'),
+    longestRecentRunKm: zod
+      .number()
+      .describe('Longest single run completed in the past four weeks, in kilometers.'),
+    recentRaceDistanceKm: zod
+      .number()
+      .nullable()
+      .describe(
+        'Optional recent race distance in kilometers. Null if the runner has no recent race result.',
+      ),
+    recentRaceTimeIso: zod
+      .string()
+      .nullable()
+      .describe(
+        'Optional recent race time as ISO-8601 duration (e.g. PT0H45M30S). Null if the runner has no recent race result.',
+      ),
+    description: zod.string().describe("Self-reported fitness summary in the runner's own words."),
+  }),
+  weeklySchedule: zod.strictObject({
+    maxRunDaysPerWeek: zod
+      .number()
+      .describe(
+        'Maximum number of run days per week the runner can commit to. Valid range 1 through 7.',
+      ),
+    typicalSessionMinutes: zod
+      .number()
+      .describe('Typical session duration in minutes the runner has available per training day.'),
+    monday: zod.boolean().describe('Whether Monday is an available run day.'),
+    tuesday: zod.boolean().describe('Whether Tuesday is an available run day.'),
+    wednesday: zod.boolean().describe('Whether Wednesday is an available run day.'),
+    thursday: zod.boolean().describe('Whether Thursday is an available run day.'),
+    friday: zod.boolean().describe('Whether Friday is an available run day.'),
+    saturday: zod.boolean().describe('Whether Saturday is an available run day.'),
+    sunday: zod.boolean().describe('Whether Sunday is an available run day.'),
+    description: zod
+      .string()
+      .describe(
+        "Runner-supplied free-text description of constraints not captured by the day flags (e.g. 'no early mornings').",
+      ),
+  }),
+  injuryHistory: zod.strictObject({
+    hasActiveInjury: zod
+      .boolean()
+      .describe('Whether the runner currently has an active injury or pain that limits training.'),
+    activeInjuryDescription: zod
+      .string()
+      .describe(
+        'Description of the active injury or limitation. Empty string when there is no active injury.',
+      ),
+    pastInjurySummary: zod
+      .string()
+      .describe(
+        'Summary of past injuries or recurring issues that should inform the training plan. Empty string if none.',
+      ),
+  }),
+  preferences: zod.strictObject({
+    preferredUnits: zod.union([zod.literal(0), zod.literal(1)]),
+    preferTrail: zod.boolean().describe('Whether the runner prefers trail running where possible.'),
+    comfortableWithIntensity: zod
+      .boolean()
+      .describe(
+        'Whether the runner is comfortable with structured high-intensity workouts (intervals, threshold).',
+      ),
+    description: zod
+      .string()
+      .describe(
+        'Runner-supplied free-text description of any other preferences not captured above.',
+      ),
+  }),
+  currentPlanId: zod.uuid().nullish(),
+})
