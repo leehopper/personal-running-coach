@@ -40,6 +40,75 @@ const RetryPanel = ({ message, testId, onRetry }: RetryPanelProps) => (
   </div>
 )
 
+interface OnboardingContentProps {
+  unitsError: boolean
+  stateFatalError: boolean
+  isResolved: boolean
+  stateLoading: boolean
+  refetchUnits: () => void
+  refetchState: () => void
+  units: PreferredUnits
+  initialFields: OnboardingFormFields
+  unitsChangePending: boolean
+  onUnitsChange: (nextUnits: PreferredUnits, currentValues: OnboardingFormFields) => void
+}
+
+/**
+ * Selects what renders below the page header based on the unit-preference /
+ * onboarding-state query outcomes: a retry on error, a loading placeholder until
+ * both settle, otherwise the form (mounted keyed on `units` so a unit change
+ * remounts it against the re-seeded values). Extracted as a component (not an
+ * inline render helper) so the branches read as early returns.
+ */
+const OnboardingContent = ({
+  unitsError,
+  stateFatalError,
+  isResolved,
+  stateLoading,
+  refetchUnits,
+  refetchState,
+  units,
+  initialFields,
+  unitsChangePending,
+  onUnitsChange,
+}: OnboardingContentProps): ReactElement => {
+  if (unitsError) {
+    return (
+      <RetryPanel
+        message="We couldn’t load your unit preference. Check your connection and try again."
+        testId="onboarding-units-error"
+        onRetry={refetchUnits}
+      />
+    )
+  }
+  if (stateFatalError) {
+    return (
+      <RetryPanel
+        message="We couldn’t reach the onboarding service. Check your connection and try again."
+        testId="onboarding-state-error"
+        onRetry={refetchState}
+      />
+    )
+  }
+  if (!isResolved || stateLoading) {
+    return (
+      <p role="status" className="text-sm text-muted-foreground" data-testid="onboarding-loading">
+        Loading…
+      </p>
+    )
+  }
+
+  return (
+    <OnboardingForm
+      key={units}
+      units={units}
+      initialFields={initialFields}
+      unitsChangePending={unitsChangePending}
+      onUnitsChange={onUnitsChange}
+    />
+  )
+}
+
 /**
  * The `/onboarding` route — a single-page, mobile-first structured form
  * (DEC-086). It defers the form until the unit preference has resolved (the
@@ -103,53 +172,12 @@ export const OnboardingPage = (): ReactElement => {
   const stateIs404 = stateIsError && isErrorStatus(stateError, 404)
   const stateFatalError = stateIsError && !stateIs404
 
-  const content = (): ReactElement => {
-    if (unitsError) {
-      return (
-        <RetryPanel
-          message="We couldn’t load your unit preference. Check your connection and try again."
-          testId="onboarding-units-error"
-          onRetry={refetchUnits}
-        />
-      )
-    }
-    if (stateFatalError) {
-      return (
-        <RetryPanel
-          message="We couldn’t reach the onboarding service. Check your connection and try again."
-          testId="onboarding-state-error"
-          onRetry={() => {
-            void refetchState()
-          }}
-        />
-      )
-    }
-    if (!isResolved || stateLoading) {
-      return (
-        <p role="status" className="text-sm text-muted-foreground" data-testid="onboarding-loading">
-          Loading…
-        </p>
-      )
-    }
-
-    // 404 → no stream yet → a fresh, blank form; 200 → hydrate the resumed answers.
-    const hydrated =
-      stateDto !== undefined
-        ? hydrateOnboardingFormFields(stateDto, units)
-        : makeDefaultOnboardingFormFields()
-
-    return (
-      <OnboardingForm
-        key={units}
-        units={units}
-        initialFields={seed ?? hydrated}
-        unitsChangePending={unitsChangePending}
-        onUnitsChange={(nextUnits, currentValues) => {
-          void persistUnitsAndReseed(nextUnits, currentValues)
-        }}
-      />
-    )
-  }
+  // 404 → no stream yet → a fresh, blank form; 200 → hydrate the resumed answers.
+  // A units change overrides with the re-seeded (unit-converted) values.
+  const hydrated =
+    stateDto !== undefined
+      ? hydrateOnboardingFormFields(stateDto, units)
+      : makeDefaultOnboardingFormFields()
 
   return (
     <main
@@ -162,7 +190,22 @@ export const OnboardingPage = (): ReactElement => {
           Answer a few questions and your coach will draft a training plan.
         </p>
       </header>
-      {content()}
+      <OnboardingContent
+        unitsError={unitsError}
+        stateFatalError={stateFatalError}
+        isResolved={isResolved}
+        stateLoading={stateLoading}
+        refetchUnits={refetchUnits}
+        refetchState={() => {
+          void refetchState()
+        }}
+        units={units}
+        initialFields={seed ?? hydrated}
+        unitsChangePending={unitsChangePending}
+        onUnitsChange={(nextUnits, currentValues) => {
+          void persistUnitsAndReseed(nextUnits, currentValues)
+        }}
+      />
     </main>
   )
 }

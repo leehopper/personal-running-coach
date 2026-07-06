@@ -145,12 +145,14 @@ export const OnboardingForm = ({
           </p>
         ) : null}
 
-        {/* Disabled until the whole record validates (repo Forms convention) or a
-            submit is in flight. `mode: 'onChange'` keeps `isValid` live as fields fill. */}
+        {/* Disabled until the whole record validates (repo Forms convention), while a
+            submit is in flight, or while a unit change is persisting (the form is about
+            to reseed/remount, so a submit then would post stale-unit values).
+            `mode: 'onChange'` keeps `isValid` live as fields fill. */}
         <Button
           type="submit"
           size="lg"
-          disabled={isLoading || !form.formState.isValid}
+          disabled={isLoading || !form.formState.isValid || unitsChangePending}
           data-testid="onboarding-submit"
         >
           {isLoading ? 'Building your plan…' : 'Create my plan'}

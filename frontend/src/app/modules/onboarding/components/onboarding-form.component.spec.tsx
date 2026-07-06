@@ -185,6 +185,14 @@ describe('OnboardingForm', () => {
     expect(screen.getByRole('radio', { name: 'Miles' })).toBeDisabled()
   })
 
+  it('keeps submit disabled while a unit change is pending even once the record is valid', async () => {
+    const { user } = renderForm(PreferredUnits.Kilometers, { unitsChangePending: true })
+    await fillMinimalValid(user)
+    // The record validates, but the pending unit change (form about to reseed)
+    // must keep submit blocked.
+    expect(screen.getByTestId('onboarding-submit')).toBeDisabled()
+  })
+
   it('keeps the free-text nuance boxes optional', async () => {
     const { user } = renderForm()
     await fillMinimalValid(user)
