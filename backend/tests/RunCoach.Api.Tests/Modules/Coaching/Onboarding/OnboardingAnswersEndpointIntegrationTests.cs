@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Conversation;
+using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Identity.Contracts;
@@ -61,22 +62,67 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         var token = await PrimeAntiforgeryAsync(client, container);
         var response = await PostAnswersAsync(client, token, request, ct);
 
-        // Assert — HTTP contract: completed onboarding with a linked plan.
+        // Assert — HTTP contract: full deep equality of the response against the expected contract
+        // (CurrentPlanId is server-generated and asserted separately below).
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var state = await response.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
         state.Should().NotBeNull();
-        state!.IsComplete.Should().BeTrue(because: "all required topics were submitted, satisfying the deterministic gate");
-        state.CurrentPlanId.Should().NotBeNull().And.NotBe(Guid.Empty);
-
-        // Assert — OnboardingView (Marten projection) slots equal the submitted records.
-        state.PrimaryGoal.Should().Be(new PrimaryGoalAnswer { Goal = PrimaryGoal.RaceTraining, Description = "Sub-4 marathon" });
-        state.TargetEvent!.EventName.Should().Be("Berlin Marathon");
-        state.TargetEvent.DistanceKm.Should().Be(42.2);
-        state.TargetEvent.EventDateIso.Should().Be("2026-09-27");
-        state.WeeklySchedule!.MaxRunDaysPerWeek.Should().Be(5);
-        state.WeeklySchedule.Saturday.Should().BeTrue();
-        state.Preferences!.PreferredUnits.Should().Be(PreferredUnits.Miles);
-        state.InjuryHistory!.PastInjurySummary.Should().Be("Rolled ankle 2024");
+        var expectedState = new OnboardingStateDto(
+            UserId: userId,
+            Status: OnboardingStatus.Completed,
+            CurrentTopic: null,
+            CompletedTopics: 6,
+            TotalTopics: 6,
+            IsComplete: true,
+            OutstandingClarifications: Array.Empty<OnboardingTopic>(),
+            PrimaryGoal: new PrimaryGoalAnswer { Goal = PrimaryGoal.RaceTraining, Description = "Sub-4 marathon" },
+            TargetEvent: new TargetEventAnswer
+            {
+                EventName = "Berlin Marathon",
+                DistanceKm = 42.2,
+                EventDateIso = "2026-09-27",
+                TargetFinishTimeIso = "PT3H55M0S",
+            },
+            CurrentFitness: new CurrentFitnessAnswer
+            {
+                TypicalWeeklyKm = 45,
+                LongestRecentRunKm = 20,
+                RecentRaceDistanceKm = 21.1,
+                RecentRaceTimeIso = "PT1H45M0S",
+                Description = "Feeling strong",
+            },
+            WeeklySchedule: new WeeklyScheduleAnswer
+            {
+                MaxRunDaysPerWeek = 5,
+                TypicalSessionMinutes = 60,
+                Monday = true,
+                Tuesday = false,
+                Wednesday = true,
+                Thursday = false,
+                Friday = true,
+                Saturday = true,
+                Sunday = false,
+                Description = "Evenings only",
+            },
+            InjuryHistory: new InjuryHistoryAnswer
+            {
+                HasActiveInjury = false,
+                ActiveInjuryDescription = string.Empty,
+                PastInjurySummary = "Rolled ankle 2024",
+            },
+            Preferences: new PreferencesAnswer
+            {
+                PreferredUnits = PreferredUnits.Miles,
+                PreferTrail = true,
+                ComfortableWithIntensity = true,
+                Description = "Prefer mornings",
+            },
+            CurrentPlanId: null);
+        state.Should().BeEquivalentTo(
+            expectedState,
+            options => options.Excluding(x => x.CurrentPlanId),
+            because: "the full response contract must match the submitted answers and the deterministic gate verdict");
+        state!.CurrentPlanId.Should().NotBeNull().And.NotBe(Guid.Empty);
 
         // Assert — RunnerOnboardingProfile (EF projection) materialized identically (DEC-060).
         var profile = await LoadProfileAsync(Factory, userId, ct);
@@ -99,7 +145,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         var ct = TestContext.Current.CancellationToken;
         var (client, container) = CreateCookieClient(Factory);
         var email = GenerateEmail();
-        await RegisterAsync(client, container, email);
+        var userId = await RegisterAsync(client, container, email);
         await LoginAsync(client, container, email);
         var request = FitnessRequest(Guid.NewGuid());
 
@@ -107,12 +153,60 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         var token = await PrimeAntiforgeryAsync(client, container);
         var response = await PostAnswersAsync(client, token, request, ct);
 
-        // Assert
+        // Assert — full deep equality of the response against the expected contract (CurrentPlanId is
+        // server-generated and asserted separately below).
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var state = await response.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
-        state!.IsComplete.Should().BeTrue();
-        state.CurrentPlanId.Should().NotBeNull();
-        state.TargetEvent.Should().BeNull(because: "no target event is required or submitted for general fitness");
+        var expectedState = new OnboardingStateDto(
+            UserId: userId,
+            Status: OnboardingStatus.Completed,
+            CurrentTopic: null,
+            CompletedTopics: 5,
+            TotalTopics: 5,
+            IsComplete: true,
+            OutstandingClarifications: Array.Empty<OnboardingTopic>(),
+            PrimaryGoal: new PrimaryGoalAnswer { Goal = PrimaryGoal.GeneralFitness, Description = "Stay healthy" },
+            TargetEvent: null,
+            CurrentFitness: new CurrentFitnessAnswer
+            {
+                TypicalWeeklyKm = 30,
+                LongestRecentRunKm = 12,
+                RecentRaceDistanceKm = null,
+                RecentRaceTimeIso = null,
+                Description = "Moderate",
+            },
+            WeeklySchedule: new WeeklyScheduleAnswer
+            {
+                MaxRunDaysPerWeek = 4,
+                TypicalSessionMinutes = 45,
+                Monday = true,
+                Tuesday = false,
+                Wednesday = true,
+                Thursday = false,
+                Friday = true,
+                Saturday = false,
+                Sunday = true,
+                Description = "Evenings",
+            },
+            InjuryHistory: new InjuryHistoryAnswer
+            {
+                HasActiveInjury = false,
+                ActiveInjuryDescription = string.Empty,
+                PastInjurySummary = string.Empty,
+            },
+            Preferences: new PreferencesAnswer
+            {
+                PreferredUnits = PreferredUnits.Kilometers,
+                PreferTrail = false,
+                ComfortableWithIntensity = true,
+                Description = string.Empty,
+            },
+            CurrentPlanId: null);
+        state.Should().BeEquivalentTo(
+            expectedState,
+            options => options.Excluding(x => x.CurrentPlanId),
+            because: "the full response contract must match the submitted answers and the deterministic gate verdict");
+        state!.CurrentPlanId.Should().NotBeNull(because: "general fitness satisfies the gate without a TargetEvent slot");
     }
 
     [Fact]
@@ -122,7 +216,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         var ct = TestContext.Current.CancellationToken;
         var (client, container) = CreateCookieClient(Factory);
         var email = GenerateEmail();
-        await RegisterAsync(client, container, email);
+        var userId = await RegisterAsync(client, container, email);
         await LoginAsync(client, container, email);
         var request = new SubmitStructuredAnswersRequestDto(
             Guid.NewGuid(),
@@ -137,14 +231,35 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         var token = await PrimeAntiforgeryAsync(client, container);
         var response = await PostAnswersAsync(client, token, request, ct);
 
-        // Assert — 200 with partial progress; no plan generated.
+        // Assert — 200 with partial progress; no plan generated. Full deep equality against the
+        // expected contract.
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var state = await response.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
-        state!.IsComplete.Should().BeFalse();
-        state.CurrentPlanId.Should().BeNull();
-        state.PrimaryGoal.Should().NotBeNull();
-        state.CurrentFitness.Should().NotBeNull();
-        state.WeeklySchedule.Should().BeNull();
+        var expectedState = new OnboardingStateDto(
+            UserId: userId,
+            Status: OnboardingStatus.InProgress,
+            CurrentTopic: null,
+            CompletedTopics: 2,
+            TotalTopics: 5,
+            IsComplete: false,
+            OutstandingClarifications: Array.Empty<OnboardingTopic>(),
+            PrimaryGoal: new PrimaryGoalAnswer { Goal = PrimaryGoal.GeneralFitness, Description = "Stay healthy" },
+            TargetEvent: null,
+            CurrentFitness: new CurrentFitnessAnswer
+            {
+                TypicalWeeklyKm = 30,
+                LongestRecentRunKm = 12,
+                RecentRaceDistanceKm = null,
+                RecentRaceTimeIso = null,
+                Description = "Moderate",
+            },
+            WeeklySchedule: null,
+            InjuryHistory: null,
+            Preferences: null,
+            CurrentPlanId: null);
+        state.Should().BeEquivalentTo(
+            expectedState,
+            because: "the full response contract must match the partial submission and the deterministic gate verdict");
 
         // Assert — GET /state reflects the same partial progress (the resume contract).
         var resumed = await GetStateAsync(client, ct);
@@ -189,18 +304,21 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         var ct = TestContext.Current.CancellationToken;
         var (client, container) = CreateCookieClient(Factory);
         var email = GenerateEmail();
-        await RegisterAsync(client, container, email);
+        var userId = await RegisterAsync(client, container, email);
         await LoginAsync(client, container, email);
         var token1 = await PrimeAntiforgeryAsync(client, container);
         var first = await PostAnswersAsync(client, token1, RaceTrainingRequest(Guid.NewGuid()), ct);
         first.StatusCode.Should().Be(HttpStatusCode.OK);
+        var eventCountAfterFirst = await OnboardingStreamEventCountAsync(Factory, userId, ct);
 
         // Act — submit again (new key) against a completed stream.
         var token2 = await PrimeAntiforgeryAsync(client, container);
         var second = await PostAnswersAsync(client, token2, RaceTrainingRequest(Guid.NewGuid()), ct);
 
-        // Assert — 409, no second plan.
+        // Assert — 409, no second plan or onboarding event was appended.
         second.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var eventCountAfterSecond = await OnboardingStreamEventCountAsync(Factory, userId, ct);
+        eventCountAfterSecond.Should().Be(eventCountAfterFirst, because: "a rejected resubmission against a completed stream must not append or generate a second plan");
     }
 
     [Fact]
@@ -228,6 +346,35 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         // Assert — clean 400 ProblemDetails, not a 500, and nothing was appended.
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await OnboardingStreamEventCountAsync(Factory, userId, ct)).Should().Be(0, because: "an invalid request is rejected before any event is appended");
+    }
+
+    [Fact]
+    public async Task SubmitAnswers_OverflowDuration_Returns400_WithoutStagingEvents()
+    {
+        // Arrange — a syntactically valid xsd:duration ("P1000000000D", 1e9 days) whose magnitude
+        // overflows XmlConvert.ToTimeSpan. The mapper must reject it as a clean 400, never crash with
+        // an unhandled OverflowException surfacing as a 500.
+        var ct = TestContext.Current.CancellationToken;
+        var (client, container) = CreateCookieClient(Factory);
+        var email = GenerateEmail();
+        var userId = await RegisterAsync(client, container, email);
+        await LoginAsync(client, container, email);
+        var request = new SubmitStructuredAnswersRequestDto(
+            Guid.NewGuid(),
+            new PrimaryGoalInputDto(PrimaryGoal.RaceTraining, "Sub-4 marathon"),
+            new TargetEventInputDto("Berlin Marathon", 42.2, "2026-09-27", "P1000000000D"),
+            CurrentFitness: null,
+            WeeklySchedule: null,
+            InjuryHistory: null,
+            Preferences: null);
+
+        // Act
+        var token = await PrimeAntiforgeryAsync(client, container);
+        var response = await PostAnswersAsync(client, token, request, ct);
+
+        // Assert — clean 400 ProblemDetails, not a 500, and nothing was appended.
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await OnboardingStreamEventCountAsync(Factory, userId, ct)).Should().Be(0, because: "an overflowing duration is rejected before any event is appended");
     }
 
     [Fact]
@@ -260,7 +407,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
     public async Task SubmitAnswers_PresentTopicMissingRequiredField_Returns400()
     {
         // Arrange — a raw body with a weeklySchedule object missing its required fields. The loosened
-        // input DTO's [JsonRequired] presence enforcement must surface this as a clean 400 at model
+        // input DTO's `[JsonRequired]` presence enforcement must surface this as a clean 400 at model
         // binding, never a 500.
         var ct = TestContext.Current.CancellationToken;
         var (client, container) = CreateCookieClient(Factory);
@@ -321,8 +468,8 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
     public async Task SubmitAnswers_WhenConversationStreamAlreadyExists_AppendsWithoutCollision()
     {
         // Arrange — a runner who chatted before onboarding already has the shared per-user Marten stream
-        // (tagged ConversationView). The handler must APPEND OnboardingStarted to it, not StartStream
-        // (which would throw ExistingStreamIdCollisionException) — the PR-A #259 bootstrap fix.
+        // (tagged `ConversationView`). The handler must APPEND `OnboardingStarted` to it, not `StartStream`
+        // (which would throw `ExistingStreamIdCollisionException`) — the bootstrap fix (PR-A `#259`).
         var ct = TestContext.Current.CancellationToken;
         var (client, container) = CreateCookieClient(Factory);
         var email = GenerateEmail();
@@ -394,7 +541,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
     [Fact]
     public async Task SubmitAnswers_OverflowingDistanceLiteral_Returns400_NotServerError()
     {
-        // Arrange — a JSON numeric literal that overflows double range deserializes to +Infinity, which
+        // Arrange — a JSON numeric literal that overflows `double` range deserializes to +Infinity, which
         // slips past the answer record's one-sided guard. The mapper must reject it as a clean 400, never
         // crash serialization as a 500 (the FR-1.8 failure mode).
         var ct = TestContext.Current.CancellationToken;
@@ -418,7 +565,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
     /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {
-        // Onboarding + plan streams live in Marten's runcoach_events schema, which Respawn skips.
+        // Onboarding + plan streams live in Marten's `runcoach_events` schema, which Respawn skips.
         await Factory.Services.ResetAllMartenDataAsync();
         await base.DisposeAsync();
     }

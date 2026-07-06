@@ -14,7 +14,8 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 
 /// <summary>
 /// Slice 1 onboarding endpoints — submit a turn, read current state, revise an
-/// answer. Per Slice 1 § Unit 1 / DEC-055 every state-changing route is gated
+/// answer, and submit structured form answers. Per Slice 1 § Unit 1 / DEC-055
+/// every state-changing route is gated
 /// by both <see cref="AuthPolicies.CookieOrBearer"/> and
 /// <see cref="Microsoft.AspNetCore.Antiforgery.RequireAntiforgeryTokenAttribute"/>;
 /// the read endpoint requires auth but no antiforgery token (idempotent GETs

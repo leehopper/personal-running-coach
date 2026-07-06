@@ -39,7 +39,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 public sealed partial class SubmitStructuredAnswersHandler
 {
     // The type is a stateless logical handler container: Wolverine codegen emits a non-static
-    // handler stub that calls the static Handle method, and ILogger<SubmitStructuredAnswersHandler>
+    // handler stub that calls the static Handle method, and `ILogger<SubmitStructuredAnswersHandler>`
     // needs a non-static type argument. The private constructor prevents instantiation in test code.
     private SubmitStructuredAnswersHandler()
     {
@@ -200,7 +200,7 @@ public sealed partial class SubmitStructuredAnswersHandler
         where T : class
     {
         // Captured-answer payloads stay default-cased (PascalCase) because both inline projections
-        // read them back via JsonDocument.Deserialize<T>() with the server-default casing; they never
+        // read them back via `JsonDocument.Deserialize<T>()` with the server-default casing; they never
         // reach the wire. This is the same construction ReviseAnswer / ExtractAnswer use.
         var payload = JsonSerializer.SerializeToDocument(record);
         session.Events.Append(streamId, new AnswerCaptured(topic, payload, Confidence: 1.0, CapturedAt: now));

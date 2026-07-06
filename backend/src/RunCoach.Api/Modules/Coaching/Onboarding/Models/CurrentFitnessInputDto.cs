@@ -11,7 +11,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// <param name="TypicalWeeklyKm">Typical weekly running distance in kilometers (validated &gt;= 0).</param>
 /// <param name="LongestRecentRunKm">Longest single run in the past four weeks, in kilometers (validated &gt;= 0).</param>
 /// <param name="RecentRaceDistanceKm">Optional recent race distance in kilometers (validated &gt;= 0 when present).</param>
-/// <param name="RecentRaceTimeIso">Optional recent race time as an ISO-8601 duration (e.g. PT0H45M30S).</param>
+/// <param name="RecentRaceTimeIso">Optional recent race time as an ISO-8601 duration (e.g. <c>PT0H45M30S</c>).</param>
 /// <param name="Description">Optional runner-supplied free-text nuance for this topic.</param>
 public sealed record CurrentFitnessInputDto(
     [property: JsonRequired] double TypicalWeeklyKm,

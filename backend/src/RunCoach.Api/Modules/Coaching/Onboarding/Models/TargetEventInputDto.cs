@@ -10,8 +10,8 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// </summary>
 /// <param name="EventName">Name of the goal race or event.</param>
 /// <param name="DistanceKm">Target distance in kilometers (validated &gt; 0 server-side).</param>
-/// <param name="EventDateIso">Target event date in ISO-8601 calendar form (yyyy-MM-dd), validated server-side.</param>
-/// <param name="TargetFinishTimeIso">Optional target finishing time as an ISO-8601 duration (e.g. PT1H45M30S).</param>
+/// <param name="EventDateIso">Target event date in ISO-8601 calendar form (<c>yyyy-MM-dd</c>), validated server-side.</param>
+/// <param name="TargetFinishTimeIso">Optional target finishing time as an ISO-8601 duration (e.g. <c>PT1H45M30S</c>).</param>
 public sealed record TargetEventInputDto(
     [property: JsonRequired] string EventName,
     [property: JsonRequired] double DistanceKm,

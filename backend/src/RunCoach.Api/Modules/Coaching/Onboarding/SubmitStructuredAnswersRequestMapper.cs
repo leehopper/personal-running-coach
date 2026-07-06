@@ -306,8 +306,11 @@ public static class SubmitStructuredAnswersRequestMapper
             normalized = value;
             return true;
         }
-        catch (FormatException)
+        catch (Exception ex) when (ex is FormatException or OverflowException)
         {
+            // OverflowException: XmlConvert.ToTimeSpan does checked arithmetic and throws for a
+            // syntactically valid but numerically huge xsd:duration (e.g. "P1000000000D") — the
+            // duration twin of the 1e400→Infinity distance hole. Reject cleanly instead of bubbling a 500.
             normalized = null;
             return false;
         }

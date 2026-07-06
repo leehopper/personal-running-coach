@@ -33,28 +33,23 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeTrue();
-        error.Should().BeNull();
-        command.Should().NotBeNull();
-        command!.UserId.Should().Be(UserId);
-        command.IdempotencyKey.Should().Be(Key);
-        command.PrimaryGoal.Should().Be(new PrimaryGoalAnswer { Goal = PrimaryGoal.RaceTraining, Description = "Sub-4 marathon" });
-        command.TargetEvent.Should().Be(new TargetEventAnswer
+        var expectedPrimaryGoal = new PrimaryGoalAnswer { Goal = PrimaryGoal.RaceTraining, Description = "Sub-4 marathon" };
+        var expectedTargetEvent = new TargetEventAnswer
         {
             EventName = "Berlin Marathon",
             DistanceKm = 42.2,
             EventDateIso = "2026-09-27",
             TargetFinishTimeIso = "PT3H55M0S",
-        });
-        command.CurrentFitness.Should().Be(new CurrentFitnessAnswer
+        };
+        var expectedCurrentFitness = new CurrentFitnessAnswer
         {
             TypicalWeeklyKm = 45,
             LongestRecentRunKm = 20,
             RecentRaceDistanceKm = 21.1,
             RecentRaceTimeIso = "PT1H45M0S",
             Description = "Feeling strong",
-        });
-        command.WeeklySchedule.Should().Be(new WeeklyScheduleAnswer
+        };
+        var expectedWeeklySchedule = new WeeklyScheduleAnswer
         {
             MaxRunDaysPerWeek = 5,
             TypicalSessionMinutes = 60,
@@ -66,20 +61,32 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
             Saturday = true,
             Sunday = false,
             Description = "Evenings only",
-        });
-        command.InjuryHistory.Should().Be(new InjuryHistoryAnswer
+        };
+        var expectedInjuryHistory = new InjuryHistoryAnswer
         {
             HasActiveInjury = false,
             ActiveInjuryDescription = string.Empty,
             PastInjurySummary = "Rolled ankle 2024",
-        });
-        command.Preferences.Should().Be(new PreferencesAnswer
+        };
+        var expectedPreferences = new PreferencesAnswer
         {
             PreferredUnits = PreferredUnits.Miles,
             PreferTrail = true,
             ComfortableWithIntensity = true,
             Description = "Prefer mornings",
-        });
+        };
+
+        actual.Should().BeTrue();
+        error.Should().BeNull();
+        command.Should().NotBeNull();
+        command!.UserId.Should().Be(UserId);
+        command.IdempotencyKey.Should().Be(Key);
+        command.PrimaryGoal.Should().Be(expectedPrimaryGoal);
+        command.TargetEvent.Should().Be(expectedTargetEvent);
+        command.CurrentFitness.Should().Be(expectedCurrentFitness);
+        command.WeeklySchedule.Should().Be(expectedWeeklySchedule);
+        command.InjuryHistory.Should().Be(expectedInjuryHistory);
+        command.Preferences.Should().Be(expectedPreferences);
     }
 
     [Fact]
@@ -147,9 +154,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Fact]
@@ -169,9 +174,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Fact]
@@ -184,9 +187,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Fact]
@@ -201,9 +202,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Fact]
@@ -216,9 +215,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Fact]
@@ -233,9 +230,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Theory]
@@ -243,7 +238,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
     [InlineData(-5)]
     public void TryMap_NonPositiveTargetDistance_Fails(double distanceKm)
     {
-        // Arrange — the TargetEventAnswer record enforces DistanceKm > 0 in its init accessor.
+        // Arrange — the `TargetEventAnswer` record enforces `DistanceKm > 0` in its init accessor.
         var request = WithTopics(
             primaryGoal: RacingGoal(),
             targetEvent: new TargetEventInputDto("Race", distanceKm, "2026-09-27", null));
@@ -252,9 +247,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Theory]
@@ -271,9 +264,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Theory]
@@ -292,9 +283,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Fact]
@@ -309,9 +298,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Theory]
@@ -319,7 +306,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
     [InlineData(30, -1)]
     public void TryMap_NegativeFitnessDistance_Fails(double typicalWeeklyKm, double longestRecentRunKm)
     {
-        // Arrange — CurrentFitnessAnswer enforces >= 0 on both distances.
+        // Arrange — `CurrentFitnessAnswer` enforces `>= 0` on both distances.
         var request = WithTopics(
             primaryGoal: new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, string.Empty),
             currentFitness: new CurrentFitnessInputDto(typicalWeeklyKm, longestRecentRunKm, null, null, string.Empty));
@@ -328,9 +315,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Fact]
@@ -345,9 +330,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Theory]
@@ -355,7 +338,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
     [InlineData(8)]
     public void TryMap_OutOfRangeRunDays_Fails(int maxRunDaysPerWeek)
     {
-        // Arrange — WeeklyScheduleAnswer enforces 1..7.
+        // Arrange — `WeeklyScheduleAnswer` enforces `1..7`.
         var request = WithTopics(
             primaryGoal: new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, string.Empty),
             weeklySchedule: ValidWeeklySchedule() with { MaxRunDaysPerWeek = maxRunDaysPerWeek });
@@ -364,26 +347,24 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
-    [Fact]
-    public void TryMap_NonPositiveSessionMinutes_Fails()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-15)]
+    public void TryMap_NonPositiveSessionMinutes_Fails(int typicalSessionMinutes)
     {
-        // Arrange — WeeklyScheduleAnswer enforces TypicalSessionMinutes > 0.
+        // Arrange — `WeeklyScheduleAnswer` enforces `TypicalSessionMinutes > 0`.
         var request = WithTopics(
             primaryGoal: new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, string.Empty),
-            weeklySchedule: ValidWeeklySchedule() with { TypicalSessionMinutes = 0 });
+            weeklySchedule: ValidWeeklySchedule() with { TypicalSessionMinutes = typicalSessionMinutes });
 
         // Act
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Fact]
@@ -399,9 +380,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Theory]
@@ -419,9 +398,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
     }
 
     [Theory]
@@ -429,7 +406,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
     [InlineData("P100Y")]
     public void TryMap_NegativeOrAbsurdDuration_Fails(string durationIso)
     {
-        // Arrange — XmlConvert.ToTimeSpan accepts negative and arbitrarily large durations without
+        // Arrange — `XmlConvert.ToTimeSpan` accepts negative and arbitrarily large durations without
         // throwing; the mapper must range-check them.
         var request = WithTopics(
             primaryGoal: RacingGoal(),
@@ -439,9 +416,24 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
 
         // Assert
-        actual.Should().BeFalse();
-        command.Should().BeNull();
-        error.Should().NotBeNullOrWhiteSpace();
+        AssertMapFailed(actual, command, error);
+    }
+
+    [Fact]
+    public void TryMap_OverflowDuration_Fails()
+    {
+        // Arrange — "P1000000000D" is syntactically valid ISO-8601 but numerically huge; `XmlConvert.ToTimeSpan`
+        // throws `OverflowException` (not `FormatException`) for it. The mapper must catch both, the duration
+        // twin of the 1e400→Infinity distance hole.
+        var request = WithTopics(
+            primaryGoal: new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, string.Empty),
+            currentFitness: new CurrentFitnessInputDto(30, 12, null, "P1000000000D", string.Empty));
+
+        // Act
+        var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
+
+        // Assert
+        AssertMapFailed(actual, command, error);
     }
 
     [Fact]
@@ -460,6 +452,13 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         actual.Should().BeFalse();
         command.Should().BeNull();
         error.Should().Contain("recognized goal");
+    }
+
+    private static void AssertMapFailed(bool actual, SubmitStructuredAnswers? command, string? error)
+    {
+        actual.Should().BeFalse();
+        command.Should().BeNull();
+        error.Should().NotBeNullOrWhiteSpace();
     }
 
     private static PrimaryGoalInputDto RacingGoal() => new(PrimaryGoal.RaceTraining, "Goal race");
