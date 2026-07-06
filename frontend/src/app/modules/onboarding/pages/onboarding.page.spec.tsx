@@ -58,9 +58,15 @@ vi.mock('~/modules/onboarding/components/onboarding-form.component', () => ({
       data-testid="onboarding-form-stub"
       data-units={units}
       data-goal={initialFields.goal}
+      data-typical-weekly={initialFields.typicalWeekly}
       data-pending={String(unitsChangePending)}
     >
-      <button type="button" onClick={() => onUnitsChange(PreferredUnits.Miles, initialFields)}>
+      <button
+        type="button"
+        onClick={() =>
+          onUnitsChange(PreferredUnits.Miles, { ...initialFields, typicalWeekly: '20.0' })
+        }
+      >
         change-units
       </button>
     </div>
@@ -90,6 +96,10 @@ const stateQuery = (overrides: Record<string, unknown> = {}) => ({
 
 describe('OnboardingPage gating', () => {
   beforeEach(() => {
+    preferredUnitsResolutionMock.mockClear()
+    getOnboardingStateMock.mockClear()
+    refetchUnitsMock.mockClear()
+    refetchStateMock.mockClear()
     preferredUnitsResolutionMock.mockReturnValue(unitsResolution())
     getOnboardingStateMock.mockReturnValue(stateQuery({ isError: true, error: { status: 404 } }))
     putUnitPreferenceTrigger.mockClear()
@@ -165,6 +175,66 @@ describe('OnboardingPage gating', () => {
     await waitFor(() => expect(putUnitPreferenceTrigger).toHaveBeenCalledTimes(1))
     expect(putUnitPreferenceTrigger).toHaveBeenCalledWith({ preferredUnits: PreferredUnits.Miles })
     expect(reportClientErrorMock).not.toHaveBeenCalled()
+  })
+
+  it('reseeds the entered distances and remounts against the new unit after a successful change', async () => {
+    // Hydrate with a km weekly distance so the reseed has a value to convert.
+    getOnboardingStateMock.mockReturnValue(
+      stateQuery({
+        data: {
+          userId: 'u1',
+          status: 1,
+          currentTopic: null,
+          completedTopics: 6,
+          totalTopics: 6,
+          isComplete: false,
+          outstandingClarifications: [],
+          primaryGoal: { goal: PrimaryGoal.GeneralFitness, description: '' },
+          targetEvent: null,
+          currentFitness: {
+            typicalWeeklyKm: 10,
+            longestRecentRunKm: 5,
+            recentRaceDistanceKm: null,
+            recentRaceTimeIso: null,
+            description: '',
+          },
+          weeklySchedule: null,
+          injuryHistory: null,
+          preferences: null,
+          currentPlanId: null,
+        },
+      }),
+    )
+    const user = userEvent.setup()
+    const { rerender } = render(<OnboardingPage />)
+
+    const before = screen.getByTestId('onboarding-form-stub')
+    expect(before).toHaveAttribute('data-units', String(PreferredUnits.Kilometers))
+    // 10 km hydrates as '10.0' in km display.
+    expect(before).toHaveAttribute('data-typical-weekly', '10.0')
+
+    // The stub reports the runner edited weekly volume to 20 km, then switched to miles.
+    await user.click(screen.getByRole('button', { name: 'change-units' }))
+    // Once the PUT resolves, setSeed applies the reseeded (20 km → 12.4 mi) values;
+    // the form is still keyed on km here, so it re-renders (not remounts) with the seed.
+    await waitFor(() =>
+      expect(screen.getByTestId('onboarding-form-stub')).toHaveAttribute(
+        'data-typical-weekly',
+        '12.4',
+      ),
+    )
+
+    // The persisted preference now resolves to miles; the form remounts (key=units)
+    // against the reseeded seed, NOT a re-hydration of the km state.
+    preferredUnitsResolutionMock.mockReturnValue(unitsResolution({ units: PreferredUnits.Miles }))
+    rerender(<OnboardingPage />)
+
+    const after = screen.getByTestId('onboarding-form-stub')
+    expect(after).toHaveAttribute('data-units', String(PreferredUnits.Miles))
+    // 20 km ÷ 1.609344 ≈ 12.4 mi — the reseeded (edited) value, NOT the hydrated
+    // 10 km → 6.2 mi. This guards the `initialFields={seed ?? hydrated}` wiring:
+    // switching it to `{hydrated}` (or dropping setSeed) would show '6.2' and fail.
+    expect(after).toHaveAttribute('data-typical-weekly', '12.4')
   })
 
   it('marks the units control pending while a change is in flight', async () => {

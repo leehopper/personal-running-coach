@@ -38,7 +38,7 @@ export const OnboardingDayToggleField = ({ control }: OnboardingDayToggleFieldPr
             <ToggleGroup.Item
               key={option.value}
               value={option.value}
-              aria-label={option.value}
+              aria-label={option.label}
               className={cn(
                 'inline-flex h-9 min-w-11 items-center justify-center rounded-md border border-input px-3 text-sm capitalize transition-colors motion-reduce:transition-none outline-none',
                 'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',

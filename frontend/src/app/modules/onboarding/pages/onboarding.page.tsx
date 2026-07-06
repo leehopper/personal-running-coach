@@ -18,7 +18,7 @@ import {
 /** RTK Query surfaces an opaque error union; treat a 404 as "no stream yet". */
 const isErrorStatus = (error: unknown, expected: number): boolean => {
   if (typeof error !== 'object' || error === null) return false
-  return (error as { status?: unknown }).status === expected
+  return 'status' in error && error.status === expected
 }
 
 interface RetryPanelProps {
@@ -209,5 +209,3 @@ export const OnboardingPage = (): ReactElement => {
     </main>
   )
 }
-
-export default OnboardingPage

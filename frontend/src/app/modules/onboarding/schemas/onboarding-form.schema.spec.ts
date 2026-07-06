@@ -87,6 +87,35 @@ describe('makeOnboardingFormSchema — validation', () => {
     expect(generalFitness.success).toBe(true)
   })
 
+  it('does not let a hidden, out-of-range TargetEvent field block a non-race submission', () => {
+    // Regression (deep-review): the event-distance range, the event-date format,
+    // and the finish-time format are gated on the race goal, so a value left
+    // behind when the TargetEvent section is hidden can never hold a blocking error.
+    const result = parse({
+      ...validRaceFields(),
+      goal: String(PrimaryGoal.GeneralFitness),
+      eventName: '',
+      eventDate: 'not-a-date',
+      targetFinishTime: '3h45',
+      eventDistance: '0', // out of range for a race, but hidden for this goal
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('still enforces the event-distance range for a race goal', () => {
+    const zero = parse({ ...validRaceFields(), eventDistance: '0' })
+    expect(zero.success).toBe(false)
+    if (!zero.success) {
+      const paths = zero.error.issues.map((issue) => issue.path.join('.'))
+      expect(paths).toContain('eventDistance')
+    }
+  })
+
+  it('rejects a malformed race date and accepts a valid ISO date', () => {
+    expect(parse({ ...validRaceFields(), eventDate: '2026-13-45' }).success).toBe(false)
+    expect(parse({ ...validRaceFields(), eventDate: '2026-09-27' }).success).toBe(true)
+  })
+
   it('requires an active-injury description only when an active injury is flagged', () => {
     const withInjuryNoDesc = parse({ ...validRaceFields(), hasActiveInjury: true })
     expect(withInjuryNoDesc.success).toBe(false)

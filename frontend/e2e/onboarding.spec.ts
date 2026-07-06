@@ -133,8 +133,8 @@ test('register → fill the form once → single submit → navigate to /', asyn
   await page.getByTestId('longestRecentRun-field').fill('18')
   await page.getByTestId('maxRunDays-field').fill('5')
   await page.getByTestId('sessionMinutes-field').fill('60')
-  await page.getByRole('button', { name: 'monday' }).click()
-  await page.getByRole('button', { name: 'wednesday' }).click()
+  await page.getByRole('button', { name: 'Mon' }).click()
+  await page.getByRole('button', { name: 'Wed' }).click()
 
   // 4. Submit once.
   await page.getByTestId('onboarding-submit').click()

@@ -72,6 +72,13 @@ interface NumericFieldOptions {
   /** When true, the value must be a whole number. */
   integer?: boolean
   label: string
+  /**
+   * Defer the min/max range check to a form-level refine. For a
+   * conditionally-shown field (the TargetEvent block) so a value left behind
+   * when the field is hidden can never hold a blocking range error. Parse,
+   * finite, and integer checks still run in-field.
+   */
+  deferRange?: boolean
 }
 
 const lowerBoundPhrase = ({ min, minExclusive }: NumericFieldOptions): string => {
@@ -81,6 +88,15 @@ const lowerBoundPhrase = ({ min, minExclusive }: NumericFieldOptions): string =>
 
 const rangeMessage = (options: NumericFieldOptions): string =>
   `Enter a ${options.label} ${lowerBoundPhrase(options)} and at most ${options.max}.`
+
+/**
+ * Range predicate shared by the in-field numeric check and the race-gated
+ * TargetEvent refine. Returns the range message, or null when in range.
+ */
+const numericRangeError = (parsed: number, options: NumericFieldOptions): string | null => {
+  const tooLow = options.minExclusive ? parsed <= options.min : parsed < options.min
+  return tooLow || parsed > options.max ? rangeMessage(options) : null
+}
 
 /**
  * A string-backed numeric form field (DEC-075). Blank → `undefined` (optional at
@@ -103,9 +119,11 @@ const numericField = (options: NumericFieldOptions) =>
         ctx.addIssue({ code: 'custom', message: `Enter a whole ${options.label}.` })
         return
       }
-      const tooLow = options.minExclusive ? parsed <= options.min : parsed < options.min
-      if (tooLow || parsed > options.max) {
-        ctx.addIssue({ code: 'custom', message: rangeMessage(options) })
+      if (options.deferRange !== true) {
+        const rangeError = numericRangeError(parsed, options)
+        if (rangeError !== null) {
+          ctx.addIssue({ code: 'custom', message: rangeError })
+        }
       }
     })
     .transform((raw) => {
@@ -132,6 +150,19 @@ const timeField = z
     return value === '' ? undefined : value
   })
 
+/**
+ * A finish-time field whose format check is deferred to a form-level gate (the
+ * goal finish time only exists for a race goal, so a stale value must not block
+ * submit once the TargetEvent section is hidden). Blank → `undefined`.
+ */
+const lenientTimeField = z.string().transform((raw) => {
+  const value = raw.trim()
+  return value === '' ? undefined : value
+})
+
+/** Zod ISO calendar-date validator (Zod v4) for the race-date format gate. */
+const ISO_DATE = z.iso.date()
+
 /** Goal select: required, must resolve to a defined `PrimaryGoal`. */
 const goalField = z
   .string()
@@ -155,6 +186,22 @@ const goalField = z
  */
 const MAX_DISTANCE_KM = 100_000
 
+/** The km-native distance ceiling expressed in the runner's display unit. */
+const displayDistanceMax = (units: PreferredUnits): number =>
+  Math.floor(kmToDisplayDistance(MAX_DISTANCE_KM, units))
+
+/**
+ * The numeric options for the event-distance field, shared so the in-field parse
+ * and the race-gated range check produce identical messages. Its range is
+ * deferred (the field is only shown for a race goal — see makeOnboardingFormSchema).
+ */
+const eventDistanceOptions = (units: PreferredUnits): NumericFieldOptions => ({
+  min: 0,
+  minExclusive: true,
+  max: displayDistanceMax(units),
+  label: `event distance in ${distanceUnitLabel(units)}`,
+})
+
 /**
  * Builds the onboarding form schema for a given display unit. `units`
  * parameterises only the distance fields' labels and `max`; the field *shapes*
@@ -164,7 +211,7 @@ const MAX_DISTANCE_KM = 100_000
  */
 const makeOnboardingObjectSchema = (units: PreferredUnits) => {
   const unit = distanceUnitLabel(units)
-  const distanceMax = Math.floor(kmToDisplayDistance(MAX_DISTANCE_KM, units))
+  const distanceMax = displayDistanceMax(units)
 
   const distanceField = (label: string) =>
     numericField({ min: 0, minExclusive: true, max: distanceMax, label: `${label} in ${unit}` })
@@ -174,9 +221,13 @@ const makeOnboardingObjectSchema = (units: PreferredUnits) => {
     goalDescription: nuanceField,
 
     eventName: z.string().transform((raw) => raw.trim()),
-    eventDistance: distanceField('event distance'),
+    // Range deferred to the race-gated refine so a value left behind when the
+    // TargetEvent section is hidden (goal ≠ race) can never hold a blocking error.
+    eventDistance: numericField({ ...eventDistanceOptions(units), deferRange: true }),
     eventDate: z.string().transform((raw) => raw.trim()),
-    targetFinishTime: timeField,
+    // Format deferred to the race-gated refine for the same reason (the finish
+    // time only exists for a race goal).
+    targetFinishTime: lenientTimeField,
 
     typicalWeekly: numericField({ min: 0, max: distanceMax, label: `weekly volume in ${unit}` }),
     longestRecentRun: numericField({ min: 0, max: distanceMax, label: `long run in ${unit}` }),
@@ -204,6 +255,74 @@ const makeOnboardingObjectSchema = (units: PreferredUnits) => {
   })
 }
 
+/** A pending custom validation issue the form-level refine will raise. */
+interface OnboardingRefineIssue {
+  path: string[]
+  message: string
+}
+
+/** CurrentFitness volume / long run / run days / session length are always required. */
+const requiredFitnessIssues = (values: OnboardingFormValues): OnboardingRefineIssue[] => {
+  const issues: OnboardingRefineIssue[] = []
+  if (values.typicalWeekly === undefined) {
+    issues.push({ path: ['typicalWeekly'], message: 'Enter your typical weekly volume.' })
+  }
+  if (values.longestRecentRun === undefined) {
+    issues.push({ path: ['longestRecentRun'], message: 'Enter your longest recent run.' })
+  }
+  if (values.maxRunDays === undefined) {
+    issues.push({ path: ['maxRunDays'], message: 'Enter how many days a week you can run.' })
+  }
+  if (values.sessionMinutes === undefined) {
+    issues.push({ path: ['sessionMinutes'], message: 'Enter your typical session length.' })
+  }
+  return issues
+}
+
+/**
+ * TargetEvent validation — required fields for a race goal, plus the range/format
+ * checks deferred from the fields so a value left behind when the section is
+ * hidden (goal ≠ race) can never hold a blocking error. All gated on the race goal.
+ */
+const targetEventIssues = (
+  values: OnboardingFormValues,
+  units: PreferredUnits,
+): OnboardingRefineIssue[] => {
+  if (values.goal !== PrimaryGoal.RaceTraining) return []
+  const issues: OnboardingRefineIssue[] = []
+  if (values.eventName === '') {
+    issues.push({ path: ['eventName'], message: 'Name your goal race.' })
+  }
+  if (values.eventDistance === undefined) {
+    issues.push({ path: ['eventDistance'], message: 'Enter the race distance.' })
+  } else {
+    const rangeError = numericRangeError(values.eventDistance, eventDistanceOptions(units))
+    if (rangeError !== null) {
+      issues.push({ path: ['eventDistance'], message: rangeError })
+    }
+  }
+  if (values.eventDate === '') {
+    issues.push({ path: ['eventDate'], message: 'Enter the race date.' })
+  } else if (!ISO_DATE.safeParse(values.eventDate).success) {
+    issues.push({ path: ['eventDate'], message: 'Enter the race date as a valid calendar date.' })
+  }
+  if (values.targetFinishTime !== undefined && !isValidTimeInput(values.targetFinishTime)) {
+    issues.push({ path: ['targetFinishTime'], message: 'Enter a time as MM:SS or H:MM:SS.' })
+  }
+  return issues
+}
+
+/** An active injury needs a description so the plan can accommodate it. */
+const activeInjuryIssues = (values: OnboardingFormValues): OnboardingRefineIssue[] =>
+  values.hasActiveInjury && values.activeInjuryDescription === ''
+    ? [
+        {
+          path: ['activeInjuryDescription'],
+          message: 'Describe your current injury or limitation.',
+        },
+      ]
+    : []
+
 /**
  * The full form schema: the base object plus cross-field validation (required
  * numerics, the conditional TargetEvent block, the active-injury description).
@@ -212,63 +331,13 @@ const makeOnboardingObjectSchema = (units: PreferredUnits) => {
  */
 export const makeOnboardingFormSchema = (units: PreferredUnits) =>
   makeOnboardingObjectSchema(units).superRefine((values, ctx) => {
-    // CurrentFitness volume + long run are always required (they anchor the
-    // pace/volume model); the record accepts 0 but a blank submission is not
-    // a real answer.
-    if (values.typicalWeekly === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['typicalWeekly'],
-        message: 'Enter your typical weekly volume.',
-      })
-    }
-    if (values.longestRecentRun === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['longestRecentRun'],
-        message: 'Enter your longest recent run.',
-      })
-    }
-    if (values.maxRunDays === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['maxRunDays'],
-        message: 'Enter how many days a week you can run.',
-      })
-    }
-    if (values.sessionMinutes === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['sessionMinutes'],
-        message: 'Enter your typical session length.',
-      })
-    }
-
-    // TargetEvent fields are required only for a race-training goal (DP-3 /
-    // the backend TargetEvent ⇒ RaceTraining cross-field rule).
-    if (values.goal === PrimaryGoal.RaceTraining) {
-      if (values.eventName === '') {
-        ctx.addIssue({ code: 'custom', path: ['eventName'], message: 'Name your goal race.' })
-      }
-      if (values.eventDistance === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['eventDistance'],
-          message: 'Enter the race distance.',
-        })
-      }
-      if (values.eventDate === '') {
-        ctx.addIssue({ code: 'custom', path: ['eventDate'], message: 'Enter the race date.' })
-      }
-    }
-
-    // An active injury needs a description so the plan can accommodate it.
-    if (values.hasActiveInjury && values.activeInjuryDescription === '') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['activeInjuryDescription'],
-        message: 'Describe your current injury or limitation.',
-      })
+    const issues = [
+      ...requiredFitnessIssues(values),
+      ...targetEventIssues(values, units),
+      ...activeInjuryIssues(values),
+    ]
+    for (const issue of issues) {
+      ctx.addIssue({ code: 'custom', path: issue.path, message: issue.message })
     }
   })
 

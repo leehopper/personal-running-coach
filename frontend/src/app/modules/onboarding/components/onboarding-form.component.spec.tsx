@@ -104,6 +104,25 @@ describe('OnboardingForm', () => {
     expect(screen.queryByTestId('onboarding-section-target-event')).toBeNull()
   })
 
+  it('does not leave submit stuck-disabled when the goal switches away from race with an invalid distance', async () => {
+    // Regression (deep-review): an out-of-range race distance entered then hidden
+    // (goal switched away) must not keep formState.isValid false forever.
+    const { user } = renderForm()
+    await user.click(screen.getByRole('radio', { name: /train for a race/i }))
+    await user.type(screen.getByTestId('eventDistance-field'), '0')
+    await user.type(screen.getByTestId('typicalWeekly-field'), '40')
+    await user.type(screen.getByTestId('longestRecentRun-field'), '18')
+    await user.type(screen.getByTestId('maxRunDays-field'), '5')
+    await user.type(screen.getByTestId('sessionMinutes-field'), '60')
+
+    // Switch the goal away — the TargetEvent section (and its invalid distance) hides.
+    await user.click(screen.getByRole('radio', { name: /general fitness/i }))
+    expect(screen.queryByTestId('onboarding-section-target-event')).toBeNull()
+
+    // The hidden invalid distance must NOT keep the submit disabled.
+    await waitFor(() => expect(screen.getByTestId('onboarding-submit')).toBeEnabled())
+  })
+
   it('keeps submit disabled until the whole record is valid', async () => {
     const { user } = renderForm()
     expect(screen.getByTestId('onboarding-submit')).toBeDisabled()
@@ -203,7 +222,7 @@ describe('OnboardingForm', () => {
 
   it('selects and deselects run days with the keyboard', async () => {
     const { user } = renderForm()
-    const monday = screen.getByRole('button', { name: 'monday' })
+    const monday = screen.getByRole('button', { name: 'Mon' })
     monday.focus()
 
     await user.keyboard(' ')
@@ -216,8 +235,8 @@ describe('OnboardingForm', () => {
   it('carries the selected run days into the submitted schedule', async () => {
     const { user } = renderForm()
     await fillMinimalValid(user)
-    await user.click(screen.getByRole('button', { name: 'monday' }))
-    await user.click(screen.getByRole('button', { name: 'wednesday' }))
+    await user.click(screen.getByRole('button', { name: 'Mon' }))
+    await user.click(screen.getByRole('button', { name: 'Wed' }))
     await submitForm(user)
 
     await waitFor(() => expect(submitTrigger).toHaveBeenCalledTimes(1))
