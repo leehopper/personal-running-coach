@@ -31,6 +31,9 @@ public sealed partial class OnboardingController(
     private const string AlreadyCompleteType = "https://runcoach.app/problems/onboarding-already-complete";
     private const string MissingUserType = "https://runcoach.app/problems/missing-user-claim";
     private const string InvalidTopicType = "https://runcoach.app/problems/invalid-onboarding-topic";
+    private const string InvalidAnswersType = "https://runcoach.app/problems/invalid-onboarding-answers";
+    private const string PlanGenerationFailedType = "https://runcoach.app/problems/onboarding-plan-generation-failed";
+    private const string StateUnavailableType = "https://runcoach.app/problems/onboarding-state-unavailable";
 
     /// <summary>POST /api/v1/onboarding/turns — submit a single onboarding turn.</summary>
     /// <remarks>
@@ -208,6 +211,88 @@ public sealed partial class OnboardingController(
         return Ok(BuildStateDto(view));
     }
 
+    /// <summary>POST /api/v1/onboarding/answers — submit structured onboarding answers (form-first intake).</summary>
+    /// <remarks>
+    /// The deterministic, form-first intake (DEC-086 D1). Validates the submitted topics, dispatches a
+    /// <see cref="SubmitStructuredAnswers"/> command to <see cref="SubmitStructuredAnswersHandler"/>
+    /// (one <see cref="AnswerCaptured"/> per topic, gate, inline plan generation — no LLM call), then
+    /// returns the reloaded onboarding view. When the completion gate is satisfied the response carries
+    /// the generated plan id and <c>isComplete = true</c>; otherwise it reflects partial progress and
+    /// the client stays on the form (<c>GET /state</c> remains the resume contract).
+    /// </remarks>
+    [HttpPost("answers")]
+    [Microsoft.AspNetCore.Antiforgery.RequireAntiforgeryToken]
+    [ProducesResponseType(typeof(OnboardingStateDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> SubmitAnswers(
+        [FromBody] SubmitStructuredAnswersRequestDto request,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!TryGetUserId(out var userId))
+        {
+            return MissingUserClaim();
+        }
+
+        // Deterministic validation of untrusted input before any transaction opens. The loosened wire
+        // DTOs bind without throwing, so an out-of-range numeric surfaces here as a 400 rather than an
+        // uncatchable 500 during model binding.
+        if (!SubmitStructuredAnswersRequestMapper.TryMap(request, userId, out var command, out var validationError))
+        {
+            return Problem(
+                type: InvalidAnswersType,
+                title: "The submitted onboarding answers are invalid.",
+                detail: validationError,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        try
+        {
+            _ = await bus
+                .InvokeForTenantAsync<SubmitStructuredAnswersResult>(userId.ToString(), command!, ct)
+                .ConfigureAwait(false);
+        }
+        catch (OnboardingAlreadyCompleteException ex)
+        {
+            LogAlreadyComplete(logger, ex.UserId);
+            return Problem(
+                type: AlreadyCompleteType,
+                title: "Onboarding is already complete.",
+                detail: "Regenerate your plan via Settings → Plan instead of resubmitting the onboarding form.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+        catch (PlanGenerationRejectedException ex)
+        {
+            // The gate was satisfied but the generated plan failed validation (F3 / DEC-082). Wolverine
+            // aborted the transaction — nothing staged, the form is re-submittable. Surface a handled 422
+            // with a retry affordance rather than a 500 so monitoring sees no unhandled exception.
+            LogPlanGenerationRejected(logger, userId, ex.Violation);
+            return Problem(
+                type: PlanGenerationFailedType,
+                title: "We couldn't build a plan from your answers.",
+                detail: "Please submit again.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
+
+        // Reload the committed projection so the response reflects authoritative state (mirrors
+        // ReviseAnswer). The handler always bootstraps + appends, so the view must exist post-commit.
+        await using var session = store.LightweightSession(userId.ToString());
+        var view = await session.LoadAsync<OnboardingView>(userId, ct).ConfigureAwait(false);
+        if (view is null)
+        {
+            LogAnswersStateUnavailable(logger, userId);
+            return Problem(
+                type: StateUnavailableType,
+                title: "Onboarding state could not be read after submission.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        return Ok(BuildStateDto(view));
+    }
+
     private static OnboardingStateDto BuildStateDto(OnboardingView view)
     {
         var (completed, total) = OnboardingCompletionGate.Progress(view);
@@ -239,6 +324,12 @@ public sealed partial class OnboardingController(
         Level = LogLevel.Warning,
         Message = "Plan generation rejected during onboarding completion: UserId={UserId} Violation={Violation}")]
     private static partial void LogPlanGenerationRejected(ILogger logger, Guid userId, MacroPlanOutputValidationViolation violation);
+
+    [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Error,
+        Message = "Onboarding view was null after a successful structured-answers submission: UserId={UserId}")]
+    private static partial void LogAnswersStateUnavailable(ILogger logger, Guid userId);
 
     private bool TryGetUserId(out Guid userId)
     {

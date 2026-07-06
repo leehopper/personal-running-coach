@@ -104,6 +104,16 @@ const injectedRtkApi = api.injectEndpoints({
         body: queryArg.reviseAnswerRequestDto,
       }),
     }),
+    postApiV1OnboardingAnswers: build.mutation<
+      PostApiV1OnboardingAnswersApiResponse,
+      PostApiV1OnboardingAnswersApiArg
+    >({
+      query: (queryArg) => ({
+        url: `/api/v1/onboarding/answers`,
+        method: 'POST',
+        body: queryArg.submitStructuredAnswersRequestDto,
+      }),
+    }),
     getApiV1PlanCurrent: build.query<GetApiV1PlanCurrentApiResponse, GetApiV1PlanCurrentApiArg>({
       query: () => ({ url: `/api/v1/plan/current` }),
     }),
@@ -197,6 +207,10 @@ export type GetApiV1OnboardingStateApiArg = void
 export type PostApiV1OnboardingAnswersReviseApiResponse = /** status 200 OK */ OnboardingStateDto
 export type PostApiV1OnboardingAnswersReviseApiArg = {
   reviseAnswerRequestDto: ReviseAnswerRequestDto
+}
+export type PostApiV1OnboardingAnswersApiResponse = /** status 200 OK */ OnboardingStateDto
+export type PostApiV1OnboardingAnswersApiArg = {
+  submitStructuredAnswersRequestDto: SubmitStructuredAnswersRequestDto
 }
 export type GetApiV1PlanCurrentApiResponse = /** status 200 OK */ PlanProjectionDto
 export type GetApiV1PlanCurrentApiArg = void
@@ -500,6 +514,55 @@ export type ReviseAnswerRequestDto = {
   topic: OnboardingTopic
   normalizedValue: any
 }
+export type PrimaryGoalInputDto = {
+  goal: PrimaryGoal
+  description?: string | null
+}
+export type TargetEventInputDto = {
+  eventName: string
+  distanceKm: number
+  eventDateIso: string
+  targetFinishTimeIso?: string | null
+}
+export type CurrentFitnessInputDto = {
+  typicalWeeklyKm: number
+  longestRecentRunKm: number
+  recentRaceDistanceKm?: number | null
+  recentRaceTimeIso?: string | null
+  description?: string | null
+}
+export type WeeklyScheduleInputDto = {
+  maxRunDaysPerWeek: number
+  typicalSessionMinutes: number
+  monday: boolean
+  tuesday: boolean
+  wednesday: boolean
+  thursday: boolean
+  friday: boolean
+  saturday: boolean
+  sunday: boolean
+  description?: string | null
+}
+export type InjuryHistoryInputDto = {
+  hasActiveInjury: boolean
+  activeInjuryDescription?: string | null
+  pastInjurySummary?: string | null
+}
+export type PreferencesInputDto = {
+  preferredUnits: PreferredUnits
+  preferTrail: boolean
+  comfortableWithIntensity: boolean
+  description?: string | null
+}
+export type SubmitStructuredAnswersRequestDto = {
+  idempotencyKey: string
+  primaryGoal: PrimaryGoalInputDto
+  targetEvent: TargetEventInputDto
+  currentFitness: CurrentFitnessInputDto
+  weeklySchedule: WeeklyScheduleInputDto
+  injuryHistory: InjuryHistoryInputDto
+  preferences: PreferencesInputDto
+}
 export type PhaseType = 'Base' | 'Build' | 'Peak' | 'Taper' | 'Recovery'
 export type PlanPhaseOutput = {
   phaseType: PhaseType
@@ -648,6 +711,7 @@ export const {
   usePostApiV1OnboardingTurnsMutation,
   useGetApiV1OnboardingStateQuery,
   usePostApiV1OnboardingAnswersReviseMutation,
+  usePostApiV1OnboardingAnswersMutation,
   useGetApiV1PlanCurrentQuery,
   usePostApiV1PlanRegenerateMutation,
   useGetApiV1SettingsUnitsQuery,

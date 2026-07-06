@@ -894,6 +894,122 @@
         ]
       }
     },
+    "/api/v1/onboarding/answers": {
+      "post": {
+        "tags": [
+          "Onboarding"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitStructuredAnswersRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitStructuredAnswersRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitStructuredAnswersRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ]
+          },
+          {
+            "bearerAuth": [ ]
+          }
+        ]
+      }
+    },
     "/api/v1/plan/current": {
       "get": {
         "tags": [
@@ -1846,6 +1962,37 @@
         },
         "additionalProperties": false
       },
+      "CurrentFitnessInputDto": {
+        "required": [
+          "longestRecentRunKm",
+          "typicalWeeklyKm"
+        ],
+        "type": "object",
+        "properties": {
+          "typicalWeeklyKm": {
+            "type": "number",
+            "format": "double"
+          },
+          "longestRecentRunKm": {
+            "type": "number",
+            "format": "double"
+          },
+          "recentRaceDistanceKm": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "recentRaceTimeIso": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "DaySlotType": {
         "enum": [
           "Run",
@@ -1884,6 +2031,26 @@
           "pastInjurySummary": {
             "type": "string",
             "description": "Summary of past injuries or recurring issues that should inform the training plan. Empty string if none."
+          }
+        },
+        "additionalProperties": false
+      },
+      "InjuryHistoryInputDto": {
+        "required": [
+          "hasActiveInjury"
+        ],
+        "type": "object",
+        "properties": {
+          "hasActiveInjury": {
+            "type": "boolean"
+          },
+          "activeInjuryDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "pastInjurySummary": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -2420,6 +2587,30 @@
         },
         "additionalProperties": false
       },
+      "PreferencesInputDto": {
+        "required": [
+          "comfortableWithIntensity",
+          "preferredUnits",
+          "preferTrail"
+        ],
+        "type": "object",
+        "properties": {
+          "preferredUnits": {
+            "$ref": "#/components/schemas/PreferredUnits"
+          },
+          "preferTrail": {
+            "type": "boolean"
+          },
+          "comfortableWithIntensity": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "PreferredUnits": {
         "enum": [
           0,
@@ -2452,6 +2643,22 @@
           "description": {
             "type": "string",
             "description": "Runner-supplied free-text description that informed the categorical mapping."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PrimaryGoalInputDto": {
+        "required": [
+          "goal"
+        ],
+        "type": "object",
+        "properties": {
+          "goal": {
+            "$ref": "#/components/schemas/PrimaryGoal"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -2687,6 +2894,43 @@
         },
         "additionalProperties": false
       },
+      "SubmitStructuredAnswersRequestDto": {
+        "required": [
+          "currentFitness",
+          "idempotencyKey",
+          "injuryHistory",
+          "preferences",
+          "primaryGoal",
+          "targetEvent",
+          "weeklySchedule"
+        ],
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "primaryGoal": {
+            "$ref": "#/components/schemas/PrimaryGoalInputDto"
+          },
+          "targetEvent": {
+            "$ref": "#/components/schemas/TargetEventInputDto"
+          },
+          "currentFitness": {
+            "$ref": "#/components/schemas/CurrentFitnessInputDto"
+          },
+          "weeklySchedule": {
+            "$ref": "#/components/schemas/WeeklyScheduleInputDto"
+          },
+          "injuryHistory": {
+            "$ref": "#/components/schemas/InjuryHistoryInputDto"
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/PreferencesInputDto"
+          }
+        },
+        "additionalProperties": false
+      },
       "SuggestedInputType": {
         "enum": [
           0,
@@ -2723,6 +2967,31 @@
           "targetFinishTimeIso": {
             "type": "string",
             "description": "Optional target finishing time as ISO-8601 duration (e.g. PT1H45M30S). Null if the runner has no specific time goal.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TargetEventInputDto": {
+        "required": [
+          "distanceKm",
+          "eventDateIso",
+          "eventName"
+        ],
+        "type": "object",
+        "properties": {
+          "eventName": {
+            "type": "string"
+          },
+          "distanceKm": {
+            "type": "number",
+            "format": "double"
+          },
+          "eventDateIso": {
+            "type": "string"
+          },
+          "targetFinishTimeIso": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -2835,6 +3104,56 @@
           "description": {
             "type": "string",
             "description": "Runner-supplied free-text description of constraints not captured by the day flags (e.g. 'no early mornings')."
+          }
+        },
+        "additionalProperties": false
+      },
+      "WeeklyScheduleInputDto": {
+        "required": [
+          "friday",
+          "maxRunDaysPerWeek",
+          "monday",
+          "saturday",
+          "sunday",
+          "thursday",
+          "tuesday",
+          "typicalSessionMinutes",
+          "wednesday"
+        ],
+        "type": "object",
+        "properties": {
+          "maxRunDaysPerWeek": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "typicalSessionMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "monday": {
+            "type": "boolean"
+          },
+          "tuesday": {
+            "type": "boolean"
+          },
+          "wednesday": {
+            "type": "boolean"
+          },
+          "thursday": {
+            "type": "boolean"
+          },
+          "friday": {
+            "type": "boolean"
+          },
+          "saturday": {
+            "type": "boolean"
+          },
+          "sunday": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
