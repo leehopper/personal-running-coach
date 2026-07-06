@@ -1,7 +1,7 @@
 // Conversation wire-format types — paired 1:1 with the backend records in
-// `RunCoach.Api.Modules.Coaching.Conversation` (`ConversationTurnDto` /
-// `ConversationTurnsResponseDto`) rendered by the read-only
-// "Explain-the-change" panel via `GET /api/v1/conversation/turns`.
+// `RunCoach.Api.Modules.Coaching.Conversation` (`ConversationTurnDto` and the
+// composed `ConversationTimelineDto`) rendered by the interactive coach chat
+// via `GET /api/v1/conversation/timeline`.
 //
 // Unlike the plan module's structured-output enums (which carry per-type
 // `JsonStringEnumConverter` attributes and cross the wire as strings), the
@@ -81,8 +81,8 @@ export const REFERRAL_CATEGORY = {
 } as const satisfies Record<string, ReferralCategory>
 
 /**
- * The kind of plan change an adaptation applied — drives the panel render
- * style (absorb never persists a turn; nudge renders inline; restructure
+ * The kind of plan change an adaptation applied — drives how `AdaptationTurn`
+ * renders (absorb never persists a turn; nudge renders inline; restructure
  * renders as an expandable block). Mirrors
  * `RunCoach.Api.Modules.Training.Adaptation.AdaptationKind`.
  */
@@ -170,21 +170,11 @@ export interface SafetyTurnDto {
 }
 
 /**
- * One turn in the read-only panel, discriminated on `role`. Narrow on
- * `role` (or the null-ness of `adaptationKind`) before reading the
- * adaptation-only members.
+ * One proactive turn, discriminated on `role`. Narrow on `role` (or the
+ * null-ness of `adaptationKind`) before reading the adaptation-only members.
+ * Carried by the composed timeline's `adaptation` / `safety` turns.
  */
 export type ConversationTurnDto = AdaptationTurnDto | SafetyTurnDto
-
-/**
- * GET /api/v1/conversation/turns response payload — the runner's turns for
- * the active plan, newest-first (`CreatedAt` desc, per-stream event version
- * as the tiebreaker). Mirrors
- * `RunCoach.Api.Modules.Coaching.Conversation.ConversationTurnsResponseDto`.
- */
-export interface ConversationTurnsResponseDto {
-  turns: ConversationTurnDto[]
-}
 
 // ---------------------------------------------------------------------------
 // Composed conversation timeline (slice-4B Unit 3, GET /api/v1/conversation/timeline)

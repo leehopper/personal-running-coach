@@ -135,7 +135,7 @@ describe('createWorkoutLog cache invalidation (spec 17 § Unit 7)', () => {
     // append a conversation turn, so the subscribed plan + conversation
     // queries must refetch after a successful create.
     fetchMock = vi.fn().mockImplementation((input: Request) => {
-      if (input.url.includes('/api/v1/conversation/turns')) {
+      if (input.url.includes('/api/v1/conversation/timeline')) {
         return Promise.resolve(jsonResponse({ turns: [] }))
       }
       if (input.url.includes('/api/v1/plan/current')) {
@@ -160,29 +160,29 @@ describe('createWorkoutLog cache invalidation (spec 17 § Unit 7)', () => {
     const store = makeStore()
 
     // Mount-equivalent subscriptions: home renders the plan view + the
-    // read-only panel, each holding a live query subscription.
+    // timeline-backed coach chat, each holding a live query subscription.
     await store.dispatch(planApi.endpoints.getCurrentPlan.initiate(undefined))
-    await store.dispatch(conversationApi.endpoints.getConversationTurns.initiate(undefined))
+    await store.dispatch(conversationApi.endpoints.getConversationTimeline.initiate(undefined))
     expect(callsTo('/api/v1/plan/current')).toBe(1)
-    expect(callsTo('/api/v1/conversation/turns')).toBe(1)
+    expect(callsTo('/api/v1/conversation/timeline')).toBe(1)
 
     await store.dispatch(workoutLogApi.endpoints.createWorkoutLog.initiate(SAMPLE_BODY))
 
     // The `invalidatesTags` callback returns the tags only when `error` is
     // undefined; both subscribed queries refetch in the same interaction —
-    // the plan re-renders and the panel picks up the new turn.
+    // the plan re-renders and the timeline picks up the new turn.
     await vi.waitFor(() => {
       expect(callsTo('/api/v1/plan/current')).toBe(2)
-      expect(callsTo('/api/v1/conversation/turns')).toBe(2)
+      expect(callsTo('/api/v1/conversation/timeline')).toBe(2)
     })
   })
 
   it('does not refetch Plan or Conversation when the create fails', async () => {
     // RTK Query applies a *static* `invalidatesTags` array on rejected-with-value
     // mutations too, so the callback form must return `[]` on error. A failed
-    // create must not refetch the plan view or replay a stale panel.
+    // create must not refetch the plan view or replay a stale timeline.
     fetchMock.mockImplementation((input: Request) => {
-      if (input.url.includes('/api/v1/conversation/turns')) {
+      if (input.url.includes('/api/v1/conversation/timeline')) {
         return Promise.resolve(jsonResponse({ turns: [] }))
       }
       if (input.url.includes('/api/v1/plan/current')) {
@@ -195,9 +195,9 @@ describe('createWorkoutLog cache invalidation (spec 17 § Unit 7)', () => {
     const store = makeStore()
 
     await store.dispatch(planApi.endpoints.getCurrentPlan.initiate(undefined))
-    await store.dispatch(conversationApi.endpoints.getConversationTurns.initiate(undefined))
+    await store.dispatch(conversationApi.endpoints.getConversationTimeline.initiate(undefined))
     expect(callsTo('/api/v1/plan/current')).toBe(1)
-    expect(callsTo('/api/v1/conversation/turns')).toBe(1)
+    expect(callsTo('/api/v1/conversation/timeline')).toBe(1)
 
     const result = await store.dispatch(
       workoutLogApi.endpoints.createWorkoutLog.initiate(SAMPLE_BODY),
@@ -208,6 +208,6 @@ describe('createWorkoutLog cache invalidation (spec 17 § Unit 7)', () => {
     // counts held — the failed create must leave both subscriptions untouched.
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(callsTo('/api/v1/plan/current')).toBe(1)
-    expect(callsTo('/api/v1/conversation/turns')).toBe(1)
+    expect(callsTo('/api/v1/conversation/timeline')).toBe(1)
   })
 })
