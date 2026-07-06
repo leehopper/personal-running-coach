@@ -5,23 +5,7 @@ import { Label } from '@/components/ui/label'
 import { PreferredUnits } from '~/api/generated'
 import { useGetUnitPreferenceQuery, usePutUnitPreferenceMutation } from '~/api/settings.api'
 import { reportClientError } from '~/error-boundary/report-client-error'
-
-// Selectable options in display order. `value` is the `PreferredUnits` enum
-// (`0 | 1` on the wire) stored server-side; `label` is the user-facing copy.
-// `PreferredUnits.Kilometers`/`.Miles` come from the generated const-paired enum
-// so this control never hard-codes the magic integers. Radix `RadioGroup` values
-// are strings, so we map `String(value)` ↔ the enum at the group boundary.
-const UNIT_OPTIONS: ReadonlyArray<{ value: PreferredUnits; label: string }> = [
-  { value: PreferredUnits.Kilometers, label: 'Kilometers' },
-  { value: PreferredUnits.Miles, label: 'Miles' },
-]
-
-// Radix `RadioGroup` hands `onValueChange` a raw string; resolve it back to a
-// known `PreferredUnits` by matching an option rather than casting an
-// unvalidated `Number()` into the `0 | 1` union. An unrecognized value falls
-// back to Kilometers.
-const parsePreferredUnits = (value: string): PreferredUnits =>
-  UNIT_OPTIONS.find((option) => String(option.value) === value)?.value ?? PreferredUnits.Kilometers
+import { parsePreferredUnits, UNIT_OPTIONS } from '~/modules/common/utils/unit-options'
 
 /**
  * 2-state distance-unit control for the Settings page (DEC-086). Reads the

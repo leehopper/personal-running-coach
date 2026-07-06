@@ -133,6 +133,32 @@ export type {
 // re-exported below, paired with its `as const` enum.)
 export type { UnitPreferenceDto } from './rtk/api'
 
+// Slice 4C onboarding — the form-first intake DTOs (PR-C `POST /answers`). The
+// six loosened per-topic *input* shapes the form maps down to, plus the six
+// concrete captured-*answer* shapes the resume-hydrate reads off `GET /state`.
+// Re-exported type-only (same reasoning as the workout-log DTOs above) so the
+// wire shapes stay generated, not hand-mirrored; a backend rename ripples here
+// via `codegen:check` + `tsc`. The accurate request envelope
+// (`SubmitStructuredAnswersRequest`, with a nullable `targetEvent`) and the
+// nullable-slot state model are hand-written in `onboarding/models/onboarding.model.ts`,
+// because `RequireNonNullablePropertiesSchemaFilter` marks every `$ref` property
+// required even where the C# record is nullable (the same limitation noted for
+// the conversation/timeline DTOs above).
+export type {
+  PrimaryGoalInputDto,
+  TargetEventInputDto,
+  CurrentFitnessInputDto,
+  WeeklyScheduleInputDto,
+  InjuryHistoryInputDto,
+  PreferencesInputDto,
+  PrimaryGoalAnswer,
+  TargetEventAnswer,
+  CurrentFitnessAnswer,
+  WeeklyScheduleAnswer,
+  InjuryHistoryAnswer,
+  PreferencesAnswer,
+} from './rtk/api'
+
 export const completionStatusSchema = createWorkoutLogRequestSchema.shape.completionStatus
 export type CompletionStatus = z.infer<typeof completionStatusSchema>
 

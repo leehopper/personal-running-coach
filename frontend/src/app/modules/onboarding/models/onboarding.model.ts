@@ -1,20 +1,33 @@
 // Onboarding wire-format types — paired 1:1 with the backend records under
 // `backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/`. ASP.NET MVC
 // serializes properties as camelCase and enums as their numeric value (no
-// global JsonStringEnumConverter is registered for the controller layer);
-// this file therefore keeps integer enums whose numeric values exactly mirror
-// the C# `enum` declarations. Renaming or reordering members on either side
-// of the wire requires a paired change here. Schema validation lives in
-// `../schemas/onboarding-turn-response.schema.ts`.
+// global JsonStringEnumConverter is registered for the controller layer); this
+// file therefore keeps integer enums whose numeric values exactly mirror the C#
+// `enum` declarations. Renaming or reordering members on either side of the wire
+// requires a paired change here.
 //
-// `OnboardingProgressDto` and `SuggestedInputType` are migrated to the
-// OpenAPI codegen pipeline per T03.2 / DEC-066 / R-071 §6 — consumers
-// import them directly from `~/api/generated`. A backend rename of
-// either surfaces as a TypeScript error on the next codegen regeneration
-// before reaching production. This file deliberately does NOT re-export
-// the migrated symbols so call-sites point at the wire-format source.
+// Slice 4C-onboarding replaced the turn-based chat with the form-first intake
+// (DEC-086): the per-turn request/response DTOs were removed. The per-topic
+// answer/input shapes now come from the codegen barrel (`~/api/generated`); this
+// file hand-writes the two shapes the generator gets wrong — the resume-state
+// envelope (whose slots are nullable in C# but marked required by
+// `RequireNonNullablePropertiesSchemaFilter`) and the submit request (whose
+// `targetEvent` is nullable for a non-race goal).
 
-import type { OnboardingProgressDto, SuggestedInputType } from '~/api/generated'
+import type {
+  CurrentFitnessAnswer,
+  CurrentFitnessInputDto,
+  InjuryHistoryAnswer,
+  InjuryHistoryInputDto,
+  PreferencesAnswer,
+  PreferencesInputDto,
+  PrimaryGoalAnswer,
+  PrimaryGoalInputDto,
+  TargetEventAnswer,
+  TargetEventInputDto,
+  WeeklyScheduleAnswer,
+  WeeklyScheduleInputDto,
+} from '~/api/generated'
 
 /**
  * Lifecycle status of the per-user onboarding stream. Mirrors
@@ -28,8 +41,9 @@ export const OnboardingStatus = {
 export type OnboardingStatus = (typeof OnboardingStatus)[keyof typeof OnboardingStatus]
 
 /**
- * The canonical six-topic onboarding state machine per DEC-047.
- * Mirrors `RunCoach.Api.Modules.Coaching.Onboarding.OnboardingTopic`.
+ * The canonical six-topic onboarding state machine per DEC-047. Mirrors
+ * `RunCoach.Api.Modules.Coaching.Onboarding.OnboardingTopic`. Retained as plain
+ * section-ordering constants for the form.
  */
 export const OnboardingTopic = {
   PrimaryGoal: 0,
@@ -42,55 +56,9 @@ export const OnboardingTopic = {
 export type OnboardingTopic = (typeof OnboardingTopic)[keyof typeof OnboardingTopic]
 
 /**
- * Discriminator for `OnboardingTurnResponse`. Mirrors
- * `RunCoach.Api.Modules.Coaching.Onboarding.Models.OnboardingTurnKind`.
- * `Error` (2) is emitted by the backend (F3) on a terminal plan-generation
- * rejection, and is also reused as the client-side variant when the local
- * Zod schema rejects a server payload.
- */
-export const OnboardingTurnKind = {
-  Ask: 0,
-  Complete: 1,
-  Error: 2,
-} as const
-export type OnboardingTurnKind = (typeof OnboardingTurnKind)[keyof typeof OnboardingTurnKind]
-
-// `SuggestedInputType` is now sourced from `~/api/generated` so the chat
-// surface's input dispatcher stays pinned to whatever the OpenAPI spec
-// declares (DEC-066 / R-071 §6). The `as const` enum-shaped object that
-// gives consumers `SuggestedInputType.Text` syntax lives there alongside
-// the Zod validator extracted from the Orval-generated parent envelope.
-
-/**
- * Anthropic content block discriminator. Mirrors
- * `RunCoach.Api.Modules.Coaching.Onboarding.AnthropicContentBlockType`.
- * Slice 1 produces only `Text`; `Thinking` blocks pass through opaquely
- * and must NEVER be rendered as runner-visible text (R-065).
- */
-export const AnthropicContentBlockType = {
-  Text: 0,
-  Thinking: 1,
-} as const
-export type AnthropicContentBlockType =
-  (typeof AnthropicContentBlockType)[keyof typeof AnthropicContentBlockType]
-
-/**
- * Closed-shape Anthropic content block. Mirrors the Pattern B record in
- * `RunCoach.Api.Modules.Coaching.Onboarding.AnthropicContentBlock`.
- */
-export interface AnthropicContentBlock {
-  type: AnthropicContentBlockType
-  text: string
-}
-
-// `OnboardingProgressDto` is now sourced from `~/api/generated` so a
-// backend rename of `completedTopics`/`totalTopics` (the exact class of
-// Slice 1 bug #4) surfaces as a TypeScript error on the next codegen
-// regeneration. The hand-rolled interface used to live here.
-
-/**
  * The runner's primary training goal. Mirrors
- * `RunCoach.Api.Modules.Coaching.Onboarding.Models.PrimaryGoal`.
+ * `RunCoach.Api.Modules.Coaching.Onboarding.Models.PrimaryGoal`. Drives the goal
+ * select and the conditional TargetEvent reveal.
  */
 export const PrimaryGoal = {
   RaceTraining: 0,
@@ -102,42 +70,15 @@ export const PrimaryGoal = {
 export type PrimaryGoal = (typeof PrimaryGoal)[keyof typeof PrimaryGoal]
 
 /**
- * Captured PrimaryGoal answer payload.
- */
-export interface PrimaryGoalAnswerDto {
-  goal: PrimaryGoal
-  description: string
-}
-
-/**
- * Captured TargetEvent answer payload (race name + date + distance hint).
- * Shapes are intentionally permissive (`unknown`) on the frontend so a
- * minor backend additive change does not block the chat UI from resuming
- * — the submit/revise endpoints stay typed.
- */
-export interface TargetEventAnswerDto {
-  [key: string]: unknown
-}
-
-export interface CurrentFitnessAnswerDto {
-  [key: string]: unknown
-}
-
-export interface WeeklyScheduleAnswerDto {
-  [key: string]: unknown
-}
-
-export interface InjuryHistoryAnswerDto {
-  [key: string]: unknown
-}
-
-export interface PreferencesAnswerDto {
-  [key: string]: unknown
-}
-
-/**
- * GET /api/v1/onboarding/state response payload. Mirrors
+ * `GET /api/v1/onboarding/state` response payload. Mirrors
  * `RunCoach.Api.Modules.Coaching.Onboarding.Models.OnboardingStateDto`.
+ *
+ * The six captured-answer slots are `null` until the runner has submitted that
+ * topic — the C# record types them `TAnswer?`, but the generated OpenAPI type
+ * marks every `$ref` property required (`RequireNonNullablePropertiesSchemaFilter`,
+ * repo-wide; see the `~/api/generated` barrel). This hand-written shape restores
+ * the honest nullability the resume-hydrate depends on, over the concrete
+ * generated answer types.
  */
 export interface OnboardingStateDto {
   userId: string
@@ -147,80 +88,31 @@ export interface OnboardingStateDto {
   totalTopics: number
   isComplete: boolean
   outstandingClarifications: OnboardingTopic[]
-  primaryGoal: PrimaryGoalAnswerDto | null
-  targetEvent: TargetEventAnswerDto | null
-  currentFitness: CurrentFitnessAnswerDto | null
-  weeklySchedule: WeeklyScheduleAnswerDto | null
-  injuryHistory: InjuryHistoryAnswerDto | null
-  preferences: PreferencesAnswerDto | null
+  primaryGoal: PrimaryGoalAnswer | null
+  targetEvent: TargetEventAnswer | null
+  currentFitness: CurrentFitnessAnswer | null
+  weeklySchedule: WeeklyScheduleAnswer | null
+  injuryHistory: InjuryHistoryAnswer | null
+  preferences: PreferencesAnswer | null
   currentPlanId: string | null
 }
 
 /**
- * POST /api/v1/onboarding/turns request payload. Mirrors
- * `RunCoach.Api.Modules.Coaching.Onboarding.Models.OnboardingTurnRequestDto`.
+ * `POST /api/v1/onboarding/answers` request payload (the form-first intake,
+ * DEC-086 / DP-5). Mirrors
+ * `RunCoach.Api.Modules.Coaching.Onboarding.Models.SubmitStructuredAnswersRequestDto`,
+ * but types `targetEvent` as nullable: the C# slot is `TargetEventInputDto?` and
+ * the handler enforces `TargetEvent ⇒ RaceTraining`, so a non-race submission
+ * sends `null` — whereas the generated `SubmitStructuredAnswersRequestDto` marks
+ * every slot required (the same `$ref` limitation as `OnboardingStateDto`).
  */
-export interface OnboardingTurnRequestDto {
-  /** Client-generated UUID (typically `crypto.randomUUID()`). */
+export interface SubmitStructuredAnswersRequest {
+  /** Client-generated UUID (`crypto.randomUUID()`), re-sent on retry for idempotency. */
   idempotencyKey: string
-  text: string
+  primaryGoal: PrimaryGoalInputDto
+  targetEvent: TargetEventInputDto | null
+  currentFitness: CurrentFitnessInputDto
+  weeklySchedule: WeeklyScheduleInputDto
+  injuryHistory: InjuryHistoryInputDto
+  preferences: PreferencesInputDto
 }
-
-/**
- * POST /api/v1/onboarding/answers/revise request payload. Mirrors
- * `RunCoach.Api.Modules.Coaching.Onboarding.Models.ReviseAnswerRequestDto`.
- * `normalizedValue` shape is per-topic — the chat UI dispatches based on
- * `topic` so the value type stays `unknown` here.
- */
-export interface ReviseAnswerRequestDto {
-  topic: OnboardingTopic
-  normalizedValue: unknown
-}
-
-/**
- * Common fields across every `OnboardingTurnResponse` variant.
- */
-export interface OnboardingTurnResponseBase {
-  assistantBlocks: AnthropicContentBlock[]
-  progress: OnboardingProgressDto
-}
-
-/**
- * Server asked the runner another question — onboarding is not yet complete.
- */
-export interface OnboardingTurnAskResponse extends OnboardingTurnResponseBase {
-  kind: typeof OnboardingTurnKind.Ask
-  topic: OnboardingTopic
-  suggestedInputType: SuggestedInputType
-  planId: null
-}
-
-/**
- * Onboarding completed and a plan was generated.
- */
-export interface OnboardingTurnCompleteResponse extends OnboardingTurnResponseBase {
-  kind: typeof OnboardingTurnKind.Complete
-  topic: null
-  suggestedInputType: null
-  planId: string
-}
-
-/**
- * Backend-emitted (F3) on a terminal plan-generation rejection, and also
- * used as the client-side variant when the local Zod schema rejects a
- * server payload. Carries a user-facing `errorMessage` matching the wire
- * field name.
- */
-export interface OnboardingTurnErrorResponse {
-  kind: typeof OnboardingTurnKind.Error
-  errorMessage: string
-}
-
-/**
- * Discriminated union of every onboarding turn response shape — narrow on
- * `kind` to access variant-specific fields.
- */
-export type OnboardingTurnResponse =
-  | OnboardingTurnAskResponse
-  | OnboardingTurnCompleteResponse
-  | OnboardingTurnErrorResponse

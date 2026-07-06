@@ -1,208 +1,170 @@
-import { useEffect, useMemo, type ReactElement } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { useNavigate } from 'react-router-dom'
+import { useState, type ReactElement } from 'react'
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
+import type { PreferredUnits } from '~/api/generated'
 import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
-import { OnboardingChat } from '~/modules/onboarding/components/onboarding-chat.component'
-import { expandCompletedTopicCount } from '~/modules/onboarding/components/topic-progress-indicator.helpers'
-import { SuggestedInputType } from '~/api/generated'
-import { useOnboardingTurn } from '~/modules/onboarding/hooks/use-onboarding-turn.hooks'
-import { OnboardingTopic } from '~/modules/onboarding/models/onboarding.model'
+import { usePutUnitPreferenceMutation } from '~/api/settings.api'
+import { reportClientError } from '~/error-boundary/report-client-error'
+import { usePreferredUnitsResolution } from '~/modules/settings/hooks/use-preferred-units.hooks'
+import { OnboardingForm } from '~/modules/onboarding/components/onboarding-form.component'
 import {
-  transcriptCleared,
-  transcriptReplaced,
-  type OnboardingChatState,
-} from '~/modules/onboarding/store/onboarding.slice'
-import type { AppDispatch, RootState } from '~/modules/app/app.store'
+  hydrateOnboardingFormFields,
+  makeDefaultOnboardingFormFields,
+  reseedDistancesForUnitChange,
+  type OnboardingFormFields,
+} from '~/modules/onboarding/schemas/onboarding-form.schema'
+
+/** RTK Query surfaces an opaque error union; treat a 404 as "no stream yet". */
+const isErrorStatus = (error: unknown, expected: number): boolean => {
+  if (typeof error !== 'object' || error === null) return false
+  return (error as { status?: unknown }).status === expected
+}
+
+interface RetryPanelProps {
+  message: string
+  testId: string
+  onRetry: () => void
+}
+
+const RetryPanel = ({ message, testId, onRetry }: RetryPanelProps) => (
+  <div
+    role="alert"
+    data-testid={testId}
+    className="flex flex-col items-center gap-3 py-8 text-center"
+  >
+    <p className="text-sm text-muted-foreground">{message}</p>
+    <Button type="button" size="sm" onClick={onRetry}>
+      Retry
+    </Button>
+  </div>
+)
 
 /**
- * Top-level container for the `/onboarding` route. Owns the
- *   1. mount-time `getOnboardingState` query (404 → fresh start; 200 →
- *      transcript replay);
- *   2. completion-redirect to `/` when the server reports onboarding is
- *      already finished;
- *   3. submit + retry wiring through the `useOnboardingTurn` hook.
- *
- * The component is intentionally thin — the chat surface itself
- * (`OnboardingChat`) is presentational + driven by the Redux slice.
- *
- * Spec § Unit 3 R03.2 / R03.3 / R03.9 / R03.10.
+ * The `/onboarding` route — a single-page, mobile-first structured form
+ * (DEC-086). It defers the form until the unit preference has resolved (the
+ * numeric write interprets distances in the runner's unit, so it must never fall
+ * through to the loading-time km default — the `/log` posture), hydrates the
+ * form from `GET /state` on resume, and re-seeds the distances when the runner
+ * changes units. Completion + the redirect to `/` are owned by the
+ * `OnboardingRedirectGuard` (this route is wrapped by it) once the submit
+ * invalidates the `Onboarding` state.
  */
 export const OnboardingPage = (): ReactElement => {
-  const dispatch = useDispatch<AppDispatch>()
-  const navigate = useNavigate()
-  const { submitTurn, retryLastFailedTurn } = useOnboardingTurn()
+  const {
+    units,
+    isResolved,
+    isError: unitsError,
+    refetch: refetchUnits,
+  } = usePreferredUnitsResolution()
+  const [putUnitPreference] = usePutUnitPreferenceMutation()
   const {
     data: stateDto,
-    isLoading,
-    isError,
-    error,
-    refetch,
+    isLoading: stateLoading,
+    isError: stateIsError,
+    error: stateError,
+    refetch: refetchState,
   } = useGetOnboardingStateQuery(undefined)
 
-  const chatState = useSelector((state: RootState) => state.onboarding)
+  // A units change re-seeds the distance fields; the form remounts against this
+  // (keyed on `units`) so the schema, labels, and km write-conversion recompute
+  // once against the new unit. Null means "use the hydrated defaults".
+  const [seed, setSeed] = useState<OnboardingFormFields | null>(null)
+  // The unit the runner is switching TO while its `PUT` + refetch round-trip is
+  // in flight. The units control is disabled until `units` catches up, so a
+  // correction click during the (non-optimistic) round-trip can't be swallowed
+  // by a stale-prop equality check. Derived below (not cleared in an effect):
+  // once the resolved `units` reaches the target the pending flag falls false on
+  // its own; a failed persist clears it explicitly.
+  const [pendingUnits, setPendingUnits] = useState<PreferredUnits | null>(null)
+  const unitsChangePending = pendingUnits !== null && pendingUnits !== units
 
-  // Treat the bootstrap query's 404 as the "no stream yet — start fresh"
-  // signal; any other failure is a real error we must surface, not a
-  // reason to render the chat with stale local state.
-  const treatAsNoStream = isErrorIndicatesNoStream(isError, error)
-  const hasFatalBootstrapError = isError && !treatAsNoStream
-
-  // 1. Replay the persisted server state into the Redux slice on first
-  //    successful load. The chat slice is the source of truth for the
-  //    rendered transcript; the RTK Query cache holds the wire payload.
-  // 2. On 404 (no stream yet), reset the slice to a clean initial state
-  //    so a previous run's turns from another tab cannot leak in.
-  useEffect(() => {
-    if (stateDto !== undefined) {
-      // The Slice 1 wire shape does not surface the verbatim transcript
-      // (no `messages[]` field) — the server returns lifecycle / progress
-      // counters only. Replay therefore reconstructs the progress
-      // indicator + current topic / input hint, but starts the visible
-      // transcript empty (the next Ask turn lands as soon as the user
-      // submits). This intentionally keeps the slice honest about what
-      // the server has confirmed; cross-refresh transcript text comes in
-      // a follow-up endpoint.
-      const replayedTopics = expandCompletedTopicCount(stateDto.completedTopics)
-      const hasOutstandingClarification =
-        stateDto.currentTopic !== null &&
-        stateDto.outstandingClarifications.includes(stateDto.currentTopic)
-      const replay: OnboardingChatState = {
-        turns: [],
-        currentTopic: stateDto.currentTopic,
-        // When the current topic has an outstanding clarification, the
-        // canned single/multi/numeric/date control can't carry the
-        // free-form follow-up the runner needs to provide. Fall back to
-        // Text on resume so the runner can answer the assistant's
-        // outstanding clarifying question; the next ask turn will return
-        // the canonical control once the clarification clears.
-        suggestedInputType: hasOutstandingClarification
-          ? SuggestedInputType.Text
-          : pickInputTypeForTopic(stateDto.currentTopic),
-        completedTopics: replayedTopics,
-        isSubmitting: false,
-        isComplete: stateDto.isComplete,
-      }
-      dispatch(transcriptReplaced(replay))
-    } else if (treatAsNoStream) {
-      dispatch(transcriptCleared())
+  const persistUnitsAndReseed = async (
+    nextUnits: PreferredUnits,
+    currentValues: OnboardingFormFields,
+  ): Promise<void> => {
+    const converted = reseedDistancesForUnitChange(currentValues, units, nextUnits)
+    setPendingUnits(nextUnits)
+    try {
+      await putUnitPreference({ preferredUnits: nextUnits }).unwrap()
+      // Only re-seed once the preference is persisted; on failure the form stays
+      // on the current unit with its typed values intact.
+      setSeed(converted)
+    } catch (error) {
+      setPendingUnits(null)
+      reportClientError({
+        kind: 'unhandled-rejection',
+        error: error instanceof Error ? error : new Error(String(error)),
+      })
+      toast.error('We could not save your unit preference. Try again in a moment.')
     }
-  }, [dispatch, stateDto, treatAsNoStream])
-
-  // 3. If the server confirms onboarding is already done, redirect home.
-  //    The route also redirects post-completion, so this guard catches
-  //    the deep-link / bookmark case.
-  useEffect(() => {
-    if (stateDto?.isComplete === true) {
-      navigate('/', { replace: true })
-    }
-  }, [navigate, stateDto?.isComplete])
-
-  // 4. The Redux `isComplete` flag flips on `kind: complete`; the page
-  //    navigates to `/` once the slice has settled the final transcript.
-  useEffect(() => {
-    if (chatState.isComplete) {
-      navigate('/', { replace: true })
-    }
-  }, [chatState.isComplete, navigate])
-
-  const hasFailedTurn = useMemo(
-    () => chatState.turns.some((turn) => turn.status === 'failed'),
-    [chatState.turns],
-  )
-
-  const failedTurnMessage = useMemo(
-    () => chatState.turns.find((turn) => turn.status === 'failed')?.errorMessage,
-    [chatState.turns],
-  )
-
-  if (isLoading) {
-    return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="flex min-h-screen items-center justify-center bg-background"
-      >
-        <span className="text-sm text-muted-foreground">Loading…</span>
-      </div>
-    )
   }
 
-  if (hasFatalBootstrapError) {
-    return (
-      <div
-        role="alert"
-        data-testid="onboarding-bootstrap-error"
-        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center"
-      >
-        <p className="text-sm text-muted-foreground">
-          We couldn’t reach the onboarding service. Check your connection and try again.
-        </p>
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => {
-            void refetch()
+  const stateIs404 = stateIsError && isErrorStatus(stateError, 404)
+  const stateFatalError = stateIsError && !stateIs404
+
+  const content = (): ReactElement => {
+    if (unitsError) {
+      return (
+        <RetryPanel
+          message="We couldn’t load your unit preference. Check your connection and try again."
+          testId="onboarding-units-error"
+          onRetry={refetchUnits}
+        />
+      )
+    }
+    if (stateFatalError) {
+      return (
+        <RetryPanel
+          message="We couldn’t reach the onboarding service. Check your connection and try again."
+          testId="onboarding-state-error"
+          onRetry={() => {
+            void refetchState()
           }}
-        >
-          Retry
-        </Button>
-      </div>
+        />
+      )
+    }
+    if (!isResolved || stateLoading) {
+      return (
+        <p role="status" className="text-sm text-muted-foreground" data-testid="onboarding-loading">
+          Loading…
+        </p>
+      )
+    }
+
+    // 404 → no stream yet → a fresh, blank form; 200 → hydrate the resumed answers.
+    const hydrated =
+      stateDto !== undefined
+        ? hydrateOnboardingFormFields(stateDto, units)
+        : makeDefaultOnboardingFormFields()
+
+    return (
+      <OnboardingForm
+        key={units}
+        units={units}
+        initialFields={seed ?? hydrated}
+        unitsChangePending={unitsChangePending}
+        onUnitsChange={(nextUnits, currentValues) => {
+          void persistUnitsAndReseed(nextUnits, currentValues)
+        }}
+      />
     )
   }
 
   return (
-    <OnboardingChat
-      turns={chatState.turns}
-      currentTopic={chatState.currentTopic}
-      suggestedInputType={chatState.suggestedInputType}
-      completedTopics={chatState.completedTopics}
-      isSubmitting={chatState.isSubmitting}
-      hasFailedTurn={hasFailedTurn}
-      failedTurnMessage={failedTurnMessage}
-      onSubmit={({ text }) => submitTurn({ text })}
-      onRetry={() => retryLastFailedTurn()}
-    />
+    <main
+      className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 bg-background px-4 py-8"
+      data-testid="onboarding-page"
+    >
+      <header className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold text-foreground">Let's build your plan</h1>
+        <p className="text-sm text-muted-foreground">
+          Answer a few questions and your coach will draft a training plan.
+        </p>
+      </header>
+      {content()}
+    </main>
   )
-}
-
-/**
- * Heuristic input-type hint while the very-first server turn is in flight
- * (or after a refresh that has not yet fetched the transcript text). The
- * canonical topic order maps cleanly to the most useful input control;
- * the server-supplied `suggestedInputType` overrides this on every
- * subsequent turn.
- */
-const pickInputTypeForTopic = (topic: OnboardingTopic | null) => {
-  if (topic === null) return null
-  switch (topic) {
-    case OnboardingTopic.PrimaryGoal:
-      return SuggestedInputType.SingleSelect
-    case OnboardingTopic.TargetEvent:
-      return SuggestedInputType.Date
-    case OnboardingTopic.CurrentFitness:
-      return SuggestedInputType.Numeric
-    case OnboardingTopic.WeeklySchedule:
-      return SuggestedInputType.MultiSelect
-    case OnboardingTopic.InjuryHistory:
-      return SuggestedInputType.Text
-    case OnboardingTopic.Preferences:
-      return SuggestedInputType.Text
-    default:
-      return SuggestedInputType.Text
-  }
-}
-
-/**
- * RTK Query surfaces an opaque `FetchBaseQueryError | SerializedError`
- * union. We treat 404 as "no onboarding stream yet — start fresh"; any
- * other error keeps the cleared-but-pending UI visible until a retry.
- */
-const isErrorIndicatesNoStream = (isError: boolean, error: unknown): boolean => {
-  if (!isError) return false
-  if (typeof error !== 'object' || error === null) return false
-  const candidate = error as { status?: unknown }
-  return candidate.status === 404
 }
 
 export default OnboardingPage
