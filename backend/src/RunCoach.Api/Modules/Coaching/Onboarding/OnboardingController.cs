@@ -55,8 +55,8 @@ public sealed partial class OnboardingController(
         // Marten is configured with TenancyStyle.Conjoined; the OnboardingView
         // and the EF projection are both tenant-scoped to the runner's user id.
         // Open a per-request tenanted session — Wolverine middleware does the
-        // same thing in the SubmitTurn dispatch path, but GetState reads
-        // directly off Marten and has to set the tenant explicitly.
+        // same thing in the SubmitAnswers (POST /answers) dispatch path, but
+        // GetState reads directly off Marten and has to set the tenant explicitly.
         await using var session = store.LightweightSession(userId.ToString());
         var view = await session.LoadAsync<OnboardingView>(userId, ct).ConfigureAwait(false);
         if (view is null)
@@ -172,7 +172,7 @@ public sealed partial class OnboardingController(
     [LoggerMessage(
         EventId = 1,
         Level = LogLevel.Information,
-        Message = "Onboarding turn rejected: stream already complete user={UserId}")]
+        Message = "Onboarding submission rejected: stream already complete user={UserId}")]
     private static partial void LogAlreadyComplete(ILogger logger, Guid userId);
 
     [LoggerMessage(

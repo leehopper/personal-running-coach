@@ -154,7 +154,7 @@ export type CompletionStatus = z.infer<typeof completionStatusSchema>
  * the magic integer `0`. Values mirror the C# `CompletionStatus` enum on the
  * wire (no `JsonStringEnumConverter`); the Zod union above enforces the same
  * `0 | 1 | 2` set at the validation seam. Kept in lockstep with the backend by
- * the same bidirectional guard used for {@link SuggestedInputType}.
+ * the same bidirectional guard used for {@link PreferredUnits}.
  */
 export const CompletionStatus = {
   Complete: 0,
@@ -162,8 +162,8 @@ export const CompletionStatus = {
   Skipped: 2,
 } as const satisfies Record<string, CompletionStatus>
 
-// Exhaustiveness guard — union ⊆ const direction (mirrors the SuggestedInputType
-// guard above): a new backend `completionStatus` literal that widens the
+// Exhaustiveness guard — union ⊆ const direction (same pattern as the PreferredUnits
+// guard below): a new backend `completionStatus` literal that widens the
 // Zod-inferred union without a matching const entry resolves this to `never`,
 // failing the build.
 type _CompletionStatusConstMembers = (typeof CompletionStatus)[keyof typeof CompletionStatus]
