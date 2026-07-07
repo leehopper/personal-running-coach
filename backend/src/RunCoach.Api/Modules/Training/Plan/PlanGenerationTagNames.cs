@@ -24,6 +24,7 @@ internal static class PlanGenerationTagNames
     public const string MacroAttempts = "runcoach.plan.macro_attempts";
     public const string MesoOutputCharsTotal = "runcoach.plan.meso_output_chars_total";
     public const string MicroOutputChars = "runcoach.plan.micro_output_chars";
+    public const string MicroAttempts = "runcoach.plan.micro_attempts";
     public const string InputTokensFresh = "runcoach.plan.input_tokens_fresh";
     public const string CacheCreationInputTokens = "runcoach.plan.cache_creation_input_tokens";
     public const string CacheReadInputTokens = "runcoach.plan.cache_read_input_tokens";

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Conversation;
+using RunCoach.Api.Modules.Coaching.Models.Structured;
 using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Entities;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
@@ -452,6 +453,47 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         first.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
         (await OnboardingStreamEventCountAsync(Factory, userId, ct))
             .Should().Be(0, because: "a terminal plan-generation rejection aborts the transaction with nothing staged");
+
+        // Act 2 — re-submit with a NEW key; plan generation now succeeds.
+        var token2 = await PrimeAntiforgeryAsync(client, container);
+        var second = await PostAnswersAsync(client, token2, RaceTrainingRequest(Guid.NewGuid()), ct);
+
+        // Assert 2 — the form is re-submittable; onboarding completes with a plan.
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        var secondState = await second.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
+        secondState!.IsComplete.Should().BeTrue();
+        secondState.CurrentPlanId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SubmitAnswers_MesoMicroConsistencyRejected_Returns422_NothingStaged_ThenResubmitSucceeds()
+    {
+        // Arrange — plan generation throws the sibling meso/micro consistency rejection (F-LIVE-2 /
+        // DEC-088) on the first call then succeeds. The controller's second catch must map it to the
+        // same handled 422 as a macro rejection, with the transaction rolled back (nothing staged).
+        var ct = TestContext.Current.CancellationToken;
+        using var rejectingFactory = Factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IPlanGenerationService>();
+                services.AddSingleton<IPlanGenerationService>(
+                    new RejectOnceThenSucceedPlanGenerationService(
+                        new StubPlanGenerationService(),
+                        new MesoMicroConsistencyRejectedException(MesoMicroConsistencyViolation.RunDayCountMismatch)));
+            }));
+        var (client, container) = CreateCookieClient(rejectingFactory);
+        var email = GenerateEmail();
+        var userId = await RegisterAsync(client, container, email);
+        await LoginAsync(client, container, email);
+
+        // Act 1 — submit all six; the gate is satisfied and plan generation rejects the first call.
+        var token1 = await PrimeAntiforgeryAsync(client, container);
+        var first = await PostAnswersAsync(client, token1, RaceTrainingRequest(Guid.NewGuid()), ct);
+
+        // Assert 1 — a handled 422 (not a 500) and a fully rolled-back transaction (no stream).
+        first.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        (await OnboardingStreamEventCountAsync(Factory, userId, ct))
+            .Should().Be(0, because: "a terminal meso/micro consistency rejection aborts the transaction with nothing staged");
 
         // Act 2 — re-submit with a NEW key; plan generation now succeeds.
         var token2 = await PrimeAntiforgeryAsync(client, container);

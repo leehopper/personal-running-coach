@@ -52,6 +52,21 @@ public sealed record CoachingLlmSettings
     public int MacroValidationMaxRetries { get; init; } = 1;
 
     /// <summary>
+    /// Gets the maximum number of times the plan-generation micro tier is re-invoked when its
+    /// deterministic cross-layer validator (<c>MesoMicroConsistencyValidator</c>) rejects the
+    /// generated week-1 workouts for disagreeing with the meso week-1 template — a differing run-day
+    /// count or a swapped workout type (DEC-088 / F-LIVE-2). <c>MicroValidationMaxRetries = N</c>
+    /// means up to <c>N + 1</c> micro attempts before the generation is terminally rejected —
+    /// mirroring <see cref="MacroValidationMaxRetries"/>'s own semantics. The micro tier is the last
+    /// of the six LLM calls and the meso week is the already-paid-for ground truth, so a re-roll
+    /// costs exactly one micro call and carries a deterministic corrective hint naming the run-day
+    /// schedule the model must reproduce. No backoff. Defaults to 1 (2 attempts); raise it to trade
+    /// worst-case plan-generation latency for resilience against back-to-back stochastic
+    /// inconsistencies without a redeploy.
+    /// </summary>
+    public int MicroValidationMaxRetries { get; init; } = 1;
+
+    /// <summary>
     /// Gets the SDK per-attempt request timeout in seconds. Defaults to 120 seconds (2 minutes):
     /// this single setting governs every coaching call, and the plan-generation structured-output
     /// responses routinely need far longer than the ~30s DEC-073 sketched for the adaptation call

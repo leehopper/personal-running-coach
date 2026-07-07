@@ -122,15 +122,20 @@ public sealed partial class OnboardingController(
         }
         catch (PlanGenerationRejectedException ex)
         {
-            // The gate was satisfied but the generated plan failed validation (F3 / DEC-082). Wolverine
-            // aborted the transaction — nothing staged, the form is re-submittable. Surface a handled 422
-            // with a retry affordance rather than a 500 so monitoring sees no unhandled exception.
+            // The gate was satisfied but the generated macro plan failed validation (F3 / DEC-082).
+            // Wolverine aborted the transaction — nothing staged, the form is re-submittable. Surface a
+            // handled 422 with a retry affordance rather than a 500 so monitoring sees no unhandled
+            // exception.
             LogPlanGenerationRejected(logger, userId, ex.Violation);
-            return Problem(
-                type: PlanGenerationFailedType,
-                title: "We couldn't build a plan from your answers.",
-                detail: "Please submit again.",
-                statusCode: StatusCodes.Status422UnprocessableEntity);
+            return PlanCouldNotBeBuilt();
+        }
+        catch (MesoMicroConsistencyRejectedException ex)
+        {
+            // Same terminal-rejection posture as the macro case, but the generated week-1 workouts
+            // disagreed with the meso week template after the bounded consistency retry (F-LIVE-2 /
+            // DEC-088). Nothing staged, the form is re-submittable — surface the identical handled 422.
+            LogPlanConsistencyRejected(logger, userId, ex.Violation);
+            return PlanCouldNotBeBuilt();
         }
 
         // Reload the committed projection so the response reflects authoritative state — the
@@ -182,10 +187,29 @@ public sealed partial class OnboardingController(
     private static partial void LogPlanGenerationRejected(ILogger logger, Guid userId, MacroPlanOutputValidationViolation violation);
 
     [LoggerMessage(
+        EventId = 4,
+        Level = LogLevel.Warning,
+        Message = "Plan generation rejected during onboarding completion (meso/micro consistency): UserId={UserId} Violation={Violation}")]
+    private static partial void LogPlanConsistencyRejected(ILogger logger, Guid userId, MesoMicroConsistencyViolation violation);
+
+    [LoggerMessage(
         EventId = 3,
         Level = LogLevel.Error,
         Message = "Onboarding view was null after a successful structured-answers submission: UserId={UserId}")]
     private static partial void LogAnswersStateUnavailable(ILogger logger, Guid userId);
+
+    /// <summary>
+    /// The 422 returned when plan generation is terminally rejected during onboarding completion —
+    /// shared by the macro-validation (<see cref="PlanGenerationRejectedException"/>) and the
+    /// meso/micro consistency (<see cref="MesoMicroConsistencyRejectedException"/>) rejection paths,
+    /// which surface an identical re-submittable envelope.
+    /// </summary>
+    private ObjectResult PlanCouldNotBeBuilt() =>
+        Problem(
+            type: PlanGenerationFailedType,
+            title: "We couldn't build a plan from your answers.",
+            detail: "Please submit again.",
+            statusCode: StatusCodes.Status422UnprocessableEntity);
 
     private bool TryGetUserId(out Guid userId)
     {

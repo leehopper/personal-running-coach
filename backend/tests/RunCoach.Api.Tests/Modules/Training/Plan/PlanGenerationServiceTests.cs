@@ -852,6 +852,235 @@ public sealed class PlanGenerationServiceTests
                 && (int)t.Value! == 2);
     }
 
+    // DEC-088: bounded corrective-hint retry on meso/micro consistency rejection (F-LIVE-2).
+    [Fact]
+    public async Task GeneratePlanAsync_MicroInconsistentThenConsistent_RetriesAndSucceeds()
+    {
+        // Arrange — the first micro sample schedules one run day (Sunday) against a meso week with
+        // four run days (Sun/Tue/Thu/Sat); the retry returns a consistent micro. With the default
+        // budget (1 retry) the service must recover and return the canonical sequence without
+        // surfacing a rejection.
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacroSuccess(llm);
+        ConfigureMesoHappyPathAndMicroSequence(
+            llm,
+            capturedMicroPrompts: null,
+            BuildInconsistentMicro(),
+            BuildMicro());
+        var view = CreateCompletedView();
+
+        // Act
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — recovered on the retry: canonical six-event sequence, micro invoked exactly twice,
+        // macro/meso unaffected (no extra macro or meso calls triggered by a micro re-roll).
+        sequence.ToEvents().Should().HaveCount(6);
+        await llm.Received(2)
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+        await llm.Received(1)
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+        await llm.Received(PlanGenerationService.MesoWeekCount)
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0, 1)] // retry disabled → single attempt, immediate reject
+    [InlineData(1, 2)] // default budget → two attempts
+    [InlineData(2, 3)] // raised budget → three attempts
+    public async Task GeneratePlanAsync_MicroInconsistentOnEveryAttempt_ThrowsAfterBudgetExhausted(
+        int maxRetries,
+        int expectedMicroCalls)
+    {
+        // Arrange — every micro sample is inconsistent with the meso week (one run day vs. four), so
+        // the budget is exhausted and the generation is terminally rejected. Macro + meso still run
+        // fully (the reject is downstream of them); only micro re-rolls.
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12), microValidationMaxRetries: maxRetries);
+        ConfigureMacroSuccess(llm);
+        ConfigureMesoHappyPathAndMicroSequence(llm, capturedMicroPrompts: null, BuildInconsistentMicro());
+        var view = CreateCompletedView();
+
+        // Act
+        var act = () => sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — the terminal rejection carries the count-mismatch violation, with exactly
+        // expectedMicroCalls micro calls, macro invoked once, and meso invoked four times.
+        (await act.Should().ThrowAsync<MesoMicroConsistencyRejectedException>())
+            .Which.Violation.Should().Be(MesoMicroConsistencyViolation.RunDayCountMismatch);
+        await llm.Received(expectedMicroCalls)
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+        await llm.Received(1)
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+        await llm.Received(PlanGenerationService.MesoWeekCount)
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_MicroRetry_AppendsCorrectionSuffixWithRunScheduleOnRetryOnly()
+    {
+        // Arrange — capture each micro user message. The inconsistent first attempt (Sunday only) is
+        // rejected; the retry must carry a correction suffix naming the meso run schedule
+        // (Sun/Tue/Thu/Sat), while attempt 0 stays byte-identical to the no-retry path.
+        var capturedMicroPrompts = new List<string>();
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacroSuccess(llm);
+        ConfigureMesoHappyPathAndMicroSequence(
+            llm,
+            capturedMicroPrompts,
+            BuildInconsistentMicro(),
+            BuildMicro());
+        var view = CreateCompletedView();
+
+        // Act
+        await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — attempt 0 has no correction suffix; attempt 1 names the correction and the run days
+        // the meso week schedules that the rejected micro omitted.
+        capturedMicroPrompts.Should().HaveCount(2);
+        capturedMicroPrompts[0].Should().NotContain(
+            PlanGenerationService.MicroCorrectionLabel,
+            because: "the first attempt must be byte-identical to the no-retry path (input-prompt-stability contract)");
+        capturedMicroPrompts[1].Should().Contain(PlanGenerationService.MicroCorrectionLabel);
+        capturedMicroPrompts[1].Should().Contain("Tuesday");
+        capturedMicroPrompts[1].Should().Contain("Thursday");
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_MicroRetry_StampsMicroAttemptCountOnCompletionMetric()
+    {
+        // Arrange — a MeterListener over the completion instrument. An inconsistent-then-consistent
+        // micro sequence recovers on attempt 2, so the success measurement must carry micro_attempts = 2
+        // and total_calls = 7 (1 macro + 4 meso + 2 micro).
+        var measurements = new List<(double Value, KeyValuePair<string, object?>[] Tags)>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == PlanGenerationService.ObservabilitySourceName
+                    && instrument.Name == PlanGenerationService.PlanGenerationCompletedMetricName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        meterListener.SetMeasurementEventCallback<double>((instrument, value, tags, state) =>
+        {
+            lock (measurements)
+            {
+                measurements.Add((value, tags.ToArray()));
+            }
+        });
+        meterListener.Start();
+
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacroSuccess(llm);
+        ConfigureMesoHappyPathAndMicroSequence(
+            llm,
+            capturedMicroPrompts: null,
+            BuildInconsistentMicro(),
+            BuildMicro());
+        var view = CreateCompletedView();
+
+        // Act
+        await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — the single success measurement carries micro_attempts = 2 and total_calls = 7.
+        var successMeasurements = measurements
+            .Where(m => m.Tags.Any(t =>
+                t.Key == PlanGenerationTagNames.Outcome
+                && string.Equals(t.Value as string, "success", StringComparison.Ordinal)))
+            .ToArray();
+        successMeasurements.Should().HaveCount(1);
+        successMeasurements[0].Tags
+            .Should().Contain(t =>
+                t.Key == PlanGenerationTagNames.MicroAttempts
+                && (int)t.Value! == 2);
+        successMeasurements[0].Tags
+            .Should().Contain(t =>
+                t.Key == PlanGenerationTagNames.TotalCalls
+                && (int)t.Value! == 7);
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_MicroExhaustion_StampsMicroAttemptsOnFailureMetric()
+    {
+        // Arrange — a MeterListener; every micro attempt is inconsistent, so the default budget (1 retry
+        // → 2 attempts) is exhausted and the terminal MesoMicroConsistencyRejectedException is thrown.
+        // The failure measurement must carry micro_attempts = 2, pinning the catch-block tag.
+        var measurements = new List<(double Value, KeyValuePair<string, object?>[] Tags)>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == PlanGenerationService.ObservabilitySourceName
+                    && instrument.Name == PlanGenerationService.PlanGenerationCompletedMetricName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        meterListener.SetMeasurementEventCallback<double>((instrument, value, tags, state) =>
+        {
+            lock (measurements)
+            {
+                measurements.Add((value, tags.ToArray()));
+            }
+        });
+        meterListener.Start();
+
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacroSuccess(llm);
+        ConfigureMesoHappyPathAndMicroSequence(llm, capturedMicroPrompts: null, BuildInconsistentMicro());
+        var view = CreateCompletedView();
+
+        // Act
+        await FluentActions
+            .Awaiting(() => sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken))
+            .Should()
+            .ThrowAsync<MesoMicroConsistencyRejectedException>();
+
+        // Assert — the single failure measurement carries micro_attempts = 2.
+        var failureMeasurements = measurements
+            .Where(m => m.Tags.Any(t =>
+                t.Key == PlanGenerationTagNames.Outcome
+                && string.Equals(t.Value as string, "failure", StringComparison.Ordinal)))
+            .ToArray();
+        failureMeasurements.Should().HaveCount(1);
+        failureMeasurements[0].Tags
+            .Should().Contain(t =>
+                t.Key == PlanGenerationTagNames.MicroAttempts
+                && (int)t.Value! == 2);
+    }
+
     [Theory]
     [InlineData(1, PhaseType.Base, false)]
     [InlineData(8, PhaseType.Base, true)] // last week of an 8-week phase that includes deload.
@@ -965,7 +1194,8 @@ public sealed class PlanGenerationServiceTests
     private static (PlanGenerationService Sut, ICoachingLlm Llm, IContextAssembler Assembler) CreateSut(
         DateTimeOffset? now = null,
         DateOnly? localToday = null,
-        int? macroValidationMaxRetries = null)
+        int? macroValidationMaxRetries = null,
+        int? microValidationMaxRetries = null)
     {
         var assembler = Substitute.For<IContextAssembler>();
         assembler
@@ -1008,6 +1238,11 @@ public sealed class PlanGenerationServiceTests
         if (macroValidationMaxRetries is int retries)
         {
             settingsRecord = settingsRecord with { MacroValidationMaxRetries = retries };
+        }
+
+        if (microValidationMaxRetries is int microRetries)
+        {
+            settingsRecord = settingsRecord with { MicroValidationMaxRetries = microRetries };
         }
 
         var settings = Options.Create(settingsRecord);
@@ -1132,6 +1367,50 @@ public sealed class PlanGenerationServiceTests
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ => WithZeroUsage(BuildMicro()));
+    }
+
+    /// <summary>
+    /// Stubs the meso tier on the happy path but scripts the micro tier to return each element of
+    /// <paramref name="microSequence"/> on successive calls, clamping to the last element once the
+    /// sequence is exhausted (so an all-inconsistent run keeps returning the same rejected micro).
+    /// Captures each micro call's user-message argument into <paramref name="capturedMicroPrompts"/>
+    /// when supplied so retry-suffix assertions can inspect the exact bytes per attempt. Mirrors
+    /// <see cref="ConfigureMacroSequence"/> for the DEC-088 meso/micro consistency-retry tests.
+    /// </summary>
+    private static void ConfigureMesoHappyPathAndMicroSequence(
+        ICoachingLlm llm,
+        List<string>? capturedMicroPrompts,
+        params MicroWorkoutListOutput[] microSequence)
+    {
+        var mesoCounter = 0;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                mesoCounter++;
+                return WithZeroUsage(BuildMeso(mesoCounter, PhaseType.Base, isDeload: false));
+            });
+
+        var microCalls = 0;
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                capturedMicroPrompts?.Add(call.ArgAt<string>(1));
+                var index = Math.Min(microCalls, microSequence.Length - 1);
+                microCalls++;
+                return WithZeroUsage(microSequence[index]);
+            });
     }
 
     private static void ConfigureLlmHappyPath(
@@ -1316,39 +1595,66 @@ public sealed class PlanGenerationServiceTests
         };
     }
 
+    /// <summary>
+    /// The default happy-path micro week. Emits one workout per <see cref="BuildMeso"/> run slot
+    /// (Sunday/Tuesday/Thursday/Saturday, all <see cref="WorkoutType.Easy"/>) so the meso/micro
+    /// consistency validator (DEC-088 / F-LIVE-2) passes on attempt 0 — the meso and micro fixtures
+    /// must agree or every happy-path generation would now retry and terminally reject.
+    /// </summary>
     private static MicroWorkoutListOutput BuildMicro()
     {
         return new MicroWorkoutListOutput
         {
             Workouts = new[]
             {
-                new WorkoutOutput
+                BuildWorkout(dayOfWeek: 0, WorkoutType.Easy),
+                BuildWorkout(dayOfWeek: 2, WorkoutType.Easy),
+                BuildWorkout(dayOfWeek: 4, WorkoutType.Easy),
+                BuildWorkout(dayOfWeek: 6, WorkoutType.Easy),
+            },
+        };
+    }
+
+    /// <summary>
+    /// A micro week that disagrees with <see cref="BuildMeso"/>'s four run slots — a single workout
+    /// on Sunday. Used as the "bad micro" starting point for the DEC-088 consistency-retry tests
+    /// (run-day count 1 vs. 4). This is the exact shape the pre-F-LIVE-2 default fixture carried.
+    /// </summary>
+    private static MicroWorkoutListOutput BuildInconsistentMicro()
+    {
+        return new MicroWorkoutListOutput
+        {
+            Workouts = new[] { BuildWorkout(dayOfWeek: 0, WorkoutType.Easy) },
+        };
+    }
+
+    private static WorkoutOutput BuildWorkout(int dayOfWeek, WorkoutType workoutType)
+    {
+        return new WorkoutOutput
+        {
+            DayOfWeek = dayOfWeek,
+            WorkoutType = workoutType,
+            Title = $"{workoutType} run",
+            TargetDistanceKm = 8,
+            TargetDurationMinutes = 50,
+            TargetPaceEasySecPerKm = 360,
+            TargetPaceFastSecPerKm = 360,
+            Segments = new[]
+            {
+                new WorkoutSegmentOutput
                 {
-                    DayOfWeek = 0,
-                    WorkoutType = WorkoutType.Easy,
-                    Title = "Easy run",
-                    TargetDistanceKm = 8,
-                    TargetDurationMinutes = 50,
-                    TargetPaceEasySecPerKm = 360,
-                    TargetPaceFastSecPerKm = 360,
-                    Segments = new[]
-                    {
-                        new WorkoutSegmentOutput
-                        {
-                            SegmentType = SegmentType.Work,
-                            DurationMinutes = 50,
-                            TargetPaceSecPerKm = 360,
-                            Intensity = IntensityProfile.Easy,
-                            Repetitions = 1,
-                            Notes = "Steady aerobic.",
-                        },
-                    },
-                    WarmupNotes = string.Empty,
-                    CooldownNotes = string.Empty,
-                    CoachingNotes = "Conversational pace.",
-                    PerceivedEffort = 3,
+                    SegmentType = SegmentType.Work,
+                    DurationMinutes = 50,
+                    TargetPaceSecPerKm = 360,
+                    Intensity = IntensityProfile.Easy,
+                    Repetitions = 1,
+                    Notes = "Steady aerobic.",
                 },
             },
+            WarmupNotes = string.Empty,
+            CooldownNotes = string.Empty,
+            CoachingNotes = "Conversational pace.",
+            PerceivedEffort = 3,
         };
     }
 }
