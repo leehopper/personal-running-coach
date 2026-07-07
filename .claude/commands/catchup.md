@@ -3,7 +3,7 @@ Read the following in order to understand current project state, then provide a 
 ## Files to read
 
 1. **`ROADMAP.md`** — Status block at top: current cycle, active slice, next step, blockers. Grab the pointer to the active cycle plan.
-2. **Active cycle plan** (path from `ROADMAP.md` Status block, e.g., `docs/plans/{cycle-name}/cycle-plan.md`) — read the Status section, the "Captured During Cycle" follow-ups table, and the active slice's acceptance criteria.
+2. **Active cycle plan** (path from `ROADMAP.md` Status block, e.g., `docs/plans/{cycle-name}/cycle-plan.md`) — read the Status section, the "Open follow-ups" digest at the top of § Captured During Cycle (skip the full ledger table — it is the historical record, and its rows are long), and the active slice's acceptance criteria.
 3. **Active slice plan** (path from the cycle plan's Status under "Active Slice", if one exists, e.g., `docs/plans/{cycle-name}/slice-N-{name}.md`) — step-by-step implementation plan and in-progress tasks. Skip if no active slice yet.
 
 ## Git state
