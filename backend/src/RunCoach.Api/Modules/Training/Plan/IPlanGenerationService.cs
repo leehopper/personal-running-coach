@@ -16,8 +16,11 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <para>
 /// The service is pure orchestration: it composes the LLM prompt via
 /// <c>IContextAssembler.ComposeForPlanGenerationAsync</c>, calls
-/// <c>ICoachingLlm.GenerateStructuredAsync</c> exactly six times (1 macro + 4 meso +
-/// 1 micro), and returns the resulting events as a <see cref="PlanEventSequence"/>.
+/// <c>ICoachingLlm.GenerateStructuredAsync</c> for each tier (1 macro + 4 meso + 1 micro —
+/// six on the happy path; the macro tier is re-invoked up to
+/// <c>CoachingLlmSettings.MacroValidationMaxRetries</c> extra times when the deterministic macro
+/// validator rejects the output, DEC-087), and returns the resulting events as a
+/// <see cref="PlanEventSequence"/>.
 /// It does NOT touch <c>IDocumentSession</c>, does NOT call <c>SaveChangesAsync</c>,
 /// and does NOT stage events on any stream — the caller
 /// (<c>SubmitStructuredAnswersHandler</c> on onboarding completion, or
@@ -27,10 +30,13 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// </para>
 /// <para>
 /// Failure semantics: the Anthropic SDK's <c>MaxRetries</c> (2 by default, i.e. up to
-/// 3 attempts) covers transient errors (429, 5xx, network). An unrecoverable failure on
+/// 3 attempts) covers transient errors (429, 5xx, network). A macro that fails deterministic
+/// validation is re-generated with a corrective hint up to the bounded
+/// <c>MacroValidationMaxRetries</c> budget (DEC-087); on exhaustion a
+/// <c>PlanGenerationRejectedException</c> propagates. An unrecoverable failure on
 /// any tier (macro, any of the four meso calls, or micro) propagates as a
-/// <c>TransientCoachingLlmException</c> / <c>PermanentCoachingLlmException</c> (DEC-073) —
-/// the caller's transactional middleware then rolls back the entire Marten transaction
+/// <c>TransientCoachingLlmException</c> / <c>PermanentCoachingLlmException</c> (DEC-073). Any of
+/// these — the caller's transactional middleware then rolls back the entire Marten transaction
 /// so no partial Plan stream is persisted, no <c>OnboardingCompleted</c> /
 /// <c>PlanLinkedToUser</c> events are appended, and the EF projection's
 /// <c>RunnerOnboardingProfile.CurrentPlanId</c> stays at its prior value.

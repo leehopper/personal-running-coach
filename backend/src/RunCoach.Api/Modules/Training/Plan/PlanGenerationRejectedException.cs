@@ -3,9 +3,12 @@ using RunCoach.Api.Modules.Coaching.Models.Structured;
 namespace RunCoach.Api.Modules.Training.Plan;
 
 /// <summary>
-/// Thrown when a generated macro plan fails deterministic validation
-/// (<see cref="MacroPlanOutputValidator"/>) — the generation is terminally rejected with
-/// nothing staged (DEC-073/DEC-080 posture: no re-prompt, no partial commit). Distinct from
+/// Thrown when a generated macro plan <em>still</em> fails deterministic validation
+/// (<see cref="MacroPlanOutputValidator"/>) after the bounded corrective-hint retry budget
+/// (<c>CoachingLlmSettings.MacroValidationMaxRetries</c>) is exhausted — the generation is then
+/// terminally rejected with nothing staged. DEC-087 amends the original DEC-073/DEC-080 "no
+/// re-prompt" stance to a bounded re-prompt <em>before</em> this terminal throw; the
+/// no-partial-commit half of that posture is unchanged. Distinct from
 /// <c>CoachingLlmException</c>: this is an <em>expected</em> rejection of a well-formed LLM
 /// response, not a transport/SDK failure. User-facing callers (the onboarding completion path)
 /// are intended to map it to a terminal error envelope rather than a 5xx; callers that don't

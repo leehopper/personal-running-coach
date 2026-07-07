@@ -15,7 +15,9 @@ namespace RunCoach.Api.Modules.Training.Plan;
 
 /// <summary>
 /// Plain DI service implementing the six-call macro/meso/micro structured-output
-/// chain per Slice 1 § Unit 2 R02.4-R02.6 (DEC-057 / R-066). Returns the resulting
+/// chain per Slice 1 § Unit 2 R02.4-R02.6 (DEC-057 / R-066). The macro tier carries a
+/// bounded corrective-hint retry on deterministic-validator rejection (DEC-087), so a run may
+/// make more than six calls. Returns the resulting
 /// events as a list — the caller stages them on its own <c>IDocumentSession</c>
 /// inside one Marten transaction so the entire plan + onboarding-completion writes
 /// commit atomically (R-069 / DEC-060).
@@ -112,6 +114,14 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     internal const string MicroTierLabel = "[TIER: MICRO WORKOUTS]";
 
     /// <summary>
+    /// Marker label that begins the per-retry macro correction suffix appended to the macro user
+    /// message when a bounded validation-rejection retry fires (DEC-087). The label is part of the
+    /// wire bytes — held in a constant so tests can locate it and confirm the attempt-0 message
+    /// carries no suffix.
+    /// </summary>
+    internal const string MacroCorrectionLabel = "[CORRECTION]";
+
+    /// <summary>
     /// Number of meso weeks Slice 1 generates (weeks 1-4). Constant rather than
     /// a setting so the projection's expected event sequence stays stable.
     /// </summary>
@@ -136,6 +146,12 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     /// Singleton for the same reason as <see cref="ActivitySource"/>.
     /// </summary>
     internal static readonly Meter Meter = new(ObservabilitySourceName);
+
+    /// <summary>
+    /// Upper bound on the configured <see cref="_settings"/> macro-validation retry count, so a
+    /// misconfigured large value can't burn dozens of extra LLM calls per plan-generation chain.
+    /// </summary>
+    private const int MaxAllowedMacroValidationRetries = 5;
 
     private static readonly Histogram<double> PlanGenerationCompleted = Meter.CreateHistogram<double>(
         name: PlanGenerationCompletedMetricName,
@@ -226,6 +242,9 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         chainActivity?.SetTag(PlanGenerationTagNames.UserId, userId.ToString());
         chainActivity?.SetTag(PlanGenerationTagNames.PreviousPlanId, previousPlanId?.ToString());
 
+        // Macro attempt counter is hoisted above the try so the failure catch can stamp it on the
+        // completion metric alongside the success path (DEC-087 D6).
+        var macroAttempts = 0;
         var stopwatch = Stopwatch.StartNew();
         try
         {
@@ -252,26 +271,52 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             // <c>cache_hit_rate</c> tag (Slice 1 § Unit 2 R02.8).
             var totalUsage = AnthropicUsage.Zero;
 
-            // Tier 1 — macro plan.
-            var (macro, macroUsage, macroOutputChars) = await InvokeTierAsync<MacroPlanOutput>(
-                tier: TierMacro,
-                planId: planId,
-                systemPrompt: systemPrompt,
-                userMessage: BuildMacroUserMessage(basePrompt),
-                extraTags: null,
-                ct).ConfigureAwait(false);
-            totalUsage = totalUsage.Add(macroUsage);
-
-            // Deterministic horizon + internal-consistency validation (F3). A rejection is terminal:
-            // throw before any meso/micro work or event staging, so the caller's Marten transaction
-            // aborts with nothing committed (DEC-073/DEC-080). User-facing callers are intended to map
-            // this to a terminal error envelope (the onboarding completion path); other callers
-            // propagate it through the standard error pipeline.
-            var macroValidation = MacroPlanOutputValidator.Validate(macro, horizon);
-            if (!macroValidation.IsValid)
+            // Tier 1 — macro plan, with a bounded corrective-hint retry on validation rejection
+            // (DEC-087, amending the DEC-073/DEC-080 no-re-prompt posture). The macro tier is the
+            // first LLM call and nothing has been staged, so a re-roll costs exactly one call and no
+            // meso/micro work is wasted. On a deterministic-validator rejection the retry re-invokes
+            // the macro tier with a correction suffix naming the arithmetic the model got wrong (the
+            // suffix rides the never-cached user message, so the `Ephemeral1h` system-block cache is
+            // untouched — attempt 0 is byte-identical to the no-retry path). After
+            // `MacroValidationMaxRetries` extra attempts a rejection is terminal: throw before any
+            // meso/micro work or event staging, so the caller's Marten transaction aborts with nothing
+            // committed. User-facing callers map the terminal throw to an error envelope (onboarding →
+            // 422); other callers propagate it through the standard error pipeline.
+            var maxMacroRetries = Math.Clamp(_settings.MacroValidationMaxRetries, 0, MaxAllowedMacroValidationRetries);
+            MacroPlanOutput macro;
+            int macroOutputChars;
+            string? macroCorrection = null;
+            while (true)
             {
-                LogMacroRejected(_logger, planId, macroValidation.Violation);
-                throw new PlanGenerationRejectedException(macroValidation.Violation);
+                macroAttempts++;
+                var (candidate, macroUsage, candidateChars) = await InvokeTierAsync<MacroPlanOutput>(
+                    tier: TierMacro,
+                    planId: planId,
+                    systemPrompt: systemPrompt,
+                    userMessage: BuildMacroUserMessage(basePrompt, macroCorrection),
+                    extraTags: null,
+                    ct).ConfigureAwait(false);
+
+                // Every attempt's tokens are really spent, so accumulate each into the chain-wide
+                // usage rollup even when the attempt is rejected.
+                totalUsage = totalUsage.Add(macroUsage);
+
+                var macroValidation = MacroPlanOutputValidator.Validate(candidate, horizon);
+                if (macroValidation.IsValid)
+                {
+                    macro = candidate;
+                    macroOutputChars = candidateChars;
+                    break;
+                }
+
+                if (macroAttempts > maxMacroRetries)
+                {
+                    LogMacroRejected(_logger, planId, macroValidation.Violation, macroAttempts);
+                    throw new PlanGenerationRejectedException(macroValidation.Violation);
+                }
+
+                LogMacroRetry(_logger, planId, macroValidation.Violation, macroAttempts);
+                macroCorrection = BuildMacroCorrection(macroValidation.Violation, candidate, horizon);
             }
 
             // Tier 2 — four meso weeks (1..4). Each call carries a per-week context
@@ -344,6 +389,12 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                 mesoOutputCharsTotal += mesoOutputCharsPerWeek[i];
             }
 
+            // Actual LLM call volume for this run — NOT the nominal `TotalCallCount` constant, because a
+            // macro validation retry (DEC-087) adds `macroAttempts - 1` extra macro calls. Stamped as
+            // `total_calls` so a cost/volume dashboard reflects the recovered-on-retry population the
+            // retry exists to make visible (`MacroAttempts` carries the retry delta separately).
+            var totalLlmCalls = macroAttempts + MesoWeekCount + 1;
+
             // Compute chain-wide cache-hit rate from the accumulated Anthropic
             // usage counters. The denominator is the total number of input tokens
             // the chain "saw" — fresh + cache-creation + cache-read — so the rate
@@ -361,9 +412,10 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
 
             // Stamp rollup metrics on the chain span so a single trace view shows
             // the totals without scraping the metric exporter.
-            chainActivity?.SetTag(PlanGenerationTagNames.TotalCalls, TotalCallCount);
+            chainActivity?.SetTag(PlanGenerationTagNames.TotalCalls, totalLlmCalls);
             chainActivity?.SetTag(PlanGenerationTagNames.DurationMs, durationMs);
             chainActivity?.SetTag(PlanGenerationTagNames.MacroOutputChars, macroOutputChars);
+            chainActivity?.SetTag(PlanGenerationTagNames.MacroAttempts, macroAttempts);
             chainActivity?.SetTag(PlanGenerationTagNames.MesoOutputCharsTotal, mesoOutputCharsTotal);
             chainActivity?.SetTag(PlanGenerationTagNames.MicroOutputChars, microOutputChars);
             chainActivity?.SetTag(PlanGenerationTagNames.InputTokensFresh, totalUsage.InputTokens);
@@ -384,8 +436,9 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             {
                 { PlanGenerationTagNames.PlanId, planId.ToString() },
                 { PlanGenerationTagNames.UserId, userId.ToString() },
-                { PlanGenerationTagNames.TotalCalls, TotalCallCount },
+                { PlanGenerationTagNames.TotalCalls, totalLlmCalls },
                 { PlanGenerationTagNames.MacroOutputChars, macroOutputChars },
+                { PlanGenerationTagNames.MacroAttempts, macroAttempts },
                 { PlanGenerationTagNames.MesoOutputCharsTotal, mesoOutputCharsTotal },
                 { PlanGenerationTagNames.MicroOutputChars, microOutputChars },
                 { PlanGenerationTagNames.InputTokensFresh, totalUsage.InputTokens },
@@ -411,12 +464,17 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             // scraping the trace store.
             chainActivity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             chainActivity?.AddException(ex);
+
+            // Stamp the macro-attempt count on the span for the failure path too (DEC-087 D6): a
+            // trace-only view of a macro-exhaustion rejection must show how many attempts were made.
+            chainActivity?.SetTag(PlanGenerationTagNames.MacroAttempts, macroAttempts);
             stopwatch.Stop();
 
             var failureTags = new TagList
             {
                 { PlanGenerationTagNames.PlanId, planId.ToString() },
                 { PlanGenerationTagNames.UserId, userId.ToString() },
+                { PlanGenerationTagNames.MacroAttempts, macroAttempts },
                 { PlanGenerationTagNames.Outcome, "failure" },
                 { PlanGenerationTagNames.ExceptionType, ex.GetType().FullName },
             };
@@ -444,13 +502,63 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     /// <summary>
     /// Appends the macro-tier suffix on the cacheable base prompt. Layout: a
     /// blank line, the tier label, and a brief instruction line telling the
-    /// LLM which structured output is expected.
+    /// LLM which structured output is expected. When <paramref name="correction"/>
+    /// is non-null (a bounded validation-rejection retry, DEC-087) it is appended
+    /// after a blank-line separator so the model sees the specific defect to fix.
+    /// A null correction yields bytes identical to the pre-DEC-087 macro message,
+    /// preserving the attempt-0 input-prompt-stability contract.
     /// </summary>
-    private static string BuildMacroUserMessage(string basePrompt)
+    private static string BuildMacroUserMessage(string basePrompt, string? correction = null)
     {
-        var sb = BeginTierMessage(basePrompt, MacroTierLabel, extraCapacity: 128);
+        var sb = BeginTierMessage(basePrompt, MacroTierLabel, extraCapacity: correction is null ? 128 : 384);
         sb.AppendLine("Generate the periodized macro plan covering the full training horizon.");
+        if (correction is not null)
+        {
+            sb.AppendLine();
+            sb.Append(correction);
+        }
+
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Builds the deterministic per-retry correction suffix for a rejected macro (DEC-087). It names
+    /// the exact arithmetic the model got wrong so the re-roll becomes a narrow reconciliation task:
+    /// for <see cref="MacroPlanOutputValidationViolation.PhaseSumMismatch"/> the observed phase-week
+    /// sum vs. the declared <c>total_weeks</c>; for
+    /// <see cref="MacroPlanOutputValidationViolation.HorizonMismatch"/> the required target weeks vs.
+    /// the emitted total. The numbers are recomputed here from the rejected macro + horizon (the
+    /// validator returns only the violation discriminator), so the validator stays pure.
+    /// </summary>
+    private static string BuildMacroCorrection(
+        MacroPlanOutputValidationViolation violation,
+        MacroPlanOutput macro,
+        PlanHorizon horizon)
+    {
+        switch (violation)
+        {
+            case MacroPlanOutputValidationViolation.PhaseSumMismatch:
+                var phaseWeekSum = 0;
+                foreach (var phase in macro.Phases)
+                {
+                    phaseWeekSum += phase.Weeks;
+                }
+
+                return string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{MacroCorrectionLabel} Your previous plan's phase weeks summed to {phaseWeekSum} but total_weeks was {macro.TotalWeeks}. Emit phases whose Weeks values sum EXACTLY to total_weeks.");
+
+            case MacroPlanOutputValidationViolation.HorizonMismatch:
+                var targetWeeks = horizon.TargetTotalWeeks ?? macro.TotalWeeks;
+                return string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{MacroCorrectionLabel} Your previous plan set total_weeks to {macro.TotalWeeks} but the plan must span EXACTLY {targetWeeks} weeks so race week is the final phase's last week. Set total_weeks to {targetWeeks} and make the phase Weeks sum to it.");
+
+            default:
+                return string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{MacroCorrectionLabel} Your previous plan failed internal-consistency validation ({violation}). Ensure the phase Weeks values sum exactly to total_weeks.");
+        }
     }
 
     /// <summary>
@@ -564,11 +672,21 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
 
     [LoggerMessage(
         Level = LogLevel.Warning,
-        Message = "Macro plan rejected by validation: PlanId={PlanId} Violation={Violation}")]
+        Message = "Macro plan rejected by validation (retries exhausted): PlanId={PlanId} Violation={Violation} Attempts={Attempts}")]
     private static partial void LogMacroRejected(
         ILogger logger,
         Guid planId,
-        MacroPlanOutputValidationViolation violation);
+        MacroPlanOutputValidationViolation violation,
+        int attempts);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Macro plan rejected, retrying with correction: PlanId={PlanId} Violation={Violation} Attempt={Attempt}")]
+    private static partial void LogMacroRetry(
+        ILogger logger,
+        Guid planId,
+        MacroPlanOutputValidationViolation violation,
+        int attempt);
 
     /// <summary>
     /// Wraps one tier-level structured-output call: opens a per-tier child

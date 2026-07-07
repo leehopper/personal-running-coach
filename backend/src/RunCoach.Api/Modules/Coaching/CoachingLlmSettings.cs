@@ -39,6 +39,19 @@ public sealed record CoachingLlmSettings
     public int MaxRetries { get; init; } = 2;
 
     /// <summary>
+    /// Gets the maximum number of times the plan-generation macro tier is re-invoked when its
+    /// deterministic output validator (<c>MacroPlanOutputValidator</c>) rejects the generated macro
+    /// (DEC-087). <c>MacroValidationMaxRetries = N</c> means up to <c>N + 1</c> macro attempts before
+    /// the generation is terminally rejected — mirroring <see cref="MaxRetries"/>'s own semantics.
+    /// Distinct from <see cref="MaxRetries"/> (SDK transport/rate-limit retries): this governs a
+    /// bad-output re-roll of a well-formed-but-invalid macro, with no backoff, and each retry carries
+    /// a deterministic corrective hint naming the arithmetic the model got wrong. Defaults to 1
+    /// (2 attempts); raise it to trade worst-case plan-generation latency for resilience against
+    /// back-to-back stochastic rejections without a redeploy.
+    /// </summary>
+    public int MacroValidationMaxRetries { get; init; } = 1;
+
+    /// <summary>
     /// Gets the SDK per-attempt request timeout in seconds. Defaults to 120 seconds (2 minutes):
     /// this single setting governs every coaching call, and the plan-generation structured-output
     /// responses routinely need far longer than the ~30s DEC-073 sketched for the adaptation call

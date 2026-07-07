@@ -525,6 +525,333 @@ public sealed class PlanGenerationServiceTests
             .Which.Violation.Should().Be(MacroPlanOutputValidationViolation.PhaseSumMismatch);
     }
 
+    // DEC-087: bounded corrective-hint retry on macro validation rejection (F-LIVE-1).
+    [Fact]
+    public async Task GeneratePlanAsync_MacroPhaseSumMismatchThenValid_RetriesAndSucceeds()
+    {
+        // Arrange — the first macro sample is phase-sum-inconsistent (6+4=10 != 12); the retry
+        // returns a valid macro. With the default budget (1 retry) the service must recover and
+        // return the canonical sequence without surfacing a rejection.
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacroSequence(
+            llm,
+            capturedPrompts: null,
+            BuildMacroWithTotalWeeks(12, PhaseSumMismatchWeeks),
+            BuildMacro());
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — recovered on the retry: canonical six-event sequence, macro invoked exactly twice.
+        sequence.ToEvents().Should().HaveCount(6);
+        await llm.Received(2)
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_MacroHorizonMismatchThenValid_RetriesAndSucceeds()
+    {
+        // Arrange — anchored 9-week race horizon (race 2026-08-08 from plan-start 2026-06-07).
+        // The first macro is a phase-sum-consistent 16-week plan that violates the horizon by >1
+        // week; the retry returns a horizon-consistent 9-week plan. The service must recover, and the
+        // retry message must name the emitted (16) vs. required (9) weeks so a mutant that swaps them
+        // in `BuildMacroCorrection`'s `HorizonMismatch` branch is caught.
+        var capturedMacroPrompts = new List<string>();
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacroSequence(
+            llm,
+            capturedMacroPrompts,
+            BuildMacroWithTotalWeeks(16, SixteenWeekPhaseWeeks),
+            BuildMacroWithTotalWeeks(9, NineWeekPhaseWeeks));
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateRaceView(eventDateIso: "2026-08-08");
+
+        // Act
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — recovered on the retry.
+        sequence.ToEvents().Should().HaveCount(6);
+        await llm.Received(2)
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+
+        // The retry correction names the horizon numbers (emitted 16, required 9), anchored to the
+        // surrounding phrase so an incidental digit in the boilerplate can't satisfy it.
+        capturedMacroPrompts.Should().HaveCount(2);
+        capturedMacroPrompts[0].Should().NotContain(PlanGenerationService.MacroCorrectionLabel);
+        capturedMacroPrompts[1].Should().Contain("total_weeks to 16", because: "the emitted total is named");
+        capturedMacroPrompts[1].Should().Contain("EXACTLY 9 weeks", because: "the required target horizon is named");
+    }
+
+    [Theory]
+    [InlineData(0, 1)] // retry disabled → single attempt, immediate reject
+    [InlineData(1, 2)] // default budget → two attempts
+    [InlineData(2, 3)] // raised budget → three attempts
+    public async Task GeneratePlanAsync_MacroInvalidOnEveryAttempt_ThrowsAfterBudgetExhausted(
+        int maxRetries,
+        int expectedMacroCalls)
+    {
+        // Arrange — every macro sample is phase-sum-inconsistent. After the budget is spent the
+        // service throws the terminal rejection, having invoked the macro tier exactly
+        // (maxRetries + 1) times, and never reaches meso/micro.
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12), macroValidationMaxRetries: maxRetries);
+        ConfigureMacro(llm, BuildMacroWithTotalWeeks(12, PhaseSumMismatchWeeks));
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        var act = () => sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        (await act.Should().ThrowAsync<PlanGenerationRejectedException>())
+            .Which.Violation.Should().Be(MacroPlanOutputValidationViolation.PhaseSumMismatch);
+
+        await llm.Received(expectedMacroCalls)
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+
+        // A macro-tier exhaustion throws before any downstream tier runs — neither meso nor micro.
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_MacroRetry_AppendsCorrectionSuffixWithActualNumbersOnRetryOnly()
+    {
+        // Arrange — capture each macro user message. First sample is phase-sum-inconsistent
+        // (6+4=10 != 12); the retry succeeds. The attempt-0 message must be suffix-free; the
+        // attempt-1 message must name the observed sum (10) and the declared total (12).
+        var capturedMacroPrompts = new List<string>();
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacroSequence(
+            llm,
+            capturedMacroPrompts,
+            BuildMacroWithTotalWeeks(12, PhaseSumMismatchWeeks),
+            BuildMacro());
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        capturedMacroPrompts.Should().HaveCount(2);
+        capturedMacroPrompts[0].Should().NotContain(
+            PlanGenerationService.MacroCorrectionLabel,
+            because: "the first attempt must be byte-identical to the no-retry path (input-prompt-stability contract)");
+        capturedMacroPrompts[1].Should().Contain(PlanGenerationService.MacroCorrectionLabel);
+
+        // Anchor to the surrounding phrase, not a bare digit: the mocked profile's UserId GUID
+        // (…0010) contains "10", so a bare Contain("10") would pass even if the sum were miscomputed.
+        capturedMacroPrompts[1].Should().Contain("summed to 10", because: "the observed phase-week sum is named in the correction");
+        capturedMacroPrompts[1].Should().Contain("total_weeks was 12", because: "the declared total_weeks is named in the correction");
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_MacroRetry_StampsMacroAttemptCountOnCompletionMetric()
+    {
+        // Arrange — a MeterListener over the plan-generation completion instrument, same wiring as
+        // the failure-OTel test. A phase-sum-mismatch-then-valid sequence recovers on attempt 2, so
+        // the success measurement's tag bag must carry macro_attempts = 2.
+        var measurements = new List<(double Value, KeyValuePair<string, object?>[] Tags)>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == PlanGenerationService.ObservabilitySourceName
+                    && instrument.Name == PlanGenerationService.PlanGenerationCompletedMetricName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        meterListener.SetMeasurementEventCallback<double>((instrument, value, tags, state) =>
+        {
+            lock (measurements)
+            {
+                measurements.Add((value, tags.ToArray()));
+            }
+        });
+        meterListener.Start();
+
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacroSequence(
+            llm,
+            capturedPrompts: null,
+            BuildMacroWithTotalWeeks(12, PhaseSumMismatchWeeks),
+            BuildMacro());
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — the single success measurement carries macro_attempts = 2.
+        var successMeasurements = measurements
+            .Where(m => m.Tags.Any(t =>
+                t.Key == PlanGenerationTagNames.Outcome
+                && string.Equals(t.Value as string, "success", StringComparison.Ordinal)))
+            .ToArray();
+        successMeasurements.Should().HaveCount(1);
+        successMeasurements[0].Tags
+            .Should().Contain(t =>
+                t.Key == PlanGenerationTagNames.MacroAttempts
+                && (int)t.Value! == 2);
+
+        // total_calls reflects the ACTUAL LLM call volume (2 macro + 4 meso + 1 micro = 7), not the
+        // nominal 6 constant — a retry adds a real macro call the cost dashboards must see.
+        successMeasurements[0].Tags
+            .Should().Contain(t =>
+                t.Key == PlanGenerationTagNames.TotalCalls
+                && (int)t.Value! == 7);
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_MacroRetry_AccumulatesRejectedAttemptTokensIntoUsageRollup()
+    {
+        // Arrange — a MeterListener over the completion instrument. The rejected first attempt reports
+        // 100 fresh input tokens; the accepted retry reports 40 (meso/micro report zero). Those tokens
+        // are really spent, so the success measurement's input_tokens_fresh must be their SUM (140),
+        // not just the winner's 40 — pins the "accumulate every attempt" behavior (the unconditional
+        // `totalUsage.Add` inside the loop) against a mutant that only counts the accepted attempt.
+        var measurements = new List<(double Value, KeyValuePair<string, object?>[] Tags)>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == PlanGenerationService.ObservabilitySourceName
+                    && instrument.Name == PlanGenerationService.PlanGenerationCompletedMetricName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        meterListener.SetMeasurementEventCallback<double>((instrument, value, tags, state) =>
+        {
+            lock (measurements)
+            {
+                measurements.Add((value, tags.ToArray()));
+            }
+        });
+        meterListener.Start();
+
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        var badMacro = BuildMacroWithTotalWeeks(12, PhaseSumMismatchWeeks);
+        var goodMacro = BuildMacro();
+        var macroCalls = 0;
+        llm
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                macroCalls++;
+                return macroCalls == 1
+                    ? (badMacro, new AnthropicUsage(InputTokens: 100, OutputTokens: 0, CacheCreationInputTokens: 0, CacheReadInputTokens: 0))
+                    : (goodMacro, new AnthropicUsage(InputTokens: 40, OutputTokens: 0, CacheCreationInputTokens: 0, CacheReadInputTokens: 0));
+            });
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — the single success measurement's fresh-input-tokens tag sums both attempts (100 + 40).
+        var successMeasurements = measurements
+            .Where(m => m.Tags.Any(t =>
+                t.Key == PlanGenerationTagNames.Outcome
+                && string.Equals(t.Value as string, "success", StringComparison.Ordinal)))
+            .ToArray();
+        successMeasurements.Should().HaveCount(1);
+        successMeasurements[0].Tags
+            .Should().Contain(t =>
+                t.Key == PlanGenerationTagNames.InputTokensFresh
+                && (long)t.Value! == 140L);
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_MacroExhaustion_StampsMacroAttemptsOnFailureMetric()
+    {
+        // Arrange — a MeterListener; every macro attempt is invalid, so the default budget (1 retry →
+        // 2 attempts) is exhausted and the terminal `PlanGenerationRejectedException` is thrown. The
+        // failure measurement must carry macro_attempts = 2, pinning the catch-block tag against a
+        // mutant that hardcodes 0 or omits it.
+        var measurements = new List<(double Value, KeyValuePair<string, object?>[] Tags)>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == PlanGenerationService.ObservabilitySourceName
+                    && instrument.Name == PlanGenerationService.PlanGenerationCompletedMetricName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        meterListener.SetMeasurementEventCallback<double>((instrument, value, tags, state) =>
+        {
+            lock (measurements)
+            {
+                measurements.Add((value, tags.ToArray()));
+            }
+        });
+        meterListener.Start();
+
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacro(llm, BuildMacroWithTotalWeeks(12, PhaseSumMismatchWeeks));
+        ConfigureMesoMicroHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        await FluentActions
+            .Awaiting(() => sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken))
+            .Should()
+            .ThrowAsync<PlanGenerationRejectedException>();
+
+        // Assert — the single failure measurement carries macro_attempts = 2.
+        var failureMeasurements = measurements
+            .Where(m => m.Tags.Any(t =>
+                t.Key == PlanGenerationTagNames.Outcome
+                && string.Equals(t.Value as string, "failure", StringComparison.Ordinal)))
+            .ToArray();
+        failureMeasurements.Should().HaveCount(1);
+        failureMeasurements[0].Tags
+            .Should().Contain(t =>
+                t.Key == PlanGenerationTagNames.MacroAttempts
+                && (int)t.Value! == 2);
+    }
+
     [Theory]
     [InlineData(1, PhaseType.Base, false)]
     [InlineData(8, PhaseType.Base, true)] // last week of an 8-week phase that includes deload.
@@ -637,7 +964,8 @@ public sealed class PlanGenerationServiceTests
 
     private static (PlanGenerationService Sut, ICoachingLlm Llm, IContextAssembler Assembler) CreateSut(
         DateTimeOffset? now = null,
-        DateOnly? localToday = null)
+        DateOnly? localToday = null,
+        int? macroValidationMaxRetries = null)
     {
         var assembler = Substitute.For<IContextAssembler>();
         assembler
@@ -670,11 +998,19 @@ public sealed class PlanGenerationServiceTests
         var promptStore = Substitute.For<IPromptStore>();
         promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId).Returns("v1");
 
-        var settings = Options.Create(new CoachingLlmSettings
+        // Inherit the production default (MacroValidationMaxRetries = 1) unless a test overrides it,
+        // so the default-budget behavior is exercised without pinning the number in every test.
+        var settingsRecord = new CoachingLlmSettings
         {
             ApiKey = "[REDACTED]",
             ModelId = "test-model-id",
-        });
+        };
+        if (macroValidationMaxRetries is int retries)
+        {
+            settingsRecord = settingsRecord with { MacroValidationMaxRetries = retries };
+        }
+
+        var settings = Options.Create(settingsRecord);
 
         var effectiveNow = now ?? Now;
         var timeProvider = Substitute.For<TimeProvider>();
@@ -736,6 +1072,35 @@ public sealed class PlanGenerationServiceTests
                 Arg.Any<CacheControl?>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ => WithZeroUsage(macro));
+    }
+
+    /// <summary>
+    /// Stubs the macro tier to return each element of <paramref name="sequence"/> on successive
+    /// calls, clamping to the last element once the sequence is exhausted (so an all-invalid run
+    /// keeps returning the same rejected macro). Captures each call's user-message argument into
+    /// <paramref name="capturedPrompts"/> when supplied so retry-suffix assertions can inspect the
+    /// exact bytes handed to the LLM per attempt. Uses the file's established counter-closure idiom.
+    /// </summary>
+    private static void ConfigureMacroSequence(
+        ICoachingLlm llm,
+        List<string>? capturedPrompts,
+        params MacroPlanOutput[] sequence)
+    {
+        var calls = 0;
+        llm
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                capturedPrompts?.Add(call.ArgAt<string>(1));
+                var index = Math.Min(calls, sequence.Length - 1);
+                calls++;
+                return WithZeroUsage(sequence[index]);
+            });
     }
 
     /// <summary>
