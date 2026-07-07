@@ -1,13 +1,12 @@
 using FluentAssertions;
-using RunCoach.Api.Modules.Coaching.Onboarding;
 using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
 
 /// <summary>
-/// Range-validation tests for numeric fields on onboarding answer records and
-/// <see cref="ExtractedAnswer"/>. Each validated field gets one in-range (succeeds)
-/// test and one or more out-of-range (throws) tests. Construction is tested directly
+/// Range-validation tests for numeric fields on onboarding answer records. Each
+/// validated field gets one in-range (succeeds) test and one or more out-of-range
+/// (throws) tests. Construction is tested directly
 /// (not via <c>with</c> expressions) because C# record copy-constructors assign backing
 /// fields directly and do not re-invoke the init accessor on the mutated property.
 /// </summary>
@@ -321,66 +320,5 @@ public sealed class AnswerRecordValidationTests
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("RecentRaceDistanceKm");
-    }
-
-    // ExtractedAnswer.Confidence (0.0-1.0 inclusive)
-    [Theory]
-    [InlineData(0.0)]
-    [InlineData(0.6)]
-    [InlineData(1.0)]
-    public void ExtractedAnswer_Confidence_InRange_Succeeds(double value)
-    {
-        // Arrange (no setup needed)
-
-        // Act
-        var act = () => new ExtractedAnswer
-        {
-            Topic = OnboardingTopic.PrimaryGoal,
-            Confidence = value,
-            NormalizedPrimaryGoal = new PrimaryGoalAnswer
-            {
-                Goal = PrimaryGoal.GeneralFitness,
-                Description = "Just want to stay fit.",
-            },
-            NormalizedTargetEvent = null,
-            NormalizedCurrentFitness = null,
-            NormalizedWeeklySchedule = null,
-            NormalizedInjuryHistory = null,
-            NormalizedPreferences = null,
-        };
-
-        // Assert
-        act.Should().NotThrow();
-    }
-
-    [Theory]
-    [InlineData(-0.001)]
-    [InlineData(1.001)]
-    [InlineData(-1.0)]
-    [InlineData(2.0)]
-    public void ExtractedAnswer_Confidence_OutOfRange_Throws(double value)
-    {
-        // Arrange (no setup needed)
-
-        // Act
-        var act = () => new ExtractedAnswer
-        {
-            Topic = OnboardingTopic.PrimaryGoal,
-            Confidence = value,
-            NormalizedPrimaryGoal = new PrimaryGoalAnswer
-            {
-                Goal = PrimaryGoal.GeneralFitness,
-                Description = "Just want to stay fit.",
-            },
-            NormalizedTargetEvent = null,
-            NormalizedCurrentFitness = null,
-            NormalizedWeeklySchedule = null,
-            NormalizedInjuryHistory = null,
-            NormalizedPreferences = null,
-        };
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("Confidence");
     }
 }

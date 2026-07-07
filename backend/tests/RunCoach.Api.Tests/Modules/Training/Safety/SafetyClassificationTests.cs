@@ -8,7 +8,7 @@ namespace RunCoach.Api.Tests.Modules.Training.Safety;
 /// Guards the construction invariants of <see cref="SafetyClassification"/>: a
 /// Green result never carries a referral category, a non-Green result always
 /// does, and the only public entry points are the factories (mirrors
-/// <c>OnboardingTurnOutputValidationResult</c>).
+/// <c>PlanAdaptationOutputValidationResult</c>).
 /// </summary>
 public sealed class SafetyClassificationTests
 {

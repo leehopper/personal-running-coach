@@ -78,31 +78,11 @@ const injectedRtkApi = api.injectEndpoints({
         body: queryArg.confirmConversationalLogRequestDto,
       }),
     }),
-    postApiV1OnboardingTurns: build.mutation<
-      PostApiV1OnboardingTurnsApiResponse,
-      PostApiV1OnboardingTurnsApiArg
-    >({
-      query: (queryArg) => ({
-        url: `/api/v1/onboarding/turns`,
-        method: 'POST',
-        body: queryArg.onboardingTurnRequestDto,
-      }),
-    }),
     getApiV1OnboardingState: build.query<
       GetApiV1OnboardingStateApiResponse,
       GetApiV1OnboardingStateApiArg
     >({
       query: () => ({ url: `/api/v1/onboarding/state` }),
-    }),
-    postApiV1OnboardingAnswersRevise: build.mutation<
-      PostApiV1OnboardingAnswersReviseApiResponse,
-      PostApiV1OnboardingAnswersReviseApiArg
-    >({
-      query: (queryArg) => ({
-        url: `/api/v1/onboarding/answers/revise`,
-        method: 'POST',
-        body: queryArg.reviseAnswerRequestDto,
-      }),
     }),
     postApiV1OnboardingAnswers: build.mutation<
       PostApiV1OnboardingAnswersApiResponse,
@@ -198,16 +178,8 @@ export type PostApiV1ConversationLogsConfirmApiResponse =
 export type PostApiV1ConversationLogsConfirmApiArg = {
   confirmConversationalLogRequestDto: ConfirmConversationalLogRequestDto
 }
-export type PostApiV1OnboardingTurnsApiResponse = /** status 200 OK */ OnboardingTurnResponseDto
-export type PostApiV1OnboardingTurnsApiArg = {
-  onboardingTurnRequestDto: OnboardingTurnRequestDto
-}
 export type GetApiV1OnboardingStateApiResponse = /** status 200 OK */ OnboardingStateDto
 export type GetApiV1OnboardingStateApiArg = void
-export type PostApiV1OnboardingAnswersReviseApiResponse = /** status 200 OK */ OnboardingStateDto
-export type PostApiV1OnboardingAnswersReviseApiArg = {
-  reviseAnswerRequestDto: ReviseAnswerRequestDto
-}
 export type PostApiV1OnboardingAnswersApiResponse = /** status 200 OK */ OnboardingStateDto
 export type PostApiV1OnboardingAnswersApiArg = {
   submitStructuredAnswersRequestDto: SubmitStructuredAnswersRequestDto
@@ -405,27 +377,8 @@ export type ConfirmConversationalLogRequestDto = {
   draft: StructuredLogDraft
   clientMessageId: string
 }
-export type OnboardingTurnKind = 0 | 1 | 2
-export type OnboardingTopic = 0 | 1 | 2 | 3 | 4 | 5
-export type SuggestedInputType = 0 | 1 | 2 | 3 | 4
-export type OnboardingProgressDto = {
-  completedTopics: number
-  totalTopics: number
-}
-export type OnboardingTurnResponseDto = {
-  kind: OnboardingTurnKind
-  assistantBlocks: any
-  topic: OnboardingTopic
-  suggestedInputType: SuggestedInputType
-  progress: OnboardingProgressDto
-  planId?: string | null
-  errorMessage?: string | null
-}
-export type OnboardingTurnRequestDto = {
-  idempotencyKey: string
-  text: string
-}
 export type OnboardingStatus = 0 | 1 | 2
+export type OnboardingTopic = 0 | 1 | 2 | 3 | 4 | 5
 export type PrimaryGoal = 0 | 1 | 2 | 3 | 4
 export type PrimaryGoalAnswer = {
   goal: PrimaryGoal
@@ -509,10 +462,6 @@ export type OnboardingStateDto = {
   injuryHistory: InjuryHistoryAnswer
   preferences: PreferencesAnswer
   currentPlanId?: string | null
-}
-export type ReviseAnswerRequestDto = {
-  topic: OnboardingTopic
-  normalizedValue: any
 }
 export type PrimaryGoalInputDto = {
   goal: PrimaryGoal
@@ -708,9 +657,7 @@ export const {
   useGetApiV1ConversationTimelineQuery,
   usePostApiV1ConversationMessagesMutation,
   usePostApiV1ConversationLogsConfirmMutation,
-  usePostApiV1OnboardingTurnsMutation,
   useGetApiV1OnboardingStateQuery,
-  usePostApiV1OnboardingAnswersReviseMutation,
   usePostApiV1OnboardingAnswersMutation,
   useGetApiV1PlanCurrentQuery,
   usePostApiV1PlanRegenerateMutation,

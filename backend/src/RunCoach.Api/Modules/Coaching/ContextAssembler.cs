@@ -1,13 +1,10 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Models;
 using RunCoach.Api.Modules.Coaching.Onboarding;
-using RunCoach.Api.Modules.Coaching.Onboarding.Models;
 using RunCoach.Api.Modules.Coaching.Prompts;
 using RunCoach.Api.Modules.Training.Adaptation;
 using RunCoach.Api.Modules.Training.Models;
@@ -39,10 +36,6 @@ namespace RunCoach.Api.Modules.Coaching;
 /// <remarks>
 /// Sanitization status by entry point:
 ///
-/// - <see cref="ComposeForOnboardingAsync"/> — sanitizes the runner's free-text input
-///   via <see cref="IPromptSanitizer"/> per R-068 / DEC-059 (Slice 1 § Unit 6).
-///   Prior captured-slot answers are inlined as JSON from already-validated structured
-///   output and are not re-sanitized.
 /// - <see cref="ComposeForPlanGenerationAsync"/> — caller is responsible for sanitizing
 ///   <see cref="RegenerationIntent.FreeText"/> before constructing the intent (see the
 ///   record's XML doc). The captured profile snapshot is rendered from the same
@@ -129,15 +122,6 @@ public sealed partial class ContextAssembler : IContextAssembler
     internal const string ClassifierPromptId = "conversation-classifier";
 
     /// <summary>
-    /// Filename of the onboarding system prompt YAML loaded directly off
-    /// disk by <see cref="ComposeForOnboardingAsync"/>. This file uses the
-    /// <c>{id}-{version}.yaml</c> convention rather than the prompt store's
-    /// <c>{id}.{version}.yaml</c> convention, so it is read directly via the
-    /// content root rather than registered with <see cref="IPromptStore"/>.
-    /// </summary>
-    internal const string OnboardingPromptFileName = "onboarding-v1.yaml";
-
-    /// <summary>
     /// Serializer options for inlining captured onboarding slot answers in
     /// the user message. CamelCase + no indentation + string-enum converter
     /// keeps the rendered JSON byte-stable across replays so the cache
@@ -155,22 +139,16 @@ public sealed partial class ContextAssembler : IContextAssembler
     private readonly ILogger<ContextAssembler> _logger;
     private readonly IPromptSanitizer? _sanitizer;
     private readonly IRecentLogSanitizer? _recentLogSanitizer;
-    private readonly Lazy<Task<string>>? _onboardingSystemPromptCache;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ContextAssembler"/> class
-    /// wired for both plan-generation and onboarding flows. The
-    /// <paramref name="sanitizer"/> is invoked per-section by
-    /// <see cref="ComposeForOnboardingAsync"/> per R-068 / DEC-059 (Slice 1
-    /// § Unit 6); the <paramref name="environment"/> + <paramref name="promptSettings"/>
-    /// combo resolves the onboarding YAML file off disk independently of the
-    /// dot-versioned prompt store convention.
+    /// for the coaching flows (plan generation, adaptation, conversation,
+    /// classification, ack). The <paramref name="sanitizer"/> is invoked
+    /// per-section by the compose entry points per R-068 / DEC-059.
     /// </summary>
     /// <param name="promptStore">The prompt store for loading versioned coaching system prompts.</param>
     /// <param name="timeProvider">Time provider for deterministic date calculations.</param>
     /// <param name="sanitizer">Layered prompt-injection sanitizer (Slice 1 § Unit 6 / DEC-059).</param>
-    /// <param name="environment">Host environment used to resolve the prompts content root.</param>
-    /// <param name="promptSettings">Prompt-store settings — used to resolve the prompts base directory.</param>
     /// <param name="logger">Logger instance.</param>
     /// <param name="recentLogSanitizer">
     /// Recent-log sanitizer for the adaptation flow (Slice 3 § Unit 5).
@@ -183,16 +161,12 @@ public sealed partial class ContextAssembler : IContextAssembler
         IPromptStore promptStore,
         TimeProvider timeProvider,
         IPromptSanitizer sanitizer,
-        IHostEnvironment environment,
-        IOptions<PromptStoreSettings> promptSettings,
         ILogger<ContextAssembler> logger,
         IRecentLogSanitizer? recentLogSanitizer = null)
     {
         ArgumentNullException.ThrowIfNull(promptStore);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(sanitizer);
-        ArgumentNullException.ThrowIfNull(environment);
-        ArgumentNullException.ThrowIfNull(promptSettings);
         ArgumentNullException.ThrowIfNull(logger);
 
         _promptStore = promptStore;
@@ -200,19 +174,13 @@ public sealed partial class ContextAssembler : IContextAssembler
         _logger = logger;
         _sanitizer = sanitizer;
         _recentLogSanitizer = recentLogSanitizer;
-
-        var basePath = Path.Combine(environment.ContentRootPath, promptSettings.Value.BasePath);
-        var onboardingFilePath = Path.Combine(basePath, OnboardingPromptFileName);
-        _onboardingSystemPromptCache = new Lazy<Task<string>>(
-            () => LoadOnboardingSystemPromptAsync(onboardingFilePath),
-            LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ContextAssembler"/> class
-    /// for the legacy plan-generation path. <see cref="ComposeForOnboardingAsync"/>
-    /// is unavailable on instances built via this constructor — call the
-    /// onboarding-aware constructor above instead.
+    /// for the legacy plan-generation path. The sanitizer-dependent compose
+    /// entry points are unavailable on instances built via this constructor —
+    /// call the public constructor above instead.
     /// </summary>
     /// <remarks>
     /// Marked <c>internal</c> so production DI cannot construct the
@@ -234,7 +202,6 @@ public sealed partial class ContextAssembler : IContextAssembler
         _logger = logger;
         _sanitizer = null;
         _recentLogSanitizer = null;
-        _onboardingSystemPromptCache = null;
     }
 
     /// <inheritdoc />
@@ -277,43 +244,6 @@ public sealed partial class ContextAssembler : IContextAssembler
             middleSections.ToImmutableArray(),
             endSections.ToImmutableArray(),
             totalTokens);
-    }
-
-    /// <inheritdoc />
-    public async Task<OnboardingPromptComposition> ComposeForOnboardingAsync(
-        OnboardingView view,
-        OnboardingTopic currentTopic,
-        string userInput,
-        CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(view);
-
-        if (_sanitizer is null || _onboardingSystemPromptCache is null)
-        {
-            throw new InvalidOperationException(
-                "ContextAssembler was constructed without onboarding dependencies. " +
-                "Use the six-arg constructor (with IPromptSanitizer, IHostEnvironment, " +
-                "IOptions<PromptStoreSettings>) for the onboarding flow.");
-        }
-
-        ct.ThrowIfCancellationRequested();
-
-        var systemPrompt = await _onboardingSystemPromptCache.Value.WaitAsync(ct).ConfigureAwait(false);
-
-        // Sanitize the runner's free-text input. The Spotlighting delimiter
-        // wrap (with per-turn nonce) is appended on the non-cached prompt
-        // tail so the cacheable prefix stays byte-identical across replays
-        // per DEC-047.
-        var sanitized = await _sanitizer
-            .SanitizeAsync(userInput, SanitizationPromptSection.CurrentUserMessage, ct)
-            .ConfigureAwait(false);
-
-        var userMessage = BuildOnboardingUserMessage(view, currentTopic, sanitized.Sanitized);
-
-        return new OnboardingPromptComposition(
-            SystemPrompt: systemPrompt,
-            UserMessage: userMessage,
-            Findings: sanitized.Findings.ToImmutableArray());
     }
 
     /// <inheritdoc />
@@ -573,43 +503,6 @@ public sealed partial class ContextAssembler : IContextAssembler
     }
 
     /// <summary>
-    /// Builds the onboarding turn user message. Layout is intentional: the
-    /// captured-so-far slot summary precedes the current-topic line so the
-    /// LLM sees its working memory before the prompt for the next answer.
-    /// The sanitized + delimiter-wrapped runner input lands LAST per the
-    /// non-cached-tail convention (DEC-047 / Spotlighting).
-    /// </summary>
-    /// <remarks>
-    /// <c>internal</c> (not <c>private</c>) so the onboarding-voice eval calls
-    /// this exact builder instead of reproducing its layout — a hand-rolled copy
-    /// could silently drift (e.g. a new slot) and keep matching a stale fixture.
-    /// The test assembly retains access via <c>InternalsVisibleTo</c>.
-    /// </remarks>
-    internal static string BuildOnboardingUserMessage(
-        OnboardingView view,
-        OnboardingTopic currentTopic,
-        string sanitizedUserInput)
-    {
-        var sb = new StringBuilder();
-
-        sb.AppendLine("ONBOARDING STATE (captured so far):");
-        AppendSlotSummary(sb, view);
-
-        if (view.OutstandingClarifications.Count > 0)
-        {
-            var topics = string.Join(", ", view.OutstandingClarifications);
-            sb.AppendLine(CultureInfo.InvariantCulture, $"OUTSTANDING_CLARIFICATIONS: {topics}");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine(CultureInfo.InvariantCulture, $"CURRENT_TOPIC: {currentTopic}");
-        sb.AppendLine();
-        sb.Append(sanitizedUserInput);
-
-        return sb.ToString();
-    }
-
-    /// <summary>
     /// Groups workouts by ISO week (Monday-based) and returns weekly summaries
     /// ordered by most recent week first.
     /// </summary>
@@ -769,10 +662,9 @@ public sealed partial class ContextAssembler : IContextAssembler
 
     /// <summary>
     /// Appends the six captured onboarding slots to the user message in the
-    /// canonical order. Shared by <see cref="BuildOnboardingUserMessage"/> and
-    /// <see cref="BuildPlanGenerationUserMessage"/> so the slot block stays
-    /// byte-identical across both flows — adding a slot to one without the
-    /// other would desync the cacheable prefix per DEC-047.
+    /// canonical order. Used by <see cref="BuildPlanGenerationUserMessage"/> to
+    /// render the captured profile snapshot into a byte-stable slot block —
+    /// the cacheable prefix must not drift per DEC-047.
     /// </summary>
     private static void AppendSlotSummary(StringBuilder sb, OnboardingView view)
     {
@@ -1042,49 +934,6 @@ public sealed partial class ContextAssembler : IContextAssembler
 
     private static string FormatSecondsPerKm(int secondsPerKm) =>
         FormatTimeSpan(TimeSpan.FromSeconds(secondsPerKm));
-
-    /// <summary>
-    /// Loads the onboarding system prompt YAML from disk. Parses the
-    /// <c>static_system_prompt</c> top-level key with YamlDotNet and returns
-    /// the trimmed content. The result is cached by the
-    /// <see cref="_onboardingSystemPromptCache"/> <see cref="Lazy{T}"/> so
-    /// every onboarding turn after the first reuses the same byte-equal
-    /// string instance.
-    /// </summary>
-    /// <remarks>
-    /// The file read intentionally does not accept a per-call
-    /// <see cref="CancellationToken"/>. The single resulting <see cref="Task"/>
-    /// is shared by every caller via the enclosing <see cref="Lazy{T}"/>; if the
-    /// first caller's token cancelled the underlying read the cached task would
-    /// fault for every subsequent caller. Per-call cancellation is provided one
-    /// level up via <see cref="Task.WaitAsync(CancellationToken)"/> on the cached
-    /// task, which detaches the caller without invalidating the shared result.
-    /// </remarks>
-    private static async Task<string> LoadOnboardingSystemPromptAsync(string filePath)
-    {
-        if (!File.Exists(filePath))
-        {
-            throw new FileNotFoundException(
-                $"Onboarding prompt YAML not found at expected path '{filePath}'. " +
-                $"This file is created by Slice 1 / T01.3.",
-                filePath);
-        }
-
-        var yaml = await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
-        var deserializer = new YamlDotNet.Serialization.DeserializerBuilder()
-            .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.UnderscoredNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
-
-        var doc = deserializer.Deserialize<OnboardingYamlDocument>(yaml);
-        if (string.IsNullOrWhiteSpace(doc?.StaticSystemPrompt))
-        {
-            throw new InvalidOperationException(
-                $"Onboarding prompt YAML at '{filePath}' is missing the 'static_system_prompt' key.");
-        }
-
-        return doc.StaticSystemPrompt.TrimEnd();
-    }
 
     /// <summary>
     /// Builds the START sections: user profile, goal state, fitness estimate, training paces.
@@ -1486,20 +1335,6 @@ public sealed partial class ContextAssembler : IContextAssembler
         var content = sb.ToString().TrimEnd();
 
         return new PromptSection("conversation_history", content, EstimateTokens(content));
-    }
-
-    /// <summary>
-    /// Minimal YAML deserialization shape for <c>onboarding-v1.yaml</c>. Only
-    /// the <c>static_system_prompt</c> field is read — metadata and other
-    /// fields are ignored via <c>IgnoreUnmatchedProperties</c>. The setter is
-    /// invoked by YamlDotNet via reflection; SonarAnalyzer's S3459 / S1144
-    /// rules cannot see that path so the setter is suppressed locally.
-    /// </summary>
-    private sealed class OnboardingYamlDocument
-    {
-#pragma warning disable S3459, S1144, CA1822 // YamlDotNet sets the property via reflection.
-        public string? StaticSystemPrompt { get; set; }
-#pragma warning restore S3459, S1144, CA1822
     }
 
     /// <summary>

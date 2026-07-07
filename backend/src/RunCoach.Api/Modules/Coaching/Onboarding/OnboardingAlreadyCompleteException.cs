@@ -1,8 +1,8 @@
 namespace RunCoach.Api.Modules.Coaching.Onboarding;
 
 /// <summary>
-/// Thrown by <see cref="OnboardingTurnHandler"/> when a runner attempts to submit
-/// a fresh turn against a stream that already terminated with
+/// Thrown by <see cref="SubmitStructuredAnswersHandler"/> when a runner attempts to
+/// submit answers against a stream that already terminated with
 /// <see cref="OnboardingCompleted"/>. The controller surface translates the
 /// exception into HTTP 409 Conflict with an RFC 7807 ProblemDetails body per
 /// the onboarding state-engine feature spec.

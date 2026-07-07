@@ -818,6 +818,46 @@ public sealed class OnboardingProjectionTests
             .WithMessage("*refusing to apply*");
     }
 
+    [Fact]
+    public void OnboardingAggregateEvents_AreAllSealedRecords()
+    {
+        // Arrange — Marten event types must be sealed records so their JSON shape is stable.
+        var aggregateEventTypes = new[]
+        {
+            typeof(OnboardingStarted),
+            typeof(TopicAsked),
+            typeof(UserTurnRecorded),
+            typeof(AssistantTurnRecorded),
+            typeof(AnswerCaptured),
+            typeof(ClarificationRequested),
+            typeof(PlanLinkedToUser),
+            typeof(OnboardingCompleted),
+        };
+
+        // Act + Assert — eight events total per spec proof artifact + DEC-060 / R-069.
+        aggregateEventTypes.Should().HaveCount(8, "the onboarding stream declares eight Marten events");
+        foreach (var type in aggregateEventTypes)
+        {
+            type.IsSealed.Should().BeTrue($"{type.Name} must be sealed for Marten serialization stability");
+            type.Name.Should().NotBeNullOrEmpty();
+        }
+    }
+
+    [Fact]
+    public void PlanLinkedToUser_CarriesUserIdAndPlanId()
+    {
+        // Arrange + Act — DEC-060 / R-069 event triggers UserProfile.CurrentPlanId update via projection.
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = false };
+        var expected = new PlanLinkedToUser(UserId: Guid.NewGuid(), PlanId: Guid.NewGuid());
+        var json = JsonSerializer.Serialize(expected, options);
+        var actual = JsonSerializer.Deserialize<PlanLinkedToUser>(json, options);
+
+        // Assert
+        actual.Should().NotBeNull();
+        actual!.UserId.Should().Be(expected.UserId);
+        actual.PlanId.Should().Be(expected.PlanId);
+    }
+
     private static List<(object Data, DateTimeOffset Timestamp)> BuildFullSequence(Guid planId)
     {
         var t = Now;

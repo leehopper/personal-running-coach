@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using FluentAssertions;
-using RunCoach.Api.Modules.Coaching.Onboarding;
+using RunCoach.Api.Modules.Coaching;
 
-namespace RunCoach.Api.Tests.Modules.Coaching.Onboarding;
+namespace RunCoach.Api.Tests.Modules.Coaching;
 
 /// <summary>
 /// Focused unit tests for <see cref="AnthropicSchemaSanitizer"/>: confirms each

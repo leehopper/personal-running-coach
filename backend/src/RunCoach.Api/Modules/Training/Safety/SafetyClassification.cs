@@ -10,7 +10,7 @@ namespace RunCoach.Api.Modules.Training.Safety;
 /// <see cref="Amber"/>, or <see cref="Red"/> so contradictory pairings (a
 /// non-Green tier with <see cref="ReferralCategory.None"/>, or a Green tier
 /// carrying a category) cannot be expressed. Mirrors
-/// <c>OnboardingTurnOutputValidationResult</c>.
+/// <c>PlanAdaptationOutputValidationResult</c>.
 /// </remarks>
 public sealed record SafetyClassification
 {

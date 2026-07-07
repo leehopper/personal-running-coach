@@ -12,14 +12,14 @@ namespace RunCoach.Api.Tests.Infrastructure;
 /// Transient lifetime, Wolverine cannot construct it statically, falls back to
 /// service location, and throws <c>InvalidServiceLocationException</c> while
 /// compiling the handler chain — surfacing as an HTTP 500 on the affected endpoint
-/// (the <c>OnboardingTurnHandler</c> / POST <c>/api/v1/onboarding/turns</c> chain).
+/// (e.g. the <c>SubmitStructuredAnswersHandler</c> / POST <c>/api/v1/onboarding/answers</c> chain).
 ///
 /// This blind spot existed because no green test compiled the production handler
 /// graph: the <c>*DiResolutionTests</c> only assert <c>GetRequiredService</c>
-/// succeeds (which an opaque lambda factory satisfies), the onboarding handler unit
-/// tests call the static <c>Handle</c> method directly with mocks (bypassing
-/// Wolverine codegen), and the HTTP/bus integration host swaps
-/// <c>IPlanGenerationService</c> for a stub that severs the failing dependency edge.
+/// succeeds (which an opaque lambda factory satisfies), handler unit tests call the
+/// static <c>Handle</c> method directly with mocks (bypassing Wolverine codegen),
+/// and the HTTP/bus integration host swaps <c>IPlanGenerationService</c> for a stub
+/// that severs the failing dependency edge.
 ///
 /// This test inspects the production registrations directly (no host boot, no DB,
 /// no LLM) and fails if any module service uses an opaque Scoped/Transient lambda

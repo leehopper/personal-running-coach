@@ -15,7 +15,7 @@ namespace RunCoach.Api.Modules.Coaching.Adaptation;
 /// <item>a load-reducing restructure must include a forward path / return trajectory.</item>
 /// </list>
 /// Pure: it does not retry, log, or throw (beyond the null guard) — callers decide policy.
-/// Mirrors <c>OnboardingTurnOutputValidator</c>.
+/// Mirrors <c>MessageIntentOutputValidator</c>.
 /// </summary>
 public static class PlanAdaptationOutputValidator
 {

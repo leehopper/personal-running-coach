@@ -5,7 +5,7 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 /// <see cref="MessageIntentOutput"/>: the populated slot matches the discriminator
 /// (exactly the <see cref="MessageIntent.WorkoutLog"/> intent fills the
 /// <see cref="MessageIntentOutput.WorkoutLog"/> slot). Mirrors
-/// <c>OnboardingTurnOutputValidator</c> / <c>PlanAdaptationOutputValidator</c>. Pure:
+/// <c>PlanAdaptationOutputValidator</c>. Pure:
 /// it does not retry, log, or throw (beyond the null guard) — callers decide policy
 /// (DEC-085 biases a failed/low-confidence classify toward asking, not guessing).
 /// </summary>
