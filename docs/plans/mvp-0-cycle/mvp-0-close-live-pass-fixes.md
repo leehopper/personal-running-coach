@@ -22,7 +22,7 @@ CI/eval coverage alone does not close a finding — Replay cannot exercise the
 live-Sonnet stochasticity that produced these. F-LIVE-1 and F-LIVE-2 may ship and
 be verified independently.
 
-**Progress.** F-LIVE-1 🚧 in progress (this doc + DEC-087, PR pending). F-LIVE-2 ⏳
+**Progress.** F-LIVE-1 ✅ fix complete (this doc + DEC-087; PR #271 green + CodeRabbit-approved, auto-merge enabled). F-LIVE-2 ⏳
 not started (separate follow-up — deterministic meso↔micro consistency validator;
 needs its own DEC + spec).
 
