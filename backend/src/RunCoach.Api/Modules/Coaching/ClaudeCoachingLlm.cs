@@ -197,7 +197,7 @@ public sealed partial class ClaudeCoachingLlm : ICoachingLlm, IDisposable
         var effectiveModel = modelOverride ?? _settings.ModelId;
         LogSendingRequest(_logger, effectiveModel, _settings.MaxTokens);
 
-        // Resolve schema: caller-supplied (byte-stable, e.g. AdaptationSchema.Frozen)
+        // Resolve schema: caller-supplied (byte-stable, e.g. `AdaptationSchema.Frozen`)
         // takes precedence; otherwise fall back to runtime generation.
         var schemaDict = schema is not null
             ? new Dictionary<string, JsonElement>(schema, StringComparer.Ordinal)

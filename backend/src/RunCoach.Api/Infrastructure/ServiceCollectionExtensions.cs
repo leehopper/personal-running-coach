@@ -97,17 +97,17 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICoachingLlm, ClaudeCoachingLlm>();
 
         // ContextAssembler's 3-arg legacy constructor is `internal` (test-only via
-        // InternalsVisibleTo); the public surface is the single 5-arg constructor
-        // (4 required dependencies + an optional IRecentLogSanitizer that resolves
+        // `InternalsVisibleTo`); the public surface is the single 5-arg constructor
+        // (4 required dependencies + an optional `IRecentLogSanitizer` that resolves
         // from the registered singleton for the adaptation flow), so the container
         // unambiguously selects it from a plain implementation-type registration.
         // This MUST stay a type registration, not an `sp => new ContextAssembler(...)`
-        // lambda factory: Wolverine 6 handler codegen (ServiceLocationPolicy.NotAllowed,
+        // lambda factory: Wolverine 6 handler codegen (`ServiceLocationPolicy.NotAllowed`,
         // DEC-071) cannot statically construct an opaque Scoped lambda factory, falls
         // back to service location, and rejects it — breaking the sanitizer-dependent
         // handler chain with an HTTP 500. The no-opaque-factory rule is guarded by
-        // WolverineCodegenCompositionTests; correct constructor selection is guarded
-        // by ContextAssemblerDiResolutionTests.
+        // `WolverineCodegenCompositionTests`; correct constructor selection is guarded
+        // by `ContextAssemblerDiResolutionTests`.
         services.AddScoped<IContextAssembler, ContextAssembler>();
 
         // Interactive-conversation intent classifier (Slice 4B / DEC-085 D3) — composes the
@@ -148,7 +148,7 @@ public static class ServiceCollectionExtensions
 
         // Plan generation orchestrator — plain DI service per Slice 1 § Unit 2
         // (DEC-057 / R-066). NOT a Wolverine handler: invoked inline by the
-        // caller's static handler body (e.g. SubmitStructuredAnswersHandler.Handle) so
+        // caller's static handler body (e.g. `SubmitStructuredAnswersHandler.Handle`) so
         // events commit on the caller's session inside one Marten transaction.
         services.AddScoped<IPlanGenerationService, PlanGenerationService>();
 
