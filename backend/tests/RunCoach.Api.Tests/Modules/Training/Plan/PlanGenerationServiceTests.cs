@@ -562,7 +562,7 @@ public sealed class PlanGenerationServiceTests
         // The first macro is a phase-sum-consistent 16-week plan that violates the horizon by >1
         // week; the retry returns a horizon-consistent 9-week plan. The service must recover, and the
         // retry message must name the emitted (16) vs. required (9) weeks so a mutant that swaps them
-        // in BuildMacroCorrection's HorizonMismatch branch is caught.
+        // in `BuildMacroCorrection`'s `HorizonMismatch` branch is caught.
         var capturedMacroPrompts = new List<string>();
         var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
         ConfigureMacroSequence(
@@ -741,7 +741,7 @@ public sealed class PlanGenerationServiceTests
         // 100 fresh input tokens; the accepted retry reports 40 (meso/micro report zero). Those tokens
         // are really spent, so the success measurement's input_tokens_fresh must be their SUM (140),
         // not just the winner's 40 — pins the "accumulate every attempt" behavior (the unconditional
-        // totalUsage.Add inside the loop) against a mutant that only counts the accepted attempt.
+        // `totalUsage.Add` inside the loop) against a mutant that only counts the accepted attempt.
         var measurements = new List<(double Value, KeyValuePair<string, object?>[] Tags)>();
         using var meterListener = new MeterListener
         {
@@ -804,7 +804,7 @@ public sealed class PlanGenerationServiceTests
     public async Task GeneratePlanAsync_MacroExhaustion_StampsMacroAttemptsOnFailureMetric()
     {
         // Arrange — a MeterListener; every macro attempt is invalid, so the default budget (1 retry →
-        // 2 attempts) is exhausted and the terminal PlanGenerationRejectedException is thrown. The
+        // 2 attempts) is exhausted and the terminal `PlanGenerationRejectedException` is thrown. The
         // failure measurement must carry macro_attempts = 2, pinning the catch-block tag against a
         // mutant that hardcodes 0 or omits it.
         var measurements = new List<(double Value, KeyValuePair<string, object?>[] Tags)>();

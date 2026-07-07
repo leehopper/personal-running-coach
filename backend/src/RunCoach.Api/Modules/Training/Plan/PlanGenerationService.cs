@@ -147,6 +147,12 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     /// </summary>
     internal static readonly Meter Meter = new(ObservabilitySourceName);
 
+    /// <summary>
+    /// Upper bound on the configured <see cref="_settings"/> macro-validation retry count, so a
+    /// misconfigured large value can't burn dozens of extra LLM calls per plan-generation chain.
+    /// </summary>
+    private const int MaxAllowedMacroValidationRetries = 5;
+
     private static readonly Histogram<double> PlanGenerationCompleted = Meter.CreateHistogram<double>(
         name: PlanGenerationCompletedMetricName,
         unit: "ms",
@@ -270,13 +276,13 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             // first LLM call and nothing has been staged, so a re-roll costs exactly one call and no
             // meso/micro work is wasted. On a deterministic-validator rejection the retry re-invokes
             // the macro tier with a correction suffix naming the arithmetic the model got wrong (the
-            // suffix rides the never-cached user message, so the Ephemeral1h system-block cache is
+            // suffix rides the never-cached user message, so the `Ephemeral1h` system-block cache is
             // untouched — attempt 0 is byte-identical to the no-retry path). After
-            // MacroValidationMaxRetries extra attempts a rejection is terminal: throw before any
+            // `MacroValidationMaxRetries` extra attempts a rejection is terminal: throw before any
             // meso/micro work or event staging, so the caller's Marten transaction aborts with nothing
             // committed. User-facing callers map the terminal throw to an error envelope (onboarding →
             // 422); other callers propagate it through the standard error pipeline.
-            var maxMacroRetries = Math.Max(0, _settings.MacroValidationMaxRetries);
+            var maxMacroRetries = Math.Clamp(_settings.MacroValidationMaxRetries, 0, MaxAllowedMacroValidationRetries);
             MacroPlanOutput macro;
             int macroOutputChars;
             string? macroCorrection = null;
@@ -383,10 +389,10 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                 mesoOutputCharsTotal += mesoOutputCharsPerWeek[i];
             }
 
-            // Actual LLM call volume for this run — NOT the nominal TotalCallCount constant, because a
+            // Actual LLM call volume for this run — NOT the nominal `TotalCallCount` constant, because a
             // macro validation retry (DEC-087) adds `macroAttempts - 1` extra macro calls. Stamped as
             // `total_calls` so a cost/volume dashboard reflects the recovered-on-retry population the
-            // retry exists to make visible (MacroAttempts carries the retry delta separately).
+            // retry exists to make visible (`MacroAttempts` carries the retry delta separately).
             var totalLlmCalls = macroAttempts + MesoWeekCount + 1;
 
             // Compute chain-wide cache-hit rate from the accumulated Anthropic
