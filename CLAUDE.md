@@ -4,8 +4,7 @@
 
 A solo-developer project building an AI running coach that maintains a persistent adaptive coaching relationship. The AI is the coach — it builds training plans, consumes workout results, and continuously adapts. It does NOT do live workout tracking (that's Garmin/Strava/Apple Health territory).
 
-**Current cycle: MVP-0 + Adaptation Loop.** Slices 0, 1, 1B, 2a (Frontend Visual Foundation), and 2b (Workout Logging) are complete and merged; Slice 3 (Adaptation Loop) is next.
-See ROADMAP.md for current status and next steps.
+**Current cycle: MVP-0 + Adaptation Loop.** See ROADMAP.md for current status and next steps — its Status block is the single source of truth for slice state; don't trust slice status quoted anywhere else (including this file).
 
 ## Tech Stack
 
@@ -33,7 +32,7 @@ backend/               # .NET API (has its own CLAUDE.md)
 frontend/              # React SPA (has its own CLAUDE.md)
 docs/
   planning/            # Vision, architecture, safety, coaching persona
-  decisions/           # Decision log (DEC-001 through DEC-085)
+  decisions/           # Decision log (DEC-001 onward)
   features/            # Feature backlog
   research/            # Research queue, prompts, and artifacts
 ```
@@ -131,7 +130,7 @@ Five-layer pipeline: pre-commit (Lefthook), PR review (CodeRabbit + local `/revi
 
 ## Key References
 
-- `docs/decisions/decision-log.md` — all 85 decisions with rationale
+- `docs/decisions/decision-log.md` — all decisions with rationale
 - `docs/planning/vision-and-principles.md` — why this exists, design principles
 - `docs/planning/safety-and-legal.md` — legal landscape, safety guardrails
-- `docs/research/artifacts/` — full research outputs (75 artifacts; see `docs/research/research-queue.md` for integration status)
+- `docs/research/artifacts/` — full research outputs (see `docs/research/research-queue.md` for integration status)
