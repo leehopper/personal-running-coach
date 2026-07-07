@@ -665,183 +665,11 @@
         ]
       }
     },
-    "/api/v1/onboarding/turns": {
-      "post": {
-        "tags": [
-          "Onboarding"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OnboardingTurnRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OnboardingTurnRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/OnboardingTurnRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/OnboardingTurnResponseDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OnboardingTurnResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OnboardingTurnResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookieAuth": [ ]
-          },
-          {
-            "bearerAuth": [ ]
-          }
-        ]
-      }
-    },
     "/api/v1/onboarding/state": {
       "get": {
         "tags": [
           "Onboarding"
         ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/OnboardingStateDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OnboardingStateDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OnboardingStateDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookieAuth": [ ]
-          },
-          {
-            "bearerAuth": [ ]
-          }
-        ]
-      }
-    },
-    "/api/v1/onboarding/answers/revise": {
-      "post": {
-        "tags": [
-          "Onboarding"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReviseAnswerRequestDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReviseAnswerRequestDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReviseAnswerRequestDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "OK",
@@ -2233,24 +2061,6 @@
         },
         "additionalProperties": false
       },
-      "OnboardingProgressDto": {
-        "required": [
-          "completedTopics",
-          "totalTopics"
-        ],
-        "type": "object",
-        "properties": {
-          "completedTopics": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalTopics": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
       "OnboardingStateDto": {
         "required": [
           "completedTopics",
@@ -2342,67 +2152,6 @@
         ],
         "type": "integer",
         "format": "int32"
-      },
-      "OnboardingTurnKind": {
-        "enum": [
-          0,
-          1,
-          2
-        ],
-        "type": "integer",
-        "format": "int32"
-      },
-      "OnboardingTurnRequestDto": {
-        "required": [
-          "idempotencyKey",
-          "text"
-        ],
-        "type": "object",
-        "properties": {
-          "idempotencyKey": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "text": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "OnboardingTurnResponseDto": {
-        "required": [
-          "assistantBlocks",
-          "kind",
-          "progress",
-          "suggestedInputType",
-          "topic"
-        ],
-        "type": "object",
-        "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/OnboardingTurnKind"
-          },
-          "assistantBlocks": { },
-          "topic": {
-            "$ref": "#/components/schemas/OnboardingTopic"
-          },
-          "suggestedInputType": {
-            "$ref": "#/components/schemas/SuggestedInputType"
-          },
-          "progress": {
-            "$ref": "#/components/schemas/OnboardingProgressDto"
-          },
-          "planId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "errorMessage": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
       },
       "PhaseType": {
         "enum": [
@@ -2801,20 +2550,6 @@
         },
         "additionalProperties": false
       },
-      "ReviseAnswerRequestDto": {
-        "required": [
-          "normalizedValue",
-          "topic"
-        ],
-        "type": "object",
-        "properties": {
-          "topic": {
-            "$ref": "#/components/schemas/OnboardingTopic"
-          },
-          "normalizedValue": { }
-        },
-        "additionalProperties": false
-      },
       "RunnerDistanceUnit": {
         "enum": [
           0,
@@ -2930,17 +2665,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "SuggestedInputType": {
-        "enum": [
-          0,
-          1,
-          2,
-          3,
-          4
-        ],
-        "type": "integer",
-        "format": "int32"
       },
       "TargetEventAnswer": {
         "required": [

@@ -8,8 +8,7 @@ namespace RunCoach.Api.Modules.Coaching.Adaptation;
 /// <remarks>
 /// The constructor is <c>internal</c>; callers construct via <see cref="Valid"/> or
 /// <see cref="Invalid"/> so contradictory pairs (e.g. <c>IsValid: true</c> with a
-/// non-<c>None</c> violation) cannot be expressed. Mirrors
-/// <c>OnboardingTurnOutputValidationResult</c>.
+/// non-<c>None</c> violation) cannot be expressed. Mirrors <c>SafetyClassification</c>.
 /// </remarks>
 public sealed record PlanAdaptationOutputValidationResult
 {

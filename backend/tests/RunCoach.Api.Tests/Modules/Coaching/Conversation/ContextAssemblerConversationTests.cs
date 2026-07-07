@@ -1,8 +1,5 @@
 using FluentAssertions;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-using NSubstitute;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Conversation;
 using RunCoach.Api.Modules.Coaching.Models.Structured;
@@ -420,8 +417,6 @@ public sealed class ContextAssemblerConversationTests
             LocatePromptsDirectory(),
             NullLogger<YamlPromptStore>.Instance);
         var promptSanitizer = new LayeredPromptSanitizer(NullLogger<LayeredPromptSanitizer>.Instance);
-        var environment = Substitute.For<IHostEnvironment>();
-        environment.ContentRootPath.Returns(Path.GetTempPath());
 
         var effectiveRecentLogSanitizer = omitRecentLogSanitizer
             ? null
@@ -431,8 +426,6 @@ public sealed class ContextAssemblerConversationTests
             store,
             TimeProvider.System,
             promptSanitizer,
-            environment,
-            Options.Create(settings),
             NullLogger<ContextAssembler>.Instance,
             effectiveRecentLogSanitizer);
     }

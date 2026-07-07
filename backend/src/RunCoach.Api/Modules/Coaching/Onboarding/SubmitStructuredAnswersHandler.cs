@@ -8,8 +8,8 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 
 /// <summary>
 /// Wolverine static command handler for <see cref="SubmitStructuredAnswers"/> — the deterministic,
-/// form-first onboarding intake (DEC-086 D1 / DP-2). Like <see cref="OnboardingTurnHandler"/> it is
-/// dispatched via Wolverine's plain static-handler convention (no <c>[AggregateHandler]</c>
+/// form-first onboarding intake (DEC-086 D1 / DP-2). It is dispatched via Wolverine's plain
+/// static-handler convention (no <c>[AggregateHandler]</c>
 /// attribute): it injects <see cref="IDocumentSession"/> directly, loads
 /// <see cref="OnboardingView"/> via <c>session.LoadAsync</c>, and stages every event on that one
 /// session, which Wolverine's transactional middleware commits atomically — no
@@ -17,9 +17,9 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Unlike the turn handler there is <b>no LLM call</b>. The already-validated answer records are
+/// There is <b>no LLM call</b>. The already-validated answer records are
 /// appended straight to the stream as whole-record <see cref="AnswerCaptured"/> events
-/// (<c>Confidence = 1.0</c>), exactly as the deterministic <c>ReviseAnswer</c> escape hatch does.
+/// (<c>Confidence = 1.0</c>).
 /// The completion gate is the sole plan-generation authority (there is no LLM <c>ReadyForPlan</c>
 /// signal to AND against).
 /// </para>
@@ -201,7 +201,7 @@ public sealed partial class SubmitStructuredAnswersHandler
     {
         // Captured-answer payloads stay default-cased (PascalCase) because both inline projections
         // read them back via `JsonDocument.Deserialize<T>()` with the server-default casing; they never
-        // reach the wire. This is the same construction ReviseAnswer / ExtractAnswer use.
+        // reach the wire.
         var payload = JsonSerializer.SerializeToDocument(record);
         session.Events.Append(streamId, new AnswerCaptured(topic, payload, Confidence: 1.0, CapturedAt: now));
     }

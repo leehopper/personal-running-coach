@@ -53,7 +53,7 @@ public interface ICoachingLlm
     /// <param name="schema">
     /// Optional pre-built JSON schema dictionary used as the
     /// <c>output_config.format.schema</c> payload. Pass the byte-stable
-    /// <c>OnboardingSchema.Frozen</c> to keep the Anthropic grammar cache + prompt-prefix cache hot;
+    /// <c>AdaptationSchema.Frozen</c> to keep the Anthropic grammar cache + prompt-prefix cache hot;
     /// pass <see langword="null"/> to fall back to runtime generation via
     /// <c>JsonSchemaHelper.GenerateSchema&lt;T&gt;()</c>.
     /// </param>

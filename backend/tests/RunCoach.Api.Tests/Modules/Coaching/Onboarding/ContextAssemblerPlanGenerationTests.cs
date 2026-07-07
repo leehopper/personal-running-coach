@@ -1,7 +1,5 @@
 using FluentAssertions;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
@@ -107,8 +105,8 @@ public sealed class ContextAssemblerPlanGenerationTests
     [Fact]
     public async Task ComposeForPlanGenerationAsync_RendersCapturedSlots_InProfileSnapshot()
     {
-        // Arrange — populated view exercises slot serialization (the same
-        // OnboardingSlotSerializerOptions used by ComposeForOnboardingAsync).
+        // Arrange — populated view exercises slot serialization (the
+        // OnboardingSlotSerializerOptions the plan-gen slot renderer uses).
         var sut = CreateSut();
         var snapshot = CreateCompletedView();
 
@@ -199,20 +197,11 @@ public sealed class ContextAssemblerPlanGenerationTests
     {
         var store = CreateMockPromptStore();
         var sanitizer = new LayeredPromptSanitizer(NullLogger<LayeredPromptSanitizer>.Instance);
-        var environment = Substitute.For<IHostEnvironment>();
-        environment.ContentRootPath.Returns(LocateApiContentRoot());
-
-        var promptSettings = Options.Create(new PromptStoreSettings
-        {
-            BasePath = "Prompts",
-        });
 
         return new ContextAssembler(
             store,
             TimeProvider.System,
             sanitizer,
-            environment,
-            promptSettings,
             NullLogger<ContextAssembler>.Instance);
     }
 
@@ -294,31 +283,4 @@ public sealed class ContextAssemblerPlanGenerationTests
             Description = "prefers structured workouts on Tuesday and Saturday",
         },
     };
-
-    private static string LocateApiContentRoot()
-    {
-        // Walk up from the test assembly directory until we find the API project root.
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var candidate = Path.Combine(
-                dir.FullName,
-                "src",
-                "RunCoach.Api");
-            if (Directory.Exists(Path.Combine(candidate, "Prompts")))
-            {
-                return candidate;
-            }
-
-            if (Directory.Exists(Path.Combine(dir.FullName, "Prompts")))
-            {
-                return dir.FullName;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new InvalidOperationException(
-            $"Could not locate src/RunCoach.Api/Prompts by walking up from '{AppContext.BaseDirectory}'.");
-    }
 }

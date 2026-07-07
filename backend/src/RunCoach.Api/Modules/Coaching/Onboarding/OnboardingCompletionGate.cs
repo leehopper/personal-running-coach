@@ -9,10 +9,9 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The gate is intentionally separate from any LLM judgment. The
-/// <c>ReadyForPlan</c> field on <see cref="OnboardingTurnOutput"/> is an
-/// additive precondition only — the handler never appends
-/// <see cref="OnboardingCompleted"/> unless this gate also returns true.
+/// The gate is intentionally deterministic — no LLM judgment. It is the sole
+/// authority for completion: the handler never appends
+/// <see cref="OnboardingCompleted"/> unless this gate returns true.
 /// </para>
 /// <para>
 /// Required slots are <c>PrimaryGoal</c>, <c>WeeklySchedule</c>,

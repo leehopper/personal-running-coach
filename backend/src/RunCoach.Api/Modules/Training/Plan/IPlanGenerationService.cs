@@ -20,7 +20,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// 1 micro), and returns the resulting events as a <see cref="PlanEventSequence"/>.
 /// It does NOT touch <c>IDocumentSession</c>, does NOT call <c>SaveChangesAsync</c>,
 /// and does NOT stage events on any stream — the caller
-/// (<c>OnboardingTurnHandler</c> on the terminal turn, or
+/// (<c>SubmitStructuredAnswersHandler</c> on onboarding completion, or
 /// <c>RegeneratePlanHandler</c>) is responsible for invoking
 /// <c>session.Events.StartStream&lt;PlanProjectionDto&gt;(planId, planEvents.ToEvents())</c>
 /// on its own session.

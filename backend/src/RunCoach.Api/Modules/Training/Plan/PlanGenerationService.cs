@@ -213,11 +213,11 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         ArgumentNullException.ThrowIfNull(profileSnapshot);
         ct.ThrowIfCancellationRequested();
 
-        // Wrap the entire chain in a parent span so Phoenix groups the seven
-        // child spans (1 onboarding + 6 plan-gen) under one trace timeline.
-        // The OnboardingTurnHandler / RegeneratePlanHandler caller's own
-        // activity (already started by AspNetCore instrumentation) is the
-        // ambient parent — `StartActivity` follows the W3C TraceContext
+        // Wrap the entire chain in a parent span so Phoenix groups the six
+        // plan-gen child spans under one trace timeline. The caller's own
+        // activity (SubmitStructuredAnswersHandler on onboarding completion or
+        // RegeneratePlanHandler, already started by AspNetCore instrumentation)
+        // is the ambient parent — `StartActivity` follows the W3C TraceContext
         // ambient flow so the chain re-roots correctly.
         using var chainActivity = ActivitySource.StartActivity(
             PlanGenerationActivityName,

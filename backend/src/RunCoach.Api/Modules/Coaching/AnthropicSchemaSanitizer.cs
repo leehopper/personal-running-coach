@@ -2,7 +2,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace RunCoach.Api.Modules.Coaching.Onboarding;
+namespace RunCoach.Api.Modules.Coaching;
 
 /// <summary>
 /// Defense-in-depth post-processor that strips JSON Schema keywords Anthropic

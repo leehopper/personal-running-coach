@@ -129,7 +129,7 @@ public sealed partial class ClientErrorsController(
         // Marten is configured with TenancyStyle.Conjoined; every event row
         // carries the runner's tenant id (per-user) on `mt_events.tenant_id`.
         // Open a per-request tenanted session keyed on the authenticated
-        // user id — same pattern as OnboardingController.GetState/ReviseAnswer.
+        // user id — same pattern as OnboardingController.GetState.
         await using var session = store.LightweightSession(userId.ToString());
 
         var @event = new ClientErrorReported(
