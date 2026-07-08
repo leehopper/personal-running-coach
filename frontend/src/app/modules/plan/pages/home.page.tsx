@@ -93,27 +93,15 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
 
   return (
     <main
-      className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 bg-background px-4 py-8"
+      className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-8 bg-background px-4 py-8"
       data-testid="home-page"
     >
-      <div className="flex justify-end">
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/history" data-testid="home-history-link">
-            Workout history
-          </Link>
-        </Button>
-      </div>
-
       {plan.macro === null ? null : (
         <MacroPhaseStrip macro={plan.macro} currentWeek={currentWeek} />
       )}
 
       {currentWeekTemplate === undefined ? null : (
-        <TodayCard
-          currentWeek={currentWeekTemplate}
-          workouts={currentWeekWorkouts}
-          units={units}
-        />
+        <TodayCard currentWeek={currentWeekTemplate} workouts={currentWeekWorkouts} units={units} />
       )}
 
       <CoachChat />

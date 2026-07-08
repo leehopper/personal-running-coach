@@ -1,5 +1,4 @@
 import { useState, type ReactElement } from 'react'
-import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useGetCurrentPlanQuery } from '~/api/plan.api'
@@ -23,14 +22,11 @@ export const SettingsPage = (): ReactElement => {
 
   return (
     <main
-      className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 bg-background px-4 py-8"
+      className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-8 bg-background px-4 py-8"
       data-testid="settings-page"
     >
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-          Back to plan
-        </Link>
       </header>
 
       <Card className="gap-2 p-6" data-testid="settings-plan-section">

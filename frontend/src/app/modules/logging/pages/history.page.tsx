@@ -106,12 +106,9 @@ export const HistoryPage = (): ReactElement => {
   return (
     <main
       data-testid="workout-history-page"
-      className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 bg-background px-4 py-8"
+      className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 bg-background px-4 py-8"
     >
       <header className="flex flex-col gap-1">
-        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Back to plan
-        </Link>
         <h1 className="text-2xl font-semibold text-foreground">Workout history</h1>
       </header>
 

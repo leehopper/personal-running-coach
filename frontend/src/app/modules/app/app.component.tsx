@@ -7,6 +7,7 @@ import { store } from './app.store'
 import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
 import { AppErrorBoundary } from '~/error-boundary/app-error-boundary'
 import { useGlobalErrorReporter } from '~/error-boundary/use-global-error-reporter'
+import { ShellLayout } from '~/modules/app/components/shell-layout/shell-layout.component'
 import { RequireAuth } from '~/modules/auth/components/require-auth.component'
 import { useAuthBootstrap, useAuthBroadcastListener } from '~/modules/auth/hooks/auth.hooks'
 import { HistoryPage } from '~/modules/logging/pages/history.page'
@@ -151,43 +152,39 @@ const AppShell = () => {
           }
         />
         <Route
-          path="/"
           element={
             <RequireAuth>
+              <ShellLayout />
+            </RequireAuth>
+          }
+        >
+          <Route
+            path="/"
+            element={
               <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
                 <HomePage />
               </OnboardingRedirectGuard>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/log"
-          element={
-            <RequireAuth>
+            }
+          />
+          <Route
+            path="/log"
+            element={
               <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
                 <LogPage />
               </OnboardingRedirectGuard>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/history"
-          element={
-            <RequireAuth>
+            }
+          />
+          <Route
+            path="/history"
+            element={
               <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
                 <HistoryPage />
               </OnboardingRedirectGuard>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <RequireAuth>
-              <SettingsPage />
-            </RequireAuth>
-          }
-        />
+            }
+          />
+          {/* No onboarding guard — matches today's behavior. */}
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
         {/* Dev-only design-token inspector. `import.meta.env.DEV` is
             replaced with the literal `false` by Vite during `build`, so
             this <Route> is never registered and `ThemeDebugPage` is
