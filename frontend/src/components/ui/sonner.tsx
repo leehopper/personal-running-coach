@@ -17,8 +17,8 @@ import { useDocumentTheme } from '@/components/use-document-theme.hooks'
 // one third-party surface needs.
 //
 // Contrast across every interactive state: resting/idle renders clay text
-// (`text-clay-text`) on the toast surface (bg-transparent over the toast's
-// `--normal-bg`, i.e. `--popover`/`--alp-surface`) — measured ~4.70:1 dark /
+// (`text-clay-text`) on the toast surface (`bg-transparent` over the toast's
+// `--normal-bg`, i.e. `--popover` / `--alp-surface`) — measured ~4.70:1 dark /
 // ~4.68:1 light, clearing AA. Hovering swaps the fill to `--accent` (raised)
 // AND the text to `--accent-foreground`, an already-gated pair (~12.4:1
 // both modes). The bug this fixes: pressing WITHOUT hovering first (the
@@ -26,11 +26,11 @@ import { useDocumentTheme } from '@/components/use-document-theme.hooks'
 // to leave `active:bg-secondary` (the same raised fill) under the untouched
 // clay text, measuring only ~4.20:1 in dark — a real AA failure, not a
 // hover-only edge case. `active:text-secondary-foreground` pairs the
-// pressed fill with its own matching foreground (the same alp-bone
+// pressed fill with its own matching foreground (the same `--alp-bone`
 // primitive as `--accent-foreground`, already gated at ~12.4:1 both modes)
 // instead of introducing a new token, so pressing reads exactly like
-// pressing any other outline-style control (button.tsx's `outline` variant
-// has the same bg-secondary press-darken with no clay text to begin with).
+// pressing any other outline-style control (the `outline` button variant
+// has the same `bg-secondary` press-darken with no clay text to begin with).
 const RETRY_ACTION_BUTTON_CLASSNAME =
   'rounded-md! border! border-input! min-h-11 bg-transparent! px-3! font-condensed text-[13px]! font-bold! tracking-[0.12em] uppercase text-clay-text! outline-none transition-[transform,background-color,border-color,opacity]! duration-150! ease-out! motion-reduce:transition-none! hover:bg-accent! hover:text-accent-foreground! active:scale-[0.98] active:bg-secondary! active:text-secondary-foreground! focus-visible:border-ring! focus-visible:ring-[3px]! focus-visible:ring-ring/[0.22]!'
 

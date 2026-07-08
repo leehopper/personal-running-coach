@@ -25,9 +25,9 @@ function RadioGroupItem({
     <RadioGroupPrimitive.Item
       data-slot="radio-group-item"
       className={cn(
-        // `relative` + the `before` pseudo-element expand the click/tap area to
-        // a 44px square around the 16px visual dot without changing its size.
-        "relative aspect-square size-4 shrink-0 rounded-full border border-input text-primary outline-none transition-[transform,background-color,border-color,opacity] duration-150 ease-out before:absolute before:inset-[-14px] before:content-[''] motion-reduce:transition-none data-[state=checked]:border-primary focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] disabled:pointer-events-none disabled:opacity-35 aria-invalid:border-destructive aria-invalid:ring-destructive/[0.22]",
+        // `.hit-target-44` expands the click/tap area to a 44px square
+        // around the 16px visual dot without changing its size.
+        'relative aspect-square size-4 shrink-0 rounded-full border border-input text-primary outline-none transition-[transform,background-color,border-color,opacity] duration-150 ease-out hit-target-44 motion-reduce:transition-none data-[state=checked]:border-primary focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] disabled:pointer-events-none disabled:opacity-35 aria-invalid:border-destructive aria-invalid:ring-destructive/[0.22]',
         className,
       )}
       {...props}

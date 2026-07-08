@@ -384,7 +384,7 @@
   --color-positive: var(--positive);
   --color-rule: var(--rule);
   --color-clay-text: var(--clay-text);
-  --color-clay-pressed: var(--alp-clay-pressed);
+  --color-clay-pressed: var(--clay-pressed);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -414,17 +414,27 @@
  * gutter, and a 20–22px section gap. `--gutter` is exposed as a custom
  * property above; `.screen-gutter` is an opt-in convenience utility for
  * screens that want the horizontal rhythm without repeating `px-[22px]`.
- * Not applied anywhere yet — screen recomposition is a later slice. */
+ * Not yet applied to any screen. */
 @layer components {
   .screen-gutter {
     padding-inline: var(--gutter);
   }
+
+  /* Expands the click/tap area to a 44px square around a visually smaller
+   * control without changing its size. Requires the element to already be
+   * `relative`. */
+  .hit-target-44 {
+    &::before {
+      position: absolute;
+      inset: -14px;
+      content: '';
+    }
+  }
 }
 
-/* ── Typography role system (DR-6 / HANDOFF.md §3). One utility class per
- * design role, consumed by later slices (PR-C restyles primitives onto
- * these; net-new components like SectionRule/MonoLabel/StatBand read them
- * directly). Rules as law:
+/* ── Typography role system (DR-6). One utility class per design role;
+ * net-new components like SectionRule/MonoLabel/StatBand read them
+ * directly. Rules as law:
  *   - Numbers are ALWAYS Barlow Condensed (--font-condensed) — never mono.
  *   - Labels/eyebrows/data are ALWAYS mono (--font-mono).
  *   - Source copy stays sentence case; `text-transform: uppercase` below is
@@ -467,7 +477,7 @@
 
   /* Section label — Barlow Condensed 600, 13px, uppercase, +0.18em. Sits
    * above a 2px --rule border; the rule itself is the SectionRule
-   * component's concern (PR-C), not this text-only class. */
+   * component's concern, not this text-only class. */
   .t-section-label {
     font-family: var(--font-condensed);
     font-weight: 600;

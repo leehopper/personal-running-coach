@@ -33,17 +33,17 @@ describe('SegmentedControl', () => {
     expect(screen.getByRole('radio', { name: 'KM' })).toHaveAttribute('aria-checked', 'false')
   })
 
-  // Arrow-key roving selection (ArrowLeft/ArrowRight moving focus between
+  // Arrow-key roving selection (`ArrowLeft`/`ArrowRight` moving focus between
   // segments and auto-selecting the newly focused one) is Radix RadioGroup's
-  // native behavior, built on its RovingFocusGroup primitive — this thin
+  // native behavior, built on its `RovingFocusGroup` primitive — this thin
   // wrapper does not implement any of it itself. It is intentionally not
-  // unit-tested here: RovingFocusGroupItem defers the actual `.focus()` call
+  // unit-tested here: `RovingFocusGroupItem` defers the actual `.focus()` call
   // via `setTimeout(() => focusFirst(...))`, and only auto-selects the newly
   // focused radio (via a synthetic `.click()`) if a document-level "an arrow
   // key is currently held down" ref is still `true` when that deferred
   // callback runs (cleared on the corresponding `keyup`). Confirmed directly:
   // `userEvent.keyboard('{ArrowRight}')` dispatches the synthetic
-  // keydown/keyup pair back-to-back with no elapsed time between them, so in
+  // `keydown`/`keyup` pair back-to-back with no elapsed time between them, so in
   // jsdom the `keyup` always clears that ref before the deferred `setTimeout`
   // fires. The result is that focus genuinely does move to the next segment
   // (verified with `document.activeElement`), but the auto-select `click()`

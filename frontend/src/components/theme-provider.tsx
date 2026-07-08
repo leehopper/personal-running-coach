@@ -11,8 +11,9 @@ import { ThemeProviderContext, type Theme } from './theme-context'
 // `system` follows the OS `prefers-color-scheme`; `light`/`dark` are
 // explicit in-app overrides. The choice is persisted to `localStorage` so
 // it survives reloads, and the no-flash script in `index.html` reads the
-// same key to set the class before first paint (falling back to `dark`,
-// not `light`, when storage throws).
+// same key to set the class before first paint (falling back to
+// `prefers-color-scheme` when storage throws, defaulting to `dark`
+// only when `matchMedia` is also unavailable).
 //
 // The context object and the `useTheme` hook live in `theme-context.ts`
 // so this file's only export is the `ThemeProvider` component (keeps

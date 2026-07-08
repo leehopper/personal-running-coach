@@ -3,12 +3,12 @@ import { Switch as SwitchPrimitive } from 'radix-ui'
 
 import { cn } from '@/lib/utils'
 
-// The interactive element (Root) fills a full 44px hit area even though the
+// The interactive element (`Root`) fills a full 44px hit area even though the
 // visible track is smaller — the track is a plain decorative span painted via
-// `group-data-[state=…]` (Root carries the real `data-state`, the span reads
+// `group-data-[state=…]` (`Root` carries the real `data-state`, the span reads
 // it through the `group` utility) so the click/tap target stays generous
 // without inflating the visual control.
-function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
+const Switch = ({ className, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) => {
   return (
     <SwitchPrimitive.Root
       data-slot="switch"

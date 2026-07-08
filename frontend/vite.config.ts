@@ -95,7 +95,7 @@ function fontFallbackFaces(): Plugin {
           // of a longer comma-separated stack) inside the --font-* custom
           // property tokens declared elsewhere in this same file.
           const alreadyGenerated = new RegExp(
-            `font-family:\\s*["']${fallbackFamily}["']\\s*;`,
+            `font-family:\\s*["']?${fallbackFamily}["']?\\s*;`,
           ).test(output)
           if (alreadyGenerated) continue
           const hasRealFace = new RegExp(`font-family:\\s*["']?${family}["']?\\s*[;}]`).test(output)
