@@ -5,11 +5,11 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** None yet — cycle planned 2026-07-07; Slice 0 is research-gated on R-086 (self-hosted fonts). Run R-086, integrate the artifact, then start Slice 0.
+- **Active Slice:** None yet — cycle planned 2026-07-07. **R-086 (fonts) integrated 2026-07-07 with errata** (artifact `docs/research/artifacts/batch-32a-self-hosted-fonts-vite-react.md`; verdict + errata summarized in the queue row and locked into Slice 0 D4: static per-weight `@fontsource/*` — the artifact's variable-package recommendation was refuted at integration). **Slice 0 is ungated.**
 - **Slice ledger:** (empty — populated as slices complete)
 - **Active Slice Spec:** None. Specs are written fresh per-slice under `docs/specs/` (gitignored) at build time, per the Per-Slice Hygiene Rule inherited from the MVP-0 cycle plan.
-- **Next Step:** Run the R-086 research prompt (`docs/research/prompts/batch-32a-self-hosted-fonts-vite-react.md`), integrate the artifact, then spec + build Slice 0 (Alpine Foundation).
-- **Blockers:** R-086 gates Slice 0 only. Nothing else is blocked.
+- **Next Step:** Spec + build Slice 0 (Alpine Foundation) in a fresh session — read this plan + `slice-0-alpine-foundation.md` + the R-086 artifact's errata block first.
+- **Blockers:** None.
 
 This status block is the single source of truth for "where are we?" — mirrored into `ROADMAP.md` so `/catchup` finds it. Update both whenever a slice completes or the active slice changes. **Replace, don't append:** when a slice completes, collapse its Status entry to a one-line ledger row; the narrative moves to a per-slice completion section, a `ROADMAP.md` Cycle History row, and the decision log.
 
@@ -38,20 +38,20 @@ Follow-ups surfaced mid-cycle land here with a date + disposition, exactly as in
 
 - All seven screens (Today, Coach, Log, Log Book, Onboarding, Settings, Auth) render the Alpine design in dark and light, on the new type system, behind the tab-bar IA.
 - The handoff's § 8 non-negotiables hold: `role="log"` transcript semantics, `aria-live` regions, form ARIA, trademark-clean labels, safety turns rendered in full.
-- `check-contrast` gates the Alpine pairs (including the size-conditional clay-text rule) in pre-commit + CI.
+- `check-contrast` gates the Alpine pairs in pre-commit + CI (the clay-text ≥12px-semibold constraint is a documented usage rule, per Slice 0 D5).
 - Full frontend suite green (Vitest + Playwright realigned), backend suite green in Replay, codegen drift gate clean.
 - **Closing live pass:** a fresh funded-key end-to-end pass over the redesigned UI — onboard (with narrative field) → plan → log → adapt → converse — which **doubles as the outstanding MVP-0 done-gate verification** of the F-LIVE-1/F-LIVE-2 fixes at the surface (user decision 2026-07-07: redesign first; the standalone done-gate session is superseded by this pass).
 
 ## In Scope
 
 - The Alpine token ramp (dark `:root` default + `.light` override), semantic remap, two new slots (`--positive`, `--rule`), geometry + spacing rules.
-- Self-hosted Barlow Condensed / Barlow / IBM Plex Mono + the § 3 role table (research-gated: R-086).
+- Self-hosted Barlow Condensed / Barlow / IBM Plex Mono + the § 3 role table (R-086 integrated — static `@fontsource/*` per-weight packages, Slice 0 D4).
 - Bottom `TabBar` + tab-shell layout + `/coach` route; onboarding/auth outside the shell.
 - The seven screen recompositions/restyles per handoff § 5, including the § 7 component inventory.
 - States & feedback per § 6 (buttons, inputs, skeletons, plan-building surface, toasts, failure surface, focus, motion).
 - The four backend/wire deltas: `GET` prescribed-slot-for-date (Slice 4), `IsOnPlan` + prescribed-title on history rows (Slice 4), target-event fields on the plan projection (Slice 2, DEC-089 D4), and the onboarding narrative field + prompt injection (Slice 5, with DEC-074 manifest + plan-gen eval re-record).
 - App icon / favicon (design 5g), SPLIT wordmark (user-ratified 2026-07-07).
-- `check-contrast` extension (Alpine pairs + size-conditional threshold).
+- `check-contrast` Alpine pair swap (+ the documented clay-text usage rule).
 - E2E + Vitest realignment as each surface lands; the closing live pass.
 
 ## Out of Scope (Deferred — Designed-For)
@@ -72,7 +72,7 @@ Each slice ships top-to-bottom (any backend delta + codegen + frontend + tests) 
 
 | # | Name | Requirements doc | Depends on |
 |---|---|---|---|
-| 0 | Alpine Foundation | [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) | R-086 |
+| 0 | Alpine Foundation | [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) | — (R-086 cleared) |
 | 1 | Shell & Navigation | [`./slice-1-shell-navigation.md`](./slice-1-shell-navigation.md) | 0 |
 | 2 | Today | [`./slice-2-today.md`](./slice-2-today.md) | 1 |
 | 3 | Coach | [`./slice-3-coach.md`](./slice-3-coach.md) | 1 |
@@ -85,7 +85,7 @@ Slices 2/3/4 are independent of each other after Slice 1; Slice 5 needs only Sli
 
 ### Slice 0 — Alpine Foundation
 
-**Requirements:** [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) · **Research gate:** R-086 (fonts)
+**Requirements:** [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) · **Research gate:** R-086 (fonts) — **cleared 2026-07-07** (integrated with errata; architecture locked in the slice doc's D4)
 
 **Acceptance — "I can…"**
 
@@ -211,7 +211,7 @@ Slices 2/3/4 are independent of each other after Slice 1; Slice 5 needs only Sli
 
 ```
 frontend/src/
-  assets/fonts/                    # self-hosted Barlow Condensed / Barlow / IBM Plex Mono (R-086 decides packaging)
+  # fonts arrive via @fontsource/* static per-weight packages (R-086) — no vendored assets/fonts/ dir
   components/ui/                   # restyled shadcn primitives + segmented-control
   app/modules/
     app/                           # + tab-shell layout, TabBar, Wordmark, building-surface, skeletons, failure surface
@@ -247,7 +247,7 @@ The baseline rule is `CLAUDE.md` § Research Protocol; the prompt template and h
 
 Pre-flagged for this cycle:
 
-- **Self-hosted fonts (R-086 — QUEUED, gates Slice 0).** `@fontsource` packages vs manual woff2 + `@font-face`, subsetting, weight-axis strategy (static vs variable), FOUT/FOIT handling, Vite asset pipeline, and preload strategy. Prompt at `docs/research/prompts/batch-32a-self-hosted-fonts-vite-react.md`.
+- **Self-hosted fonts (R-086 — RESOLVED 2026-07-07).** Integrated with errata (the artifact's `@fontsource-variable/*` primary recommendation does not exist on npm; its static-package fallback is adopted). Architecture locked in Slice 0 D4; artifact at `docs/research/artifacts/batch-32a-self-hosted-fonts-vite-react.md` — read the errata block before relying on its § 1/§ Recommendations.
 - **Safe-area / fixed-bar viewport handling (Slice 1).** `env(safe-area-inset-bottom)` + `viewport-fit=cover` + mobile-Safari keyboard interplay with the pinned composer. Pure CSS, no package — verify empirically at spec time; escalate to a research prompt only if the empirical pass fails.
 - **SegmentedControl primitive (Slices 0/4/6).** No shadcn primitive exists. Prefer composing existing Radix radio-group; adding `@radix-ui/react-toggle-group` is a bounded dependency choice an implementing session may make with a one-line justification — it is shadcn-standard, not novel. Anything beyond that (a11y pattern doubts, roving-tabindex questions) → research prompt.
 - **Anything the design wants that the wire lacks** beyond the four named deltas → stop and check this plan's gap decisions (DEC-089) before inventing an endpoint; if genuinely new, research-prompt it.
