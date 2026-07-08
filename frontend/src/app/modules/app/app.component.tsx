@@ -31,6 +31,15 @@ interface OnboardingRedirectGuardProps {
   expectComplete: boolean
   redirectTo: string
   children: ReactElement
+  /**
+   * Whether the loading/error fallback should center against the full
+   * viewport (`min-h-screen`) or the available space inside its parent
+   * (`min-h-full`). `/onboarding` renders outside `ShellLayout` with no
+   * ancestor providing height, so it needs the viewport-based fallback;
+   * the four shell routes render inside `ShellLayout`'s `Outlet` wrapper,
+   * where `min-h-screen` overflows past the tab-bar clearance padding.
+   */
+  fullScreen?: boolean
 }
 
 const isErrorStatus = (error: unknown, expected: number): boolean => {
@@ -66,15 +75,17 @@ export const OnboardingRedirectGuard = ({
   expectComplete,
   redirectTo,
   children,
+  fullScreen = true,
 }: OnboardingRedirectGuardProps): ReactElement => {
   const { data, isLoading, isError, error, refetch } = useGetOnboardingStateQuery(undefined)
+  const heightClass = fullScreen ? 'min-h-screen' : 'min-h-full'
 
   if (isLoading) {
     return (
       <div
         role="status"
         aria-live="polite"
-        className="flex min-h-screen items-center justify-center bg-background"
+        className={`flex ${heightClass} items-center justify-center bg-background`}
       >
         <span className="text-sm text-muted-foreground">Loading…</span>
       </div>
@@ -91,7 +102,7 @@ export const OnboardingRedirectGuard = ({
       <div
         role="alert"
         data-testid="onboarding-guard-error"
-        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center"
+        className={`flex ${heightClass} flex-col items-center justify-center gap-3 bg-background px-4 text-center`}
       >
         <p className="text-sm text-muted-foreground">
           We couldn’t reach the onboarding service. Check your connection and try again.
@@ -162,7 +173,11 @@ const AppShell = () => {
           <Route
             path="/"
             element={
-              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+              <OnboardingRedirectGuard
+                expectComplete={false}
+                redirectTo="/onboarding"
+                fullScreen={false}
+              >
                 <HomePage />
               </OnboardingRedirectGuard>
             }
@@ -170,7 +185,11 @@ const AppShell = () => {
           <Route
             path="/coach"
             element={
-              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+              <OnboardingRedirectGuard
+                expectComplete={false}
+                redirectTo="/onboarding"
+                fullScreen={false}
+              >
                 <CoachPage />
               </OnboardingRedirectGuard>
             }
@@ -178,7 +197,11 @@ const AppShell = () => {
           <Route
             path="/log"
             element={
-              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+              <OnboardingRedirectGuard
+                expectComplete={false}
+                redirectTo="/onboarding"
+                fullScreen={false}
+              >
                 <LogPage />
               </OnboardingRedirectGuard>
             }
@@ -186,7 +209,11 @@ const AppShell = () => {
           <Route
             path="/history"
             element={
-              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+              <OnboardingRedirectGuard
+                expectComplete={false}
+                redirectTo="/onboarding"
+                fullScreen={false}
+              >
                 <HistoryPage />
               </OnboardingRedirectGuard>
             }

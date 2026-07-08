@@ -6,8 +6,8 @@ import { CoachChat } from '~/modules/coaching/components/coach-chat.component'
  * The `/coach` route (spec § AD3). A mechanical relocation of the existing
  * `<CoachChat />` — previously mounted mid-page on home — into its own
  * full-height screen so the transcript scrolls and the composer pins
- * directly above the `TabBar`. No turn-kind restyling and no new header
- * chrome here; that is Slice 3's scope. `CoachChat`'s own behavior
+ * directly above the `TabBar`. No turn-kind restyling or header chrome
+ * is added here; `CoachChat`'s own behavior
  * contract (streaming, retry, confirm, Edit→`/log`) is untouched.
  */
 const CoachPage = (): ReactElement => (

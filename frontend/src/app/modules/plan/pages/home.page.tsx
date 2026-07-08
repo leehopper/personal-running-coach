@@ -40,7 +40,7 @@ export const HomePage = (): ReactElement => {
       <div
         role="status"
         aria-live="polite"
-        className="flex min-h-screen items-center justify-center bg-background"
+        className="flex min-h-full items-center justify-center bg-background"
       >
         <span className="text-sm text-muted-foreground">Loading…</span>
       </div>
@@ -54,7 +54,7 @@ export const HomePage = (): ReactElement => {
   if (isError || plan === undefined) {
     return (
       <main
-        className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4"
+        className="flex min-h-full flex-col items-center justify-center gap-4 bg-background px-4"
         data-testid="home-page-error"
       >
         <h1 className="text-2xl font-semibold text-foreground">Something went wrong</h1>
@@ -118,7 +118,7 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
  */
 const NoPlanYetState = (): ReactElement => (
   <main
-    className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4"
+    className="flex min-h-full flex-col items-center justify-center gap-4 bg-background px-4"
     data-testid="home-page-no-plan"
   >
     <h1 className="text-2xl font-semibold text-foreground">No plan yet</h1>
