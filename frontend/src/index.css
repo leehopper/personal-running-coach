@@ -61,6 +61,24 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* ── Self-hosted Alpine typography (DR-6) — granular per-weight, latin-only
+ * Fontsource imports. Static per-weight packages, NOT `@fontsource-variable/*`
+ * (those packages 404 for these three families — see R-086 errata). Each
+ * import emits one `@font-face` rule that Vite asset-hashes into
+ * `dist/assets/*.woff2`; `vite.config.ts`'s `fontFallbackFaces` plugin (built
+ * on fontaine's metric-computation utilities) appends a metric-matched
+ * "… fallback" @font-face per family at build time. ── */
+@import '@fontsource/barlow-condensed/latin-500.css';
+@import '@fontsource/barlow-condensed/latin-600.css';
+@import '@fontsource/barlow-condensed/latin-700.css';
+@import '@fontsource/barlow-condensed/latin-800.css';
+@import '@fontsource/barlow/latin-400.css';
+@import '@fontsource/barlow/latin-500.css';
+@import '@fontsource/barlow/latin-600.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
+
 @custom-variant dark (&:is(.dark *));
 
 /* ── Primitive tier — Alpine dark (default). ──────────────────────────────── */
@@ -138,19 +156,22 @@
  * change. Re-declared in .light only so a reader sees the full set in one
  * place, and so check-contrast's per-selector merge resolves every slot.
  * --radius / --gutter / --font-* are not mode-dependent and are declared
- * once. --font-* remain system stacks — self-hosted Alpine typography
- * (Barlow / Barlow Condensed / IBM Plex Mono) lands in a later font PR and
- * is out of scope here. */
+ * once. --font-condensed/--font-body/--font-mono are the self-hosted Alpine
+ * typography stacks (DR-6): the primary family, then fontaine's generated
+ * "… fallback" metric-matched face (see the fontaine transform in
+ * vite.config.ts — the fallback family name MUST match what it emits
+ * exactly, or the metric override silently never applies), then a system
+ * stack. --font-sans aliases --font-body so existing `font-sans` utility
+ * consumers (and shadcn primitives) inherit Barlow. */
 :root {
   --radius: 8px;
   --gutter: 22px;
 
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'BlinkMacSystemFont', 'Segoe UI', 'Roboto',
-    'Helvetica Neue', 'Arial', 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-condensed: 'Barlow Condensed', 'Barlow Condensed fallback', system-ui, sans-serif;
+  --font-body: 'Barlow', 'Barlow fallback', system-ui, sans-serif;
+  --font-sans: var(--font-body);
   --font-mono:
-    ui-monospace, 'SFMono-Regular', 'SF Mono', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+    'IBM Plex Mono', 'IBM Plex Mono fallback', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --background: var(--alp-bg);
   --foreground: var(--alp-bone);
@@ -284,6 +305,8 @@
  * screen" ceiling for this design. */
 @theme inline {
   --font-sans: var(--font-sans);
+  --font-condensed: var(--font-condensed);
+  --font-body: var(--font-body);
   --font-mono: var(--font-mono);
 
   --radius-xs: 4px;
@@ -337,6 +360,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
   }
 }
 
@@ -348,5 +372,125 @@
 @layer components {
   .screen-gutter {
     padding-inline: var(--gutter);
+  }
+}
+
+/* ── Typography role system (DR-6 / HANDOFF.md §3). One utility class per
+ * design role, consumed by later slices (PR-C restyles primitives onto
+ * these; net-new components like SectionRule/MonoLabel/StatBand read them
+ * directly). Rules as law:
+ *   - Numbers are ALWAYS Barlow Condensed (--font-condensed) — never mono.
+ *   - Labels/eyebrows/data are ALWAYS mono (--font-mono).
+ *   - Source copy stays sentence case; `text-transform: uppercase` below is
+ *     a presentation concern only, applied per-role where the design is
+ *     all-caps — never bake uppercase into stored/authored strings.
+ *   - `.t-numeral` uses `white-space: nowrap`, NOT `tabular-nums`: Google-
+ *     Fonts-derived Barlow Condensed files commonly strip the `tnum`
+ *     OpenType feature, so tabular-nums on condensed digits can silently
+ *     no-op (R-086 §4 caveat) — nowrap is what actually prevents a pace
+ *     range like "4:00–4:30/km" from wrapping mid-value.
+ *   - `.t-data-label` / `.t-data-value` (mono) carry
+ *     `font-variant-numeric: tabular-nums` for column alignment; IBM Plex
+ *     Mono is monospaced so this is belt-and-suspenders, not load-bearing.
+ *
+ * Each role's font-size/weight is a single concrete value picked from the
+ * HANDOFF §3 range (documented per role below) rather than a fluid clamp —
+ * components needing the opposite end of a range (e.g. the 58px auth-poster
+ * Wordmark vs. the 20–22px header Wordmark) take an explicit size prop
+ * instead of a second utility class. */
+@layer components {
+  /* Display / workout title — Barlow Condensed 700, range 36–40px/0.95,
+   * uppercase. Picked 38px (range midpoint). */
+  .t-display {
+    font-family: var(--font-condensed);
+    font-weight: 700;
+    font-size: 38px;
+    line-height: 0.95;
+    text-transform: uppercase;
+  }
+
+  /* Screen title — Barlow Condensed 700, 30px, uppercase, +0.02em. */
+  .t-screen-title {
+    font-family: var(--font-condensed);
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  /* Section label — Barlow Condensed 600, 13px, uppercase, +0.18em. Sits
+   * above a 2px --rule border; the rule itself is the SectionRule
+   * component's concern (PR-C), not this text-only class. */
+  .t-section-label {
+    font-family: var(--font-condensed);
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.2;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  /* Big numerals (distance/pace/reps) — Barlow Condensed 700, range
+   * 22–30px, nowrap (see file-header note on why not tabular-nums). Picked
+   * 26px (range midpoint). */
+  .t-numeral {
+    font-family: var(--font-condensed);
+    font-weight: 700;
+    font-size: 26px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* Body / chat — Barlow 400, range 14–15px/1.5–1.55. Picked 15px/1.5. */
+  .t-body {
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* Row title — Barlow, range weight 500–600, 15px. Picked 600 (the
+   * heavier end reads better at row density against --t-body's 400). */
+  .t-row-title {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  /* Data label / eyebrow — IBM Plex Mono 500, range 9.5–11px, uppercase,
+   * range +0.06–0.1em. Picked 10px / 0.08em (midpoints). */
+  .t-data-label {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 10px;
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Data values in rows — IBM Plex Mono 500, range 10.5–12px. Picked 11px
+   * (range midpoint). */
+  .t-data-value {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 11px;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Buttons — Barlow Condensed, range weight 600–700, range 13–18px,
+   * uppercase, range +0.1–0.14em. Picked 700 / 15px / 0.12em (the heavier
+   * weight + midpoint size read as a stronger CTA at typical button
+   * density). */
+  .t-button {
+    font-family: var(--font-condensed);
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.2;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 }

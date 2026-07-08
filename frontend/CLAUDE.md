@@ -175,6 +175,30 @@ Pattern: `{name}.{type}.{extension}`
   1.4.11 decorative / non-text): `--border` (pure divider), `--warning`
   (supplementary severity accent), and `--alp-faint`.
 
+### Typography (DR-6)
+
+- Three self-hosted families, no CDN: **Barlow Condensed** (`--font-condensed`
+  — numbers, display/screen titles, section labels, buttons), **Barlow**
+  (`--font-body`, aliased from `--font-sans`), and **IBM Plex Mono**
+  (`--font-mono` — labels/eyebrows/data values). Granular per-weight, latin-
+  subset `@fontsource/*` imports in `src/index.css` (no
+  `@fontsource-variable/*` — those packages don't exist for these families);
+  a build-time Vite plugin (`vite.config.ts`'s `fontFallbackFaces`, built on
+  `fontaine`'s metric-computation utilities) generates metric-matched
+  `"… fallback"` faces appended to each `--font-*` stack.
+- **Rules as law:** numbers are always `--font-condensed`; labels/data are
+  always `--font-mono`; source copy stays sentence case — `uppercase` is a
+  presentation concern applied via CSS, never baked into stored strings.
+- The HANDOFF §3 role table is encoded as shared utility classes in
+  `src/index.css`'s typography `@layer components` block: `.t-display`,
+  `.t-screen-title`, `.t-section-label`, `.t-numeral` (condensed numerals,
+  `white-space: nowrap`, not `tabular-nums` — Barlow Condensed's `tnum`
+  feature is commonly stripped from Google-Fonts-derived files),
+  `.t-body`, `.t-row-title`, `.t-data-label` / `.t-data-value` (mono,
+  `font-variant-numeric: tabular-nums`), `.t-button`. Later slices restyle
+  primitives onto these; new UI should reach for them over ad-hoc
+  font-size/weight utilities.
+
 ### Animation baseline (DEC-063)
 
 Tailwind utility classes are the animation baseline for the current frontend surface. **Do not add `motion`, `motion/react`, or `framer-motion`** to `package.json` until a slice introduces a use case Tailwind cannot cover cleanly.
