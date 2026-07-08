@@ -10,6 +10,7 @@ import { useGlobalErrorReporter } from '~/error-boundary/use-global-error-report
 import { ShellLayout } from '~/modules/app/components/shell-layout/shell-layout.component'
 import { RequireAuth } from '~/modules/auth/components/require-auth.component'
 import { useAuthBootstrap, useAuthBroadcastListener } from '~/modules/auth/hooks/auth.hooks'
+import { CoachPage } from '~/modules/coaching/pages/coach.page'
 import { HistoryPage } from '~/modules/logging/pages/history.page'
 import { LogPage } from '~/modules/logging/pages/log.page'
 import { OnboardingPage } from '~/modules/onboarding/pages/onboarding.page'
@@ -163,6 +164,14 @@ const AppShell = () => {
             element={
               <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
                 <HomePage />
+              </OnboardingRedirectGuard>
+            }
+          />
+          <Route
+            path="/coach"
+            element={
+              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+                <CoachPage />
               </OnboardingRedirectGuard>
             }
           />

@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { CoachChat } from '~/modules/coaching/components/coach-chat.component'
 import { MacroPhaseStrip } from '~/modules/plan/components/macro-phase-strip.component'
 import { TodayCard } from '~/modules/plan/components/today-card.component'
 import { UpcomingList } from '~/modules/plan/components/upcoming-list.component'
@@ -18,7 +17,9 @@ import { usePreferredUnits } from '~/modules/settings/hooks/use-preferred-units.
  * Top-level container for the protected home route (`/`). Composes the
  * plan-render sections: the macro periodisation strip, today's prominent
  * workout (or rest-day variant), and the upcoming stack (rest-of-week +
- * meso summaries).
+ * meso summaries). The interactive coach chat now lives on its own
+ * `/coach` route (spec § AD3) — home is the plan-render surface only,
+ * navigated to and from via the `TabBar`.
  *
  * Behaviour:
  *   - On mount calls `getCurrentPlan` via the `usePlan` hook.
@@ -78,12 +79,6 @@ interface PlanLayoutProps {
  * The `targetEvent`-null / general-fitness path renders a plan whose macro
  * `goalDescription` reflects the absence of a named race — no special-casing
  * required at the page level.
- *
- * The interactive coach chat sits between today's workout and the
- * upcoming stack: the streamed conversation + composed timeline (interactive
- * turns plus the proactive adaptation/safety explanations) read in today's
- * context before the forward-looking sections. It owns its own queries and
- * never blocks the plan view.
  */
 const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
   const currentWeek = resolveCurrentWeek(plan)
@@ -103,8 +98,6 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
       {currentWeekTemplate === undefined ? null : (
         <TodayCard currentWeek={currentWeekTemplate} workouts={currentWeekWorkouts} units={units} />
       )}
-
-      <CoachChat />
 
       <UpcomingList
         currentWeekWorkouts={currentWeekWorkouts}
