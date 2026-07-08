@@ -5,10 +5,13 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** None yet — cycle planned 2026-07-07. **R-086 (fonts) integrated 2026-07-07 with errata** (artifact `docs/research/artifacts/batch-32a-self-hosted-fonts-vite-react.md`; verdict + errata summarized in the queue row and locked into Slice 0 D4: static per-weight `@fontsource/*` — the artifact's variable-package recommendation was refuted at integration). **Slice 0 is ungated.**
-- **Slice ledger:** (empty — populated as slices complete)
+- **Active Slice:** None — Slice 0 (Alpine Foundation) shipped 2026-07-08. Slice 1 (Shell & Navigation) is next.
+- **Slice ledger:**
+  | # | Slice | Completed | PR |
+  |---|---|---|---|
+  | 0 | Alpine Foundation | 2026-07-08 | #275 |
 - **Active Slice Spec:** None. Specs are written fresh per-slice under `docs/specs/` (gitignored) at build time, per the Per-Slice Hygiene Rule inherited from the MVP-0 cycle plan.
-- **Next Step:** Spec + build Slice 0 (Alpine Foundation) in a fresh session — read this plan + `slice-0-alpine-foundation.md` + the R-086 artifact's errata block first.
+- **Next Step:** Spec + build Slice 1 (Shell & Navigation) in a fresh session — read this plan + `slice-1-shell-navigation.md` first.
 - **Blockers:** None.
 
 This status block is the single source of truth for "where are we?" — mirrored into `ROADMAP.md` so `/catchup` finds it. Update both whenever a slice completes or the active slice changes. **Replace, don't append:** when a slice completes, collapse its Status entry to a one-line ledger row; the narrative moves to a per-slice completion section, a `ROADMAP.md` Cycle History row, and the decision log.
@@ -72,7 +75,7 @@ Each slice ships top-to-bottom (any backend delta + codegen + frontend + tests) 
 
 | # | Name | Requirements doc | Depends on |
 |---|---|---|---|
-| 0 | Alpine Foundation | [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) | — (R-086 cleared) |
+| 0 | Alpine Foundation ✅ (2026-07-08, PR #275) | [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) | — (R-086 cleared) |
 | 1 | Shell & Navigation | [`./slice-1-shell-navigation.md`](./slice-1-shell-navigation.md) | 0 |
 | 2 | Today | [`./slice-2-today.md`](./slice-2-today.md) | 1 |
 | 3 | Coach | [`./slice-3-coach.md`](./slice-3-coach.md) | 1 |
@@ -83,17 +86,19 @@ Each slice ships top-to-bottom (any backend delta + codegen + frontend + tests) 
 
 Slices 2/3/4 are independent of each other after Slice 1; Slice 5 needs only Slice 0 (onboarding renders outside the shell). Build them in the numbered order by default — Today first makes the daily surface coherent earliest — but re-ordering 2/3/4/5 between sessions is legitimate if review load suggests it.
 
-### Slice 0 — Alpine Foundation
+### Slice 0 — Alpine Foundation ✅ Complete (2026-07-08, PR #275)
 
 **Requirements:** [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) · **Research gate:** R-086 (fonts) — **cleared 2026-07-07** (integrated with errata; architecture locked in the slice doc's D4)
 
 **Acceptance — "I can…"**
 
-- [ ] …open any existing screen and see the Alpine palette (dark by default), with light mode via the Settings toggle and System still following `prefers-color-scheme`.
-- [ ] …see Barlow Condensed / Barlow / IBM Plex Mono self-hosted with the § 3 role rules applied to shared primitives (buttons, inputs, labels).
-- [ ] …run `npm run check-contrast` and see the Alpine pairs gated (the clay-text ≥12px-semibold constraint is a documented usage rule enforced at review — the pair ratio itself clears the standard 4.5:1 gate).
-- [ ] …see the SPLIT wordmark component and the clay-slash favicon in the browser tab.
-- [ ] …see toasts, focus rings, pressed/disabled button states, and input error states in the Alpine style on existing surfaces.
+- [x] …open any existing screen and see the Alpine palette (dark by default), with light mode via the Settings toggle and System still following `prefers-color-scheme`.
+- [x] …see Barlow Condensed / Barlow / IBM Plex Mono self-hosted with the § 3 role rules applied to shared primitives (buttons, inputs, labels).
+- [x] …run `npm run check-contrast` and see the Alpine pairs gated (the clay-text ≥12px-semibold constraint is a documented usage rule enforced at review — the pair ratio itself clears the standard 4.5:1 gate).
+- [x] …see the SPLIT wordmark component and the clay-slash favicon in the browser tab.
+- [x] …see toasts, focus rings, pressed/disabled button states, and input error states in the Alpine style on existing surfaces.
+
+**Shipped:** Three atomic commits (tokens/polarity/contrast gate, fonts/typography, component layer/brand/sonner) across PR #275. `check-contrast` 38/38 (light+dark), 662 vitest tests, `npm run build` clean. Each part went through an adversarial multi-lens review + blind-challenge pass; 29 confirmed findings fixed pre-merge, including a WCAG regression the review caught (the pressed-clay retune to `#C56438`). Deferred out of this slice, tracked as open items: raster PNG icon set (no rasterizer in-env; ships SVG-only), the `Wordmark` mount point (waits for Slice 1's shell), and two advisory test-coverage gaps flagged by the post-merge deep-review pass (`vite.config.ts`'s `fontFallbackFaces`/`preloadFontLinks` plugins have no unit tests; `index.html`'s `matchMedia`-throws fallback branch is untested) — worth a follow-up test pass, not blocking.
 
 **Scope.** Token-ramp swap + semantic remap + `--positive`/`--rule` slots + the § 2 geometry/spacing rhythm; dark-default inversion (index.css `@custom-variant`, theme-provider, no-flash script, theme e2e updates); fonts + type roles; `check-contrast` Alpine pair swap (rides the token PR — the gate must stay green per-commit); shadcn primitive restyles (button/input/badge/dialog/collapsible/radio-group/switch-`Toggle`/sonner) + new shared primitives (`SegmentedControl`, `SectionRule`, `MonoLabel`, `StatBand`/`StatCell`, `Wordmark`, the plan-building `BUILDING YOUR PLAN` surface consumed later by Slices 5 and 6); favicon/app-icon assets. No layout recomposition — existing screens keep their structure on the new skin.
 
