@@ -120,25 +120,60 @@ Pattern: `{name}.{type}.{extension}`
 - Avoid inline styles — prefer Tailwind classes
 - Mobile-first responsive design with Tailwind breakpoints
 
-### Design tokens & theming (DEC-070)
+### Design tokens & theming (DEC-089)
 
 - All themed colour flows through **semantic tokens**, never hardcoded
   colour utilities (`bg-slate-*`, `text-red-*`, `bg-white`, etc.). New UI
   uses `bg-background`, `text-foreground`, `text-muted-foreground`,
-  `bg-card`, `bg-primary`, `border`, `bg-destructive`, and friends.
-- `src/index.css` carries a **two-tier token layer**: a primitive
-  Catppuccin tier (`--ctp-*`, Latte in `:root` / Mocha in `.dark`) under
-  shadcn/ui's semantic tier, joined by one `@theme inline` block. The
-  accent is the Catppuccin **teal** family.
-- **Dark mode** is class-based — the `.dark` class on `documentElement`.
-  `ThemeProvider` (`src/components/theme-provider.tsx`) owns that class and
-  the `light | dark | system` choice; consume it via the `useTheme()` hook
-  from `src/components/theme-context.ts`. A no-flash script in `index.html`
-  sets the initial class before first paint. The Settings page surfaces a
-  3-state toggle.
+  `bg-card`, `bg-primary`, `border`, `bg-destructive`, `text-positive`,
+  `border-rule`, `text-clay-text`, and friends.
+- `src/index.css` carries a **two-tier token layer**: a primitive Alpine
+  tier (`--alp-*`) under shadcn/ui's semantic tier, joined by one
+  `@theme inline` block. The accent is Alpine **clay** (`#D06A3B`).
+- **Dark is the default polarity.** `:root` carries the Alpine dark
+  primitive ramp (bg `#10140F`, bone `#EDE8DB`, …) and the semantic
+  mappings; `.light` overrides every primitive with the light ramp and
+  re-declares the semantic mappings. Primitive token *names* are
+  mode-invariant — only their values swap. This inverts the pre-Alpine
+  (Catppuccin) polarity, where `:root` was the light default; the `.dark`/
+  `.light` class-toggle mechanism and the `dark:` utility variant are
+  unchanged (see `theme-provider.tsx`'s header comment for the full
+  mechanism note).
+- Three project-owned semantic slots beyond shadcn's defaults: `--positive`
+  (moss — done/success state), `--rule` (the 2px section-rule colour, holds
+  bone/ink per mode — see `SectionRule` once it lands), and `--clay-text`
+  (clay used as text, not a fill). Clay-as-text clears AA at any size
+  (measured ~5.14:1 dark / ~5.17:1 light against `--background`, and contrast
+  ratio does not vary with weight). **Design guideline: use `--clay-text`
+  only at ≥12px semibold** — a conservative legibility convention for the
+  warm mid-tone, not a contrast requirement. `--alp-faint` is
+  decorative-only (fails AA by design) and must never carry essential text.
+- **Geometry:** a radius ramp is exposed as `@theme` tokens — `rounded-xs`
+  (4px, day cells/tags), `rounded-sm` (6px, chips), `rounded-md` (8px,
+  buttons/inputs/cards-lite), `rounded-lg` (10px, turn cards), `rounded-full`
+  (999px, pills). Nothing should exceed 12px inside a screen. Rule law:
+  section openers are `2px solid var(--rule)`; data dividers are
+  `1px solid var(--border)`; surfaces stay flat, elevation is rare.
+- **Spacing rhythm:** Tailwind's default 4px base scale, a 22px screen
+  gutter, and a 20–22px section gap. `--gutter: 22px` is exposed as a
+  custom property; a `.screen-gutter` utility (`padding-inline:
+  var(--gutter)`) is available in `@layer components` for screens that want
+  the horizontal rhythm without repeating an arbitrary-value class.
+- **Dark mode** is class-based — the `.dark`/`.light` class on
+  `documentElement`. `ThemeProvider` (`src/components/theme-provider.tsx`)
+  owns that class and the `light | dark | system` choice; consume it via
+  the `useTheme()` hook from `src/components/theme-context.ts`. A no-flash
+  script in `index.html` sets the initial class before first paint,
+  falling back to **dark** (not light) if `localStorage` throws. The
+  Settings page surfaces a 3-state toggle.
 - A `check-contrast` script gates the token set against WCAG AA in
   pre-commit and CI — every semantic foreground/background pair must clear
-  the ratio. Do not commit a token change that fails it.
+  the ratio. Do not commit a token change that fails it. `--input` IS gated
+  (3:1 UI-component rule): it is the resting boundary of an empty form field
+  and maps to a dedicated `--alp-input-border` primitive, distinct from the
+  fainter `--alp-hairline` divider tone behind `--border`. Exempt (WCAG
+  1.4.11 decorative / non-text): `--border` (pure divider), `--warning`
+  (supplementary severity accent), and `--alp-faint`.
 
 ### Animation baseline (DEC-063)
 

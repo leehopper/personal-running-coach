@@ -10,18 +10,30 @@
       // the .dark/.light class is on <html> before first paint. Mirrors
       // the storage key and resolution logic in `ThemeProvider`; keep the
       // 'runcoach-theme' key in sync between this script and the provider.
-      // A try/catch keeps a storage-disabled browser from blocking the render.
+      // When storage throws, ThemeProvider (unchanged) falls back to
+      // `system`, so this catch branch must ALSO consult
+      // prefers-color-scheme — otherwise the two disagree when storage
+      // throws AND the OS prefers light, painting dark then flipping to
+      // light (a visible flash). Only when matchMedia is also unavailable
+      // do we default to dark (the app's default polarity — :root carries
+      // the dark ramp).
       ;(function () {
+        function prefersDark() {
+          try {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches
+          } catch (e) {
+            return true
+          }
+        }
+        var dark
         try {
           var stored = localStorage.getItem('runcoach-theme')
           var theme = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
-          var dark =
-            theme === 'dark' ||
-            (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-          document.documentElement.classList.add(dark ? 'dark' : 'light')
+          dark = theme === 'dark' || (theme === 'system' && prefersDark())
         } catch (e) {
-          document.documentElement.classList.add('light')
+          dark = prefersDark()
         }
+        document.documentElement.classList.add(dark ? 'dark' : 'light')
       })()
     </script>
   </head>
