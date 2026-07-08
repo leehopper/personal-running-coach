@@ -120,25 +120,131 @@ Pattern: `{name}.{type}.{extension}`
 - Avoid inline styles — prefer Tailwind classes
 - Mobile-first responsive design with Tailwind breakpoints
 
-### Design tokens & theming (DEC-070)
+### Design tokens & theming (DEC-089)
 
 - All themed colour flows through **semantic tokens**, never hardcoded
   colour utilities (`bg-slate-*`, `text-red-*`, `bg-white`, etc.). New UI
   uses `bg-background`, `text-foreground`, `text-muted-foreground`,
-  `bg-card`, `bg-primary`, `border`, `bg-destructive`, and friends.
-- `src/index.css` carries a **two-tier token layer**: a primitive
-  Catppuccin tier (`--ctp-*`, Latte in `:root` / Mocha in `.dark`) under
-  shadcn/ui's semantic tier, joined by one `@theme inline` block. The
-  accent is the Catppuccin **teal** family.
-- **Dark mode** is class-based — the `.dark` class on `documentElement`.
-  `ThemeProvider` (`src/components/theme-provider.tsx`) owns that class and
-  the `light | dark | system` choice; consume it via the `useTheme()` hook
-  from `src/components/theme-context.ts`. A no-flash script in `index.html`
-  sets the initial class before first paint. The Settings page surfaces a
-  3-state toggle.
+  `bg-card`, `bg-primary`, `border`, `bg-destructive`, `text-positive`,
+  `border-rule`, `text-clay-text`, and friends.
+- `src/index.css` carries a **two-tier token layer**: a primitive Alpine
+  tier (`--alp-*`) under shadcn/ui's semantic tier, joined by one
+  `@theme inline` block. The accent is Alpine **clay** (`#D06A3B`).
+- **Dark is the default polarity.** `:root` carries the Alpine dark
+  primitive ramp (bg `#10140F`, bone `#EDE8DB`, …) and the semantic
+  mappings; `.light` overrides every primitive with the light ramp and
+  re-declares the semantic mappings. Primitive token *names* are
+  mode-invariant — only their values swap. This inverts the pre-Alpine
+  (Catppuccin) polarity, where `:root` was the light default; the `.dark`/
+  `.light` class-toggle mechanism and the `dark:` utility variant are
+  unchanged (see `theme-provider.tsx`'s header comment for the full
+  mechanism note).
+- Five project-owned semantic slots beyond shadcn's defaults: `--positive`
+  (moss — done/success state), `--rule` (the 2px section-rule colour, holds
+  bone/ink per mode — see `SectionRule`), `--clay-text` (clay used as text,
+  not a fill), `--clay-pressed` (the pressed/active clay fill under
+  `--primary-foreground` text — see § Alpine components below), and
+  `--input-fill` (the sunken resting fill of form controls, distinct from
+  `--input`, the border). Clay-as-text clears AA at **any** size (measured
+  ~5.14:1 dark / ~5.17:1 light against `--background`; contrast ratio does
+  not vary with weight or size). **Design guideline: prefer `--clay-text` at
+  ≥12px semibold** — a conservative legibility preference for the warm
+  mid-tone, not a contrast requirement, so it is not a hard rule: small mono
+  clay labels (e.g. `MonoLabel`'s `clay` tone at `.t-data-label`'s 10px/500
+  weight — used for metadata like a coach-turn `COACH · HH:MM` line) are an
+  accepted, AA-passing exception; keep them. `--alp-faint` is
+  decorative-only (fails AA by design) and must never carry essential text.
+- **Geometry:** a radius ramp is exposed as `@theme` tokens — `rounded-xs`
+  (4px, day cells/tags), `rounded-sm` (6px, chips), `rounded-md` (8px,
+  buttons/inputs/cards-lite), `rounded-lg` (10px, turn cards), `rounded-full`
+  (999px, pills). Nothing should exceed 12px inside a screen. Rule law:
+  section openers are `2px solid var(--rule)`; data dividers are
+  `1px solid var(--border)`; surfaces stay flat, elevation is rare.
+- **Spacing rhythm:** Tailwind's default 4px base scale, a 22px screen
+  gutter, and a 20–22px section gap. `--gutter: 22px` is exposed as a
+  custom property; a `.screen-gutter` utility (`padding-inline:
+  var(--gutter)`) is available in `@layer components` for screens that want
+  the horizontal rhythm without repeating an arbitrary-value class.
+- **Dark mode** is class-based — the `.dark`/`.light` class on
+  `documentElement`. `ThemeProvider` (`src/components/theme-provider.tsx`)
+  owns that class and the `light | dark | system` choice; consume it via
+  the `useTheme()` hook from `src/components/theme-context.ts`. A no-flash
+  script in `index.html` sets the initial class before first paint,
+  falling back to **dark** (not light) if `localStorage` throws. The
+  Settings page surfaces a 3-state toggle.
 - A `check-contrast` script gates the token set against WCAG AA in
   pre-commit and CI — every semantic foreground/background pair must clear
-  the ratio. Do not commit a token change that fails it.
+  the ratio. Do not commit a token change that fails it. `--input` IS gated
+  (3:1 UI-component rule): it is the resting boundary of an empty form field
+  and maps to a dedicated `--alp-input-border` primitive, distinct from the
+  fainter `--alp-hairline` divider tone behind `--border`. Exempt (WCAG
+  1.4.11 decorative / non-text): `--border` (pure divider), `--warning`
+  (supplementary severity accent), and `--alp-faint`.
+
+### Typography (DR-6)
+
+- Three self-hosted families, no CDN: **Barlow Condensed** (`--font-condensed`
+  — numbers, display/screen titles, section labels, buttons), **Barlow**
+  (`--font-body`, aliased from `--font-sans`), and **IBM Plex Mono**
+  (`--font-mono` — labels/eyebrows/data values). Granular per-weight, latin-
+  subset `@fontsource/*` imports in `src/index.css` (no
+  `@fontsource-variable/*` — those packages don't exist for these families);
+  a build-time Vite plugin (`vite.config.ts`'s `fontFallbackFaces`, built on
+  `fontaine`'s metric-computation utilities) generates metric-matched
+  `"… fallback"` faces appended to each `--font-*` stack.
+- **Rules as law:** numbers are always `--font-condensed`; labels/data are
+  always `--font-mono`; source copy stays sentence case — `uppercase` is a
+  presentation concern applied via CSS, never baked into stored strings.
+- The HANDOFF §3 role table is encoded as shared utility classes in
+  `src/index.css`'s typography `@layer components` block: `.t-display`,
+  `.t-screen-title`, `.t-section-label`, `.t-numeral` (condensed numerals,
+  `white-space: nowrap`, not `tabular-nums` — Barlow Condensed's `tnum`
+  feature is commonly stripped from Google-Fonts-derived files),
+  `.t-body`, `.t-row-title`, `.t-data-label` / `.t-data-value` (mono,
+  `font-variant-numeric: tabular-nums`), `.t-button`. Later slices restyle
+  primitives onto these; new UI should reach for them over ad-hoc
+  font-size/weight utilities.
+
+### Alpine components (Slice 0)
+
+- **State law**, applied to every interactive Alpine primitive (button,
+  input/textarea, checkbox, radio-group, segmented-control, switch, dialog
+  close, badge, sonner's RETRY action): pressed = darken + `active:scale-
+  [0.98]` (the primary/clay-filled treatment darkens to `--clay-pressed`;
+  outline/secondary-style controls darken to `--secondary`); disabled =
+  `disabled:opacity-35`; focus-visible = `focus-visible:border-ring
+  focus-visible:ring-[3px] focus-visible:ring-ring/[0.22]` (the one
+  canonical ring — do not reintroduce a plain `outline-2` focus treatment);
+  error = `aria-invalid:border-destructive aria-invalid:ring-destructive/
+  [0.22]` with no `dark:` override (a single ratio holds both modes); hit
+  targets ≥44px via a `relative` + `before:absolute before:inset-[-14px]
+  before:content-['']` expansion around a visually smaller control (see
+  `radio-group.tsx` and `checkbox.tsx`); every animation pairs a
+  `motion-reduce:` variant (DEC-063).
+- **Net-new shared components** — shadcn-style primitives under
+  `src/components/ui/`, app-composed ones under
+  `src/app/modules/common/components/{name}/`:
+  - `Switch` (`components/ui/switch.tsx`) — radix Switch; replaces
+    onboarding's checkboxes.
+  - `SegmentedControl` / `SegmentedControlItem`
+    (`components/ui/segmented-control.tsx`) — radix RadioGroup-based
+    mutually-exclusive picker (completion / units / theme).
+  - `SectionRule`, `MonoLabel`, `StatBand` / `StatCell`, `Wordmark`,
+    `BuildingPlanSurface` — each under its own
+    `common/components/{name}/{name}.component.tsx` with a co-located spec.
+    `BuildingPlanSurface`'s progress indicator is genuinely indeterminate
+    (a partial-width bar travels the track via the `animate-indeterminate`
+    utility in `index.css`, not a fixed-position opacity pulse), so it
+    never reads as a stalled percentage.
+  - `Wordmark` has no mount point yet: there is no shared header/shell
+    component this slice (Slice 0 forbids screen recomposition) for it to
+    drop into. It mounts with the tab-bar shell in Slice 1.
+- Two of the five project-owned tokens above exist specifically to back
+  this layer: `--clay-pressed` (retuned to `#C56438` so
+  `--primary-foreground` clears AA against it — the handoff's literal
+  `#B0532A` measured only ~3.65:1) and `--input-fill` (gated for
+  placeholder/value legibility, not just boundary perceptibility like
+  `--input`). Both carry dedicated check-contrast pairs.
 
 ### Animation baseline (DEC-063)
 

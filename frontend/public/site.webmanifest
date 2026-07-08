@@ -1,0 +1,21 @@
+{
+  "name": "SPLIT",
+  "short_name": "SPLIT",
+  "theme_color": "#10140F",
+  "background_color": "#10140F",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

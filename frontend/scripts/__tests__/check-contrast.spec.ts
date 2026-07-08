@@ -162,20 +162,20 @@ describe('parseColor', () => {
 
 describe('parseDeclaration', () => {
   it('extracts the name and value of a custom property', () => {
-    expect(parseDeclaration('--ctp-base: #eff1f5')).toEqual(['ctp-base', '#eff1f5'])
+    expect(parseDeclaration('--alp-bg: #eff1f5')).toEqual(['alp-bg', '#eff1f5'])
   })
 
   it('trims surrounding whitespace from name and value', () => {
-    expect(parseDeclaration('   --ctp-red :   #d20f39  ')).toEqual(['ctp-red', '#d20f39'])
+    expect(parseDeclaration('   --alp-danger :   #d20f39  ')).toEqual(['alp-danger', '#d20f39'])
   })
 
   it('keeps a var() value intact (the property is the FIRST --, not the last)', () => {
-    // The semantic tier holds values like `var(--ctp-text)`, whose own `--`
+    // The semantic tier holds values like `var(--alp-muted)`, whose own `--`
     // must not be mistaken for the property name. This is the regression the
     // first-`--` parse fixes; lastIndexOf would have returned null here.
-    expect(parseDeclaration('--muted-foreground: var(--ctp-subtext1)')).toEqual([
+    expect(parseDeclaration('--muted-foreground: var(--alp-muted)')).toEqual([
       'muted-foreground',
-      'var(--ctp-subtext1)',
+      'var(--alp-muted)',
     ])
   })
 
@@ -188,7 +188,7 @@ describe('parseDeclaration', () => {
   })
 
   it('returns null for an empty value', () => {
-    expect(parseDeclaration('--ctp-base:   ')).toBeNull()
+    expect(parseDeclaration('--alp-bg:   ')).toBeNull()
   })
 })
 
@@ -216,30 +216,30 @@ describe('stripComments', () => {
 const CSS_FIXTURE = `
 /* primitive tier — comment with a : and ; to confuse naive parsers */
 :root {
-  --ctp-base: #ffffff;
-  --ctp-text: #000000;
-  --ctp-red: #d20f39;
-  --ctp-destructive-on: #ffffff;
+  --alp-bg: #ffffff;
+  --alp-bone: #000000;
+  --alp-danger: #d20f39;
+  --alp-on-danger: #ffffff;
 }
 
-.dark {
-  --ctp-base: #000000;
-  --ctp-text: #ffffff;
-  --ctp-red: #f38ba8;
-  --ctp-destructive-on: oklch(0 0 0);
+.light {
+  --alp-bg: #000000;
+  --alp-bone: #ffffff;
+  --alp-danger: #f38ba8;
+  --alp-on-danger: oklch(0 0 0);
 }
 `
 
 // A two-tier fixture: a primitive :root block plus a semantic :root block
-// that maps slots through var(--ctp-*), mirroring index.css's structure.
+// that maps slots through var(--alp-*), mirroring index.css's structure.
 const TWO_TIER_FIXTURE = `
 :root {
-  --ctp-base: #ffffff;
-  --ctp-text: #000000;
+  --alp-bg: #ffffff;
+  --alp-bone: #000000;
 }
 :root {
-  --background: var(--ctp-base);
-  --foreground: var(--ctp-text);
+  --background: var(--alp-bg);
+  --foreground: var(--alp-bone);
 }
 `
 
@@ -247,13 +247,14 @@ describe('findBlockBodies', () => {
   it('returns every brace-adjacent block for a selector', () => {
     const bodies = findBlockBodies(TWO_TIER_FIXTURE, ':root')
     expect(bodies).toHaveLength(2)
-    expect(bodies[0]).toContain('--ctp-base: #ffffff')
-    expect(bodies[1]).toContain('--background: var(--ctp-base)')
+    expect(bodies[0]).toContain('--alp-bg: #ffffff')
+    expect(bodies[1]).toContain('--background: var(--alp-bg)')
   })
 
   it('returns an empty array when the selector is not brace-adjacent', () => {
-    // Real Tailwind v4 `@custom-variant` directive form: `.dark` appears but
-    // is followed by ` *))`, not `{`, so it is skipped.
+    // Real Tailwind v4 `@custom-variant` directive form (unchanged under
+    // Alpine — DR-1): `.dark` appears but is followed by ` *))`, not `{`,
+    // so it is skipped.
     expect(findBlockBodies('@custom-variant dark (&:is(.dark *));', '.dark')).toEqual([])
   })
 })
@@ -261,15 +262,15 @@ describe('findBlockBodies', () => {
 describe('findBlockBody', () => {
   it('extracts the body of a :root block', () => {
     const body = findBlockBody(CSS_FIXTURE, ':root')
-    expect(body).toContain('--ctp-base: #ffffff')
-    expect(body).toContain('--ctp-text: #000000')
-    expect(body).not.toContain('.dark')
+    expect(body).toContain('--alp-bg: #ffffff')
+    expect(body).toContain('--alp-bone: #000000')
+    expect(body).not.toContain('.light')
   })
 
-  it('extracts the body of a .dark block', () => {
-    const body = findBlockBody(CSS_FIXTURE, '.dark')
-    expect(body).toContain('--ctp-base: #000000')
-    expect(body).toContain('--ctp-text: #ffffff')
+  it('extracts the body of a .light block', () => {
+    const body = findBlockBody(CSS_FIXTURE, '.light')
+    expect(body).toContain('--alp-bg: #000000')
+    expect(body).toContain('--alp-bone: #ffffff')
   })
 
   it('throws when the selector has no brace-adjacent block', () => {
@@ -282,28 +283,28 @@ describe('findBlockBody', () => {
 describe('extractTokens', () => {
   it('builds the primitive token map for :root', () => {
     const tokens = extractTokens(CSS_FIXTURE, ':root')
-    expect(tokens.get('ctp-base')).toBe('#ffffff')
-    expect(tokens.get('ctp-text')).toBe('#000000')
-    expect(tokens.get('ctp-red')).toBe('#d20f39')
-    expect(tokens.get('ctp-destructive-on')).toBe('#ffffff')
+    expect(tokens.get('alp-bg')).toBe('#ffffff')
+    expect(tokens.get('alp-bone')).toBe('#000000')
+    expect(tokens.get('alp-danger')).toBe('#d20f39')
+    expect(tokens.get('alp-on-danger')).toBe('#ffffff')
   })
 
-  it('builds a distinct map for .dark', () => {
-    const tokens = extractTokens(CSS_FIXTURE, '.dark')
-    expect(tokens.get('ctp-base')).toBe('#000000')
-    expect(tokens.get('ctp-destructive-on')).toBe('oklch(0 0 0)')
+  it('builds a distinct map for .light', () => {
+    const tokens = extractTokens(CSS_FIXTURE, '.light')
+    expect(tokens.get('alp-bg')).toBe('#000000')
+    expect(tokens.get('alp-on-danger')).toBe('oklch(0 0 0)')
   })
 
   it('merges the primitive and semantic blocks into one map', () => {
     const tokens = extractTokens(TWO_TIER_FIXTURE, ':root')
-    expect(tokens.get('ctp-text')).toBe('#000000')
-    expect(tokens.get('foreground')).toBe('var(--ctp-text)')
-    expect(tokens.get('background')).toBe('var(--ctp-base)')
+    expect(tokens.get('alp-bone')).toBe('#000000')
+    expect(tokens.get('foreground')).toBe('var(--alp-bone)')
+    expect(tokens.get('background')).toBe('var(--alp-bg)')
   })
 
   it('throws when no block matches the selector', () => {
-    expect(() => extractTokens(':root { --ctp-base: #fff; }', '.dark')).toThrow(
-      /Could not find a "\.dark" block/,
+    expect(() => extractTokens(':root { --alp-bg: #fff; }', '.light')).toThrow(
+      /Could not find a "\.light" block/,
     )
   })
 })
@@ -311,26 +312,26 @@ describe('extractTokens', () => {
 describe('resolveToken', () => {
   it('resolves a known primitive token to an Rgb', () => {
     const tokens = extractTokens(CSS_FIXTURE, ':root')
-    expect(resolveToken(tokens, 'ctp-base', 'light')).toEqual(WHITE)
-    expect(resolveToken(tokens, 'ctp-text', 'light')).toEqual(BLACK)
+    expect(resolveToken(tokens, 'alp-bg', 'dark')).toEqual(WHITE)
+    expect(resolveToken(tokens, 'alp-bone', 'dark')).toEqual(BLACK)
   })
 
   it('follows a var() reference from the semantic tier to the primitive value', () => {
     const tokens = extractTokens(TWO_TIER_FIXTURE, ':root')
-    expect(resolveToken(tokens, 'foreground', 'light')).toEqual(BLACK)
-    expect(resolveToken(tokens, 'background', 'light')).toEqual(WHITE)
+    expect(resolveToken(tokens, 'foreground', 'dark')).toEqual(BLACK)
+    expect(resolveToken(tokens, 'background', 'dark')).toEqual(WHITE)
   })
 
   it('throws naming the mode when the token is absent', () => {
     const tokens = extractTokens(CSS_FIXTURE, ':root')
-    expect(() => resolveToken(tokens, 'ctp-missing', 'light')).toThrow(
-      /Token --ctp-missing not found in the light tier/,
+    expect(() => resolveToken(tokens, 'alp-missing', 'dark')).toThrow(
+      /Token --alp-missing not found in the dark tier/,
     )
   })
 
   it('throws when a var() reference points at a missing token', () => {
-    const tokens = new Map([['slot', 'var(--ctp-missing)']])
-    expect(() => resolveToken(tokens, 'slot', 'light')).toThrow(/Token --ctp-missing not found/)
+    const tokens = new Map([['slot', 'var(--alp-missing)']])
+    expect(() => resolveToken(tokens, 'slot', 'dark')).toThrow(/Token --alp-missing not found/)
   })
 
   it('throws on a cyclic var() reference instead of looping forever', () => {
@@ -338,7 +339,7 @@ describe('resolveToken', () => {
       ['a', 'var(--b)'],
       ['b', 'var(--a)'],
     ])
-    expect(() => resolveToken(tokens, 'a', 'light')).toThrow(/Cyclic var\(\) reference/)
+    expect(() => resolveToken(tokens, 'a', 'dark')).toThrow(/Cyclic var\(\) reference/)
   })
 })
 
@@ -351,6 +352,16 @@ describe('PAIRS matrix', () => {
     expect(destructive?.fg).toBe('destructive-foreground')
     expect(destructive?.bg).toBe('destructive')
     expect(destructive?.threshold).toBe(4.5)
+  })
+
+  it('asserts the --input form-control boundary (guards a silent drop)', () => {
+    // --input is the only cue an empty resting field exists (its fill is a
+    // near-invisible ~1:1 against the page bg), so it must stay gated to the
+    // 3:1 UI-component rule and never be quietly dropped from PAIRS again.
+    const input = PAIRS.find((pair) => pair.fg === 'input')
+    expect(input).toBeDefined()
+    expect(input?.bg).toBe('background')
+    expect(input?.threshold).toBe(3.0)
   })
 
   it('does not carry mode-suffixed labels — pairs are mode-invariant', () => {
@@ -374,45 +385,45 @@ describe('PAIRS matrix', () => {
 describe('checkMode', () => {
   const PASS_PAIR: Pair = {
     label: '--text on --base',
-    fg: 'ctp-text',
-    bg: 'ctp-base',
+    fg: 'alp-bone',
+    bg: 'alp-bg',
     threshold: 4.5,
   }
   const FAIL_PAIR: Pair = {
     label: '--base on --base',
-    fg: 'ctp-base',
-    bg: 'ctp-base',
+    fg: 'alp-bg',
+    bg: 'alp-bg',
     threshold: 4.5,
   }
 
   it('passes a black-on-white pair with a sane 21:1 ratio', () => {
     const tokens = extractTokens(CSS_FIXTURE, ':root')
-    const [result] = checkMode(tokens, 'light', [PASS_PAIR])
+    const [result] = checkMode(tokens, 'dark', [PASS_PAIR])
     expect(result.passed).toBe(true)
-    expect(result.mode).toBe('light')
+    expect(result.mode).toBe('dark')
     expect(result.threshold).toBe(4.5)
     expect(result.ratio).toBeCloseTo(21, 5)
   })
 
   it('fails a same-colour pair with a 1:1 ratio', () => {
     const tokens = extractTokens(CSS_FIXTURE, ':root')
-    const [result] = checkMode(tokens, 'light', [FAIL_PAIR])
+    const [result] = checkMode(tokens, 'dark', [FAIL_PAIR])
     expect(result.passed).toBe(false)
     expect(result.ratio).toBeCloseTo(1, 10)
   })
 
   it('resolves the same pair per mode, yielding sane ratios in both', () => {
-    const light = checkMode(extractTokens(CSS_FIXTURE, ':root'), 'light', [PASS_PAIR])
-    const dark = checkMode(extractTokens(CSS_FIXTURE, '.dark'), 'dark', [PASS_PAIR])
-    // ctp-text/ctp-base flip between modes but the contrast is mode-invariant.
-    expect(light[0].ratio).toBeCloseTo(dark[0].ratio, 5)
-    expect(light[0].passed).toBe(true)
+    const dark = checkMode(extractTokens(CSS_FIXTURE, ':root'), 'dark', [PASS_PAIR])
+    const light = checkMode(extractTokens(CSS_FIXTURE, '.light'), 'light', [PASS_PAIR])
+    // alp-bone/alp-bg flip between modes but the contrast is mode-invariant.
+    expect(dark[0].ratio).toBeCloseTo(light[0].ratio, 5)
     expect(dark[0].passed).toBe(true)
+    expect(light[0].passed).toBe(true)
   })
 
   it('returns one result per input pair', () => {
     const tokens = extractTokens(CSS_FIXTURE, ':root')
-    const results = checkMode(tokens, 'light', [PASS_PAIR, FAIL_PAIR])
+    const results = checkMode(tokens, 'dark', [PASS_PAIR, FAIL_PAIR])
     expect(results).toHaveLength(2)
   })
 
@@ -421,19 +432,19 @@ describe('checkMode', () => {
     // Only the mapping differs; the gate must follow it through var() and
     // flip pass→fail. Under the old primitive-only design this regression
     // class was invisible.
-    const primitives = ':root { --ctp-strong: #595959; --ctp-weak: #bdbdbd; --ctp-bg: #ffffff; }'
+    const primitives = ':root { --alp-strong: #595959; --alp-weak: #bdbdbd; --alp-bg: #ffffff; }'
     const pair: Pair = { label: '--fg on --bg', fg: 'fg', bg: 'bg', threshold: 4.5 }
-    const passing = primitives + ':root { --fg: var(--ctp-strong); --bg: var(--ctp-bg); }'
-    const failing = primitives + ':root { --fg: var(--ctp-weak); --bg: var(--ctp-bg); }'
-    expect(checkMode(extractTokens(passing, ':root'), 'light', [pair])[0].passed).toBe(true)
-    expect(checkMode(extractTokens(failing, ':root'), 'light', [pair])[0].passed).toBe(false)
+    const passing = primitives + ':root { --fg: var(--alp-strong); --bg: var(--alp-bg); }'
+    const failing = primitives + ':root { --fg: var(--alp-weak); --bg: var(--alp-bg); }'
+    expect(checkMode(extractTokens(passing, ':root'), 'dark', [pair])[0].passed).toBe(true)
+    expect(checkMode(extractTokens(failing, ':root'), 'dark', [pair])[0].passed).toBe(false)
   })
 })
 
 describe('runChecks (against the committed index.css)', () => {
   it('resolves every PAIRS slot in both modes without throwing', () => {
     const css = stripComments(readFileSync(realIndexCssPath, 'utf8'))
-    for (const selector of [':root', '.dark']) {
+    for (const selector of [':root', '.light']) {
       const tokens = extractTokens(css, selector)
       for (const pair of PAIRS) {
         expect(() => resolveToken(tokens, pair.fg, selector)).not.toThrow()
@@ -442,9 +453,9 @@ describe('runChecks (against the committed index.css)', () => {
     }
   })
 
-  it('reports 28 results (14 pairs × 2 modes), all passing', () => {
+  it('reports 38 results (19 pairs × 2 modes), all passing', () => {
     const results = runChecks(readFileSync(realIndexCssPath, 'utf8'))
-    expect(results).toHaveLength(28)
+    expect(results).toHaveLength(38)
     for (const result of results) {
       expect(result.passed).toBe(true)
     }
@@ -480,18 +491,19 @@ describe('check-contrast script (integration)', () => {
   it('exits 0 and reports all pairs passing against the committed tokens', () => {
     const { status, stdout } = runGate()
     expect(status).toBe(0)
-    expect(stdout).toContain('all 28 pairs pass WCAG thresholds')
+    expect(stdout).toContain('all 38 pairs pass WCAG thresholds')
   }, 30000)
 
   it('exits non-zero and names the failing pair + ratio on stderr when a token regresses', () => {
-    // Break the light --foreground by lightening its primitive (--ctp-text)
-    // to near-white, so --foreground on --background drops below 4.5:1.
-    // Plain string slicing (no backtracking-prone regex) rewrites the first
-    // `--ctp-text:` declaration's value up to its `;`.
+    // Break the dark --foreground by darkening its primitive (--alp-bone)
+    // towards the dark --background, so --foreground on --background drops
+    // below 4.5:1. Plain string slicing (no backtracking-prone regex)
+    // rewrites the FIRST `--alp-bone:` declaration's value up to its `;` —
+    // the first occurrence is the :root (dark, default) primitive tier.
     const original = readFileSync(realIndexCssPath, 'utf8')
-    const markerAt = original.indexOf('--ctp-text:')
+    const markerAt = original.indexOf('--alp-bone:')
     const semicolonAt = original.indexOf(';', markerAt)
-    const broken = `${original.slice(0, markerAt)}--ctp-text: #f4f4f4${original.slice(semicolonAt)}`
+    const broken = `${original.slice(0, markerAt)}--alp-bone: #141814${original.slice(semicolonAt)}`
     const tmp = resolve(tmpdir(), `check-contrast-fail-${process.pid}.css`)
     writeFileSync(tmp, broken)
     try {

@@ -1,244 +1,359 @@
 /* ───────────────────────────────────────────────────────────────────────────
- * RunCoach design-token layer — DEC-070 two-tier Catppuccin hybrid.
+ * RunCoach design-token layer — DEC-089 two-tier Alpine layer, dark-default.
  *
  * Canonical Tailwind-v4 / shadcn order (do not reorder):
  *   1. @import "tailwindcss"
  *   2. @import "tw-animate-css"
  *   3. @custom-variant dark
- *   4. primitive tier   — raw Catppuccin neutrals (--ctp-*)
+ *   4. primitive tier   — raw Alpine neutrals (--alp-*)
  *   5. semantic tier    — shadcn slots (--background, --primary, …)
  *   6. one @theme inline block — exposes the semantic tier to utilities
  *
+ * POLARITY — dark is the default, light is the override
+ *   `:root` carries the Alpine DARK primitive ramp (default) + the semantic
+ *   mappings. This makes dark the pre-paint / no-JS / storage-throw default
+ *   (see `index.html`'s no-flash IIFE) and avoids a light flash for dark
+ *   users. `.light` carries the Alpine LIGHT ramp (override) + the semantic
+ *   mappings re-declared, and MUST appear after `:root` in source — equal
+ *   specificity, source order wins.
+ *
+ *   `@custom-variant dark (&:is(.dark *))` is UNCHANGED and the provider
+ *   still toggles exactly one of `.dark` / `.light` on `<html>`. In dark
+ *   mode the `.dark` class is present (so the existing `dark:` utilities and
+ *   `useDocumentTheme`'s `classList.contains('dark')` keep working), while
+ *   the dark VALUES resolve from `:root` — the `.dark` class carries no CSS
+ *   rule of its own; nothing needs overriding there. In light mode `.light`
+ *   overrides every primitive.
+ *
  * TWO TIERS
- *   Primitive (--ctp-*): raw Catppuccin hex, catppuccin/palette v1.7.1.
- *     Latte ramp in :root, Mocha ramp in .dark. Dark mode swaps THIS tier
- *     only. Components must never reference --ctp-* directly.
- *   Semantic (--background, --foreground, …): every shadcn slot maps to a
- *     --ctp-* primitive. The mappings are mode-invariant — re-declared in
- *     .dark purely for single-place readability.
+ *   Primitive (--alp-*): raw Alpine hex. Primitive NAMES are mode-invariant —
+ *     only their values swap between `:root` (dark) and `.light` (light).
+ *     Components must never reference --alp-* directly.
+ *   Semantic (--background, --foreground, …): every shadcn slot (plus the
+ *     project-owned --positive/--rule/--clay-text slots) maps to an --alp-*
+ *     primitive. The mappings are mode-invariant — re-declared in `.light`
+ *     purely for single-place readability, and so `check-contrast`'s
+ *     per-selector block merge resolves each semantic slot in light mode
+ *     exactly as it resolves them in dark mode.
  *
  * CONTRAST RULE (machine-checked by scripts/check-contrast.ts)
- *   Text-role tokens — --foreground, --card-foreground, --popover-foreground,
- *   --primary-foreground, --muted-foreground — map only to --ctp-text or
- *   --ctp-subtext1. --muted-foreground maps to --ctp-subtext1 (Latte
- *   subtext0-on-base is 4.37:1, an AA-normal fail by 0.13).
+ *   Exempt from the gate (WCAG 1.4.11 decorative / non-text): `--border`
+ *   (a pure divider), `--warning` (a supplementary severity accent), and
+ *   `--alp-faint` (a decorative label tint that fails AA by design and must
+ *   never carry essential text).
+ *   `--input` is NOT exempt: it is a form-control boundary and the ONLY cue
+ *   that an empty resting field exists (the field fill `--alp-input` is a
+ *   near-invisible ~1:1 against the page bg by design), so it is held to the
+ *   3:1 UI-component threshold. It is backed by a dedicated `--alp-input-border`
+ *   primitive (tuned to just clear 3:1 vs `--alp-bg` in each mode), distinct
+ *   from the `--alp-hairline` divider tone used by `--border`.
+ *   `--sidebar-ring` is backed by `--alp-clay-marker` rather than the raw
+ *   `--alp-clay` fill so the (currently unused) vendor sidebar's focus ring
+ *   clears 3:1 against `--sidebar` in light mode (raw clay falls to ~2.87:1
+ *   there); the gate enforces this.
+ *   `--clay-pressed` (the primary button's / segmented-control's pressed
+ *   fill) IS gated at 4.5:1 against `--primary-foreground`: both consumers
+ *   render on-clay text over it while pressed, so it is a text-on-fill pair
+ *   like `--primary`, not a decorative state.
+ *   `--input-fill` (the sunken resting fill of form controls) IS gated at
+ *   4.5:1 against `--foreground` and `--muted-foreground`: text/value and
+ *   placeholder copy render directly on it, distinct from `--input`'s
+ *   3:1 boundary-perceptibility check above.
  *
- * ACCENT — Catppuccin teal
- *   Dark  --primary = Mocha teal #94e2d5, --primary-foreground = --ctp-crust.
- *   Light --primary = oklch(0.52 0.088 201.1) — the Latte teal hue held
- *   constant, lightness reduced until white-on-fill clears AA 4.5:1
- *   (measured 5.26:1). --primary-foreground = white.
+ * ACCENT — Alpine clay
+ *   `--primary` = `--alp-clay` (#D06A3B, unchanged both modes) with
+ *   `--primary-foreground` = `--alp-on-clay` (#10140F, unchanged both modes
+ *   — text sits on the clay fill, not the page background).
  * ─────────────────────────────────────────────────────────────────────────── */
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* ── Self-hosted Alpine typography (DR-6) — granular per-weight, latin-only
+ * Fontsource imports. Static per-weight packages, NOT `@fontsource-variable/*`
+ * (those packages 404 for these three families — see R-086 errata). Each
+ * import emits one `@font-face` rule that Vite asset-hashes into
+ * `dist/assets/*.woff2`; `vite.config.ts`'s `fontFallbackFaces` plugin (built
+ * on fontaine's metric-computation utilities) appends a metric-matched
+ * "… fallback" @font-face per family at build time. ── */
+@import '@fontsource/barlow-condensed/latin-500.css';
+@import '@fontsource/barlow-condensed/latin-600.css';
+@import '@fontsource/barlow-condensed/latin-700.css';
+@import '@fontsource/barlow-condensed/latin-800.css';
+@import '@fontsource/barlow/latin-400.css';
+@import '@fontsource/barlow/latin-500.css';
+@import '@fontsource/barlow/latin-600.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
+
 @custom-variant dark (&:is(.dark *));
 
-/* ── Primitive tier — Catppuccin Latte (light). catppuccin/palette v1.7.1 ── */
+/* ── Primitive tier — Alpine dark (default). ──────────────────────────────── */
 :root {
-  --ctp-rosewater: #dc8a78;
-  --ctp-flamingo: #dd7878;
-  --ctp-pink: #ea76cb;
-  --ctp-mauve: #8839ef;
-  --ctp-red: #d20f39;
-  --ctp-maroon: #e64553;
-  --ctp-peach: #fe640b;
-  --ctp-yellow: #df8e1d;
-  --ctp-green: #40a02b;
-  --ctp-teal: #179299;
-  --ctp-sky: #04a5e5;
-  --ctp-sapphire: #209fb5;
-  --ctp-blue: #1e66f5;
-  --ctp-lavender: #7287fd;
-  --ctp-text: #4c4f69;
-  --ctp-subtext1: #5c5f77;
-  --ctp-subtext0: #6c6f85;
-  --ctp-overlay2: #7c7f93;
-  --ctp-overlay1: #8c8fa1;
-  --ctp-overlay0: #9ca0b0;
-  --ctp-surface2: #acb0be;
-  --ctp-surface1: #bcc0cc;
-  --ctp-surface0: #ccd0da;
-  --ctp-base: #eff1f5;
-  --ctp-mantle: #e6e9ef;
-  --ctp-crust: #dce0e8;
+  --alp-bg: #10140f;
+  --alp-surface: #181e16;
+  --alp-raised: #212819;
+  --alp-input: #131812;
+  --alp-input-border: #646959;
+  --alp-hairline: #2a3326;
+  --alp-bone: #ede8db;
+  --alp-muted: #a9a594;
+  --alp-faint: #6f6d5e;
+  --alp-clay: #d06a3b;
+  --alp-clay-text: #d06a3b;
+  --alp-on-clay: #10140f;
+  --alp-moss: #7e8f5a;
+  --alp-danger: #c4554d;
+  --alp-amber: #d9a441;
 
-  /* Project-owned teal accent. Light fill is an OKLCH-lightness-reduced
-   * Latte teal — hue held, lightness lowered until white-on-fill ≥ AA
-   * 4.5:1. Statically committed (not runtime color-mix) so check-contrast
-   * can assert it. */
-  --ctp-accent-fill: oklch(0.52 0.088 201.1);
-  --ctp-accent-on: #ffffff;
+  /* Statically-committed destructive-foreground — the correct gated
+   * semantic target for text/icons on the `--destructive` fill. #C4554D's
+   * WCAG relative luminance (~0.19) sits below the light/dark 50%
+   * break-even point, so a DARK foreground clears AA better than a light
+   * one (white-on-danger measures ~4.42:1 — fails by a hair; black-on-danger
+   * measures ~4.75:1, which the gate enforces). --alp-danger is unchanged in
+   * `.light`, so this single value covers both modes. button.tsx and
+   * badge.tsx consume `text-destructive-foreground` on their destructive
+   * variants (not a hardcoded `text-white`). */
+  --alp-on-danger: #000000;
 
-  /* Statically-committed destructive-foreground — paired with --ctp-red to clear AA on both modes. */
-  --ctp-destructive-on: #eff1f5;
+  /* Light-only-convenience tokens: identical to their dark-tier twin
+   * here, distinct in `.light`. Not consumed by any component this slice. */
+  --alp-btn-border: #2a3326;
+  /* Clay tuned as a thin marker/ring rather than a large fill — used for
+   * --sidebar-ring so it clears the 3:1 UI-component threshold in light
+   * mode against --alp-surface (raw --alp-clay falls short: ~2.87:1). */
+  --alp-clay-marker: #d06a3b;
+
+  /* Pressed/active state of a clay fill (§6 "Buttons: pressed = darken +
+   * scale 0.98"), used by the primary button's and segmented-control's
+   * `active:` variants. THIS IS a gated text-on-fill pair, not a
+   * decorative fill: both consumers render `--primary-foreground` text
+   * (on-clay, #10140F) over it while pressed. The handoff's literal
+   * #B0532A darkens the clay too far — #10140F on #B0532A measures only
+   * ~3.65:1, failing WCAG AA (needs 4.5:1). Because dark text on a
+   * darkened clay is the binding constraint (both foreground and a
+   * heavily-darkened background converge toward low luminance, which
+   * *reduces* contrast), the AA-safe darken from the resting clay
+   * (#D06A3B, ~5.14:1) is necessarily subtle — `scale-[0.98]` carries most
+   * of the press feedback, this fill only needs to read as "a little
+   * darker." Retuned to #C56438 (~4.65:1), tuned empirically against
+   * check-contrast rather than the threshold. Mode-invariant by value —
+   * re-declared identically in `.light` below (matching the --alp-danger/
+   * --alp-clay/--alp-amber pattern) purely so check-contrast's per-selector
+   * block model can resolve it for the light tier too. Exposed to the
+   * semantic tier as `--clay-pressed` below so the checker's per-selector
+   * merge picks it up. */
+  --alp-clay-pressed: #c56438;
 }
 
-/* ── Primitive tier — Catppuccin Mocha (dark). catppuccin/palette v1.7.1 ── */
-.dark {
-  --ctp-rosewater: #f5e0dc;
-  --ctp-flamingo: #f2cdcd;
-  --ctp-pink: #f5c2e7;
-  --ctp-mauve: #cba6f7;
-  --ctp-red: #f38ba8;
-  --ctp-maroon: #eba0ac;
-  --ctp-peach: #fab387;
-  --ctp-yellow: #f9e2af;
-  --ctp-green: #a6e3a1;
-  --ctp-teal: #94e2d5;
-  --ctp-sky: #89dceb;
-  --ctp-sapphire: #74c7ec;
-  --ctp-blue: #89b4fa;
-  --ctp-lavender: #b4befe;
-  --ctp-text: #cdd6f4;
-  --ctp-subtext1: #bac2de;
-  --ctp-subtext0: #a6adc8;
-  --ctp-overlay2: #9399b2;
-  --ctp-overlay1: #7f849c;
-  --ctp-overlay0: #6c7086;
-  --ctp-surface2: #585b70;
-  --ctp-surface1: #45475a;
-  --ctp-surface0: #313244;
-  --ctp-base: #1e1e2e;
-  --ctp-mantle: #181825;
-  --ctp-crust: #11111b;
+/* ── Primitive tier — Alpine light (override). Must follow :root in source
+ * so equal-specificity source order lets `.light` win. --alp-danger has the
+ * same value in both modes and is re-declared here identically — both so a
+ * reader sees the full ramp in one place (matching --alp-on-clay/--alp-clay/
+ * --alp-amber below, also unchanged-but-restated) and so check-contrast's
+ * per-selector block model (which does not simulate cross-selector CSS
+ * inheritance) can resolve it for the light tier. --alp-on-danger is tuned
+ * to clear AA against that one value. */
+.light {
+  --alp-bg: #f3f0e7;
+  --alp-surface: #eae5d7;
+  --alp-raised: #e7e2d2;
+  --alp-input: #efebdd;
+  --alp-input-border: #848273;
+  --alp-hairline: #d6d1c1;
+  --alp-bone: #1c2418;
+  --alp-muted: #5b5c4e;
+  --alp-faint: #8b897a;
+  --alp-clay: #d06a3b;
+  --alp-clay-text: #a34a24;
+  --alp-on-clay: #10140f;
+  --alp-moss: #5c6b3f;
+  --alp-danger: #c4554d;
+  --alp-amber: #d9a441;
+  --alp-on-danger: #000000;
 
-  /* Dark teal accent is the native Catppuccin Mocha teal. */
-  --ctp-accent-fill: #94e2d5;
-  --ctp-accent-on: #11111b;
-
-  /* Statically-committed destructive-foreground — paired with --ctp-red to clear AA on both modes. */
-  --ctp-destructive-on: #11111b;
+  --alp-btn-border: #c9c3b1;
+  --alp-clay-marker: #c05a2e;
+  --alp-clay-pressed: #c56438;
 }
 
-/* ── Semantic tier — shadcn slots mapped to the primitive tier. ──────────────
- * Mode-invariant: the same mappings are declared in :root and .dark; dark
- * mode swaps the --ctp-* primitives above, the mappings below do not change.
- * They are re-declared in .dark only so a reader sees the full set in one
- * place. --radius is shadcn's default; --font-* are system stacks. */
+/* ── Semantic tier — shadcn slots (+ project slots) mapped to the primitive
+ * tier. Mode-invariant: the same mappings are declared in :root and .light;
+ * mode swaps the --alp-* primitives above, the mappings below do not
+ * change. Re-declared in .light only so a reader sees the full set in one
+ * place, and so check-contrast's per-selector merge resolves every slot.
+ * --radius / --gutter / --font-* are not mode-dependent and are declared
+ * once. --font-condensed/--font-body/--font-mono are the self-hosted Alpine
+ * typography stacks (DR-6): the primary family, then fontaine's generated
+ * "… fallback" metric-matched face (see the fontaine transform in
+ * vite.config.ts — the fallback family name MUST match what it emits
+ * exactly, or the metric override silently never applies), then a system
+ * stack. --font-sans aliases --font-body so existing `font-sans` utility
+ * consumers (and shadcn primitives) inherit Barlow. */
 :root {
-  --radius: 0.625rem;
+  --radius: 8px;
+  --gutter: 22px;
 
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'BlinkMacSystemFont', 'Segoe UI', 'Roboto',
-    'Helvetica Neue', 'Arial', 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-condensed: 'Barlow Condensed', 'Barlow Condensed fallback', system-ui, sans-serif;
+  --font-body: 'Barlow', 'Barlow fallback', system-ui, sans-serif;
+  --font-sans: var(--font-body);
   --font-mono:
-    ui-monospace, 'SFMono-Regular', 'SF Mono', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+    'IBM Plex Mono', 'IBM Plex Mono fallback', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --background: var(--ctp-base);
-  --foreground: var(--ctp-text);
+  --background: var(--alp-bg);
+  --foreground: var(--alp-bone);
 
-  --card: var(--ctp-base);
-  --card-foreground: var(--ctp-text);
+  --card: var(--alp-surface);
+  --card-foreground: var(--alp-bone);
 
-  --popover: var(--ctp-base);
-  --popover-foreground: var(--ctp-text);
+  --popover: var(--alp-surface);
+  --popover-foreground: var(--alp-bone);
 
-  --primary: var(--ctp-accent-fill);
-  --primary-foreground: var(--ctp-accent-on);
+  --primary: var(--alp-clay);
+  --primary-foreground: var(--alp-on-clay);
 
-  --secondary: var(--ctp-surface0);
-  --secondary-foreground: var(--ctp-text);
+  --secondary: var(--alp-raised);
+  --secondary-foreground: var(--alp-bone);
 
-  --muted: var(--ctp-mantle);
-  --muted-foreground: var(--ctp-subtext1);
+  --muted: var(--alp-raised);
+  --muted-foreground: var(--alp-muted);
 
-  --accent: var(--ctp-surface0);
-  --accent-foreground: var(--ctp-text);
+  --accent: var(--alp-raised);
+  --accent-foreground: var(--alp-bone);
 
-  --destructive: var(--ctp-red);
-  --destructive-foreground: var(--ctp-destructive-on);
+  --destructive: var(--alp-danger);
+  --destructive-foreground: var(--alp-on-danger);
 
   /* Amber severity accent for the coach panel's left-edge border. Like
    * --border it is a supplementary, non-text indicator (WCAG 1.4.11
    * exempt) — the turn's severity is always conveyed by its content and
    * structure, never by this colour alone. Never use it for text. */
-  --warning: var(--ctp-peach);
+  --warning: var(--alp-amber);
 
-  /* --border is a decorative divider (WCAG 1.4.11 exempt); --input is a
-   * form-control boundary and is held to the 3:1 UI-component rule. */
-  --border: var(--ctp-surface1);
-  --input: var(--ctp-overlay2);
-  --ring: var(--ctp-accent-fill);
+  /* --border is a decorative divider (WCAG 1.4.11 exempt). --input is a
+   * form-control boundary held to the 3:1 UI-component rule: it is the only
+   * cue that an empty resting field exists (the field fill --alp-input is a
+   * near-invisible ~1:1 against the page bg), so it maps to a dedicated
+   * --alp-input-border tuned to just clear 3:1 vs the page bg in each mode —
+   * NOT the fainter --alp-hairline divider tone. The gate enforces this. */
+  --border: var(--alp-hairline);
+  --input: var(--alp-input-border);
+  --ring: var(--alp-clay);
 
-  /* Catppuccin accent ramp for charts — non-text, decorative. */
-  --chart-1: var(--ctp-teal);
-  --chart-2: var(--ctp-blue);
-  --chart-3: var(--ctp-mauve);
-  --chart-4: var(--ctp-peach);
-  --chart-5: var(--ctp-green);
+  /* Net-new project slots. --rule is the 2px section-rule colour (bone/ink,
+   * consumed by the future SectionRule component). --clay-text is clay used
+   * AS TEXT (not as a fill); it clears AA at any size (~5.1:1 vs bg both
+   * modes), but the design guideline is to use it only at ≥12px semibold
+   * for legibility of the warm mid-tone — a convention, not a contrast
+   * requirement. --clay-pressed is the pressed/active clay fill (see the
+   * --alp-clay-pressed primitive comment above) — a gated text-on-fill
+   * pair, checked against --primary-foreground. --input-fill is the sunken
+   * resting fill of form controls (near-invisible against --background by
+   * design; --input above is the border that actually cues the control's
+   * boundary) — gated for placeholder/value text legibility, not boundary
+   * perceptibility. */
+  --positive: var(--alp-moss);
+  --rule: var(--alp-bone);
+  --clay-text: var(--alp-clay-text);
+  --clay-pressed: var(--alp-clay-pressed);
+  --input-fill: var(--alp-input);
 
-  --sidebar: var(--ctp-mantle);
-  --sidebar-foreground: var(--ctp-text);
-  --sidebar-primary: var(--ctp-accent-fill);
-  --sidebar-primary-foreground: var(--ctp-accent-on);
-  --sidebar-accent: var(--ctp-surface0);
-  --sidebar-accent-foreground: var(--ctp-text);
-  --sidebar-border: var(--ctp-surface1);
-  --sidebar-ring: var(--ctp-accent-fill);
+  /* Alpine accent ramp for charts — non-text, decorative. */
+  --chart-1: var(--alp-clay);
+  --chart-2: var(--alp-moss);
+  --chart-3: var(--alp-amber);
+  --chart-4: var(--alp-muted);
+  --chart-5: var(--alp-bone);
+
+  --sidebar: var(--alp-surface);
+  --sidebar-foreground: var(--alp-bone);
+  --sidebar-primary: var(--alp-clay);
+  --sidebar-primary-foreground: var(--alp-on-clay);
+  --sidebar-accent: var(--alp-raised);
+  --sidebar-accent-foreground: var(--alp-bone);
+  --sidebar-border: var(--alp-hairline);
+  --sidebar-ring: var(--alp-clay-marker);
 }
 
-.dark {
-  --background: var(--ctp-base);
-  --foreground: var(--ctp-text);
+.light {
+  --background: var(--alp-bg);
+  --foreground: var(--alp-bone);
 
-  --card: var(--ctp-base);
-  --card-foreground: var(--ctp-text);
+  --card: var(--alp-surface);
+  --card-foreground: var(--alp-bone);
 
-  --popover: var(--ctp-base);
-  --popover-foreground: var(--ctp-text);
+  --popover: var(--alp-surface);
+  --popover-foreground: var(--alp-bone);
 
-  --primary: var(--ctp-accent-fill);
-  --primary-foreground: var(--ctp-accent-on);
+  --primary: var(--alp-clay);
+  --primary-foreground: var(--alp-on-clay);
 
-  --secondary: var(--ctp-surface0);
-  --secondary-foreground: var(--ctp-text);
+  --secondary: var(--alp-raised);
+  --secondary-foreground: var(--alp-bone);
 
-  --muted: var(--ctp-mantle);
-  --muted-foreground: var(--ctp-subtext1);
+  --muted: var(--alp-raised);
+  --muted-foreground: var(--alp-muted);
 
-  --accent: var(--ctp-surface0);
-  --accent-foreground: var(--ctp-text);
+  --accent: var(--alp-raised);
+  --accent-foreground: var(--alp-bone);
 
-  --destructive: var(--ctp-red);
-  --destructive-foreground: var(--ctp-destructive-on);
+  --destructive: var(--alp-danger);
+  --destructive-foreground: var(--alp-on-danger);
 
-  --warning: var(--ctp-peach);
+  --warning: var(--alp-amber);
 
-  --border: var(--ctp-surface1);
-  --input: var(--ctp-overlay2);
-  --ring: var(--ctp-accent-fill);
+  --border: var(--alp-hairline);
+  --input: var(--alp-input-border);
+  --ring: var(--alp-clay);
 
-  --chart-1: var(--ctp-teal);
-  --chart-2: var(--ctp-blue);
-  --chart-3: var(--ctp-mauve);
-  --chart-4: var(--ctp-peach);
-  --chart-5: var(--ctp-green);
+  --positive: var(--alp-moss);
+  --rule: var(--alp-bone);
+  --clay-text: var(--alp-clay-text);
+  --clay-pressed: var(--alp-clay-pressed);
+  --input-fill: var(--alp-input);
 
-  --sidebar: var(--ctp-mantle);
-  --sidebar-foreground: var(--ctp-text);
-  --sidebar-primary: var(--ctp-accent-fill);
-  --sidebar-primary-foreground: var(--ctp-accent-on);
-  --sidebar-accent: var(--ctp-surface0);
-  --sidebar-accent-foreground: var(--ctp-text);
-  --sidebar-border: var(--ctp-surface1);
-  --sidebar-ring: var(--ctp-accent-fill);
+  --chart-1: var(--alp-clay);
+  --chart-2: var(--alp-moss);
+  --chart-3: var(--alp-amber);
+  --chart-4: var(--alp-muted);
+  --chart-5: var(--alp-bone);
+
+  --sidebar: var(--alp-surface);
+  --sidebar-foreground: var(--alp-bone);
+  --sidebar-primary: var(--alp-clay);
+  --sidebar-primary-foreground: var(--alp-on-clay);
+  --sidebar-accent: var(--alp-raised);
+  --sidebar-accent-foreground: var(--alp-bone);
+  --sidebar-border: var(--alp-hairline);
+  --sidebar-ring: var(--alp-clay-marker);
 }
 
 /* ── @theme inline — exposes the semantic tier to Tailwind utilities. ────────
  * `inline` (not bare @theme) is mandatory: utilities compile to
- * `var(--token)` so the .dark cascade wins at runtime. Without `inline`,
- * Tailwind would inline the :root value and dark mode would not switch. */
+ * `var(--token)` so the .light cascade wins at runtime. Without `inline`,
+ * Tailwind would inline the :root value and light mode would not switch.
+ *
+ * Radius ramp: explicit px steps, not calc-derived offsets, so each step is
+ * the literal design value — xs 4px (day cells/tags), sm 6px (chips), md 8px
+ * (buttons/inputs/cards-lite), lg 10px (turn cards), full 999px (pills).
+ * `--radius-xl` is kept as an explicit project token at 12px (Tailwind v4
+ * already ships its own 12px default, so this is a deliberate restatement,
+ * not a load-bearing override) — 12px is the "nothing larger inside a
+ * screen" ceiling for this design. */
 @theme inline {
   --font-sans: var(--font-sans);
+  --font-condensed: var(--font-condensed);
+  --font-body: var(--font-body);
   --font-mono: var(--font-mono);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-full: 999px;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -259,7 +374,17 @@
   --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
+  /* Exposes the sunken input-fill semantic slot (distinct from the --input
+   * border token above) so form controls can carry a resting fill separate
+   * from the page and card surfaces. Routed through --input-fill (not
+   * --alp-input directly) so the semantic tier stays the single source of
+   * truth check-contrast resolves. */
+  --color-input-fill: var(--input-fill);
   --color-ring: var(--ring);
+  --color-positive: var(--positive);
+  --color-rule: var(--rule);
+  --color-clay-text: var(--clay-text);
+  --color-clay-pressed: var(--clay-pressed);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -281,5 +406,175 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+}
+
+/* ── Spacing rhythm: 4px base scale (Tailwind default), a 22px screen
+ * gutter, and a 20–22px section gap. `--gutter` is exposed as a custom
+ * property above; `.screen-gutter` is an opt-in convenience utility for
+ * screens that want the horizontal rhythm without repeating `px-[22px]`.
+ * Not yet applied to any screen. */
+@layer components {
+  .screen-gutter {
+    padding-inline: var(--gutter);
+  }
+
+  /* Expands the click/tap area to a 44px square around a visually smaller
+   * control without changing its size. Requires the element to already be
+   * `relative`. */
+  .hit-target-44 {
+    &::before {
+      position: absolute;
+      inset: -14px;
+      content: '';
+    }
+  }
+}
+
+/* ── Typography role system (DR-6). One utility class per design role;
+ * net-new components like SectionRule/MonoLabel/StatBand read them
+ * directly. Rules as law:
+ *   - Numbers are ALWAYS Barlow Condensed (--font-condensed) — never mono.
+ *   - Labels/eyebrows/data are ALWAYS mono (--font-mono).
+ *   - Source copy stays sentence case; `text-transform: uppercase` below is
+ *     a presentation concern only, applied per-role where the design is
+ *     all-caps — never bake uppercase into stored/authored strings.
+ *   - `.t-numeral` uses `white-space: nowrap`, NOT `tabular-nums`: Google-
+ *     Fonts-derived Barlow Condensed files commonly strip the `tnum`
+ *     OpenType feature, so tabular-nums on condensed digits can silently
+ *     no-op (R-086 §4 caveat) — nowrap is what actually prevents a pace
+ *     range like "4:00–4:30/km" from wrapping mid-value.
+ *   - `.t-data-label` / `.t-data-value` (mono) carry
+ *     `font-variant-numeric: tabular-nums` for column alignment; IBM Plex
+ *     Mono is monospaced so this is belt-and-suspenders, not load-bearing.
+ *
+ * Each role's font-size/weight is a single concrete value picked from the
+ * HANDOFF §3 range (documented per role below) rather than a fluid clamp —
+ * components needing the opposite end of a range (e.g. the 58px auth-poster
+ * Wordmark vs. the 20–22px header Wordmark) take an explicit size prop
+ * instead of a second utility class. */
+@layer components {
+  /* Display / workout title — Barlow Condensed 700, range 36–40px/0.95,
+   * uppercase. Picked 38px (range midpoint). */
+  .t-display {
+    font-family: var(--font-condensed);
+    font-weight: 700;
+    font-size: 38px;
+    line-height: 0.95;
+    text-transform: uppercase;
+  }
+
+  /* Screen title — Barlow Condensed 700, 30px, uppercase, +0.02em. */
+  .t-screen-title {
+    font-family: var(--font-condensed);
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  /* Section label — Barlow Condensed 600, 13px, uppercase, +0.18em. Sits
+   * above a 2px --rule border; the rule itself is the SectionRule
+   * component's concern, not this text-only class. */
+  .t-section-label {
+    font-family: var(--font-condensed);
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.2;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  /* Big numerals (distance/pace/reps) — Barlow Condensed 700, range
+   * 22–30px, nowrap (see file-header note on why not tabular-nums). Picked
+   * 26px (range midpoint). */
+  .t-numeral {
+    font-family: var(--font-condensed);
+    font-weight: 700;
+    font-size: 26px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* Body / chat — Barlow 400, range 14–15px/1.5–1.55. Picked 15px/1.5. */
+  .t-body {
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* Row title — Barlow, range weight 500–600, 15px. Picked 600 (the
+   * heavier end reads better at row density against --t-body's 400). */
+  .t-row-title {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  /* Data label / eyebrow — IBM Plex Mono 500, range 9.5–11px, uppercase,
+   * range +0.06–0.1em. Picked 10px / 0.08em (midpoints). */
+  .t-data-label {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 10px;
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Data values in rows — IBM Plex Mono 500, range 10.5–12px. Picked 11px
+   * (range midpoint). */
+  .t-data-value {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 11px;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Buttons — Barlow Condensed, range weight 600–700, range 13–18px,
+   * uppercase, range +0.1–0.14em. Picked 700 / 15px / 0.12em (the heavier
+   * weight + midpoint size read as a stronger CTA at typical button
+   * density). */
+  .t-button {
+    font-family: var(--font-condensed);
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.2;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+}
+
+/* ── Indeterminate progress sweep (BuildingPlanSurface, DR-7 §6) — plan
+ * generation has no real percent-complete signal, so the progress segment
+ * must never read as a stalled percentage. `animate-indeterminate` travels
+ * a partial-width bar the length of its track on a loop (Material-style
+ * indeterminate), which reads as "ongoing" the way a fixed-width bar that
+ * only pulses opacity does not. Registered via Tailwind v4's `@utility` (not
+ * a bare `@keyframes` + class) so it composes with variants exactly like a
+ * built-in utility — the consumer pairs it with `motion-reduce:animate-pulse
+ * motion-reduce:translate-x-0` to swap travel for a stationary opacity pulse
+ * under reduced motion (WCAG 2.3.3 / DEC-063), the same
+ * `animate-X motion-reduce:animate-none`-shaped pattern used elsewhere
+ * (e.g. sonner.tsx's spinner). 300% covers a 40%-width bar plus clearance:
+ * translateX is relative to the bar's OWN width, so reaching just past the
+ * track's right edge needs (track ÷ bar-width) × 100% ≈ 250%; 300% adds
+ * margin. */
+@utility animate-indeterminate {
+  animation: indeterminate-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes indeterminate-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
   }
 }

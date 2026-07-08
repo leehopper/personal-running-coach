@@ -3,9 +3,12 @@ import { STORAGE_KEY } from '../src/components/theme-provider'
 
 // The inline no-flash IIFE in `index.html` runs before React boots and stamps
 // `.dark` or `.light` on `<html>` from `localStorage.getItem('runcoach-theme')`,
-// falling back to `prefers-color-scheme` (system) and finally to `light` when
-// storage throws. This spec exercises each branch directly against the dev
-// server's root document — no auth, no API, no React state.
+// falling back to `prefers-color-scheme` (system). When storage throws it
+// ALSO consults `prefers-color-scheme` (so it agrees with ThemeProvider's
+// storage-throw→`system` fallback and never flashes), and only defaults to
+// `dark` (the app's default polarity) when no OS signal is available. This
+// spec exercises each branch directly against the dev server's root
+// document — no auth, no API, no React state.
 
 test.describe('no-flash theme script', () => {
   test('applies `dark` class before React boots when localStorage holds dark', async ({ page }) => {
@@ -58,21 +61,40 @@ test.describe('no-flash theme script', () => {
     expect(isDark).toBe(false)
   })
 
-  test('falls back to light when localStorage throws', async ({ page }) => {
-    // Replace the `localStorage` accessor so any read throws — exercises the
-    // IIFE's catch block, which is the storage-disabled fallback contract.
-    await page.addInitScript(() => {
-      Object.defineProperty(window, 'localStorage', {
-        configurable: true,
-        get() {
-          throw new Error('disabled')
-        },
-      })
+  // When storage throws, the IIFE follows the OS preference (agreeing with
+  // ThemeProvider's `system` fallback) rather than hardcoding a mode — this
+  // is what prevents a paint-dark-then-flip-light flash. Both OS branches
+  // are asserted so a regression to an unconditional mode is caught.
+  const throwOnStorage = () => {
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('disabled')
+      },
     })
+  }
+
+  test('follows the OS (dark) when localStorage throws', async ({ page }) => {
+    await page.addInitScript(throwOnStorage)
+    await page.emulateMedia({ colorScheme: 'dark' })
+
+    await page.goto('/')
+
+    const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'))
+    const isLight = await page.evaluate(() => document.documentElement.classList.contains('light'))
+    expect(isDark).toBe(true)
+    expect(isLight).toBe(false)
+  })
+
+  test('follows the OS (light) when localStorage throws — no flash', async ({ page }) => {
+    await page.addInitScript(throwOnStorage)
+    await page.emulateMedia({ colorScheme: 'light' })
 
     await page.goto('/')
 
     const isLight = await page.evaluate(() => document.documentElement.classList.contains('light'))
+    const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'))
     expect(isLight).toBe(true)
+    expect(isDark).toBe(false)
   })
 })

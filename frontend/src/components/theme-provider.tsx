@@ -2,12 +2,18 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ThemeProviderContext, type Theme } from './theme-context'
 
-// Class-based dark mode (DEC-070). `index.css` keys its `dark` variant off
-// the `.dark` class on `documentElement`; this provider owns that class.
+// Class-based dark/light mode (DEC-089). Dark is the default polarity:
+// `index.css`'s `:root` carries the dark Alpine ramp and `.light` is the
+// override, but the CLASS mechanism is unchanged from DEC-070 — this
+// provider still toggles exactly one of `.dark` / `.light` on
+// `documentElement`, and `index.css`'s `dark:` variant still keys off the
+// `.dark` class (`@custom-variant dark (&:is(.dark *))`, unchanged).
 // `system` follows the OS `prefers-color-scheme`; `light`/`dark` are
 // explicit in-app overrides. The choice is persisted to `localStorage` so
 // it survives reloads, and the no-flash script in `index.html` reads the
-// same key to set the class before first paint.
+// same key to set the class before first paint (falling back to
+// `prefers-color-scheme` when storage throws, defaulting to `dark`
+// only when `matchMedia` is also unavailable).
 //
 // The context object and the `useTheme` hook live in `theme-context.ts`
 // so this file's only export is the `ThemeProvider` component (keeps

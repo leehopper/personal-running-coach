@@ -34,9 +34,15 @@ jobs:
           # PostgreSQL is an OSI-approved permissive license (same class as
           # MIT/BSD) — required by the Npgsql family, compatible with
           # Apache-2.0 output licensing.
+          # OFL-1.1 (SIL Open Font License) is a permissive asset/font license
+          # in the same class as CC-BY-4.0 / CC0 above — it governs only the
+          # bundled font files (@fontsource/* self-hosted Barlow / Barlow
+          # Condensed / IBM Plex Mono, DEC-089 / R-086) and explicitly permits
+          # aggregation/bundling with software under any licensing, so it does
+          # not affect the app's own license.
           allow-licenses: >-
             MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD,
-            Unlicense, CC0-1.0, CC-BY-4.0, Zlib, BSL-1.0,
+            Unlicense, CC0-1.0, CC-BY-4.0, OFL-1.1, Zlib, BSL-1.0,
             Python-2.0, PSF-2.0, Artistic-2.0, MPL-2.0, WTFPL,
             PostgreSQL
           # LGPL-3.0 CI tools (SonarQube scan action, SonarAnalyzer.CSharp,

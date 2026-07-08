@@ -2,10 +2,10 @@
 /**
  * check-contrast — WCAG 2.x contrast gate for the design-token layer.
  *
- * DEC-070's two-tier token system maps every shadcn semantic slot
- * (--foreground, --primary, …) to a Catppuccin primitive (--ctp-*). This
+ * DEC-089's two-tier token system maps every shadcn semantic slot
+ * (--foreground, --primary, …) to an Alpine primitive (--alp-*). This
  * script parses BOTH tiers out of src/index.css — the primitive tier
- * (raw --ctp-* values) and the semantic tier (--foreground: var(--ctp-*),
+ * (raw --alp-* values) and the semantic tier (--foreground: var(--alp-*),
  * …) — resolves each semantic slot through its own var() reference to the
  * per-mode primitive value, computes the WCAG 2.x contrast ratio, and
  * exits non-zero if any pair falls below its threshold:
@@ -13,13 +13,39 @@
  *   - text-role pairs        ≥ 4.5:1  (WCAG SC 1.4.3 AA, normal text)
  *   - non-text UI pairs      ≥ 3.0:1  (WCAG SC 1.4.11, UI components)
  *
- * Both light (Latte, :root) and dark (Mocha, .dark) ramps are checked.
- * The PAIRS matrix below names the SEMANTIC slots to assert; following the
- * committed var() mapping (rather than hard-coding the primitive) means
- * both failure modes are caught: a primitive-value regression AND a
- * re-pointed semantic mapping (e.g. --muted-foreground swapped to a
- * lower-contrast primitive). If a new semantic pair must be guarded, add
- * its slot names here.
+ * Dark is the DEFAULT mode (`:root`) and light is the override (`.light`);
+ * both ramps are checked and labelled by mode ('dark' for :root, 'light'
+ * for .light — see runChecks). The PAIRS matrix below names the SEMANTIC
+ * slots to assert; following the committed var() mapping (rather than
+ * hard-coding the primitive) means both failure modes are caught: a
+ * primitive-value regression AND a re-pointed semantic mapping (e.g.
+ * --muted-foreground swapped to a lower-contrast primitive). If a new
+ * semantic pair must be guarded, add its slot names here.
+ *
+ * EXEMPT (never asserted, by design — WCAG 1.4.11 decorative / non-text):
+ *   --border     — a pure divider between rows/sections.
+ *   --warning    — a supplementary severity accent (the severity is always
+ *     also conveyed by content and structure, never by colour alone).
+ *   --alp-faint  — a decorative-only label tint that fails AA by design and
+ *     must never carry essential text; documented, not machine-checked.
+ *
+ * NOT exempt — --input IS asserted (3:1 UI-component rule): it is a
+ *   form-control boundary and the only cue that an empty resting field
+ *   exists (the field fill --alp-input is a near-invisible ~1:1 against the
+ *   page bg by design), which is exactly WCAG 1.4.11's in-scope case. It is
+ *   backed by a dedicated --alp-input-border primitive (distinct from the
+ *   fainter --alp-hairline divider tone), tuned to just clear 3:1 vs the
+ *   page background in each mode.
+ *
+ * ALSO asserted — two text-on-fill pairs beyond the shadcn defaults:
+ *   --clay-pressed  — the primary button's / segmented-control's pressed
+ *     fill. Both consumers render --primary-foreground text over it while
+ *     pressed, so it is held to the same 4.5:1 as --primary, not treated as
+ *     a decorative press state.
+ *   --input-fill    — the sunken resting fill of form controls (distinct
+ *     from --input, the border). Value and placeholder copy render
+ *     directly on it, so both --foreground and --muted-foreground are
+ *     checked against it at 4.5:1.
  */
 
 import { readFileSync } from 'node:fs'
@@ -43,7 +69,7 @@ export type WcagThreshold = 4.5 | 3
 /**
  * A semantic foreground/background pair to assert. `fg` and `bg` are
  * SEMANTIC slot names (e.g. `muted-foreground`, `muted`); each is resolved
- * through its committed `var(--ctp-*)` mapping to a primitive value per mode.
+ * through its committed `var(--alp-*)` mapping to a primitive value per mode.
  */
 export interface Pair {
   /** Human-readable label for failure messages, e.g. "--foreground on --background". */
@@ -59,10 +85,11 @@ export interface Pair {
 /**
  * The semantic pairs to assert, named by their shadcn SEMANTIC slot
  * (`--foreground`, `--muted`, …). Each slot is resolved through its
- * committed `var(--ctp-*)` mapping in index.css to a primitive value, per
+ * committed `var(--alp-*)` mapping in index.css to a primitive value, per
  * mode — so a re-pointed mapping is followed, not silently ignored. The
  * mappings are mode-invariant; only the primitive values differ between
- * Latte (:root) and Mocha (.dark), so each pair is checked against both.
+ * dark (:root, default) and light (.light, override), so each pair is
+ * checked against both.
  */
 export const PAIRS: readonly Pair[] = [
   // Text-role pairs — WCAG AA normal text, 4.5:1.
@@ -117,9 +144,32 @@ export const PAIRS: readonly Pair[] = [
     bg: 'sidebar-primary',
     threshold: 4.5,
   },
-  // Non-text UI pairs — WCAG SC 1.4.11, 3:1. --ring and --input are
-  // checked against --background, the surface they border. --border is a
-  // decorative divider (1.4.11 exempt) and is intentionally not asserted.
+  // Net-new Alpine project slots — WCAG AA normal text, 4.5:1.
+  { label: '--positive on --card', fg: 'positive', bg: 'card', threshold: 4.5 },
+  { label: '--clay-text on --background', fg: 'clay-text', bg: 'background', threshold: 4.5 },
+  // Pressed/active clay fill — a text-on-fill pair (not decorative): the
+  // primary button and segmented-control render on-clay text over this fill
+  // while pressed, so it is held to the same 4.5:1 as --primary above.
+  {
+    label: '--primary-foreground on --clay-pressed',
+    fg: 'primary-foreground',
+    bg: 'clay-pressed',
+    threshold: 4.5,
+  },
+  // Sunken form-control fill — text/value and placeholder legibility.
+  // Distinct from the --input border pair below (3:1, boundary
+  // perceptibility): this asserts the copy rendered ON the fill.
+  { label: '--foreground on --input-fill', fg: 'foreground', bg: 'input-fill', threshold: 4.5 },
+  {
+    label: '--muted-foreground on --input-fill',
+    fg: 'muted-foreground',
+    bg: 'input-fill',
+    threshold: 4.5,
+  },
+  // Non-text UI pairs — WCAG SC 1.4.11, 3:1. --ring and --input are checked
+  // against --background, the surface they border. --input is the resting
+  // boundary of an empty form field (see the header comment) and must stay
+  // perceptible. --border is a pure decorative divider and is not asserted.
   { label: '--ring on --background', fg: 'ring', bg: 'background', threshold: 3.0 },
   { label: '--input on --background', fg: 'input', bg: 'background', threshold: 3.0 },
   {
@@ -286,7 +336,7 @@ export function findBlockBody(css: string, selector: string): string {
  * Parse one `--prop: value` declaration. The property is the text after
  * the FIRST `--` up to the first following `:`; the value is the
  * remainder. The first `--` (not the last) is the property name: a
- * semantic value like `var(--ctp-text)` contains its own `--`, and
+ * semantic value like `var(--alp-bone)` contains its own `--`, and
  * `lastIndexOf` would mistake that for the property. Pure string indexing —
  * no regex, no backtracking. Returns `null` for a segment that is not a
  * custom-property declaration.
@@ -307,11 +357,12 @@ export function parseDeclaration(segment: string): readonly [string, string] | n
 
 /**
  * Build the custom-property table for one mode by merging EVERY matching
- * block. `selector` is `:root` (Latte) or `.dark` (Mocha). index.css
- * declares both a primitive block (`--ctp-*: #hex`) and a semantic block
- * (`--foreground: var(--ctp-text)`) for each; merging them lets a semantic
- * slot be resolved to its primitive value via var() indirection, so a
- * re-pointed mapping is reflected rather than silently ignored.
+ * block. `selector` is `:root` (dark, default) or `.light` (light,
+ * override). index.css declares both a primitive block (`--alp-*: #hex`)
+ * and a semantic block (`--foreground: var(--alp-bone)`) for each; merging
+ * them lets a semantic slot be resolved to its primitive value via var()
+ * indirection, so a re-pointed mapping is reflected rather than silently
+ * ignored.
  */
 export function extractTokens(css: string, selector: string): Map<string, string> {
   const bodies = findBlockBodies(css, selector)
@@ -391,12 +442,12 @@ export function checkMode(
  */
 export function runChecks(css: string): Result[] {
   const source = stripComments(css)
-  // Each pair is checked against both the :root (Latte) and .dark (Mocha)
-  // token tables; the semantic mappings are mode-invariant, the primitive
-  // values they resolve to are not.
+  // Each pair is checked against both the :root (dark, default) and .light
+  // (light, override) token tables; the semantic mappings are
+  // mode-invariant, the primitive values they resolve to are not.
   return [
-    ...checkMode(extractTokens(source, ':root'), 'light', PAIRS),
-    ...checkMode(extractTokens(source, '.dark'), 'dark', PAIRS),
+    ...checkMode(extractTokens(source, ':root'), 'dark', PAIRS),
+    ...checkMode(extractTokens(source, '.light'), 'light', PAIRS),
   ]
 }
 

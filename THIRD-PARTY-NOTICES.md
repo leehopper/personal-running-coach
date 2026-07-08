@@ -55,6 +55,9 @@ Source: `frontend/package.json`
 
 | Package | Version | License (SPDX) |
 | --- | --- | --- |
+| @fontsource/barlow | 5.2.8 | OFL-1.1 |
+| @fontsource/barlow-condensed | 5.2.8 | OFL-1.1 |
+| @fontsource/ibm-plex-mono | 5.2.7 | OFL-1.1 |
 | @hookform/resolvers | ^5.2.2 | MIT |
 | @reduxjs/toolkit | ^2.11.2 | MIT |
 | @tailwindcss/vite | ^4.2.2 | MIT |
@@ -65,6 +68,10 @@ Source: `frontend/package.json`
 | react-router-dom | ^7.13.1 | MIT |
 | tailwindcss | ^4.2.2 | MIT |
 | zod | ^4.3.6 | MIT |
+
+**Note on the `@fontsource/*` font packages (OFL-1.1):** see root
+`THIRD-PARTY-LICENSES.md` for the per-family copyright/attribution entries the
+OFL recommends for bundled fonts.
 
 ### Dev dependencies
 
@@ -83,6 +90,7 @@ Source: `frontend/package.json`
 | eslint-plugin-react-hooks | ^7.0.1 | MIT |
 | eslint-plugin-react-refresh | ^0.5.2 | MIT |
 | eslint-plugin-sonarjs | ^4.0.2 | LGPL-3.0-only |
+| fontaine | 0.8.0 | MIT |
 | globals | ^17.4.0 | MIT |
 | jsdom | ^29.0.1 | MIT |
 | prettier | ^3.8.1 | MIT |
