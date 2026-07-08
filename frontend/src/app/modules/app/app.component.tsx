@@ -7,8 +7,10 @@ import { store } from './app.store'
 import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
 import { AppErrorBoundary } from '~/error-boundary/app-error-boundary'
 import { useGlobalErrorReporter } from '~/error-boundary/use-global-error-reporter'
+import { ShellLayout } from '~/modules/app/components/shell-layout/shell-layout.component'
 import { RequireAuth } from '~/modules/auth/components/require-auth.component'
 import { useAuthBootstrap, useAuthBroadcastListener } from '~/modules/auth/hooks/auth.hooks'
+import { CoachPage } from '~/modules/coaching/pages/coach.page'
 import { HistoryPage } from '~/modules/logging/pages/history.page'
 import { LogPage } from '~/modules/logging/pages/log.page'
 import { OnboardingPage } from '~/modules/onboarding/pages/onboarding.page'
@@ -29,6 +31,15 @@ interface OnboardingRedirectGuardProps {
   expectComplete: boolean
   redirectTo: string
   children: ReactElement
+  /**
+   * Whether the loading/error fallback should center against the full
+   * viewport (`min-h-screen`) or the available space inside its parent
+   * (`min-h-full`). `/onboarding` renders outside `ShellLayout` with no
+   * ancestor providing height, so it needs the viewport-based fallback;
+   * the four shell routes render inside `ShellLayout`'s `Outlet` wrapper,
+   * where `min-h-screen` overflows past the tab-bar clearance padding.
+   */
+  fullScreen?: boolean
 }
 
 const isErrorStatus = (error: unknown, expected: number): boolean => {
@@ -64,15 +75,17 @@ export const OnboardingRedirectGuard = ({
   expectComplete,
   redirectTo,
   children,
+  fullScreen = true,
 }: OnboardingRedirectGuardProps): ReactElement => {
   const { data, isLoading, isError, error, refetch } = useGetOnboardingStateQuery(undefined)
+  const heightClass = fullScreen ? 'min-h-screen' : 'min-h-full'
 
   if (isLoading) {
     return (
       <div
         role="status"
         aria-live="polite"
-        className="flex min-h-screen items-center justify-center bg-background"
+        className={`flex ${heightClass} items-center justify-center bg-background`}
       >
         <span className="text-sm text-muted-foreground">Loading…</span>
       </div>
@@ -89,7 +102,7 @@ export const OnboardingRedirectGuard = ({
       <div
         role="alert"
         data-testid="onboarding-guard-error"
-        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center"
+        className={`flex ${heightClass} flex-col items-center justify-center gap-3 bg-background px-4 text-center`}
       >
         <p className="text-sm text-muted-foreground">
           We couldn’t reach the onboarding service. Check your connection and try again.
@@ -151,43 +164,63 @@ const AppShell = () => {
           }
         />
         <Route
-          path="/"
           element={
             <RequireAuth>
-              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+              <ShellLayout />
+            </RequireAuth>
+          }
+        >
+          <Route
+            path="/"
+            element={
+              <OnboardingRedirectGuard
+                expectComplete={false}
+                redirectTo="/onboarding"
+                fullScreen={false}
+              >
                 <HomePage />
               </OnboardingRedirectGuard>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/log"
-          element={
-            <RequireAuth>
-              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+            }
+          />
+          <Route
+            path="/coach"
+            element={
+              <OnboardingRedirectGuard
+                expectComplete={false}
+                redirectTo="/onboarding"
+                fullScreen={false}
+              >
+                <CoachPage />
+              </OnboardingRedirectGuard>
+            }
+          />
+          <Route
+            path="/log"
+            element={
+              <OnboardingRedirectGuard
+                expectComplete={false}
+                redirectTo="/onboarding"
+                fullScreen={false}
+              >
                 <LogPage />
               </OnboardingRedirectGuard>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/history"
-          element={
-            <RequireAuth>
-              <OnboardingRedirectGuard expectComplete={false} redirectTo="/onboarding">
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <OnboardingRedirectGuard
+                expectComplete={false}
+                redirectTo="/onboarding"
+                fullScreen={false}
+              >
                 <HistoryPage />
               </OnboardingRedirectGuard>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <RequireAuth>
-              <SettingsPage />
-            </RequireAuth>
-          }
-        />
+            }
+          />
+          {/* No onboarding guard — matches today's behavior. */}
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
         {/* Dev-only design-token inspector. `import.meta.env.DEV` is
             replaced with the literal `false` by Vite during `build`, so
             this <Route> is never registered and `ThemeDebugPage` is

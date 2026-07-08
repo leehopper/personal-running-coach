@@ -161,14 +161,14 @@ export const CoachChat = (): ReactElement => {
     <section
       aria-labelledby="coach-chat-heading"
       data-testid="coach-chat"
-      className="flex flex-col gap-3"
+      className="flex min-h-0 flex-1 flex-col gap-3"
     >
       <h2 id="coach-chat-heading" className="text-lg font-semibold text-foreground">
         Coach
       </h2>
       <TranscriptScroller
         turnCount={scrollKey}
-        className="max-h-[28rem] rounded-md border border-border bg-card p-4"
+        className="min-h-0 flex-1 rounded-md border border-border bg-card p-4"
       >
         {timeline.map((turn) => (
           <TimelineRow key={turn.turnId} turn={turn} units={units} />

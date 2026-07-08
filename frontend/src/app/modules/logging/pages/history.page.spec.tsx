@@ -145,12 +145,6 @@ describe('HistoryPage', () => {
     expect(screen.queryByTestId('workout-history-load-older')).toBeNull()
   })
 
-  it('renders a back link to the plan home', () => {
-    setQueryState({ data: dataOf(page([log('2026-06-07')])) })
-    renderPage()
-    expect(screen.getByRole('link', { name: /back to plan/i })).toHaveAttribute('href', '/')
-  })
-
   it('renders entries in miles when the unit preference is Miles', () => {
     preferredUnitsMock.mockReturnValueOnce(PreferredUnits.Miles)
     setQueryState({ data: dataOf(page([log('2026-06-07')])) })

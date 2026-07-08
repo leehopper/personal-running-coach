@@ -12,8 +12,8 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 //      guards on `/`, `/log`, and `/history` let the user through without
 //      walking the onboarding chat.
 //   3. `GET /api/v1/plan/current` is stubbed with a populated projection so the
-//      home page renders the plan view (and therefore the "Workout history"
-//      link the user clicks to reach the surface under test).
+//      home page renders the plan view (the shell's TabBar, from which the
+//      user reaches the history surface under test, is always present).
 //   4. The slice-2b units under test are NOT stubbed: `POST .../workouts/logs`
 //      (create) and `POST .../workouts/logs/query` (history) hit the real
 //      backend. The freshly-registered user has no real plan (onboarding/plan
@@ -25,6 +25,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 // freeform note. The journey asserts both appear in the week-grouped history
 // surface and that the rich workout's note + metric render.
 
+// eslint-disable-next-line sonarjs/no-hardcoded-passwords -- static E2E fixture password (matches the sibling e2e specs), not a real credential
 const VALID_PASSWORD = 'Correct-Horse-9!'
 
 // Fresh email per run so the suite is re-runnable against a shared dev Postgres
@@ -207,8 +208,10 @@ test('register → log a minimum + a rich workout → both appear in week-groupe
     avgHr: '150',
   })
 
-  // 3. Navigate to the history surface via the home link (the real UI path).
-  await page.getByTestId('home-history-link').click()
+  // 3. Navigate to the history surface via the TabBar LOG BOOK tab (the real
+  //    UI path — Slice 1 replaced the home-page chrome link with the shared
+  //    bottom nav).
+  await page.getByTestId('tab-history').click()
   await expect(page).toHaveURL('/history')
   await expect(page.getByTestId('workout-history-page')).toBeVisible()
 

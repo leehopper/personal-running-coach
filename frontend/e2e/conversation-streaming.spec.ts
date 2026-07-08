@@ -8,7 +8,8 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 //      pair are seeded exactly as the runtime app expects (the hand-rolled SSE
 //      POST reads the `__Host-Xsrf-Request` cookie and sets `X-XSRF-TOKEN`).
 //   2. Onboarding state + plan/current are stubbed so the home page renders the
-//      plan view with the interactive coach chat mounted.
+//      plan view; the interactive coach chat lives on its own `/coach` route
+//      (SPLIT/Alpine Slice 1), reached via the shell's TabBar COACH tab.
 //   3. The conversation endpoints are stubbed at the wire: `GET /conversation/
 //      timeline`, the SSE `POST /conversation/messages`, and the JSON
 //      `POST /conversation/logs/confirm`.
@@ -222,6 +223,10 @@ test('register → ask a question → describe a workout → confirm the parsed 
   await page.getByLabel('Password').fill(VALID_PASSWORD)
   await page.getByRole('button', { name: /create account/i }).click()
   await expect(page).toHaveURL('/')
+
+  // Coach chat lives on its own /coach route — reach it via the TabBar.
+  await page.getByTestId('tab-coach').click()
+  await expect(page).toHaveURL('/coach')
   await expect(page.getByTestId('coach-chat')).toBeVisible()
 
   // 1. Ask a question → the streamed answer renders and persists in the timeline.

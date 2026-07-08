@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -55,8 +55,35 @@ vi.mock('~/error-boundary/report-client-error', () => ({
   reportClientError: vi.fn(),
 }))
 
+// Route-guard-asymmetry coverage (below) renders the real `App` route table
+// end-to-end rather than a hand-built harness, so it swaps in lightweight
+// stand-ins for every routed page — isolating the guard wiring under test
+// from each page's own data-fetching concerns (e.g. `SettingsPage`'s
+// `useGetCurrentPlanQuery`, which needs RTK Query middleware this spec's
+// bare `authSlice`-only store does not configure).
+vi.mock('~/modules/plan/pages/home.page', () => ({
+  HomePage: () => <div data-testid="home-page">home</div>,
+}))
+vi.mock('~/modules/coaching/pages/coach.page', () => ({
+  CoachPage: () => <div data-testid="coach-page">coach</div>,
+}))
+vi.mock('~/modules/logging/pages/log.page', () => ({
+  LogPage: () => <div data-testid="log-page">log</div>,
+}))
+vi.mock('~/modules/logging/pages/history.page', () => ({
+  HistoryPage: () => <div data-testid="history-page">history</div>,
+}))
+vi.mock('~/modules/settings/pages/settings.page', () => ({
+  SettingsPage: () => <div data-testid="settings-page">settings</div>,
+}))
+vi.mock('~/modules/onboarding/pages/onboarding.page', () => ({
+  OnboardingPage: () => <div data-testid="onboarding-page">onboarding</div>,
+}))
+
 import { App } from './app.component'
 import { OnboardingRedirectGuard } from './app.component'
+import { store as realAppStore } from './app.store'
+import { sessionVerified } from '~/modules/auth/store/auth.slice'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -317,5 +344,84 @@ describe('OnboardingRedirectGuard', () => {
     renderGuard({ expectComplete: true, redirectTo: '/', startAt: '/onboarding' })
     expect(screen.getByTestId('guarded-content')).toBeInTheDocument()
     expect(screen.queryByTestId('location')).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Route-guard asymmetry at the composed route-table level
+//
+// `/`, `/coach`, `/log`, `/history` are each wrapped in
+// `OnboardingRedirectGuard(expectComplete=false)`; `/settings` is
+// deliberately left unguarded (see app.component.tsx's "No onboarding
+// guard" comment). The specs above exercise `OnboardingRedirectGuard` in
+// isolation via a hand-built two-route harness — none render the real,
+// composed `<App>` route tree, so nothing would catch a future refactor
+// that accidentally guards `/settings` or drops the guard from a shell
+// route. These specs render `<App>` end-to-end (real `BrowserRouter`,
+// navigated via `window.history.pushState`) under an incomplete-onboarding
+// state and assert the guard asymmetry holds.
+// ---------------------------------------------------------------------------
+
+describe('App route table — onboarding guard asymmetry', () => {
+  beforeEach(() => {
+    // `App` renders against its own real, module-singleton store (not the
+    // `makeStore()` harness used above) — dispatch straight to it so
+    // `RequireAuth` clears its 'unknown'-status loading fallback and the
+    // route table underneath actually mounts.
+    realAppStore.dispatch(sessionVerified({ userId: 'usr_1', email: 'runner@example.com' }))
+  })
+
+  afterEach(() => {
+    window.history.pushState({}, '', '/')
+  })
+
+  it('does not redirect away from /settings when onboarding is incomplete', () => {
+    getOnboardingStateMock.mockReturnValue({
+      data: { isComplete: false },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+    window.history.pushState({}, '', '/settings')
+
+    render(<App />)
+
+    expect(screen.getByTestId('settings-page')).toBeInTheDocument()
+    expect(screen.queryByTestId('onboarding-page')).not.toBeInTheDocument()
+  })
+
+  it('redirects /coach to /onboarding when onboarding is incomplete', () => {
+    getOnboardingStateMock.mockReturnValue({
+      data: { isComplete: false },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+    window.history.pushState({}, '', '/coach')
+
+    render(<App />)
+
+    expect(screen.getByTestId('onboarding-page')).toBeInTheDocument()
+    expect(screen.queryByTestId('coach-page')).not.toBeInTheDocument()
+  })
+
+  it('redirects /log and /history to /onboarding when onboarding is incomplete', () => {
+    getOnboardingStateMock.mockReturnValue({
+      data: { isComplete: false },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+
+    window.history.pushState({}, '', '/log')
+    const { unmount } = render(<App />)
+    expect(screen.getByTestId('onboarding-page')).toBeInTheDocument()
+    expect(screen.queryByTestId('log-page')).not.toBeInTheDocument()
+    unmount()
+
+    window.history.pushState({}, '', '/history')
+    render(<App />)
+    expect(screen.getByTestId('onboarding-page')).toBeInTheDocument()
+    expect(screen.queryByTestId('history-page')).not.toBeInTheDocument()
   })
 })

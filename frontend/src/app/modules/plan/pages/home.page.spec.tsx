@@ -2,8 +2,6 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferredUnits } from '~/api/generated'
-import type { UseCoachStreamReturn } from '~/modules/coaching/hooks/use-coach-stream.hooks'
-import type { ConversationTimelineDto } from '~/modules/coaching/models/conversation.model'
 import { buildPlanFixture } from '~/modules/plan/components/plan-display.fixture'
 import type { PlanProjectionDto } from '~/modules/plan/models/plan.model'
 
@@ -15,31 +13,13 @@ interface QueryResult {
   refetch: () => void
 }
 
-interface TimelineQueryResult {
-  data?: ConversationTimelineDto
-  isLoading: boolean
-  isError: boolean
-}
-
-const { getCurrentPlanMock, getConversationTimelineMock, coachStreamMock, preferredUnitsMock } =
-  vi.hoisted(() => ({
-    getCurrentPlanMock: vi.fn<() => QueryResult>(),
-    getConversationTimelineMock: vi.fn<() => TimelineQueryResult>(),
-    coachStreamMock: vi.fn<() => UseCoachStreamReturn>(),
-    preferredUnitsMock: vi.fn<() => PreferredUnits>(),
-  }))
+const { getCurrentPlanMock, preferredUnitsMock } = vi.hoisted(() => ({
+  getCurrentPlanMock: vi.fn<() => QueryResult>(),
+  preferredUnitsMock: vi.fn<() => PreferredUnits>(),
+}))
 
 vi.mock('~/api/plan.api', () => ({
   useGetCurrentPlanQuery: () => getCurrentPlanMock(),
-}))
-
-vi.mock('~/api/conversation.api', () => ({
-  useGetConversationTimelineQuery: () => getConversationTimelineMock(),
-  useConfirmConversationalLogMutation: () => [vi.fn(), { isLoading: false }],
-}))
-
-vi.mock('~/modules/coaching/hooks/use-coach-stream.hooks', () => ({
-  useCoachStream: () => coachStreamMock(),
 }))
 
 // `HomePage` reads the unit preference via this hook, which wraps a real RTK
@@ -50,18 +30,6 @@ vi.mock('~/modules/coaching/hooks/use-coach-stream.hooks', () => ({
 vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
   usePreferredUnits: () => preferredUnitsMock(),
 }))
-
-const idleStream = (): UseCoachStreamReturn => ({
-  pendingUserMessage: null,
-  streamingText: '',
-  isStreaming: false,
-  safety: null,
-  card: null,
-  error: null,
-  send: vi.fn(),
-  retry: vi.fn(),
-  dismissCard: vi.fn(),
-})
 
 import { HomePage } from './home.page'
 
@@ -75,16 +43,6 @@ const renderHome = () =>
 describe('HomePage', () => {
   beforeEach(() => {
     getCurrentPlanMock.mockReset()
-    getConversationTimelineMock.mockReset()
-    coachStreamMock.mockReset()
-    // Default: an empty timeline + an idle stream — the chat renders its
-    // composer with no turns yet.
-    getConversationTimelineMock.mockReturnValue({
-      data: { turns: [] },
-      isLoading: false,
-      isError: false,
-    })
-    coachStreamMock.mockReturnValue(idleStream())
     preferredUnitsMock.mockReturnValue(PreferredUnits.Kilometers)
   })
 
@@ -193,10 +151,6 @@ describe('HomePage', () => {
     expect(screen.getByTestId('macro-phase-strip')).toBeInTheDocument()
     expect(screen.getByTestId('today-card')).toBeInTheDocument()
     expect(screen.getByTestId('upcoming-list')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /workout history/i })).toHaveAttribute(
-      'href',
-      '/history',
-    )
   })
 
   it('renders the no-plan-yet state on a 404 response', () => {
@@ -227,7 +181,7 @@ describe('HomePage', () => {
     expect(screen.getByTestId('home-page-error')).toBeInTheDocument()
   })
 
-  it('renders the interactive coach chat between today-card and upcoming-list', () => {
+  it('no longer mounts the coach chat on home — it lives on its own /coach route', () => {
     getCurrentPlanMock.mockReturnValue({
       data: buildPlanFixture(),
       isLoading: false,
@@ -236,30 +190,7 @@ describe('HomePage', () => {
     })
     renderHome()
 
-    expect(screen.getByTestId('coach-chat')).toBeInTheDocument()
-    // Document order: the coach chat reads in today's context, before the
-    // forward-looking upcoming stack.
-    const home = screen.getByTestId('home-page')
-    const order = [...home.querySelectorAll('[data-testid]')].map((node) =>
-      node.getAttribute('data-testid'),
-    )
-    expect(order.indexOf('coach-chat')).toBeGreaterThan(order.indexOf('today-card'))
-    expect(order.indexOf('coach-chat')).toBeLessThan(order.indexOf('upcoming-list'))
-  })
-
-  it('still renders the coach chat (composer) when the timeline is empty', () => {
-    getCurrentPlanMock.mockReturnValue({
-      data: buildPlanFixture(),
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    })
-    renderHome()
-
-    expect(screen.getByTestId('coach-chat')).toBeInTheDocument()
-    expect(screen.getByTestId('coach-composer')).toBeInTheDocument()
-    expect(screen.getByTestId('today-card')).toBeInTheDocument()
-    expect(screen.getByTestId('upcoming-list')).toBeInTheDocument()
+    expect(screen.queryByTestId('coach-chat')).not.toBeInTheDocument()
   })
 
   it('omits the macro phase strip but still renders today-card and upcoming-list when plan.macro is null', () => {

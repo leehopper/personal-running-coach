@@ -190,7 +190,7 @@ const LogPage = () => {
 
   return (
     <main
-      className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 bg-background px-4 py-8"
+      className="mx-auto flex min-h-full w-full max-w-md flex-col gap-6 bg-background px-4 py-8"
       data-testid="log-page"
     >
       <header className="flex flex-col gap-1">
