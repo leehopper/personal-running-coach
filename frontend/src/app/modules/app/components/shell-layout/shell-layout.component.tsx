@@ -11,7 +11,7 @@ import { TabBar, TAB_BAR_CLEARANCE } from '~/modules/app/components/tab-bar/tab-
  * render with no tab bar at all.
  */
 export const ShellLayout = (): ReactElement => (
-  <div className="min-h-screen bg-background">
+  <div className="min-h-dvh bg-background">
     <div style={{ paddingBottom: TAB_BAR_CLEARANCE }}>
       <Outlet />
     </div>

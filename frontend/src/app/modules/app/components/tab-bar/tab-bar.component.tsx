@@ -29,7 +29,8 @@ const TRAILING_ITEMS: readonly TabBarLinkItem[] = [
 
 const tabLinkClassName = ({ isActive }: NavLinkRenderProps): string =>
   cn(
-    'flex min-h-11 flex-col items-center justify-center gap-1 transition-colors duration-200 ease-out motion-reduce:transition-none',
+    'flex min-h-11 flex-col items-center justify-center gap-1 rounded-md transition-colors duration-200 ease-out motion-reduce:transition-none',
+    'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] focus-visible:outline-none',
     isActive ? 'text-clay-text' : 'text-muted-foreground',
   )
 
@@ -62,7 +63,7 @@ export const TabBar = (): ReactElement => (
         to="/log"
         aria-label="Log a workout"
         data-testid="tab-log"
-        className="-mt-6.5 flex size-[54px] min-h-11 min-w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform duration-200 ease-out active:scale-[0.98] motion-reduce:transition-none"
+        className="-mt-6.5 flex size-[54px] min-h-11 min-w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform duration-200 ease-out focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] focus-visible:outline-none active:scale-[0.98] motion-reduce:transition-none"
       >
         <Plus aria-hidden className="size-6" />
       </NavLink>
