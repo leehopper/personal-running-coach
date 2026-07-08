@@ -543,6 +543,36 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     }
 
     /// <summary>
+    /// Builds the deterministic per-retry correction suffix for a micro week that disagreed with the
+    /// meso week-1 template (DEC-088). It names the exact run-day schedule the meso week specifies —
+    /// one line per <see cref="DaySlotType.Run"/> slot (day of week + assigned <see cref="WorkoutType"/>)
+    /// — and the schedule the rejected micro produced, so the re-roll becomes a narrow reconciliation
+    /// task. The schedule is recomputed here from the meso + rejected micro (the validator returns only
+    /// the violation discriminator), so the validator stays pure. Rest and cross-train days are omitted
+    /// because the micro layer emits workouts for run days only.
+    /// </summary>
+    internal static string BuildMicroCorrection(MesoWeekOutput weekOneMeso, MicroWorkoutListOutput micro)
+    {
+        var sb = new StringBuilder(384);
+        sb.AppendLine(
+            CultureInfo.InvariantCulture,
+            $"{MicroCorrectionLabel} Your previous week-1 workouts did not match the week-1 plan. The plan schedules exactly these run days (generate one workout per line, on the named day, of the named type):");
+        foreach (var (day, slot) in weekOneMeso.EnumerateDays())
+        {
+            if (slot.SlotType == DaySlotType.Run)
+            {
+                var type = slot.WorkoutType is { } workoutType ? workoutType.ToString() : "any run type";
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  - {day}: {type}");
+            }
+        }
+
+        sb.Append("You generated: ");
+        AppendMicroDaySummary(sb, micro);
+        sb.Append(". Regenerate the week-1 workouts to schedule exactly one workout per run day listed above, on the same day, of the same type, and no workout on any other day.");
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Computes a deterministic per-tier output-size proxy by re-serializing
     /// the structured output to JSON and returning the byte length. The proxy
     /// mirrors the wire bytes Anthropic actually returned so it scales
@@ -666,36 +696,6 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             sb.Append(correction);
         }
 
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Builds the deterministic per-retry correction suffix for a micro week that disagreed with the
-    /// meso week-1 template (DEC-088). It names the exact run-day schedule the meso week specifies —
-    /// one line per <see cref="DaySlotType.Run"/> slot (day of week + assigned <see cref="WorkoutType"/>)
-    /// — and the schedule the rejected micro produced, so the re-roll becomes a narrow reconciliation
-    /// task. The schedule is recomputed here from the meso + rejected micro (the validator returns only
-    /// the violation discriminator), so the validator stays pure. Rest and cross-train days are omitted
-    /// because the micro layer emits workouts for run days only.
-    /// </summary>
-    private static string BuildMicroCorrection(MesoWeekOutput weekOneMeso, MicroWorkoutListOutput micro)
-    {
-        var sb = new StringBuilder(384);
-        sb.AppendLine(
-            CultureInfo.InvariantCulture,
-            $"{MicroCorrectionLabel} Your previous week-1 workouts did not match the week-1 plan. The plan schedules exactly these run days (generate one workout per line, on the named day, of the named type):");
-        foreach (var (day, slot) in weekOneMeso.EnumerateDays())
-        {
-            if (slot.SlotType == DaySlotType.Run)
-            {
-                var type = slot.WorkoutType is { } workoutType ? workoutType.ToString() : "any run type";
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  - {day}: {type}");
-            }
-        }
-
-        sb.Append("You generated: ");
-        AppendMicroDaySummary(sb, micro);
-        sb.Append(". Regenerate the week-1 workouts to schedule exactly one workout per run day listed above, on the same day, of the same type, and no workout on any other day.");
         return sb.ToString();
     }
 

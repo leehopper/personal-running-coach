@@ -902,6 +902,7 @@ public sealed class PlanGenerationServiceTests
     [InlineData(0, 1)] // retry disabled → single attempt, immediate reject
     [InlineData(1, 2)] // default budget → two attempts
     [InlineData(2, 3)] // raised budget → three attempts
+    [InlineData(100, 6)] // misconfigured budget clamps to MaxAllowedMicroValidationRetries (5) → six attempts
     public async Task GeneratePlanAsync_MicroInconsistentOnEveryAttempt_ThrowsAfterBudgetExhausted(
         int maxRetries,
         int expectedMicroCalls)
@@ -1079,6 +1080,135 @@ public sealed class PlanGenerationServiceTests
             .Should().Contain(t =>
                 t.Key == PlanGenerationTagNames.MicroAttempts
                 && (int)t.Value! == 2);
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_MicroRetry_AccumulatesRejectedAttemptTokensIntoUsageRollup()
+    {
+        // Arrange — a MeterListener over the completion instrument. The rejected first micro attempt
+        // reports 100 fresh input tokens; the accepted retry reports 40 (meso/macro report zero). Those
+        // tokens are really spent, so the success measurement's input_tokens_fresh must be their SUM
+        // (140), not just the winner's 40 — pins the unconditional `totalUsage.Add(microUsage)` inside
+        // the micro retry loop against a mutant that only counts the accepted attempt.
+        var measurements = new List<(double Value, KeyValuePair<string, object?>[] Tags)>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == PlanGenerationService.ObservabilitySourceName
+                    && instrument.Name == PlanGenerationService.PlanGenerationCompletedMetricName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        meterListener.SetMeasurementEventCallback<double>((instrument, value, tags, state) =>
+        {
+            lock (measurements)
+            {
+                measurements.Add((value, tags.ToArray()));
+            }
+        });
+        meterListener.Start();
+
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacroSuccess(llm);
+        ConfigureMesoMicroHappyPath(llm);
+
+        var badMicro = BuildInconsistentMicro();
+        var goodMicro = BuildMicro();
+        var microCalls = 0;
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                microCalls++;
+                return microCalls == 1
+                    ? (badMicro, new AnthropicUsage(InputTokens: 100, OutputTokens: 0, CacheCreationInputTokens: 0, CacheReadInputTokens: 0))
+                    : (goodMicro, new AnthropicUsage(InputTokens: 40, OutputTokens: 0, CacheCreationInputTokens: 0, CacheReadInputTokens: 0));
+            });
+        var view = CreateCompletedView();
+
+        // Act
+        await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert — the single success measurement's fresh-input-tokens tag sums both attempts (100 + 40).
+        var successMeasurements = measurements
+            .Where(m => m.Tags.Any(t =>
+                t.Key == PlanGenerationTagNames.Outcome
+                && string.Equals(t.Value as string, "success", StringComparison.Ordinal)))
+            .ToArray();
+        successMeasurements.Should().HaveCount(1);
+        successMeasurements[0].Tags
+            .Should().Contain(t =>
+                t.Key == PlanGenerationTagNames.InputTokensFresh
+                && (long)t.Value! == 140L);
+    }
+
+    [Fact]
+    public void BuildMicroCorrection_ExpectedScheduleNamesRunDaysAndFallsBackToAnyRunTypeWhenWorkoutTypeNull()
+    {
+        // Arrange — a meso week whose Sunday run slot has a null WorkoutType (an under-specified LLM
+        // sample); the other run days (Tuesday, Thursday, Saturday) carry concrete types. The micro
+        // week generated zero run workouts, so the "You generated:" summary must render "none".
+        var meso = BuildMesoFixture(
+            sunday: new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = null, Notes = string.Empty },
+            tuesday: new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Tempo, Notes = string.Empty },
+            thursday: new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = string.Empty },
+            saturday: new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.LongRun, Notes = string.Empty });
+        var micro = new MicroWorkoutListOutput { Workouts = Array.Empty<WorkoutOutput>() };
+
+        // Act
+        var correction = PlanGenerationService.BuildMicroCorrection(meso, micro);
+
+        // Assert
+        correction.Should().Contain(PlanGenerationService.MicroCorrectionLabel);
+        correction.Should().Contain(
+            "Sunday: any run type",
+            because: "a null WorkoutType on a run slot falls back to the generic label");
+        correction.Should().Contain("Tuesday: Tempo");
+        correction.Should().Contain("Thursday: Easy");
+        correction.Should().Contain("Saturday: LongRun");
+        correction.Should().Contain(
+            "You generated: none",
+            because: "zero run workouts in the micro output renders the none fallback");
+    }
+
+    [Fact]
+    public void BuildMicroCorrection_GeneratedSummaryJoinsMultipleRunDaysAndExcludesCrossTrain()
+    {
+        // Arrange — a meso week with two run days (Sunday, Tuesday); the rejected micro emitted a
+        // matching pair of run workouts plus an extra cross-train workout on Thursday. The
+        // "You generated:" summary must comma-join the run days in encounter order and omit the
+        // cross-train entry (the consistency validator's run-day-only scope).
+        var meso = BuildMesoFixture(
+            sunday: new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Easy, Notes = string.Empty },
+            tuesday: new MesoDaySlotOutput { SlotType = DaySlotType.Run, WorkoutType = WorkoutType.Tempo, Notes = string.Empty },
+            thursday: new MesoDaySlotOutput { SlotType = DaySlotType.Rest, WorkoutType = null, Notes = string.Empty },
+            saturday: new MesoDaySlotOutput { SlotType = DaySlotType.Rest, WorkoutType = null, Notes = string.Empty });
+        var micro = new MicroWorkoutListOutput
+        {
+            Workouts = new[]
+            {
+                BuildWorkout(dayOfWeek: 0, WorkoutType.Easy),
+                BuildWorkout(dayOfWeek: 2, WorkoutType.Tempo),
+                BuildWorkout(dayOfWeek: 4, WorkoutType.CrossTrain),
+            },
+        };
+
+        // Act
+        var correction = PlanGenerationService.BuildMicroCorrection(meso, micro);
+
+        // Assert
+        correction.Should().Contain("You generated: Sunday: Easy, Tuesday: Tempo");
+        correction.Should().NotContain(
+            "Thursday: CrossTrain",
+            because: "cross-train workouts are excluded from the generated-summary, matching the validator's run-day-only scope");
     }
 
     [Theory]
@@ -1625,6 +1755,34 @@ public sealed class PlanGenerationServiceTests
         return new MicroWorkoutListOutput
         {
             Workouts = new[] { BuildWorkout(dayOfWeek: 0, WorkoutType.Easy) },
+        };
+    }
+
+    /// <summary>
+    /// Builds a <see cref="MesoWeekOutput"/> with all seven day slots so <c>BuildMicroCorrection</c>
+    /// fixtures can specify only the run-slot days under test; Monday/Wednesday/Friday default to rest.
+    /// </summary>
+    private static MesoWeekOutput BuildMesoFixture(
+        MesoDaySlotOutput sunday,
+        MesoDaySlotOutput tuesday,
+        MesoDaySlotOutput thursday,
+        MesoDaySlotOutput saturday)
+    {
+        var rest = new MesoDaySlotOutput { SlotType = DaySlotType.Rest, WorkoutType = null, Notes = string.Empty };
+        return new MesoWeekOutput
+        {
+            WeekNumber = 1,
+            PhaseType = PhaseType.Base,
+            WeeklyTargetKm = 40,
+            IsDeloadWeek = false,
+            Sunday = sunday,
+            Monday = rest,
+            Tuesday = tuesday,
+            Wednesday = rest,
+            Thursday = thursday,
+            Friday = rest,
+            Saturday = saturday,
+            WeekSummary = "Week 1",
         };
     }
 
