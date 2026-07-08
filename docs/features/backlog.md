@@ -34,6 +34,19 @@ A living document for capturing feature ideas, rough priority signals, and notes
 | Workout detail expansion | Warm-up/cool-down routines, dynamic stretching suggestions. |
 | Progress visualization | Weekly mileage charts, pace trends, goal progress. |
 
+## MVP-0 Close-Out Follow-ups (engineering, non-blocking)
+
+Triaged out of the MVP-0 cycle at close (2026-07-08). None gate MVP-0; full context + provenance in `docs/plans/mvp-0-cycle/cycle-plan.md` § Captured During Cycle → "Open follow-ups".
+
+| Item | Notes |
+|------|-------|
+| F-LIVE-2 micro-prompt anchoring (root-cause) | Surface the meso week-1 per-day slots into the micro *base* prompt (`BuildMicroUserMessage`, attempt 0) to lower the base meso/micro inconsistency rate so the DEC-088 retry rarely fires. Changes attempt-0 live behavior; would NOT bust the eval cache (`BuildMicroUserMessage` is production-only). Complementary to DEC-088, not a substitute. |
+| `AssembleAsync` legacy-island eval cleanup | ~90 `ContextAssemblerTests` + 3 `EvalTestBase` helpers route the coaching-system-voice / safety-boundary / logged-workout evals through the zero-production-caller `ContextAssembler.AssembleAsync` path. Re-point onto a real production prompt path (or retire the coverage) and delete the island + the `UserPreferences`/Training `UserProfile` records; likely a DEC-074 manifest regen + funded-key fixture re-records. Needs its own DEC + spec. |
+| DEC-047 shared-stream ratification | Onboarding + conversation share one physical per-user Marten stream (bare `userId`), an emergent divergence from DEC-047's separate `DeterministicGuid(userId,"onboarding")` stream. Ratify the merged stream or re-separate (a projection-identity migration if re-separating). |
+| Timeline-schema contract tripwire | Add a fully-populated `ConversationTimelineDto` fixture parsed against the generated timeline Zod schema — the only remaining codegen drift guard for the shared `ConversationTurnDto` + `EscalationLevel`/`SafetyTier`/`AdaptationKind` enums, lost when `conversation.model.spec.ts` was deleted (PR-B). |
+| Sibling EF-seed test-fixture port | Port `ConfirmConversationalLogEndpointIntegrationTests` + `ConversationControllerIntegrationTests` off the direct EF profile insert to the event-sourced onboarding seed (correct today; a fast-follow for consistency with the shared-stream projection). |
+| Slice 4A voice polish (opportunistic) | On the next deliberate adaptation re-record, nudge the two `lee` "without guilt/concern" softeners toward the `priya` framing; scope the onboarding restraint rubric to register-only criteria (test-only). |
+
 ## Pre-Public Release
 
 Required before the product is available to anyone beyond the founder and trusted friends. Not needed for MVP (personal use / friends circle where risk is accepted).
@@ -48,6 +61,7 @@ Required before the product is available to anyone beyond the founder and truste
 | LLC formation | Form LLC + separate bank account before any public exposure. ~$500. |
 | Privacy policy | Data collection, storage, breach notification procedures. Required for FTC HBNR compliance. See DEC-020. |
 | Full Terms of Service | Mandatory arbitration + class action waiver, AI disclosure, health disclaimer, liability cap. See DEC-017. |
+| Expected-version concurrency gate for the shared per-user stream handlers | `SubmitStructuredAnswersHandler` + `PostUserConversationTurnHandler` have no Marten optimistic-concurrency gate: concurrent submissions with *different* idempotency keys can both pass the completion gate and double plan-gen, leaving `CurrentPlanId` nondeterministic. Cross-cutting decision applied to BOTH handlers (`ConcurrencyException → 409`). Fold in a staged-then-raced integration test on the surviving handlers (the **S-01** gap left when `OnboardingTurnConcurrencyIntegrationTests` was deleted in Slice 4C PR-E — the shared-stream first-write race is currently untested). Not an MVP-0 risk (audience is self+family); required before concurrent users. From the MVP-0 close-out triage (2026-07-08). |
 | Passkeys (WebAuthn / FIDO2) | .NET 10 ships first-party passkey support in ASP.NET Core Identity (`SignInManager.PasskeySignInAsync`, `UserManager.AddOrUpdatePasskeyAsync`, `IdentityPasskeyOptions`). HTTP endpoints are NOT exposed by `MapIdentityApi` — Blazor template wires them; SPAs must expose `PasskeyCreationOptions`/`PasskeyRequestOptions` manually and call `SignInManager.SignInWithPasskeyAsync`. Phishing-resistant credential; works alongside the cookie session (DEC-044). Public-beta differentiator candidate per R-044. Defer until pre-public-release. |
 
 ## Future
