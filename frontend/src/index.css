@@ -51,6 +51,14 @@
  *   `--alp-clay` fill so the (currently unused) vendor sidebar's focus ring
  *   clears 3:1 against `--sidebar` in light mode (raw clay falls to ~2.87:1
  *   there); the gate enforces this.
+ *   `--clay-pressed` (the primary button's / segmented-control's pressed
+ *   fill) IS gated at 4.5:1 against `--primary-foreground`: both consumers
+ *   render on-clay text over it while pressed, so it is a text-on-fill pair
+ *   like `--primary`, not a decorative state.
+ *   `--input-fill` (the sunken resting fill of form controls) IS gated at
+ *   4.5:1 against `--foreground` and `--muted-foreground`: text/value and
+ *   placeholder copy render directly on it, distinct from `--input`'s
+ *   3:1 boundary-perceptibility check above.
  *
  * ACCENT — Alpine clay
  *   `--primary` = `--alp-clay` (#D06A3B, unchanged both modes) with
@@ -105,10 +113,9 @@
    * break-even point, so a DARK foreground clears AA better than a light
    * one (white-on-danger measures ~4.42:1 — fails by a hair; black-on-danger
    * measures ~4.75:1, which the gate enforces). --alp-danger is unchanged in
-   * `.light`, so this single value covers both modes. No live component
-   * consumes `--destructive-foreground` yet — button/badge currently
-   * hardcode `text-white` on their destructive variants; wiring them to
-   * consume `text-destructive-foreground` is a PR-C task. */
+   * `.light`, so this single value covers both modes. button.tsx and
+   * badge.tsx consume `text-destructive-foreground` on their destructive
+   * variants (not a hardcoded `text-white`). */
   --alp-on-danger: #000000;
 
   /* Light-only-convenience tokens: identical to their dark-tier twin
@@ -118,6 +125,27 @@
    * --sidebar-ring so it clears the 3:1 UI-component threshold in light
    * mode against --alp-surface (raw --alp-clay falls short: ~2.87:1). */
   --alp-clay-marker: #d06a3b;
+
+  /* Pressed/active state of a clay fill (§6 "Buttons: pressed = darken +
+   * scale 0.98"), used by the primary button's and segmented-control's
+   * `active:` variants. THIS IS a gated text-on-fill pair, not a
+   * decorative fill: both consumers render `--primary-foreground` text
+   * (on-clay, #10140F) over it while pressed. The handoff's literal
+   * #B0532A darkens the clay too far — #10140F on #B0532A measures only
+   * ~3.65:1, failing WCAG AA (needs 4.5:1). Because dark text on a
+   * darkened clay is the binding constraint (both foreground and a
+   * heavily-darkened background converge toward low luminance, which
+   * *reduces* contrast), the AA-safe darken from the resting clay
+   * (#D06A3B, ~5.14:1) is necessarily subtle — `scale-[0.98]` carries most
+   * of the press feedback, this fill only needs to read as "a little
+   * darker." Retuned to #C56438 (~4.65:1), tuned empirically against
+   * check-contrast rather than the threshold. Mode-invariant by value —
+   * re-declared identically in `.light` below (matching the --alp-danger/
+   * --alp-clay/--alp-amber pattern) purely so check-contrast's per-selector
+   * block model can resolve it for the light tier too. Exposed to the
+   * semantic tier as `--clay-pressed` below so the checker's per-selector
+   * merge picks it up. */
+  --alp-clay-pressed: #c56438;
 }
 
 /* ── Primitive tier — Alpine light (override). Must follow :root in source
@@ -148,6 +176,7 @@
 
   --alp-btn-border: #c9c3b1;
   --alp-clay-marker: #c05a2e;
+  --alp-clay-pressed: #c56438;
 }
 
 /* ── Semantic tier — shadcn slots (+ project slots) mapped to the primitive
@@ -218,10 +247,18 @@
    * AS TEXT (not as a fill); it clears AA at any size (~5.1:1 vs bg both
    * modes), but the design guideline is to use it only at ≥12px semibold
    * for legibility of the warm mid-tone — a convention, not a contrast
-   * requirement. */
+   * requirement. --clay-pressed is the pressed/active clay fill (see the
+   * --alp-clay-pressed primitive comment above) — a gated text-on-fill
+   * pair, checked against --primary-foreground. --input-fill is the sunken
+   * resting fill of form controls (near-invisible against --background by
+   * design; --input above is the border that actually cues the control's
+   * boundary) — gated for placeholder/value text legibility, not boundary
+   * perceptibility. */
   --positive: var(--alp-moss);
   --rule: var(--alp-bone);
   --clay-text: var(--alp-clay-text);
+  --clay-pressed: var(--alp-clay-pressed);
+  --input-fill: var(--alp-input);
 
   /* Alpine accent ramp for charts — non-text, decorative. */
   --chart-1: var(--alp-clay);
@@ -274,6 +311,8 @@
   --positive: var(--alp-moss);
   --rule: var(--alp-bone);
   --clay-text: var(--alp-clay-text);
+  --clay-pressed: var(--alp-clay-pressed);
+  --input-fill: var(--alp-input);
 
   --chart-1: var(--alp-clay);
   --chart-2: var(--alp-moss);
@@ -335,10 +374,17 @@
   --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
+  /* Exposes the sunken input-fill semantic slot (distinct from the --input
+   * border token above) so form controls can carry a resting fill separate
+   * from the page and card surfaces. Routed through --input-fill (not
+   * --alp-input directly) so the semantic tier stays the single source of
+   * truth check-contrast resolves. */
+  --color-input-fill: var(--input-fill);
   --color-ring: var(--ring);
   --color-positive: var(--positive);
   --color-rule: var(--rule);
   --color-clay-text: var(--clay-text);
+  --color-clay-pressed: var(--alp-clay-pressed);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -492,5 +538,33 @@
     line-height: 1.2;
     letter-spacing: 0.12em;
     text-transform: uppercase;
+  }
+}
+
+/* ── Indeterminate progress sweep (BuildingPlanSurface, DR-7 §6) — plan
+ * generation has no real percent-complete signal, so the progress segment
+ * must never read as a stalled percentage. `animate-indeterminate` travels
+ * a partial-width bar the length of its track on a loop (Material-style
+ * indeterminate), which reads as "ongoing" the way a fixed-width bar that
+ * only pulses opacity does not. Registered via Tailwind v4's `@utility` (not
+ * a bare `@keyframes` + class) so it composes with variants exactly like a
+ * built-in utility — the consumer pairs it with `motion-reduce:animate-pulse
+ * motion-reduce:translate-x-0` to swap travel for a stationary opacity pulse
+ * under reduced motion (WCAG 2.3.3 / DEC-063), the same
+ * `animate-X motion-reduce:animate-none`-shaped pattern used elsewhere
+ * (e.g. sonner.tsx's spinner). 300% covers a 40%-width bar plus clearance:
+ * translateX is relative to the bar's OWN width, so reaching just past the
+ * track's right edge needs (track ÷ bar-width) × 100% ≈ 250%; 300% adds
+ * margin. */
+@utility animate-indeterminate {
+  animation: indeterminate-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes indeterminate-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
   }
 }

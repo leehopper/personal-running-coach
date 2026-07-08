@@ -141,7 +141,7 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
       // through this slot, so the semantics stay correct.
       role={error ? 'alert' : undefined}
       id={formMessageId}
-      className={cn('text-sm text-destructive', className)}
+      className={cn('font-mono text-sm text-destructive', className)}
       {...props}
     >
       {body}

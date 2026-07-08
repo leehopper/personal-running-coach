@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Maskable variant of the SPLIT app icon: the ink field is a full-bleed
+       square (no baked-in corner rounding) so the OS can apply its own
+       mask shape (circle, squircle, rounded-square, ...) without clipping
+       the field itself. The slash artwork is sized and positioned to stay
+       inside the standard maskable-safe center (a circle of ~60% of the
+       icon's diameter, centered on the true viewBox center at 50,50) even
+       after the same 3%-up optical nudge used by favicon.svg, so the mark
+       survives aggressive OS masking. -->
+  <rect width="100" height="100" fill="#10140F" />
+  <rect x="43" y="22" width="14" height="50" rx="7" fill="#D06A3B" transform="rotate(20 50 47)" />
+</svg>

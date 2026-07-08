@@ -139,14 +139,20 @@ Pattern: `{name}.{type}.{extension}`
   `.light` class-toggle mechanism and the `dark:` utility variant are
   unchanged (see `theme-provider.tsx`'s header comment for the full
   mechanism note).
-- Three project-owned semantic slots beyond shadcn's defaults: `--positive`
+- Five project-owned semantic slots beyond shadcn's defaults: `--positive`
   (moss — done/success state), `--rule` (the 2px section-rule colour, holds
-  bone/ink per mode — see `SectionRule` once it lands), and `--clay-text`
-  (clay used as text, not a fill). Clay-as-text clears AA at any size
-  (measured ~5.14:1 dark / ~5.17:1 light against `--background`, and contrast
-  ratio does not vary with weight). **Design guideline: use `--clay-text`
-  only at ≥12px semibold** — a conservative legibility convention for the
-  warm mid-tone, not a contrast requirement. `--alp-faint` is
+  bone/ink per mode — see `SectionRule`), `--clay-text` (clay used as text,
+  not a fill), `--clay-pressed` (the pressed/active clay fill under
+  `--primary-foreground` text — see § Alpine components below), and
+  `--input-fill` (the sunken resting fill of form controls, distinct from
+  `--input`, the border). Clay-as-text clears AA at **any** size (measured
+  ~5.14:1 dark / ~5.17:1 light against `--background`; contrast ratio does
+  not vary with weight or size). **Design guideline: prefer `--clay-text` at
+  ≥12px semibold** — a conservative legibility preference for the warm
+  mid-tone, not a contrast requirement, so it is not a hard rule: small mono
+  clay labels (e.g. `MonoLabel`'s `clay` tone at `.t-data-label`'s 10px/500
+  weight — used for metadata like a coach-turn `COACH · HH:MM` line) are an
+  accepted, AA-passing exception; keep them. `--alp-faint` is
   decorative-only (fails AA by design) and must never carry essential text.
 - **Geometry:** a radius ramp is exposed as `@theme` tokens — `rounded-xs`
   (4px, day cells/tags), `rounded-sm` (6px, chips), `rounded-md` (8px,
@@ -198,6 +204,47 @@ Pattern: `{name}.{type}.{extension}`
   `font-variant-numeric: tabular-nums`), `.t-button`. Later slices restyle
   primitives onto these; new UI should reach for them over ad-hoc
   font-size/weight utilities.
+
+### Alpine components (Slice 0)
+
+- **State law**, applied to every interactive Alpine primitive (button,
+  input/textarea, checkbox, radio-group, segmented-control, switch, dialog
+  close, badge, sonner's RETRY action): pressed = darken + `active:scale-
+  [0.98]` (the primary/clay-filled treatment darkens to `--clay-pressed`;
+  outline/secondary-style controls darken to `--secondary`); disabled =
+  `disabled:opacity-35`; focus-visible = `focus-visible:border-ring
+  focus-visible:ring-[3px] focus-visible:ring-ring/[0.22]` (the one
+  canonical ring — do not reintroduce a plain `outline-2` focus treatment);
+  error = `aria-invalid:border-destructive aria-invalid:ring-destructive/
+  [0.22]` with no `dark:` override (a single ratio holds both modes); hit
+  targets ≥44px via a `relative` + `before:absolute before:inset-[-14px]
+  before:content-['']` expansion around a visually smaller control (see
+  `radio-group.tsx` and `checkbox.tsx`); every animation pairs a
+  `motion-reduce:` variant (DEC-063).
+- **Net-new shared components** — shadcn-style primitives under
+  `src/components/ui/`, app-composed ones under
+  `src/app/modules/common/components/{name}/`:
+  - `Switch` (`components/ui/switch.tsx`) — radix Switch; replaces
+    onboarding's checkboxes.
+  - `SegmentedControl` / `SegmentedControlItem`
+    (`components/ui/segmented-control.tsx`) — radix RadioGroup-based
+    mutually-exclusive picker (completion / units / theme).
+  - `SectionRule`, `MonoLabel`, `StatBand` / `StatCell`, `Wordmark`,
+    `BuildingPlanSurface` — each under its own
+    `common/components/{name}/{name}.component.tsx` with a co-located spec.
+    `BuildingPlanSurface`'s progress indicator is genuinely indeterminate
+    (a partial-width bar travels the track via the `animate-indeterminate`
+    utility in `index.css`, not a fixed-position opacity pulse), so it
+    never reads as a stalled percentage.
+  - `Wordmark` has no mount point yet: there is no shared header/shell
+    component this slice (Slice 0 forbids screen recomposition) for it to
+    drop into. It mounts with the tab-bar shell in Slice 1.
+- Two of the five project-owned tokens above exist specifically to back
+  this layer: `--clay-pressed` (retuned to `#C56438` so
+  `--primary-foreground` clears AA against it — the handoff's literal
+  `#B0532A` measured only ~3.65:1) and `--input-fill` (gated for
+  placeholder/value legibility, not just boundary perceptibility like
+  `--input`). Both carry dedicated check-contrast pairs.
 
 ### Animation baseline (DEC-063)
 

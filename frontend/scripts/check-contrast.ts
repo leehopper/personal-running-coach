@@ -36,6 +36,16 @@
  *   backed by a dedicated --alp-input-border primitive (distinct from the
  *   fainter --alp-hairline divider tone), tuned to just clear 3:1 vs the
  *   page background in each mode.
+ *
+ * ALSO asserted — two text-on-fill pairs beyond the shadcn defaults:
+ *   --clay-pressed  — the primary button's / segmented-control's pressed
+ *     fill. Both consumers render --primary-foreground text over it while
+ *     pressed, so it is held to the same 4.5:1 as --primary, not treated as
+ *     a decorative press state.
+ *   --input-fill    — the sunken resting fill of form controls (distinct
+ *     from --input, the border). Value and placeholder copy render
+ *     directly on it, so both --foreground and --muted-foreground are
+ *     checked against it at 4.5:1.
  */
 
 import { readFileSync } from 'node:fs'
@@ -137,6 +147,25 @@ export const PAIRS: readonly Pair[] = [
   // Net-new Alpine project slots — WCAG AA normal text, 4.5:1.
   { label: '--positive on --card', fg: 'positive', bg: 'card', threshold: 4.5 },
   { label: '--clay-text on --background', fg: 'clay-text', bg: 'background', threshold: 4.5 },
+  // Pressed/active clay fill — a text-on-fill pair (not decorative): the
+  // primary button and segmented-control render on-clay text over this fill
+  // while pressed, so it is held to the same 4.5:1 as --primary above.
+  {
+    label: '--primary-foreground on --clay-pressed',
+    fg: 'primary-foreground',
+    bg: 'clay-pressed',
+    threshold: 4.5,
+  },
+  // Sunken form-control fill — text/value and placeholder legibility.
+  // Distinct from the --input border pair below (3:1, boundary
+  // perceptibility): this asserts the copy rendered ON the fill.
+  { label: '--foreground on --input-fill', fg: 'foreground', bg: 'input-fill', threshold: 4.5 },
+  {
+    label: '--muted-foreground on --input-fill',
+    fg: 'muted-foreground',
+    bg: 'input-fill',
+    threshold: 4.5,
+  },
   // Non-text UI pairs — WCAG SC 1.4.11, 3:1. --ring and --input are checked
   // against --background, the surface they border. --input is the resting
   // boundary of an empty form field (see the header comment) and must stay
