@@ -5,13 +5,14 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** None — Slice 0 (Alpine Foundation) shipped 2026-07-08. Slice 1 (Shell & Navigation) is next.
+- **Active Slice:** None — Slice 1 (Shell & Navigation) shipped 2026-07-08. Slice 2 (Today) is next.
 - **Slice ledger:**
   | # | Slice | Completed | PR |
   |---|---|---|---|
   | 0 | Alpine Foundation | 2026-07-08 | #275 |
+  | 1 | Shell & Navigation | 2026-07-08 | #277 |
 - **Active Slice Spec:** None. Specs are written fresh per-slice under `docs/specs/` (gitignored) at build time, per the Per-Slice Hygiene Rule inherited from the MVP-0 cycle plan.
-- **Next Step:** Spec + build Slice 1 (Shell & Navigation) in a fresh session — read this plan + `slice-1-shell-navigation.md` first.
+- **Next Step:** Spec + build Slice 2 (Today) in a fresh session — read this plan + `slice-2-today.md` first.
 - **Blockers:** None.
 
 This status block is the single source of truth for "where are we?" — mirrored into `ROADMAP.md` so `/catchup` finds it. Update both whenever a slice completes or the active slice changes. **Replace, don't append:** when a slice completes, collapse its Status entry to a one-line ledger row; the narrative moves to a per-slice completion section, a `ROADMAP.md` Cycle History row, and the decision log.
@@ -76,7 +77,7 @@ Each slice ships top-to-bottom (any backend delta + codegen + frontend + tests) 
 | # | Name | Requirements doc | Depends on |
 |---|---|---|---|
 | 0 | Alpine Foundation ✅ (2026-07-08, PR #275) | [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) | — (R-086 cleared) |
-| 1 | Shell & Navigation | [`./slice-1-shell-navigation.md`](./slice-1-shell-navigation.md) | 0 |
+| 1 | Shell & Navigation ✅ (2026-07-08, PR #277) | [`./slice-1-shell-navigation.md`](./slice-1-shell-navigation.md) | 0 |
 | 2 | Today | [`./slice-2-today.md`](./slice-2-today.md) | 1 |
 | 3 | Coach | [`./slice-3-coach.md`](./slice-3-coach.md) | 1 |
 | 4 | Log & Log Book | [`./slice-4-log-logbook.md`](./slice-4-log-logbook.md) | 1 |
@@ -104,20 +105,22 @@ Slices 2/3/4 are independent of each other after Slice 1; Slice 5 needs only Sli
 
 **Key risks.** The theme e2e (`theme.spec.ts`) and the provider drift-assertion spec pin the current light-default + `.dark` mechanics — both must be updated in the same PR as the inversion. Every semantic slot must keep resolving or check-contrast fails the commit. `SegmentedControl` has no shadcn primitive — build on existing Radix radio-group/toggle patterns; flag at spec time if a new Radix package is wanted (bounded choice, not research).
 
-### Slice 1 — Shell & Navigation
+### Slice 1 — Shell & Navigation ✅ Complete (2026-07-08, PR #277)
 
 **Requirements:** [`./slice-1-shell-navigation.md`](./slice-1-shell-navigation.md)
 
 **Acceptance — "I can…"**
 
-- [ ] …navigate between Today / Coach / Log Book / Settings from a fixed bottom tab bar with always-visible labels and a raised 54px clay LOG action opening `/log`.
-- [ ] …open `/coach` and use the full chat timeline (streaming, confirm, retry) with the composer pinned above the tab bar.
-- [ ] …see onboarding and auth render without the tab bar; guards behave exactly as before.
-- [ ] …reach Settings from the tab bar (it currently has no inbound link at all).
+- [x] …navigate between Today / Coach / Log Book / Settings from a fixed bottom tab bar with always-visible labels and a raised 54px clay LOG action opening `/log`.
+- [x] …open `/coach` and use the full chat timeline (streaming, confirm, retry) with the composer pinned above the tab bar.
+- [x] …see onboarding and auth render without the tab bar; guards behave exactly as before.
+- [x] …reach Settings from the tab bar (it currently has no inbound link at all).
+
+**Shipped:** `TabBar` (fixed bottom 5-col grid, `NavLink`-driven active state, `aria-current="page"`, canonical focus ring, ≥44px targets, `env(safe-area-inset-bottom)` padding) + `ShellLayout` (`Outlet` + `TabBar`, shared `TAB_BAR_CLEARANCE` padding, `min-h-dvh`). Router rewire nests `/`, `/coach`, `/log`, `/history`, `/settings` under one `RequireAuth` → `ShellLayout`, each child keeping its pre-existing guard (`/settings` stays deliberately unguarded, matching prior behavior). `/coach` route + `CoachPage`: a mechanical `CoachChat` relocation off Home onto a full-height screen with the composer pinned above the tab bar — no turn-kind restyling (Slice 3's scope), `CoachChat`'s own behavior contract (streaming, retry, confirm, Edit→`/log`) untouched. Removed every scattered chrome nav link (`home-history-link`, History/Settings "Back to plan"); Playwright realigned to navigate via the tab bar. 674 vitest tests at merge. Post-merge pass addressed 4 CodeRabbit/deep-review findings before CI went green: dropped a forbidden planning-phase forward-reference comment; migrated `min-h-screen` → `min-h-full` on shell-route fallback states (Home's loading/error/no-plan-yet, plus a new `fullScreen` prop on the shared `OnboardingRedirectGuard` so its loading/error fallback keeps full-viewport centering on the standalone `/onboarding` route while avoiding the same overflow inside the four shell routes); corrected `ShellLayout`'s doc-comment overclaim (not every nested route is onboarding-gated); added a route-table-level test rendering the real composed `App` tree to close the onboarding-guard-asymmetry coverage gap. 677/677 vitest at close.
 
 **Scope.** `TabBar` (safe-area padding, active-clay states, aria-current), tab-shell layout route wrapper, `/coach` route + `CoachChat` relocation (mechanical move; turn restyling is Slice 3), composer pinning, removal of every scattered nav link, e2e/nav realignment.
 
-**Key risks.** Fixed bar changes every page's scroll region and bottom padding. Pinned composer + fixed tab bar + mobile-Safari keyboard/viewport interplay is the one genuinely fiddly area — verify on a real phone viewport early. Home temporarily loses the chat panel (digest arrives in Slice 2); acceptable mid-cycle for a self+family audience.
+**Key risks.** Fixed bar changes every page's scroll region and bottom padding. Pinned composer + fixed tab bar + mobile-Safari keyboard/viewport interplay is the one genuinely fiddly area — flagged in the PR as needing a real-device eyeball check before merge; not independently re-verified as part of this close-out.
 
 ### Slice 2 — Today
 

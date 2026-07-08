@@ -236,9 +236,9 @@ Pattern: `{name}.{type}.{extension}`
     (a partial-width bar travels the track via the `animate-indeterminate`
     utility in `index.css`, not a fixed-position opacity pulse), so it
     never reads as a stalled percentage.
-  - `Wordmark` has no mount point yet: there is no shared header/shell
-    component this slice (Slice 0 forbids screen recomposition) for it to
-    drop into. It mounts with the tab-bar shell in Slice 1.
+  - `Wordmark` still has no mount point: Slice 1's `ShellLayout`/`TabBar`
+    shipped without one (no header chrome in that slice's scope). It
+    remains unmounted, to be picked up by a later slice's screen work.
 - Two of the five project-owned tokens above exist specifically to back
   this layer: `--clay-pressed` (retuned to `#C56438` so
   `--primary-foreground` clears AA against it — the handoff's literal
