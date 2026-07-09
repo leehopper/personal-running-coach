@@ -30,12 +30,12 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
     <!-- Persistence — Marten + Wolverine (event-sourcing + outbox) -->
-    <PackageVersion Include="Marten" Version="9.12.0" />
-    <PackageVersion Include="Marten.EntityFrameworkCore" Version="9.12.0" />
-    <PackageVersion Include="WolverineFx" Version="6.16.0" />
-    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.16.0" />
-    <PackageVersion Include="WolverineFx.Marten" Version="6.16.0" />
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.16.0" />
+    <PackageVersion Include="Marten" Version="9.14.0" />
+    <PackageVersion Include="Marten.EntityFrameworkCore" Version="9.14.0" />
+    <PackageVersion Include="WolverineFx" Version="6.17.0" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.17.0" />
+    <PackageVersion Include="WolverineFx.Marten" Version="6.17.0" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.17.0" />
     <!-- Observability — OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
@@ -43,7 +43,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
     <!-- LLM / Prompt -->
-    <PackageVersion Include="Anthropic" Version="12.34.1" />
+    <PackageVersion Include="Anthropic" Version="12.35.1" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
     <!-- Configuration (eval tests) -->
     <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.9" />
@@ -71,7 +71,7 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" Version="2.2.2" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="Respawn" Version="7.0.0" />
-    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.12.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <!-- xunit.v3 meta-package brings xunit.v3.core.mtp-v1 (built against
          MTP 1.x). Use the mtp-v2 core package directly so the MicrosoftTestingPlatform
          adapter resolves the same MTP 2.x APIs (`IOutputDevice.DisplayAsync`,
