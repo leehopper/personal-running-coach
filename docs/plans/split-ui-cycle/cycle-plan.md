@@ -5,15 +5,16 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** None — Slice 1 (Shell & Navigation) shipped 2026-07-08. Slice 2 (Today) is next.
+- **Active Slice:** Slice 2 (Today) — spec written, implementation starting.
 - **Slice ledger:**
   | # | Slice | Completed | PR |
   |---|---|---|---|
   | 0 | Alpine Foundation | 2026-07-08 | #275 |
   | 1 | Shell & Navigation | 2026-07-08 | #277 |
-- **Active Slice Spec:** None. Specs are written fresh per-slice under `docs/specs/` (gitignored) at build time, per the Per-Slice Hygiene Rule inherited from the MVP-0 cycle plan.
-- **Next Step:** Spec + build Slice 2 (Today) in a fresh session — read this plan + `slice-2-today.md` first.
+- **Active Slice Spec:** Written for Slice 2 (Today) under `docs/specs/` (gitignored), per the Per-Slice Hygiene Rule inherited from the MVP-0 cycle plan.
+- **Next Step:** Build Slice 2 (Today) — spec is written, read this plan + `slice-2-today.md` first.
 - **Blockers:** None.
+- **Parallel workstream:** Rolling Plan Horizon (backend-only, DEC-090; plan `docs/plans/plan-horizon/rolling-horizon-plan.md`) is running alongside this cycle — no file overlap, no wire/codegen churn with any SPLIT slice. See § Captured During Cycle, 2026-07-13 row.
 
 This status block is the single source of truth for "where are we?" — mirrored into `ROADMAP.md` so `/catchup` finds it. Update both whenever a slice completes or the active slice changes. **Replace, don't append:** when a slice completes, collapse its Status entry to a one-line ledger row; the narrative moves to a per-slice completion section, a `ROADMAP.md` Cycle History row, and the decision log.
 
@@ -29,6 +30,7 @@ Follow-ups surfaced mid-cycle land here with a date + disposition, exactly as in
 | 2026-07-07 | **SPLIT trademark/domain search** (handoff § 9 item 1; fallbacks THRESHOLD / CADENCE / VERST). | User-owned, runs in parallel with the cycle. The wordmark + brand strings are contained in the `Wordmark` component + a small string set (DEC-089 D2), so a rename is a bounded swap. |
 | 2026-07-07 | **OAuth buttons on auth** (handoff § 9 item 4). | Out of scope; Slice 6 leaves the designed vertical room under the primary button and nothing else. |
 | 2026-07-07 | **`RTK cache reset on auth transitions`** — Slice 6 wires the first real SIGN OUT affordance, which makes the known cross-account cache-leak follow-up (declined PR #174; previously deferred to pre-public release) newly user-reachable. | Slice 6 must call `resetApiState()` on logout as part of wiring SIGN OUT — pulled forward because the affordance now exists. |
+| 2026-07-13 | **Plan generation only ever produces 4 meso weeks and ONE micro week; nothing extends them. Only week 1 of any plan has real workouts.** Surfaced while specifying Slice 2's Today header, which would have displayed a clamped, permanently-stale week. | Promoted to its own backend workstream (plan doc + DEC-090, `docs/plans/plan-horizon/rolling-horizon-plan.md`); runs parallel to the UI slices, no file overlap or codegen churn. |
 
 ---
 
