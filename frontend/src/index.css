@@ -259,6 +259,17 @@
   --clay-text: var(--alp-clay-text);
   --clay-pressed: var(--alp-clay-pressed);
   --input-fill: var(--alp-input);
+  /* AD-9 (Slice 2 / DEC-089): clay used as a BORDER OR FILL only, never as
+   * text — the "current" marker (THE WEEK's today-cell 2px outline, THE
+   * BLOCK's current-week cell, the coach digest's accent-indent border).
+   * Maps to the already-existing `--alp-clay-marker` primitive (shipped in
+   * Slice 0 for `--sidebar-ring`). Border/fill-only, same exemption posture
+   * as `--border` — see check-contrast.ts's header-comment EXEMPT list. Text
+   * usages of clay use `--clay-text` above instead (AA-verified for text;
+   * `--clay-marker`'s light value is a different, untested-for-contrast
+   * color). Landed in Slice 2 PR-B — the earliest PR that needs it — per the
+   * Today spec's "land in whichever PR merges first in practice" note. */
+  --clay-marker: var(--alp-clay-marker);
 
   /* Alpine accent ramp for charts — non-text, decorative. */
   --chart-1: var(--alp-clay);
@@ -313,6 +324,7 @@
   --clay-text: var(--alp-clay-text);
   --clay-pressed: var(--alp-clay-pressed);
   --input-fill: var(--alp-input);
+  --clay-marker: var(--alp-clay-marker);
 
   --chart-1: var(--alp-clay);
   --chart-2: var(--alp-moss);
@@ -385,6 +397,7 @@
   --color-rule: var(--rule);
   --color-clay-text: var(--clay-text);
   --color-clay-pressed: var(--clay-pressed);
+  --color-clay-marker: var(--clay-marker);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

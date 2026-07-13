@@ -23,11 +23,16 @@
  * semantic pair must be guarded, add its slot names here.
  *
  * EXEMPT (never asserted, by design — WCAG 1.4.11 decorative / non-text):
- *   --border     — a pure divider between rows/sections.
- *   --warning    — a supplementary severity accent (the severity is always
+ *   --border      — a pure divider between rows/sections.
+ *   --warning     — a supplementary severity accent (the severity is always
  *     also conveyed by content and structure, never by colour alone).
- *   --alp-faint  — a decorative-only label tint that fails AA by design and
+ *   --alp-faint   — a decorative-only label tint that fails AA by design and
  *     must never carry essential text; documented, not machine-checked.
+ *   --clay-marker — the Slice 2 "current" marker (AD-9): border/fill only,
+ *     never text (THE WEEK's today-cell outline, THE BLOCK's current-week
+ *     cell, the coach digest's accent-indent border). Text usages of clay
+ *     use --clay-text instead, which IS gated above. Same exemption posture
+ *     as --border.
  *
  * NOT exempt — --input IS asserted (3:1 UI-component rule): it is a
  *   form-control boundary and the only cue that an empty resting field

@@ -33,4 +33,38 @@ describe('StatBand + StatCell', () => {
     const cell = screen.getByTestId('stat-cell')
     expect(cell.querySelector('.t-numeral')).toHaveTextContent('4:00–4:30/km')
   })
+
+  describe('variant="hero"', () => {
+    it('renders the value at condensed 700/30px, not the default .t-numeral role', () => {
+      render(<StatCell variant="hero" value="9.0" label="Kilometers" />)
+      const cell = screen.getByTestId('stat-cell')
+      expect(cell.querySelector('.t-numeral')).toBeNull()
+      const value = cell.firstElementChild
+      expect(value).toHaveClass('font-condensed', 'text-[30px]', 'font-bold')
+      expect(value).toHaveTextContent('9.0')
+    })
+
+    it('renders the label mono 500/9.5px/+0.1em/uppercase via the --alp-faint arbitrary value, not the default .t-data-label role', () => {
+      render(<StatCell variant="hero" value="9.0" label="Kilometers" />)
+      const cell = screen.getByTestId('stat-cell')
+      expect(cell.querySelector('.t-data-label')).toBeNull()
+      const label = cell.lastElementChild
+      expect(label).toHaveClass(
+        'font-mono',
+        'text-[9.5px]',
+        'font-medium',
+        'uppercase',
+        'tracking-[0.1em]',
+      )
+      expect(label).toHaveClass('text-[color:var(--alp-faint)]')
+      expect(label).toHaveTextContent('Kilometers')
+    })
+
+    it("leaves the default variant byte-identical to today's .t-numeral/.t-data-label styling", () => {
+      render(<StatCell value="9.0" label="Kilometers" />)
+      const cell = screen.getByTestId('stat-cell')
+      expect(cell.querySelector('.t-numeral')).not.toBeNull()
+      expect(cell.querySelector('.t-data-label')).not.toBeNull()
+    })
+  })
 })
