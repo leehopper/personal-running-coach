@@ -3,7 +3,6 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
@@ -427,7 +426,10 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                 PlanStartDate: planStartDate,
                 PromptVersion: promptVersion,
                 ModelId: _settings.ModelId,
-                PreviousPlanId: previousPlanId);
+                PreviousPlanId: previousPlanId,
+                TargetEventName: profileSnapshot.TargetEvent?.EventName,
+                TargetEventDistanceKm: profileSnapshot.TargetEvent?.DistanceKm,
+                TargetEventDate: raceDate);
 
             var sequence = new PlanEventSequence(
                 Macro: planGenerated,

@@ -152,6 +152,46 @@ public sealed class PlanGenerationServiceTests
     }
 
     [Fact]
+    public async Task GeneratePlanAsync_StampsTargetEventOnPlanGenerated()
+    {
+        // Arrange — local today 2026-06-12 → plan-start Sunday 2026-06-07; the race on
+        // 2026-08-08 is week 9 from that anchor, so a 9-week phase-sum-consistent macro
+        // passes horizon validation (mirrors AnchoredHorizon_ValidMacro_AppendsPlanWithLocalStartDate).
+        var (sut, llm, _) = CreateSut(localToday: new DateOnly(2026, 6, 12));
+        ConfigureMacro(llm, BuildMacroWithTotalWeeks(9, NineWeekPhaseWeeks));
+        ConfigureMesoMicroHappyPath(llm);
+        var eventDateIso = "2026-08-08";
+        var view = CreateRaceView(eventDateIso);
+
+        // Act
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        var generated = sequence.Macro;
+        generated.TargetEventName.Should().Be(view.TargetEvent!.EventName);
+        generated.TargetEventDistanceKm.Should().Be(view.TargetEvent.DistanceKm);
+        generated.TargetEventDate.Should().Be(new DateOnly(2026, 8, 8));
+    }
+
+    [Fact]
+    public async Task GeneratePlanAsync_TargetEventFieldsNull_ForGeneralFitness()
+    {
+        // Arrange
+        var (sut, llm, _) = CreateSut();
+        ConfigureLlmHappyPath(llm);
+        var view = CreateCompletedView();
+
+        // Act
+        var sequence = await sut.GeneratePlanAsync(view, UserId, PlanId, intent: null, previousPlanId: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        var generated = sequence.Macro;
+        generated.TargetEventName.Should().BeNull();
+        generated.TargetEventDistanceKm.Should().BeNull();
+        generated.TargetEventDate.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GeneratePlanAsync_AnchorsPlanStartDateToGenerationWeekSunday()
     {
         // Arrange — generate on Wednesday 2026-06-10; week 1, day 0 anchors to the

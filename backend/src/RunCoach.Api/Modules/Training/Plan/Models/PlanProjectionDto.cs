@@ -51,6 +51,27 @@ public sealed record PlanProjectionDto
     public Guid? PreviousPlanId { get; set; }
 
     /// <summary>
+    /// Gets or sets the name of the goal race or event, or <see langword="null"/> for a
+    /// general-fitness plan with no target event. Threaded through from
+    /// <see cref="PlanGenerated.TargetEventName"/> verbatim.
+    /// </summary>
+    public string? TargetEventName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the target event's distance in kilometers, or <see langword="null"/> for a
+    /// general-fitness plan. Threaded through from
+    /// <see cref="PlanGenerated.TargetEventDistanceKm"/> verbatim.
+    /// </summary>
+    public double? TargetEventDistanceKm { get; set; }
+
+    /// <summary>
+    /// Gets or sets the target event's calendar date, or <see langword="null"/> for a
+    /// general-fitness plan or an unparseable onboarding date. Threaded through from
+    /// <see cref="PlanGenerated.TargetEventDate"/> verbatim.
+    /// </summary>
+    public DateOnly? TargetEventDate { get; set; }
+
+    /// <summary>
     /// Gets or sets the semantic version of the coaching prompt YAML that
     /// produced the plan (e.g. <c>"coaching-v1"</c>).
     /// </summary>
