@@ -175,12 +175,12 @@ describe('WorkoutHero', () => {
         const value = cell.firstElementChild
         const label = cell.lastElementChild
         expect(value).toHaveClass('font-condensed', 'text-[30px]', 'font-bold')
-        expect(label).toHaveClass(
-          'font-mono',
-          'text-[9.5px]',
-          'uppercase',
-          'text-[color:var(--alp-faint)]',
-        )
+        // Label color is `text-muted-foreground`, not the decorative
+        // `--alp-faint` — builder decision (Slice 2 FIX 3): a stat-band unit
+        // label (KILOMETERS, PACE /KM) is essential text (disambiguates a
+        // bare numeral under a km/miles preference), not decoration.
+        expect(label).toHaveClass('font-mono', 'text-[9.5px]', 'uppercase', 'text-muted-foreground')
+        expect(label).not.toHaveClass('text-[color:var(--alp-faint)]')
       }
     })
   })

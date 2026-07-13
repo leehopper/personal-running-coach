@@ -1,5 +1,5 @@
 import { useCallback, type ReactElement } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,18 @@ import { TranscriptScroller } from './transcript-scroller.component'
 // markdown, no raw HTML.
 
 const NO_TURNS: readonly ConversationTimelineTurnDto[] = []
+
+/**
+ * `router.state` shape carried by a `navigate('/coach', { state: {...} })`
+ * call — the digest's composer-stub/chip receiver contract (Slice 2 spec §1
+ * PR-C). `prefill` seeds the composer's text; `focusComposer` focuses it
+ * without seeding text. Plain `TabBar` navigation carries no `state`, so
+ * `state` is `null` and neither applies.
+ */
+interface CoachChatLocationState {
+  prefill?: string
+  focusComposer?: boolean
+}
 
 interface ChatBubbleProps {
   role: MessageRole
@@ -112,6 +124,8 @@ export const CoachChat = (): ReactElement => {
   const { data } = useGetConversationTimelineQuery(undefined)
   const timeline = data?.turns ?? NO_TURNS
   const units = usePreferredUnits()
+  const location = useLocation()
+  const locationState = location.state as CoachChatLocationState | null
   const {
     pendingUserMessage,
     streamingText,
@@ -196,7 +210,13 @@ export const CoachChat = (): ReactElement => {
           onCancel={dismissCard}
         />
       )}
-      <CoachComposer onSend={send} isStreaming={isStreaming} />
+      <CoachComposer
+        key={location.key}
+        onSend={send}
+        isStreaming={isStreaming}
+        initialValue={locationState?.prefill ?? ''}
+        autoFocus={Boolean(locationState?.prefill) || Boolean(locationState?.focusComposer)}
+      />
     </section>
   )
 }

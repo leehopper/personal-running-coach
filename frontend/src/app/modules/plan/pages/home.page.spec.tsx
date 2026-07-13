@@ -13,9 +13,10 @@ interface QueryResult {
   refetch: () => void
 }
 
-const { getCurrentPlanMock, preferredUnitsMock } = vi.hoisted(() => ({
+const { getCurrentPlanMock, preferredUnitsMock, conversationTimelineMock } = vi.hoisted(() => ({
   getCurrentPlanMock: vi.fn<() => QueryResult>(),
   preferredUnitsMock: vi.fn<() => PreferredUnits>(),
+  conversationTimelineMock: vi.fn(),
 }))
 
 vi.mock('~/api/plan.api', () => ({
@@ -31,6 +32,16 @@ vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
   usePreferredUnits: () => preferredUnitsMock(),
 }))
 
+// `HomePage` now mounts `CoachDigest`, which calls this real RTK Query hook
+// internally — with no Redux `<Provider>` in `renderHome()`'s tree, an
+// unmocked call throws "could not find react-redux context value" the
+// instant `CoachDigest` renders. Following `coach-chat.component.spec.tsx`'s
+// established `~/api/conversation.api` mocking idiom verbatim (Slice 2 §1
+// PR-C's F2 catch).
+vi.mock('~/api/conversation.api', () => ({
+  useGetConversationTimelineQuery: () => conversationTimelineMock(),
+}))
+
 import { HomePage } from './home.page'
 
 const renderHome = () =>
@@ -44,6 +55,18 @@ describe('HomePage', () => {
   beforeEach(() => {
     getCurrentPlanMock.mockReset()
     preferredUnitsMock.mockReturnValue(PreferredUnits.Kilometers)
+    conversationTimelineMock.mockReset()
+    // `{ turns: [] }` renders `CoachDigest`'s empty state (state 4) — the
+    // safest default: no wrapping `<Link>` that could intercept a click meant
+    // for another section, and no content colliding with this file's
+    // existing `macro-phase-strip`/`today-card`/`upcoming-list`/`home-page-*`
+    // assertions. `CoachDigest`'s own per-state content is
+    // `coach-digest.component.spec.tsx`'s job, not this file's.
+    conversationTimelineMock.mockReturnValue({
+      data: { turns: [] },
+      isLoading: false,
+      isError: false,
+    })
   })
 
   afterEach(() => {

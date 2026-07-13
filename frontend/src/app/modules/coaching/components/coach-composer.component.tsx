@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -6,6 +6,10 @@ import { Textarea } from '@/components/ui/textarea'
 export interface CoachComposerProps {
   onSend: (message: string) => void
   isStreaming: boolean
+  /** Seeds the textarea's value at mount time only — a prop change on an already-mounted instance does NOT reseed, by design. Defaults to `''`. */
+  initialValue?: string
+  /** Focuses the textarea on mount when `true`. Defaults to `false`. */
+  autoFocus?: boolean
 }
 
 /**
@@ -13,11 +17,38 @@ export interface CoachComposerProps {
  * The send control is disabled while a stream is in flight or the message is
  * blank — the textarea stays enabled so the runner can compose the next
  * message while the coach is still answering.
+ *
+ * `initialValue`/`autoFocus` back the digest's composer-stub/chip receiver
+ * contract (Slice 2 spec §1 PR-C): `coach-chat.component.tsx` remounts this
+ * component (via `key={location.key}`) on every navigation into `/coach`, so
+ * a fresh `initialValue`/focus application applies per navigation without a
+ * custom nav-key counter.
  */
-export const CoachComposer = ({ onSend, isStreaming }: CoachComposerProps): ReactElement => {
-  const [value, setValue] = useState('')
+export const CoachComposer = ({
+  onSend,
+  isStreaming,
+  initialValue = '',
+  autoFocus = false,
+}: CoachComposerProps): ReactElement => {
+  const [value, setValue] = useState(initialValue)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const trimmed = value.trim()
   const canSend = trimmed.length > 0 && !isStreaming
+
+  // Mount-only ref-imperative focus call — not a `setState`, so this does not
+  // trip `react-hooks/set-state-in-effect`. Empty deps is deliberate: a prop
+  // change on an already-mounted instance must NOT re-trigger focus (only a
+  // fresh mount, via `coach-chat.component.tsx`'s `key={location.key}`,
+  // should). `autoFocus` is intentionally omitted from the deps array —
+  // including it would re-run the focus call whenever the prop changes on an
+  // already-mounted instance, which is exactly the behavior this effect must
+  // NOT have.
+  useEffect(() => {
+    if (autoFocus) {
+      textareaRef.current?.focus()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only by design, see comment above the effect
+  }, [])
 
   const submit = (): void => {
     if (!canSend) return
@@ -42,6 +73,7 @@ export const CoachComposer = ({ onSend, isStreaming }: CoachComposerProps): Reac
       data-testid="coach-composer"
     >
       <Textarea
+        ref={textareaRef}
         aria-label="Message your coach"
         placeholder="Ask a question or describe a run to log…"
         value={value}

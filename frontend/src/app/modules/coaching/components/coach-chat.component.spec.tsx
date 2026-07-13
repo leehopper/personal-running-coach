@@ -11,12 +11,18 @@ import type {
   PlanAdaptationDiffDto,
 } from '~/modules/coaching/models/conversation.model'
 
+interface MockLocation {
+  state: unknown
+  key: string
+}
+
 const {
   timelineMock,
   streamMock,
   confirmTrigger,
   confirmUnwrap,
   navigateMock,
+  locationMock,
   toastErrorMock,
   reportClientErrorMock,
   preferredUnitsMock,
@@ -26,6 +32,7 @@ const {
   confirmTrigger: vi.fn(),
   confirmUnwrap: vi.fn(),
   navigateMock: vi.fn(),
+  locationMock: vi.fn<() => MockLocation>(),
   toastErrorMock: vi.fn(),
   reportClientErrorMock: vi.fn(),
   preferredUnitsMock: vi.fn<() => PreferredUnits>(),
@@ -41,6 +48,7 @@ vi.mock('~/modules/coaching/hooks/use-coach-stream.hooks', () => ({
 vi.mock('react-router-dom', async (importActual) => ({
   ...(await importActual<typeof import('react-router-dom')>()),
   useNavigate: () => navigateMock,
+  useLocation: () => locationMock(),
 }))
 vi.mock('sonner', () => ({ toast: { error: toastErrorMock } }))
 vi.mock('~/error-boundary/report-client-error', () => ({
@@ -155,6 +163,9 @@ const renderChat = (): void => {
 describe('CoachChat', () => {
   beforeEach(() => {
     preferredUnitsMock.mockReturnValue(PreferredUnits.Kilometers)
+    // Plain `TabBar` navigation carries no `state` — the default for every
+    // test that doesn't care about the composer receiver contract.
+    locationMock.mockReturnValue({ state: null, key: 'default' })
   })
 
   afterEach(() => {
@@ -324,5 +335,65 @@ describe('CoachChat', () => {
     expect(
       within(screen.getByTestId('coach-safety-notice')).getByText(/call 988 now/i),
     ).toBeInTheDocument()
+  })
+
+  describe('composer prefill/focus receiver (Slice 2 §1 PR-C)', () => {
+    it('seeds the composer and focuses it when navigation state carries a prefill', () => {
+      locationMock.mockReturnValue({ state: { prefill: "How's my week look?" }, key: 'nav-1' })
+      setTimeline([])
+      streamMock.mockReturnValue(idleStream())
+
+      renderChat()
+
+      const input = screen.getByLabelText(/message your coach/i)
+      expect(input).toHaveValue("How's my week look?")
+      expect(input).toHaveFocus()
+    })
+
+    it('focuses the empty composer when navigation state carries focusComposer with no prefill', () => {
+      locationMock.mockReturnValue({ state: { focusComposer: true }, key: 'nav-1' })
+      setTimeline([])
+      streamMock.mockReturnValue(idleStream())
+
+      renderChat()
+
+      const input = screen.getByLabelText(/message your coach/i)
+      expect(input).toHaveValue('')
+      expect(input).toHaveFocus()
+    })
+
+    it('neither prefills nor autofocuses the composer on plain TabBar navigation (no state)', () => {
+      locationMock.mockReturnValue({ state: null, key: 'default' })
+      setTimeline([])
+      streamMock.mockReturnValue(idleStream())
+
+      renderChat()
+
+      const input = screen.getByLabelText(/message your coach/i)
+      expect(input).toHaveValue('')
+      expect(input).not.toHaveFocus()
+    })
+
+    it('forces a fresh CoachComposer mount on each navigation via key={location.key}, applying the new prefill without merging stale state', () => {
+      setTimeline([])
+      streamMock.mockReturnValue(idleStream())
+      locationMock.mockReturnValue({ state: { prefill: 'first message' }, key: 'nav-1' })
+
+      const { rerender } = render(
+        <MemoryRouter>
+          <CoachChat />
+        </MemoryRouter>,
+      )
+      expect(screen.getByLabelText(/message your coach/i)).toHaveValue('first message')
+
+      locationMock.mockReturnValue({ state: { prefill: 'second message' }, key: 'nav-2' })
+      rerender(
+        <MemoryRouter>
+          <CoachChat />
+        </MemoryRouter>,
+      )
+
+      expect(screen.getByLabelText(/message your coach/i)).toHaveValue('second message')
+    })
   })
 })

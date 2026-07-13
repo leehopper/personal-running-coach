@@ -71,7 +71,7 @@ describe('TheWeek', () => {
     expect(wednesday?.dataset.state).toBe('done')
   })
 
-  it('styles each day label state-dependently — today semibold clay-text, rest faint, done/planned muted', () => {
+  it('styles each day label state-dependently — today semibold clay-text; rest/done/planned share the muted treatment (builder decision, FIX 3: a rest-day label is essential calendar text, not decoration, so it does not get the decorative --alp-faint dim the mock specifies)', () => {
     render(<TheWeek {...baseProps({ logs: [log('2026-04-20')] })} />)
     const cells = screen.getAllByTestId('the-week-day-cell')
     const byDay = Object.fromEntries(cells.map((cell) => [cell.dataset.dayOfWeek, cell]))
@@ -79,8 +79,8 @@ describe('TheWeek', () => {
     const labelOf = (cell: HTMLElement) => cell.querySelector('.t-data-label')
 
     const restLabel = labelOf(byDay['0']) // Sunday — rest
-    expect(restLabel).toHaveClass('text-[color:var(--alp-faint)]')
-    expect(restLabel).not.toHaveClass('text-muted-foreground')
+    expect(restLabel).toHaveClass('text-muted-foreground')
+    expect(restLabel).not.toHaveClass('text-[color:var(--alp-faint)]')
     expect(restLabel).not.toHaveClass('font-semibold')
 
     const doneLabel = labelOf(byDay['1']) // Monday — done (logged)
@@ -98,9 +98,13 @@ describe('TheWeek', () => {
     expect(plannedLabel).not.toHaveClass('text-[color:var(--alp-faint)]')
     expect(plannedLabel).not.toHaveClass('font-semibold')
 
-    // Labels genuinely differ by state — not just present for every cell.
+    // `today` is the one meaningfully distinguished state ("you are here");
+    // rest/done/planned are now the SAME class — a deliberate collapse, not
+    // a bug, so this asserts equality for those three and difference only
+    // against `today`.
+    expect(restLabel?.className).toBe(doneLabel?.className)
+    expect(restLabel?.className).toBe(plannedLabel?.className)
     expect(restLabel?.className).not.toBe(todayLabel?.className)
-    expect(restLabel?.className).not.toBe(doneLabel?.className)
     expect(doneLabel?.className).not.toBe(todayLabel?.className)
   })
 

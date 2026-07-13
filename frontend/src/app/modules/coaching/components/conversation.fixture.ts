@@ -1,4 +1,10 @@
-import type { PlanAdaptationDiffDto } from '~/modules/coaching/models/conversation.model'
+import {
+  ADAPTATION_KIND,
+  CONVERSATION_ROLE,
+  CONVERSATION_TIMELINE_TURN_KIND,
+  type ConversationTimelineTurnDto,
+  type PlanAdaptationDiffDto,
+} from '~/modules/coaching/models/conversation.model'
 import type { MicroWorkoutCardDto } from '~/modules/plan/models/plan.model'
 
 // Shared before/after diff fixtures for the coaching module specs (consumed by
@@ -47,3 +53,133 @@ export const buildDiff = (
   ],
   ...overrides,
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// Composed-timeline fixtures (Slice 2 §1 PR-C) — `CoachDigest`'s specs need a
+// real, multi-element `turns` array (each user/coach message its own array
+// entry, never a single record carrying both — the doc comment on
+// `conversation.model.ts`'s `ConversationTimelineTurnDto` is ground truth
+// here) so the `userLine` one-step-lookback tests can control
+// `turns[turns.length - 2]` independently of `turns[turns.length - 1]`.
+// `coach-chat.component.spec.tsx` keeps its own unexported inline builders
+// (a different, page-level test surface) — these are the digest's own,
+// centralised here rather than re-inlined a third time.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** A `user`-kind timeline turn — always `isErrored: false` per its own wire contract. */
+export const buildUserTimelineTurn = (
+  content: string,
+  turnId = 'user-1',
+): ConversationTimelineTurnDto => ({
+  kind: CONVERSATION_TIMELINE_TURN_KIND.user,
+  turnId,
+  createdAt: '2026-06-29T10:00:00Z',
+  interactive: { content, isErrored: false },
+  proactive: null,
+})
+
+/**
+ * A `coach`-kind timeline turn. Pass `isErrored: true` to model a stream
+ * that died mid-flight — `content` is forced empty in that case, matching
+ * the wire contract (`InteractiveTurnDto`'s own doc comment).
+ */
+export const buildCoachTimelineTurn = (
+  params: { content?: string; isErrored?: boolean; turnId?: string } = {},
+): ConversationTimelineTurnDto => {
+  const { content = 'You ran well.', isErrored = false, turnId = 'coach-1' } = params
+  return {
+    kind: CONVERSATION_TIMELINE_TURN_KIND.coach,
+    turnId,
+    createdAt: '2026-06-29T10:00:01Z',
+    interactive: { content: isErrored ? '' : content, isErrored },
+    proactive: null,
+  }
+}
+
+/** A quiet inline `nudge`-kind adaptation timeline turn — used to interpose a non-`user` turn between a runner's message and the coach's reply. */
+export const buildNudgeTimelineTurn = (turnId = 'nudge-1'): ConversationTimelineTurnDto => ({
+  kind: CONVERSATION_TIMELINE_TURN_KIND.adaptation,
+  turnId,
+  createdAt: '2026-06-29T10:00:01Z',
+  interactive: null,
+  proactive: {
+    triggeringPlanEventId: turnId,
+    role: CONVERSATION_ROLE.assistantAdaptation,
+    content: 'Nudged tomorrow easier.',
+    escalationLevel: 1,
+    safetyTier: 0,
+    referralCategory: 0,
+    adaptationKind: ADAPTATION_KIND.nudge,
+    diff: { workoutChanges: [], weeklyTargetChanges: [] },
+    triggeringWorkoutLogId: 'w1',
+    createdAt: '2026-06-29T10:00:01Z',
+  },
+})
+
+/**
+ * A restructure-kind `adaptation` timeline turn carrying the caller-supplied
+ * `diff` — never hardcoded, so both the DU-5 state-3 test and the
+ * units-Miles headline test can each pin their own
+ * `composeAdaptationHeadline` input/output pair without a second, competing
+ * fixture shape.
+ */
+export const buildRestructureTimelineTurn = (
+  diff: PlanAdaptationDiffDto,
+  turnId = 'restructure-1',
+): ConversationTimelineTurnDto => ({
+  kind: CONVERSATION_TIMELINE_TURN_KIND.adaptation,
+  turnId,
+  createdAt: '2026-06-29T10:00:02Z',
+  interactive: null,
+  proactive: {
+    triggeringPlanEventId: turnId,
+    role: CONVERSATION_ROLE.assistantAdaptation,
+    content: 'I adjusted this week to help you recover.',
+    escalationLevel: 2,
+    safetyTier: 0,
+    referralCategory: 0,
+    adaptationKind: ADAPTATION_KIND.restructure,
+    diff,
+    triggeringWorkoutLogId: 'w1',
+    createdAt: '2026-06-29T10:00:02Z',
+  },
+})
+
+/**
+ * A full oldest-first composed timeline. Defaults to state 1's normal case —
+ * a `[user, coach]` pair. Pass an explicit `turns` array to build any other
+ * shape (the errored-latest-turn case, the "no precedent user turn" case, or
+ * a restructure-latest sequence) without a second, competing builder shape.
+ */
+export const buildTimeline = (
+  turns: ConversationTimelineTurnDto[] = [
+    buildUserTimelineTurn('How was my run?'),
+    buildCoachTimelineTurn(),
+  ],
+): ConversationTimelineTurnDto[] => turns
+
+/** `[user, coach(errored)]` — the coach's stream died mid-flight. */
+export const buildErroredLatestTimeline = (): ConversationTimelineTurnDto[] => [
+  buildUserTimelineTurn('How was my run?'),
+  buildCoachTimelineTurn({ isErrored: true }),
+]
+
+/**
+ * `[user, adaptation, coach]` — the "no precedent user turn" case:
+ * `turns[turns.length - 2]` is an adaptation turn, not a `user` turn, so no
+ * "You:" line renders above the coach reply.
+ */
+export const buildNoPrecedentUserTimeline = (): ConversationTimelineTurnDto[] => [
+  buildUserTimelineTurn('How was my run?'),
+  buildNudgeTimelineTurn(),
+  buildCoachTimelineTurn({ content: 'Also, nice work this week.' }),
+]
+
+/** `[user, coach, restructure]` — the latest turn is itself a restructure adaptation (state 3). */
+export const buildRestructureLatestTimeline = (
+  diff: PlanAdaptationDiffDto,
+): ConversationTimelineTurnDto[] => [
+  buildUserTimelineTurn('How was my run?'),
+  buildCoachTimelineTurn(),
+  buildRestructureTimelineTurn(diff),
+]

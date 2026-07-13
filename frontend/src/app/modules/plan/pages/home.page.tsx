@@ -1,6 +1,10 @@
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+// Cross-module import — mirrors the codebase's existing bidirectional
+// cross-module precedent (`before-after-diff.helpers.ts` already imports
+// FROM `plan` INTO `coaching`; this is the same pattern in reverse).
+import { CoachDigest } from '~/modules/coaching/components/coach-digest.component'
 import { MacroPhaseStrip } from '~/modules/plan/components/macro-phase-strip.component'
 import { TodayCard } from '~/modules/plan/components/today-card.component'
 import { UpcomingList } from '~/modules/plan/components/upcoming-list.component'
@@ -98,6 +102,8 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
       {currentWeekTemplate === undefined ? null : (
         <TodayCard currentWeek={currentWeekTemplate} workouts={currentWeekWorkouts} units={units} />
       )}
+
+      <CoachDigest currentWeek={currentWeek} units={units} />
 
       <UpcomingList
         currentWeekWorkouts={currentWeekWorkouts}

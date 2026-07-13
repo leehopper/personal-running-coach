@@ -44,7 +44,7 @@ describe('StatBand + StatCell', () => {
       expect(value).toHaveTextContent('9.0')
     })
 
-    it('renders the label mono 500/9.5px/+0.1em/uppercase via the --alp-faint arbitrary value, not the default .t-data-label role', () => {
+    it('renders the label mono 500/9.5px/+0.1em/uppercase via text-muted-foreground, not the default .t-data-label role and not the decorative --alp-faint token (builder decision, FIX 3: a unit label is essential text)', () => {
       render(<StatCell variant="hero" value="9.0" label="Kilometers" />)
       const cell = screen.getByTestId('stat-cell')
       expect(cell.querySelector('.t-data-label')).toBeNull()
@@ -56,7 +56,8 @@ describe('StatBand + StatCell', () => {
         'uppercase',
         'tracking-[0.1em]',
       )
-      expect(label).toHaveClass('text-[color:var(--alp-faint)]')
+      expect(label).toHaveClass('text-muted-foreground')
+      expect(label).not.toHaveClass('text-[color:var(--alp-faint)]')
       expect(label).toHaveTextContent('Kilometers')
     })
 
