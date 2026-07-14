@@ -2285,6 +2285,20 @@
             "format": "uuid",
             "nullable": true
           },
+          "targetEventName": {
+            "type": "string",
+            "nullable": true
+          },
+          "targetEventDistanceKm": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "targetEventDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
           "promptVersion": {
             "type": "string"
           },

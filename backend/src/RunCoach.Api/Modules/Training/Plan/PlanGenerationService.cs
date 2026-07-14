@@ -3,7 +3,6 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RunCoach.Api.Modules.Coaching;
 using RunCoach.Api.Modules.Coaching.Models;
@@ -15,7 +14,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 
 /// <summary>
 /// Plain DI service implementing the six-call macro/meso/micro structured-output
-/// chain per Slice 1 § Unit 2 R02.4-R02.6 (DEC-057 / R-066). The macro tier carries a
+/// chain (DEC-057 / R-066). The macro tier carries a
 /// bounded corrective-hint retry on deterministic-validator rejection (DEC-087), so a run may
 /// make more than six calls. Returns the resulting
 /// events as a list — the caller stages them on its own <c>IDocumentSession</c>
@@ -62,14 +61,13 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     /// <summary>
     /// Activity name used for each per-tier child span (macro, meso, micro).
     /// The tier and per-tier index are stamped as activity tags so Phoenix
-    /// can color the seven-span pattern (1 onboarding + 6 plan-gen) per
-    /// Slice 1 § Unit 2 R02.8.
+    /// can color the seven-span pattern (1 onboarding + 6 plan-gen).
     /// </summary>
     internal const string TierActivityName = "runcoach.plan.generation.tier";
 
     /// <summary>
     /// Histogram instrument name carrying the structured plan-generation
-    /// completion event per Slice 1 § Unit 2 R02.8: one measurement per
+    /// completion event: one measurement per
     /// completed plan-generation run, the recorded value is the wall-clock
     /// duration in milliseconds, and the tag bag carries
     /// <c>{ planId, userId, totalCalls, macroOutputChars, mesoOutputCharsTotal,
@@ -130,8 +128,9 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     internal const string MicroCorrectionLabel = "[CORRECTION]";
 
     /// <summary>
-    /// Number of meso weeks Slice 1 generates (weeks 1-4). Constant rather than
-    /// a setting so the projection's expected event sequence stays stable.
+    /// Number of meso weeks this service generates (weeks 1-4). Constant
+    /// rather than a setting so the projection's expected event sequence
+    /// stays stable.
     /// </summary>
     internal const int MesoWeekCount = 4;
 
@@ -204,7 +203,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     /// <param name="promptStore">Prompt store consulted to record the active prompt version on <see cref="PlanGenerated"/>.</param>
     /// <param name="settings">Coaching LLM settings — supplies the model id stamped on <see cref="PlanGenerated"/>.</param>
     /// <param name="timeProvider">Time provider for the <see cref="PlanGenerated.GeneratedAt"/> stamp.</param>
-    /// <param name="localDate">App-local date provider supplying "today" for the date-aware horizon and the <see cref="PlanGenerated.PlanStartDate"/> anchor (F3 / DEC-082).</param>
+    /// <param name="localDate">App-local date provider supplying "today" for the date-aware horizon and the <see cref="PlanGenerated.PlanStartDate"/> anchor (DEC-082).</param>
     /// <param name="logger">Logger.</param>
     public PlanGenerationService(
         IContextAssembler assembler,
@@ -266,7 +265,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
         {
             // Compute the date-aware horizon once: local "today" → the Sunday anchor → the
             // deterministic horizon from the parsed target-event date. Used for the prompt
-            // constraint, the macro validator, and the PlanStartDate anchor (F3 / DEC-082).
+            // constraint, the macro validator, and the PlanStartDate anchor (DEC-082).
             var today = _localDate.Today();
             var planStartDate = PlanCalendar.StartOfTrainingWeek(today);
             var raceDate = ResolveTargetEventDate(profileSnapshot);
@@ -284,7 +283,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
 
             // Per-call usage counters accumulate across the six structured-output
             // calls so the rollup metric event can publish a chain-wide
-            // <c>cache_hit_rate</c> tag (Slice 1 § Unit 2 R02.8).
+            // <c>cache_hit_rate</c> tag.
             var totalUsage = AnthropicUsage.Zero;
 
             // Tier 1 — macro plan, with a bounded corrective-hint retry on validation rejection
@@ -413,12 +412,11 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             var promptVersion = _promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId);
             var generatedAt = _timeProvider.GetUtcNow();
 
-            // Assemble the canonical Slice 1 plan event sequence. PlanStartDate anchors
+            // Assemble the canonical plan event sequence. PlanStartDate anchors
             // week 1, day 0 (Sunday) to the start of the app-local generation week so a
-            // logged run's date maps deterministically to a (week, day) slot (slice-2b
-            // Unit 1 / DEC-076). The anchor is the same Sunday the horizon was computed
-            // against (F3 / DEC-082); the regenerate flow re-anchors automatically because
-            // it shares this site.
+            // logged run's date maps deterministically to a (week, day) slot (DEC-076).
+            // The anchor is the same Sunday the horizon was computed against (DEC-082),
+            // and the regenerate flow re-anchors automatically because it shares this site.
             var planGenerated = new PlanGenerated(
                 PlanId: planId,
                 UserId: userId,
@@ -427,7 +425,10 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                 PlanStartDate: planStartDate,
                 PromptVersion: promptVersion,
                 ModelId: _settings.ModelId,
-                PreviousPlanId: previousPlanId);
+                PreviousPlanId: previousPlanId,
+                TargetEventName: profileSnapshot.TargetEvent?.EventName,
+                TargetEventDistanceKm: profileSnapshot.TargetEvent?.DistanceKm,
+                TargetEventDate: raceDate);
 
             var sequence = new PlanEventSequence(
                 Macro: planGenerated,
@@ -480,7 +481,7 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
             chainActivity?.SetTag(PlanGenerationTagNames.CacheHitRate, cacheHitRate);
 
             // Emit the structured `runcoach.plan.generation.completed` event on
-            // the existing `RunCoach.Llm` Meter per Slice 1 § Unit 2 R02.8. The
+            // the existing `RunCoach.Llm` Meter. The
             // recorded value is the wall-clock duration in milliseconds; the tag
             // bag carries the dashboardable rollup. Output-char counts are a
             // deterministic local proxy for output tokens — Phoenix shows the

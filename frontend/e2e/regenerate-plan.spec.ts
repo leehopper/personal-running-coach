@@ -31,6 +31,9 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 //      `/api/v1/plan/current`.
 
 const SESSION_COOKIE = '__Host-RunCoach'
+// e2e specs; not a secret. Suppress the sonarjs hardcoded-password false positive
+// (the sibling specs predate the rule and stay red — repo-wide noise, not this PR).
+// eslint-disable-next-line sonarjs/no-hardcoded-passwords
 const VALID_PASSWORD = 'Correct-Horse-9!'
 
 // Fresh email per run so the suite is re-runnable against a shared dev
@@ -46,6 +49,24 @@ const OnboardingStatus = { NotStarted: 0, InProgress: 1, Completed: 2 } as const
 const planAId = '8a4b9b2a-1d3f-4f1c-9aab-5e2c1f0b1234'
 const planBId = '7e1d9b2a-1d3f-4f1c-9aab-5e2c1f0b9876'
 const userId = '00000000-0000-0000-0000-000000000001'
+
+// The Sunday (LOCAL calendar day — getFullYear/getMonth/getDate, matching
+// the app's own UTC-midnight-normalization approach for this same
+// calculation) on or before "now", formatted `YYYY-MM-DD`. Both plan A and
+// plan B share this anchor (their `mesoWeeks`/`microWorkoutsByWeek` shapes
+// are otherwise identical week-1-4 templates) so THE WEEK's calendar-date
+// join resolves for either fixture — an absent/unparseable `planStartDate`
+// degrades every day cell to a non-today, non-done state instead of
+// crashing, which would otherwise make THE WEEK's `today` cell unreachable
+// in this suite.
+const planStartDateForCurrentWeek = (): string => {
+  const now = new Date()
+  const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
+  const yyyy = sunday.getFullYear()
+  const mm = String(sunday.getMonth() + 1).padStart(2, '0')
+  const dd = String(sunday.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
 
 // Canonical user-facing copy for the regeneration intent. The test must
 // echo it exactly so the stub assertion confirms the dialog passed it
@@ -165,9 +186,9 @@ const PLAN_B: PlanFixture = {
 
 // Build a plan-projection JSON payload from the given plan fixture. The
 // shape mirrors what the page-level Zod schema parses. Pads
-// `microWorkoutsByWeek[1]` with one workout per day-of-week so `TodayCard`
-// always picks a workout regardless of when the suite runs (no rest-day
-// flake).
+// `microWorkoutsByWeek[1]` with one workout per day-of-week so the workout
+// hero always picks a workout regardless of when the suite runs (no
+// rest-day flake).
 const buildPlanProjection = (fixture: PlanFixture) => {
   const dayOfWeekKeys = [
     'sunday',
@@ -220,6 +241,12 @@ const buildPlanProjection = (fixture: PlanFixture) => {
     userId,
     generatedAt: '2026-04-25T12:00:00.000Z',
     previousPlanId: fixture.previousPlanId,
+    // Anchors THE WEEK's calendar-date join to a real Sunday-first span
+    // containing "today" — see `planStartDateForCurrentWeek`'s doc comment.
+    // Shared by both plan A and plan B; does not affect the plan-A→plan-B
+    // DOM-swap invariant this suite proves (phase identity / workout-title
+    // prefix), only makes the fixture's calendar data faithful.
+    planStartDate: planStartDateForCurrentWeek(),
     promptVersion: 'plan-generation-v1',
     modelId: 'claude-sonnet-4-6',
     macro: {
@@ -362,11 +389,12 @@ test('register → settings → regenerate with intent → home shows new plan',
   await expect(page.getByTestId('home-page')).toBeVisible()
 
   // Capture plan A's render so we can compare against plan B post-regen.
-  // The macro-phase-segment `data-phase` attribute is the most stable
-  // selector — workout titles depend on the day-of-week resolution which
-  // we deliberately avoid coupling to the calendar.
+  // THE BLOCK's `the-block-phase-label` `data-phase` attribute is the most
+  // stable selector — workout titles depend on the day-of-week resolution
+  // which we deliberately avoid coupling to the calendar. (Direct successor
+  // to the deleted `MacroPhaseStrip`'s `macro-phase-segment` selector.)
   const planAPhases = await page
-    .getByTestId('macro-phase-segment')
+    .getByTestId('the-block-phase-label')
     .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-phase')))
   expect(planAPhases).toEqual(['Base', 'Build', 'Taper'])
 
@@ -419,7 +447,7 @@ test('register → settings → regenerate with intent → home shows new plan',
     .poll(
       async () =>
         page
-          .getByTestId('macro-phase-segment')
+          .getByTestId('the-block-phase-label')
           .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-phase'))),
       { timeout: 5_000 },
     )
