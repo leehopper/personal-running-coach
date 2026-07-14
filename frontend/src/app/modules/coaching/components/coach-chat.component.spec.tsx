@@ -395,5 +395,58 @@ describe('CoachChat', () => {
 
       expect(screen.getByLabelText(/message your coach/i)).toHaveValue('second message')
     })
+
+    it('does not remount the composer on a same-URL re-render/navigation carrying no state, preserving an in-progress draft', async () => {
+      const user = userEvent.setup()
+      setTimeline([])
+      streamMock.mockReturnValue(idleStream())
+      // A same-URL REPLACE (e.g. re-tapping the active COACH tab) still mints
+      // a fresh `location.key`, but carries no state — the composer must not
+      // remount, or a runner's in-progress draft is silently discarded.
+      locationMock.mockReturnValue({ state: null, key: 'default' })
+
+      const { rerender } = render(
+        <MemoryRouter>
+          <CoachChat />
+        </MemoryRouter>,
+      )
+      await user.type(screen.getByLabelText(/message your coach/i), 'my unsent draft')
+      expect(screen.getByLabelText(/message your coach/i)).toHaveValue('my unsent draft')
+
+      locationMock.mockReturnValue({ state: null, key: 'nav-replace' })
+      rerender(
+        <MemoryRouter>
+          <CoachChat />
+        </MemoryRouter>,
+      )
+
+      expect(screen.getByLabelText(/message your coach/i)).toHaveValue('my unsent draft')
+    })
+  })
+
+  describe('isCoachChatLocationState rejection path', () => {
+    it('treats a malformed state (wrong field types) as no state — empty, unfocused composer', () => {
+      locationMock.mockReturnValue({ state: { prefill: 42 }, key: 'nav-1' })
+      setTimeline([])
+      streamMock.mockReturnValue(idleStream())
+
+      renderChat()
+
+      const input = screen.getByLabelText(/message your coach/i)
+      expect(input).toHaveValue('')
+      expect(input).not.toHaveFocus()
+    })
+
+    it('treats a non-object state (a bare string) as no state — empty, unfocused composer', () => {
+      locationMock.mockReturnValue({ state: 'not-an-object', key: 'nav-1' })
+      setTimeline([])
+      streamMock.mockReturnValue(idleStream())
+
+      renderChat()
+
+      const input = screen.getByLabelText(/message your coach/i)
+      expect(input).toHaveValue('')
+      expect(input).not.toHaveFocus()
+    })
   })
 })

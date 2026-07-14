@@ -19,10 +19,10 @@ export interface CoachComposerProps {
  * message while the coach is still answering.
  *
  * `initialValue`/`autoFocus` let a caller seed text or focus into a fresh
- * composer instance. The parent chat panel remounts this component (via
- * `key={location.key}`) on every navigation into `/coach`, so a fresh
- * `initialValue`/focus application applies per navigation without a custom
- * nav-key counter.
+ * composer instance. The parent chat panel remounts this component only when
+ * a navigation actually delivers router state (a prefill/focus seed) — a
+ * plain re-render or same-URL navigation with no state leaves the mounted
+ * instance (and any in-progress draft) alone.
  */
 export const CoachComposer = ({
   onSend,

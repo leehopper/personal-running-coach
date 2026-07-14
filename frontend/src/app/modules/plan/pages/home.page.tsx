@@ -107,9 +107,12 @@ interface PlanLayoutProps {
  * `isTodayLogged` is derived by the CALLER from the exact same log-join
  * predicate THE WEEK's day-cell state uses — this function only threads the
  * already-resolved boolean into the `run` vs. `logged` choice, it never
- * re-derives "is today logged" itself. That single shared derivation is
- * what makes it impossible for THE WEEK's today cell and the hero to
- * disagree about whether today's run has been logged.
+ * re-derives "is today logged" itself. That single shared derivation
+ * guarantees agreement only when both sides are asked about the same date;
+ * THE WEEK's today cell and the hero can still land on different calendar
+ * days (an unparseable `planStartDate`, or a displayed week clamped away
+ * from the week containing today), in which case THE WEEK simply has no
+ * cell for today rather than the two disagreeing about one date.
  */
 const resolveHeroContent = (
   slot: MesoDaySlotDto | undefined,
@@ -157,8 +160,18 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
   // already uses (same hook, same `undefined` arg) — never calls
   // `fetchNextPage`, which would permanently append pages to that shared
   // cache entry and break the history page's own pagination.
-  const { data: historyData } = useGetWorkoutLogHistoryInfiniteQuery(undefined)
+  const {
+    data: historyData,
+    isLoading: isLogsLoading,
+    isError: isLogsError,
+  } = useGetWorkoutLogHistoryInfiniteQuery(undefined)
   const logs = historyData?.pages.flatMap((page) => page.logs) ?? []
+  // A failed or in-flight log fetch is NOT "the runner has logged nothing" —
+  // treating the two as equivalent would render a fabricated 0.0 km / no-
+  // logged-days week and let the hero's LOG RUN CTA invite a duplicate log
+  // on a day already logged. Threaded into both `WorkoutHero` and `TheWeek`
+  // so each can render an honest "we don't know" treatment instead.
+  const logsUnavailable = isLogsLoading || isLogsError
 
   // LOCAL getters only — `dayOfWeek` indexes the plan's day-slot template
   // (Sunday=0..Saturday=6), which the server assigns by the runner's local
@@ -176,8 +189,10 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
 
   // SAME predicate, SAME `logs` array, SAME `todayUtc` epoch `TheWeek` below
   // uses for its today cell's `done` state — never a second, parallel "is
-  // today logged" check re-derived here.
-  const isTodayLogged = isDateLogged(logs, todayUtc)
+  // today logged" check re-derived here. Forced `false` under
+  // `logsUnavailable` — an untrustworthy fetch must never resolve to
+  // `kind: 'logged'`.
+  const isTodayLogged = !logsUnavailable && isDateLogged(logs, todayUtc)
 
   // Constructed HERE, where `slot`/`workout` are both in scope as local
   // consts — this is the one place that can decide what to do when they
@@ -202,7 +217,12 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
         phaseLabel={phaseLabel}
       />
 
-      <WorkoutHero todayUtc={todayUtc} units={units} {...heroContent} />
+      <WorkoutHero
+        todayUtc={todayUtc}
+        units={units}
+        logsUnavailable={logsUnavailable}
+        {...heroContent}
+      />
 
       <TheWeek
         currentWeek={currentWeekTemplate}
@@ -211,6 +231,7 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
         logs={logs}
         todayUtc={todayUtc}
         units={units}
+        logsUnavailable={logsUnavailable}
       />
 
       <CoachDigest currentWeek={currentWeek} units={units} />

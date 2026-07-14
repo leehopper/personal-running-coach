@@ -222,7 +222,15 @@ export const CoachChat = (): ReactElement => {
         />
       )}
       <CoachComposer
-        key={location.key}
+        // React Router mints a fresh `location.key` on every navigation,
+        // including a same-URL replace triggered by re-tapping the active
+        // TabBar tab — keying on `location.key` unconditionally would remount
+        // the composer on that replace and discard an in-progress draft. A
+        // fresh instance is only needed when router state actually delivers
+        // a prefill/focus seed, so key on `location.key` only in that case;
+        // a stable key otherwise leaves the composer (and its draft) mounted
+        // across a null-state re-render or navigation.
+        key={locationState === null ? 'coach-composer' : location.key}
         onSend={send}
         isStreaming={isStreaming}
         initialValue={locationState?.prefill ?? ''}

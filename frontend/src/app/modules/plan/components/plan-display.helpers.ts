@@ -1,12 +1,14 @@
-// Shared display constants for the plan rendering components
-// (spec § Unit 4 R04.4–R04.7). Centralised here because every component in
-// this directory leans on the same canonical phasing, workout, and pace-zone
-// labels — and the trademark rule (§ root `CLAUDE.md`) requires those labels
-// to use Daniels-Gilbert / pace-zone-index phrasing, never "VDOT".
-//
-// Keep this file string-literal-only. Component-level snapshot tests rely on
-// these maps to assert trademark cleanliness; behaviour belongs in the
-// `.component.tsx` files.
+// Shared display module for the plan rendering components (spec § Unit 4
+// R04.4–R04.7): the canonical phasing/workout/pace-zone label maps (the
+// trademark rule requires Daniels-Gilbert / pace-zone-index phrasing, never
+// "VDOT"), the single UTC-midnight-epoch date pipeline every date-driven
+// derivation on the Today screen imports rather than re-deriving
+// (`toUtcMidnight`, `parseIsoDateUtc`, `resolveCalendarDateUtc`,
+// `formatShortDateUtc`, `formatHeroEyebrowDate`), and the hero's workout-
+// summary composer (`describeSegment`, `composeWorkoutSummary`) plus its
+// stat-band derivations (`resolveHeroThirdStat`, `resolveHeroDistanceStat`).
+// Component-level snapshot tests still rely on the label maps below to
+// assert trademark cleanliness.
 
 import { PreferredUnits } from '~/api/generated'
 import { formatDistanceKm } from '~/modules/common/utils/unit-format.helpers'
@@ -420,17 +422,20 @@ export interface HeroThirdStat {
  * Derives the hero stat band's 3rd cell: a rep count (`×N`, label
  * `Reps · M min`, rendered `REPS · M MIN` via `StatCell`'s `hero` label's own
  * `uppercase` CSS — source copy stays sentence case, never baked caps) when
- * the workout has an interval/repetition-style segment, else the workout's
- * continuous duration (label `Minutes`). Falls back to a placeholder dash —
- * not reachable under the current DTO, guarded anyway to match the app's
- * established null-value convention.
+ * the workout has a segment carrying `repetitions > 1` — whatever that
+ * segment's `segmentType` happens to be, since the wire contract does not
+ * guarantee only `Work` segments repeat ({@link describeSegment} above
+ * handles a repeated `Recovery` segment for the same reason) — else the
+ * workout's continuous duration (label `Minutes`). Falls back to a
+ * placeholder dash — not reachable under the current DTO, guarded anyway to
+ * match the app's established null-value convention.
  */
 export function resolveHeroThirdStat(workout: MicroWorkoutCardDto): HeroThirdStat {
-  const workSegment = workout.segments.find((segment) => segment.repetitions > 1)
-  if (workSegment !== undefined) {
+  const repeatedSegment = workout.segments.find((segment) => segment.repetitions > 1)
+  if (repeatedSegment !== undefined) {
     return {
-      value: `×${workSegment.repetitions}`,
-      label: `Reps · ${workSegment.durationMinutes} min`,
+      value: `×${repeatedSegment.repetitions}`,
+      label: `Reps · ${repeatedSegment.durationMinutes} min`,
     }
   }
   if (Number.isFinite(workout.targetDurationMinutes) && workout.targetDurationMinutes > 0) {

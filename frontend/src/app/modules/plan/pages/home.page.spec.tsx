@@ -397,4 +397,120 @@ describe('HomePage', () => {
       expect(todayCell?.dataset.state).toBe('today')
     })
   })
+
+  describe('when the workout-log history fetch fails or is still in flight', () => {
+    it('given the fetch failed, the hero does not claim LOGGED and THE WEEK does not claim 0.0 km logged', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2026, 3, 20)) // Monday 2026-04-20 → dayOfWeek 1, week 1 (Run/Easy slot)
+
+      getCurrentPlanMock.mockReturnValue({
+        data: buildPlanFixture(),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      })
+      historyQueryMock.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        fetchNextPage: fetchNextPageMock,
+        refetch: vi.fn(),
+      })
+      renderHome()
+
+      const hero = screen.getByTestId('workout-hero')
+      // NOT 'logged' — an untrustworthy fetch must never resolve to the
+      // logged affordance (that would risk hiding the fact a log might
+      // already exist). Still shows the workout content via the 'run'
+      // variant, just with an honest disclaimer rather than a confident
+      // LOG RUN claim of "not logged".
+      expect(hero.dataset.variant).toBe('run')
+      expect(screen.getByTestId('workout-hero-log-status-unavailable')).toBeInTheDocument()
+
+      const weekSection = screen.getByTestId('the-week')
+      expect(weekSection.textContent).not.toContain('0.0/30.0 KM')
+      expect(weekSection.textContent).toContain('—/30.0 KM')
+
+      // No cell can honestly claim 'done' when the log fetch itself failed.
+      const cells = screen.getAllByTestId('the-week-day-cell')
+      expect(cells.every((cell) => cell.dataset.state !== 'done')).toBe(true)
+    })
+
+    it('given the fetch is still in flight, the hero does not claim LOGGED and THE WEEK does not claim 0.0 km logged', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2026, 3, 20)) // Monday 2026-04-20 → dayOfWeek 1, week 1
+
+      getCurrentPlanMock.mockReturnValue({
+        data: buildPlanFixture(),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      })
+      historyQueryMock.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        fetchNextPage: fetchNextPageMock,
+        refetch: vi.fn(),
+      })
+      renderHome()
+
+      const hero = screen.getByTestId('workout-hero')
+      expect(hero.dataset.variant).toBe('run')
+      expect(screen.getByTestId('workout-hero-log-status-unavailable')).toBeInTheDocument()
+
+      const weekSection = screen.getByTestId('the-week')
+      expect(weekSection.textContent).not.toContain('0.0/30.0 KM')
+      expect(weekSection.textContent).toContain('—/30.0 KM')
+    })
+  })
+
+  describe('resolveHeroContent branches exercised at the page level', () => {
+    it('renders the rest variant naming the correct next workout on a Rest slot day', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2026, 3, 19)) // Sunday 2026-04-19 → dayOfWeek 0, week 1 (Rest slot)
+
+      getCurrentPlanMock.mockReturnValue({
+        data: buildPlanFixture(),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      })
+      renderHome()
+
+      const hero = screen.getByTestId('workout-hero')
+      expect(hero.dataset.variant).toBe('rest')
+      // Proves `nextWorkout` is threaded from `findNextWorkoutAfter`, not
+      // some other workout — the fixture's next scheduled workout after
+      // Sunday is Monday's easy run.
+      const nextWorkoutRow = screen.getByTestId('workout-hero-next-workout')
+      expect(nextWorkoutRow).toHaveTextContent(/mon/i)
+      expect(nextWorkoutRow.textContent).toMatch(/easy/i)
+    })
+
+    it('renders the unavailable variant, not a crash, when the slot is a Run day with no matching micro-workout', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2026, 3, 20)) // Monday 2026-04-20 → dayOfWeek 1, week 1 (Run slot)
+
+      const planWithNoWorkouts: PlanProjectionDto = {
+        ...buildPlanFixture(),
+        microWorkoutsByWeek: { 1: { workouts: [] } },
+      }
+      getCurrentPlanMock.mockReturnValue({
+        data: planWithNoWorkouts,
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      })
+      renderHome()
+
+      const hero = screen.getByTestId('workout-hero')
+      expect(hero.dataset.variant).toBe('unavailable')
+      expect(screen.getByText("This week's plan isn't ready yet.")).toBeInTheDocument()
+    })
+  })
 })

@@ -9,6 +9,7 @@ import { DAY_OF_WEEK_LABELS } from './plan-display.helpers'
 import {
   type DayCellState,
   formatWeekProgress,
+  formatWeekProgressUnknown,
   resolveDayCells,
   weekLoggedKm,
 } from './the-week.helpers'
@@ -23,6 +24,15 @@ export interface TheWeekProps {
   /** Pre-normalized UTC-midnight epoch — same pipeline as `WorkoutHero`'s `todayUtc`. */
   todayUtc: number
   units: PreferredUnits
+  /**
+   * `true` when the caller's workout-log fetch failed or is still in
+   * flight — `logs` cannot be trusted to mean "nothing logged." Renders the
+   * progress string's logged side as an explicit unknown marker and treats
+   * every cell as un-logged, rather than fabricating a `0.0`/`done`-less
+   * week that looks like confirmed zero progress. Defaults to `false` so
+   * existing callers that already know their log state are unaffected.
+   */
+  logsUnavailable?: boolean
   className?: string
 }
 
@@ -68,6 +78,7 @@ export const TheWeek = ({
   logs,
   todayUtc,
   units,
+  logsUnavailable = false,
   className,
 }: TheWeekProps): ReactElement => {
   if (currentWeek === undefined) {
@@ -82,13 +93,22 @@ export const TheWeek = ({
     )
   }
 
-  const loggedKm = weekLoggedKm({ weekNumber: currentWeekNumber, planStartDate, logs })
-  const progress = formatWeekProgress(loggedKm, currentWeek.weeklyTargetKm, units)
+  // `logsUnavailable` forces an empty log list into both derivations below,
+  // regardless of what the caller passed in `logs` — the same defensive
+  // stance the home page takes when it resolves the hero's
+  // `isTodayLogged`: never let a stale/partial `logs` array leak a
+  // fabricated "done" or "0.0 km" fact through when the fetch itself is
+  // known to be untrustworthy.
+  const trustedLogs = logsUnavailable ? [] : logs
+  const loggedKm = weekLoggedKm({ weekNumber: currentWeekNumber, planStartDate, logs: trustedLogs })
+  const progress = logsUnavailable
+    ? formatWeekProgressUnknown(currentWeek.weeklyTargetKm, units)
+    : formatWeekProgress(loggedKm, currentWeek.weeklyTargetKm, units)
   const cells = resolveDayCells({
     week: currentWeek,
     weekNumber: currentWeekNumber,
     planStartDate,
-    logs,
+    logs: trustedLogs,
     todayUtc,
   })
 

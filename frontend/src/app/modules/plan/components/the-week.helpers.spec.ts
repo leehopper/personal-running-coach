@@ -167,6 +167,24 @@ describe('weekLoggedKm', () => {
     })
     expect(totalKm).toBe(0)
   })
+
+  it('includes both span endpoints (Sunday and Saturday) and excludes the adjacent out-of-span days either side', () => {
+    // Week 1 spans Sunday 2026-04-19 .. Saturday 2026-04-25 (inclusive). If
+    // either boundary check were weakened from `>=`/`<=` to a strict `>`/`<`,
+    // one of the two endpoint logs below would silently drop out and this
+    // total would fall short of 8 km.
+    const totalKm = weekLoggedKm({
+      weekNumber: 1,
+      planStartDate: PLAN_START_DATE,
+      logs: [
+        log('2026-04-19', 4000), // span start (Sunday) — INCLUDED
+        log('2026-04-25', 4000), // span end (Saturday) — INCLUDED
+        log('2026-04-18', 9000), // one day before the span — EXCLUDED
+        log('2026-04-26', 9000), // one day after the span — EXCLUDED
+      ],
+    })
+    expect(totalKm).toBe(8)
+  })
 })
 
 describe('formatWeekProgress', () => {

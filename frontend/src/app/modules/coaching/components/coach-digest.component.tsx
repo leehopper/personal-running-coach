@@ -92,6 +92,38 @@ const resolveDigestBody = (turns: readonly ConversationTimelineTurnDto[]): Coach
   return { kind: 'plain', userLine: null, coachLine: latest.proactive.content }
 }
 
+interface LoadingStateProps {
+  className?: string
+}
+
+// A quiet neutral placeholder — never the "Nothing yet" cold-start copy,
+// since that copy asserts there is genuinely no conversation, which isn't
+// yet known while the request is in flight.
+const LoadingState = ({ className }: LoadingStateProps): ReactElement => (
+  <div data-testid="coach-digest" className={cn('flex flex-col gap-3', className)}>
+    <SectionRule as="h2" label="From your coach" />
+    <p data-testid="coach-digest-loading" className="t-body text-muted-foreground">
+      Loading…
+    </p>
+  </div>
+)
+
+interface ErrorStateProps {
+  className?: string
+}
+
+// A quiet muted line distinguishing a failed fetch from a genuinely empty
+// conversation — the empty-state cold-start copy and prefill chips would
+// otherwise misrepresent a 5xx/network/auth failure as "nothing yet".
+const ErrorState = ({ className }: ErrorStateProps): ReactElement => (
+  <div data-testid="coach-digest" className={cn('flex flex-col gap-3', className)}>
+    <SectionRule as="h2" label="From your coach" />
+    <p data-testid="coach-digest-error" className="t-body text-muted-foreground">
+      Couldn&apos;t load your coach.
+    </p>
+  </div>
+)
+
 interface EmptyStateProps {
   className?: string
 }
@@ -219,7 +251,19 @@ const DigestCard = ({ body, currentWeek, units, className }: DigestCardProps): R
  * coach line instead.
  */
 export const CoachDigest = ({ currentWeek, units, className }: CoachDigestProps): ReactElement => {
-  const { data } = useGetConversationTimelineQuery(undefined)
+  const { data, isLoading, isError } = useGetConversationTimelineQuery(undefined)
+
+  // A fetch failure and a genuinely empty conversation are distinct
+  // states — collapsing either into the other would misrepresent a
+  // 5xx/network/auth failure as "Nothing yet" (with cold-start prefill
+  // chips) or a real empty conversation as an error.
+  if (isLoading) {
+    return <LoadingState className={className} />
+  }
+  if (isError) {
+    return <ErrorState className={className} />
+  }
+
   const body = resolveDigestBody(data?.turns ?? [])
 
   if (body.kind === 'empty') {

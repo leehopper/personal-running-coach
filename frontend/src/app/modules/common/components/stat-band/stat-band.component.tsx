@@ -72,11 +72,12 @@ export interface StatBandProps {
  * Used for the hero stat band (distance / pace / reps or duration).
  *
  * `divide-x divide-border` is reused unchanged for both variants — Tailwind's
- * `divide-x` applies a `border-left` to every child but the first via a
- * `:not(:first-child)` sibling selector, which produces the same "each cell
- * `border-left` except the first" contract regardless of whether the parent
- * is `flex` or `grid`; only the track-sizing mechanism (`grid-template-
- * columns` vs. equal-`flex-1`) and the `'hero'` variant's added `border-y`
+ * `divide-x` targets `:where(& > :not(:last-child))` and sets
+ * `border-inline-end-width`, so every child but the last gets a trailing
+ * hairline; that selector is child-scoped and agnostic to whether the
+ * parent is `flex` or `grid`, so the divider contract survives the variant
+ * swap unchanged. Only the track-sizing mechanism (`grid-template-columns`
+ * vs. equal-`flex-1`) and the `'hero'` variant's added `border-y`
  * (top+bottom hairline, absent from `'divided'`) differ between the two.
  */
 export const StatBand = ({

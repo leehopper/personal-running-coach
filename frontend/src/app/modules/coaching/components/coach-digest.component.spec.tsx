@@ -81,6 +81,30 @@ describe('CoachDigest', () => {
     vi.clearAllMocks()
   })
 
+  describe('loading and error states', () => {
+    it('renders a quiet loading placeholder, never the cold-start empty copy, while the request is in flight', () => {
+      timelineMock.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+      renderDigest()
+
+      expect(screen.getByTestId('coach-digest-loading')).toBeInTheDocument()
+      expect(
+        screen.queryByText('Nothing yet. Tell me how training feels, or hand me a run to log.'),
+      ).not.toBeInTheDocument()
+      expect(screen.queryByTestId('coach-digest-chip')).not.toBeInTheDocument()
+    })
+
+    it('renders a muted "could not load" line, never the cold-start empty copy, when the timeline request fails', () => {
+      timelineMock.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+      renderDigest()
+
+      expect(screen.getByTestId('coach-digest-error')).toBeInTheDocument()
+      expect(
+        screen.queryByText('Nothing yet. Tell me how training feels, or hand me a run to log.'),
+      ).not.toBeInTheDocument()
+      expect(screen.queryByTestId('coach-digest-chip')).not.toBeInTheDocument()
+    })
+  })
+
   describe('state 1/2 — short/long reply with a precedent user turn', () => {
     it('renders the You: line, the coach line, Open →, and the tap-through Link', () => {
       setTimeline(buildTimeline())

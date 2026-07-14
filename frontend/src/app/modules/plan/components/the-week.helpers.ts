@@ -34,11 +34,16 @@ export interface DayCell {
  * should render its `logged` state for today. ALL fetched logs count
  * regardless of `completionStatus` (including `Skipped`) — a literal
  * reading of "a log exists for that date," matching {@link resolveDayCells}'s
- * own rule. Sharing this one function (never a second, parallel "is today
- * logged" check re-derived at the hero's mount site) is what makes it
- * IMPOSSIBLE for THE WEEK's today cell and the hero's logged-state affordance
- * to disagree about the same date — the exact bug this predicate's
- * extraction closes.
+ * own rule. Sharing this one function guarantees the two call sites agree
+ * WHEN THEY ASK ABOUT THE SAME DATE — it does not by itself guarantee they
+ * ask about the same date. THE WEEK's today cell resolves its date from
+ * `resolveCalendarDateUtc(planStartDate, currentWeekNumber, day)`, while the
+ * hero uses the real wall-clock `todayUtc`; the two diverge when
+ * `planStartDate` is unparseable (every cell date is `null`, so no cell can
+ * ever match "today") or when the displayed week has been clamped away from
+ * the calendar week containing today. In either case THE WEEK simply has no
+ * cell for today while the hero still reflects the real day — not the two
+ * disagreeing about one date.
  */
 export function isDateLogged(logs: readonly WorkoutLogDto[], dateEpoch: number): boolean {
   return logs.some((log) => parseIsoDateUtc(log.occurredOn) === dateEpoch)
@@ -139,4 +144,18 @@ export function formatWeekProgress(
   const toDisplayUnit = (km: number): number => (isMiles ? km / KM_PER_MILE : km)
   const suffix = isMiles ? 'MI' : 'KM'
   return `${toDisplayUnit(loggedKm).toFixed(1)}/${toDisplayUnit(targetKm).toFixed(1)} ${suffix}`
+}
+
+/**
+ * Formats THE WEEK's progress string for the "we don't know yet" state — the
+ * logged-side workout-log fetch failed or is still in flight, so there is no
+ * honest number to show for it. Renders `"—/NN.N KM"` / `"—/NN.N MI"`: an
+ * explicit unknown marker on the logged side, never a fabricated `0.0` that
+ * would read as "confirmed nothing logged."
+ */
+export function formatWeekProgressUnknown(targetKm: number, units: PreferredUnits): string {
+  const isMiles = units === PreferredUnits.Miles
+  const toDisplayUnit = (km: number): number => (isMiles ? km / KM_PER_MILE : km)
+  const suffix = isMiles ? 'MI' : 'KM'
+  return `—/${toDisplayUnit(targetKm).toFixed(1)} ${suffix}`
 }

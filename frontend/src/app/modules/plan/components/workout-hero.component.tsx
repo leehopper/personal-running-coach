@@ -36,8 +36,12 @@ import {
 // unrepresentable, the same discipline the union above establishes. The
 // mount site picks `logged` vs. `run` from whether a log already exists for
 // today's date — the exact same log-join predicate THE WEEK's day-cell state
-// uses, so the two sections can never disagree about whether today's run has
-// been logged.
+// uses, so the two sections cannot disagree about the same date. They CAN
+// still land on different days: THE WEEK's today cell is keyed off the
+// plan's calendar (`planStartDate` + the displayed week number) while the
+// hero uses the real wall-clock date, and those diverge when
+// `planStartDate` is unparseable or the displayed week has been clamped
+// away from the week containing today.
 export type WorkoutHeroContent =
   | { kind: 'unavailable' }
   | { kind: 'run'; slot: MesoDaySlotDto; workout: MicroWorkoutCardDto }
@@ -51,6 +55,16 @@ export type WorkoutHeroProps = {
    */
   todayUtc: number
   units: PreferredUnits
+  /**
+   * `true` when the caller's workout-log fetch failed or is still in
+   * flight, so the mount site could not honestly resolve `kind: 'logged'`
+   * vs. `kind: 'run'` for today. Only affects the `run`/`logged` branches
+   * (there is no log-state affordance on `rest`/`unavailable`): renders a
+   * quiet disclaimer next to the existing CTA rather than silently letting
+   * the CTA read as a confirmed "not logged" fact. Defaults to `false` so
+   * existing callers that already trust their log state are unaffected.
+   */
+  logsUnavailable?: boolean
   className?: string
 } & WorkoutHeroContent
 
@@ -86,6 +100,14 @@ interface WorkoutHeroRunContentProps {
    * own detail stays fully visible on a day the runner has already logged.
    */
   isLogged: boolean
+  /**
+   * `true` when the caller could not resolve today's log state (fetch
+   * failed or still in flight). `isLogged` is always `false` in that case
+   * (the mount site never asserts `logged` without a trustworthy fetch), so
+   * this only adds a quiet disclaimer next to the LOG RUN CTA — it does not
+   * change which CTA renders.
+   */
+  logsUnavailable: boolean
 }
 
 const WorkoutHeroRunContent = ({
@@ -93,6 +115,7 @@ const WorkoutHeroRunContent = ({
   units,
   workout,
   isLogged,
+  logsUnavailable,
 }: WorkoutHeroRunContentProps): ReactElement => {
   const [open, setOpen] = useState(false)
   const isMiles = units === PreferredUnits.Miles
@@ -189,6 +212,15 @@ const WorkoutHeroRunContent = ({
           </CollapsibleContent>
         </Collapsible>
       </div>
+      {logsUnavailable ? (
+        <p
+          data-testid="workout-hero-log-status-unavailable"
+          className="text-sm text-muted-foreground"
+        >
+          We couldn't check whether today's run is already logged — check history before logging
+          again.
+        </p>
+      ) : null}
     </>
   )
 }
@@ -254,7 +286,7 @@ export const WorkoutHero = (props: WorkoutHeroProps): ReactElement => {
   }
 
   if (props.kind === 'run' || props.kind === 'logged') {
-    const { todayUtc, units, workout, className, kind } = props
+    const { todayUtc, units, workout, className, kind, logsUnavailable = false } = props
     return (
       <WorkoutHeroShell variant={kind} className={className}>
         <WorkoutHeroRunContent
@@ -262,6 +294,7 @@ export const WorkoutHero = (props: WorkoutHeroProps): ReactElement => {
           units={units}
           workout={workout}
           isLogged={kind === 'logged'}
+          logsUnavailable={logsUnavailable}
         />
       </WorkoutHeroShell>
     )

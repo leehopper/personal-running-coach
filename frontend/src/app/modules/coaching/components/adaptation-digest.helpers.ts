@@ -1,18 +1,9 @@
-// Shared adaptation-diff presentation helper: owns calendar-date math and
-// the one-sentence adaptation headline `CoachDigest` renders. This is the
-// single implementation of weekNumber/dayOfWeek → calendar-date locus math
-// — do not re-derive it elsewhere.
-//
-// `formatChangeLocusDate` resolves the date fragment only; the digest card
-// itself never calls it — it shows a headline sentence, never a date.
+// Shared adaptation-diff presentation helper: owns the one-sentence
+// adaptation headline `CoachDigest` renders.
 
 import { PreferredUnits } from '~/api/generated'
 import { formatDistanceKm } from '~/modules/common/utils/unit-format.helpers'
-import {
-  DAY_OF_WEEK_LABELS,
-  formatShortDateUtc,
-  resolveCalendarDateUtc,
-} from '~/modules/plan/components/plan-display.helpers'
+import { DAY_OF_WEEK_LABELS } from '~/modules/plan/components/plan-display.helpers'
 import type { PlanAdaptationDiffDto } from '~/modules/coaching/models/conversation.model'
 
 /**
@@ -75,24 +66,4 @@ export function composeAdaptationHeadline(params: {
   }
 
   return sentences.slice(0, 2).join(' ')
-}
-
-/**
- * Resolves a `(weekNumber, dayOfWeek)` locus to its calendar-date fragment
- * (e.g. `"JUN 29"`) — the date fragment ONLY, no `"WK "` prefix, no
- * `· WEEKDAY` suffix. Callers own their own surrounding chrome, so this
- * helper's contract stays narrow enough to be composed differently by
- * different callers without a breaking change. Returns `null` when
- * `planStartDate` is unparseable (propagated from
- * {@link resolveCalendarDateUtc}), mirroring every other date helper in the
- * shared pipeline rather than throwing.
- */
-export function formatChangeLocusDate(params: {
-  planStartDate: string
-  weekNumber: number
-  dayOfWeek: number
-}): string | null {
-  const { planStartDate, weekNumber, dayOfWeek } = params
-  const date = resolveCalendarDateUtc(planStartDate, weekNumber, dayOfWeek)
-  return date === null ? null : formatShortDateUtc(date)
 }

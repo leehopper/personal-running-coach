@@ -76,10 +76,11 @@ export const renderInBothThemes = (ui: ReactElement): ThemeRenderResult => {
 }
 
 /** Sorted `data-testid` values under `container` — for structural-parity comparisons between two renders. */
-export const testidsIn = (container: HTMLElement): (string | null)[] =>
+export const testidsIn = (container: HTMLElement): string[] =>
   [...container.querySelectorAll('[data-testid]')]
     .map((el) => el.getAttribute('data-testid'))
-    .sort()
+    .filter((testid): testid is string => testid !== null)
+    .sort((a, b) => a.localeCompare(b))
 
 /**
  * Asserts the standard dual-theme-parity contract for a {@link ThemeRenderResult}:

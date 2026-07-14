@@ -84,7 +84,7 @@ public sealed record PlanProjectionDto
     public string ModelId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the periodized macro plan rendered as the home page's macro phase strip.
+    /// Gets or sets the periodized macro plan consumed by the frontend's <c>TheBlock</c>.
     /// Set by the <see cref="PlanGenerated"/> apply method; never null after the projection
     /// has consumed the stream-creation event.
     /// </summary>
@@ -92,7 +92,7 @@ public sealed record PlanProjectionDto
 
     /// <summary>
     /// Gets or sets the detailed weekly templates emitted by the meso tier, in week-index
-    /// order. The frontend's <c>MesoWeekBlock</c> renders this directly.
+    /// order. The frontend's <c>TheWeek</c> and <c>TheBlock</c> render this directly.
     /// </summary>
     public IReadOnlyList<MesoWeekOutput> MesoWeeks { get; set; } = Array.Empty<MesoWeekOutput>();
 
