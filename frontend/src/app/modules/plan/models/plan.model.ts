@@ -34,13 +34,7 @@ export type DaySlotType = 'Run' | 'Rest' | 'CrossTrain'
  * `RunCoach.Api.Modules.Coaching.Models.Structured.WorkoutType`.
  */
 export type WorkoutType =
-  | 'Easy'
-  | 'LongRun'
-  | 'Tempo'
-  | 'Interval'
-  | 'Repetition'
-  | 'Recovery'
-  | 'CrossTrain'
+  'Easy' | 'LongRun' | 'Tempo' | 'Interval' | 'Repetition' | 'Recovery' | 'CrossTrain'
 
 /**
  * Workout-segment kinds. Mirrors
@@ -186,6 +180,25 @@ export interface PlanProjectionDto {
    */
   planStartDate: string
   previousPlanId: string | null
+  /**
+   * The name of the goal race or event (e.g. `"Berlin Marathon"`), or `null`
+   * for a general-fitness plan with no target event. Mirrors
+   * `PlanProjectionDto.TargetEventName` verbatim.
+   */
+  targetEventName: string | null
+  /**
+   * The target event's distance in kilometers, or `null` for a
+   * general-fitness plan. Mirrors `PlanProjectionDto.TargetEventDistanceKm`
+   * verbatim.
+   */
+  targetEventDistanceKm: number | null
+  /**
+   * The target event's calendar date (ISO `YYYY-MM-DD`, same shape as
+   * `planStartDate`), or `null` for a general-fitness plan or an
+   * unparseable onboarding date. Mirrors `PlanProjectionDto.TargetEventDate`
+   * verbatim.
+   */
+  targetEventDate: string | null
   promptVersion: string
   modelId: string
   macro: MacroPhaseDto | null

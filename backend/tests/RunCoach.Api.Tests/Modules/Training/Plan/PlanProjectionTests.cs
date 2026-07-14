@@ -51,7 +51,10 @@ public sealed class PlanProjectionTests
             expectedPlanStartDate,
             expectedPromptVersion,
             expectedModelId,
-            PreviousPlanId: null);
+            PreviousPlanId: null,
+            TargetEventName: null,
+            TargetEventDistanceKm: null,
+            TargetEventDate: null);
 
         // Act
         var actual = PlanProjection.Create(generated);
@@ -83,13 +86,71 @@ public sealed class PlanProjectionTests
             PlanStartDate,
             PromptVersion,
             ModelId,
-            PreviousPlanId: expectedPreviousPlanId);
+            PreviousPlanId: expectedPreviousPlanId,
+            TargetEventName: null,
+            TargetEventDistanceKm: null,
+            TargetEventDate: null);
 
         // Act
         var actual = PlanProjection.Create(generated);
 
         // Assert
         actual.PreviousPlanId.Should().Be(expectedPreviousPlanId);
+    }
+
+    [Fact]
+    public void Create_PlanGenerated_PopulatesTargetEventFields_ForRaceTraining()
+    {
+        // Arrange
+        var expectedTargetEventName = "Berlin Marathon";
+        var expectedTargetEventDistanceKm = 42.195;
+        var expectedTargetEventDate = new DateOnly(2026, 9, 27);
+        var generated = new PlanGenerated(
+            PlanId,
+            UserId,
+            BuildMacro(),
+            Now,
+            PlanStartDate,
+            PromptVersion,
+            ModelId,
+            PreviousPlanId: null,
+            TargetEventName: expectedTargetEventName,
+            TargetEventDistanceKm: expectedTargetEventDistanceKm,
+            TargetEventDate: expectedTargetEventDate);
+
+        // Act
+        var actual = PlanProjection.Create(generated);
+
+        // Assert
+        actual.TargetEventName.Should().Be(expectedTargetEventName);
+        actual.TargetEventDistanceKm.Should().Be(expectedTargetEventDistanceKm);
+        actual.TargetEventDate.Should().Be(expectedTargetEventDate);
+    }
+
+    [Fact]
+    public void Create_PlanGenerated_TargetEventFieldsNull_ForGeneralFitness()
+    {
+        // Arrange
+        var generated = new PlanGenerated(
+            PlanId,
+            UserId,
+            BuildMacro(),
+            Now,
+            PlanStartDate,
+            PromptVersion,
+            ModelId,
+            PreviousPlanId: null,
+            TargetEventName: null,
+            TargetEventDistanceKm: null,
+            TargetEventDate: null);
+
+        // Act
+        var actual = PlanProjection.Create(generated);
+
+        // Assert
+        actual.TargetEventName.Should().BeNull();
+        actual.TargetEventDistanceKm.Should().BeNull();
+        actual.TargetEventDate.Should().BeNull();
     }
 
     [Fact]
@@ -569,7 +630,10 @@ public sealed class PlanProjectionTests
         return dto;
     }
 
-    private static PlanGenerated BuildPlanGenerated()
+    private static PlanGenerated BuildPlanGenerated(
+        string? targetEventName = null,
+        double? targetEventDistanceKm = null,
+        DateOnly? targetEventDate = null)
     {
         return new PlanGenerated(
             PlanId,
@@ -579,7 +643,10 @@ public sealed class PlanProjectionTests
             PlanStartDate,
             PromptVersion,
             ModelId,
-            PreviousPlanId: null);
+            PreviousPlanId: null,
+            TargetEventName: targetEventName,
+            TargetEventDistanceKm: targetEventDistanceKm,
+            TargetEventDate: targetEventDate);
     }
 
     private static MacroPlanOutput BuildMacro()

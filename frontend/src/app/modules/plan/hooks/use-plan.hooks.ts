@@ -1,4 +1,9 @@
 import { useGetCurrentPlanQuery } from '~/api/plan.api'
+import {
+  DAY_MS,
+  parseIsoDateUtc,
+  toUtcMidnight,
+} from '~/modules/plan/components/plan-display.helpers'
 import type {
   MesoWeekTemplateDto,
   MicroWorkoutCardDto,
@@ -43,20 +48,6 @@ export const usePlan = (): UsePlanReturn => {
   }
 }
 
-const DAY_MS = 86_400_000
-
-/**
- * Parse an ISO `YYYY-MM-DD` plan start date into a UTC-midnight epoch, or
- * `undefined` when the string is absent or malformed. UTC midnight keeps the
- * day-count subtraction free of DST artefacts.
- */
-const parsePlanStartUtc = (planStartDate: string): number | undefined => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(planStartDate)
-  if (match === null) return undefined
-  const utc = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-  return Number.isNaN(utc) ? undefined : utc
-}
-
 /**
  * The pre-anchor heuristic, retained as a defensive fallback for streams that
  * carry no usable `planStartDate`: the lowest-numbered populated week in
@@ -99,18 +90,20 @@ export const resolveCurrentWeek = (
     .filter((value) => Number.isFinite(value) && value >= 1)
     .sort((left, right) => left - right)
 
-  const planStartUtc = parsePlanStartUtc(plan.planStartDate)
+  const planStartUtc = parseIsoDateUtc(plan.planStartDate) // number | null
   const firstWeek = templateWeeks[0]
   const lastWeek = templateWeeks[templateWeeks.length - 1]
-  if (planStartUtc === undefined || firstWeek === undefined || lastWeek === undefined) {
+  // planStartUtc's absent-value sentinel is `null` (parseIsoDateUtc);
+  // firstWeek/lastWeek's sentinel is still `undefined` (indexing a possibly-
+  // empty array) — two different source types, each checked against its OWN
+  // sentinel in one condition. Do not unify to a common sentinel: `null` and
+  // `undefined` are distinct under `===`, so leaving a stale
+  // `planStartUtc === undefined` check here would silently stop firing.
+  if (planStartUtc === null || firstWeek === undefined || lastWeek === undefined) {
     return resolveLowestPopulatedWeek(plan)
   }
 
-  const referenceUtc = Date.UTC(
-    referenceDate.getFullYear(),
-    referenceDate.getMonth(),
-    referenceDate.getDate(),
-  )
+  const referenceUtc = toUtcMidnight(referenceDate)
   const elapsedDays = Math.floor((referenceUtc - planStartUtc) / DAY_MS)
   const dateDerivedWeek = Math.floor(elapsedDays / 7) + 1
 

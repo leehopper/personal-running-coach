@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using FluentAssertions;
 using Marten;
 using Microsoft.AspNetCore.Identity;
@@ -169,6 +170,52 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
             },
         };
         actual.Should().BeEquivalentTo(expectedDto, because: "every field seeded into the Plan stream must round-trip through the inline projection and the HTTP response unchanged");
+    }
+
+    /// <summary>
+    /// The wire-contract proof for the target-event fields: seeds a Plan
+    /// stream with non-null target-event values and asserts the raw HTTP
+    /// JSON response body carries them verbatim under their camelCase names.
+    /// This is the only test that exercises the actual serialized wire bytes
+    /// rather than stopping at the in-process DTO/event layer — every
+    /// frontend consumer trusts the hand-written <c>PlanProjectionDto</c>
+    /// TypeScript interface rather than re-verifying what the backend
+    /// actually serializes, so a <c>[JsonPropertyName]</c> mismatch or a
+    /// serializer-config gap would otherwise pass every other test and still
+    /// silently corrupt the rendered goal chip in production.
+    /// </summary>
+    [Fact]
+    public async Task GetPlanCurrent_EchoesTargetEventFields()
+    {
+        // Arrange
+        var userId = await SeedUserAsync();
+        var planId = Guid.NewGuid();
+        var expectedTargetEventName = "Berlin Marathon";
+        var expectedTargetEventDistanceKm = 42.195;
+        var expectedTargetEventDate = new DateOnly(2026, 9, 27);
+        await SeedPlanStreamAsync(
+            userId,
+            planId,
+            expectedTargetEventName,
+            expectedTargetEventDistanceKm,
+            expectedTargetEventDate);
+        await SeedUserProfileAsync(userId, currentPlanId: planId);
+        using var client = CreateBearerClient(Factory, MintBearerToken(userId));
+
+        // Act
+        var response = await client.GetAsync(
+            "/api/v1/plan/current",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var document = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken),
+            cancellationToken: TestContext.Current.CancellationToken);
+        var root = document.RootElement;
+        root.GetProperty("targetEventName").GetString().Should().Be(expectedTargetEventName);
+        root.GetProperty("targetEventDistanceKm").GetDouble().Should().Be(expectedTargetEventDistanceKm);
+        root.GetProperty("targetEventDate").GetString().Should().Be("2026-09-27");
     }
 
     /// <summary>
@@ -499,7 +546,12 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
-    private async Task SeedPlanStreamAsync(Guid userId, Guid planId)
+    private async Task SeedPlanStreamAsync(
+        Guid userId,
+        Guid planId,
+        string? targetEventName = null,
+        double? targetEventDistanceKm = null,
+        DateOnly? targetEventDate = null)
     {
         // Append the canonical Slice 1 event sequence
         // [PlanGenerated, MesoCycleCreated x4, FirstMicroCycleCreated] so the
@@ -521,7 +573,10 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
             PlanStartDate: PlanCalendar.StartOfTrainingWeek(DateOnly.FromDateTime(PlanGeneratedAt.UtcDateTime)),
             PromptVersion: "coaching-v1",
             ModelId: "claude-sonnet-4-5",
-            PreviousPlanId: null);
+            PreviousPlanId: null,
+            TargetEventName: targetEventName,
+            TargetEventDistanceKm: targetEventDistanceKm,
+            TargetEventDate: targetEventDate);
         var events = new object[]
         {
             generated,

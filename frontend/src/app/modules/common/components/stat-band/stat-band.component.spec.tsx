@@ -33,4 +33,58 @@ describe('StatBand + StatCell', () => {
     const cell = screen.getByTestId('stat-cell')
     expect(cell.querySelector('.t-numeral')).toHaveTextContent('4:00–4:30/km')
   })
+
+  describe('variant="hero"', () => {
+    it('renders the value at condensed 700/30px, not the default .t-numeral role', () => {
+      render(<StatCell variant="hero" value="9.0" label="Kilometers" />)
+      const cell = screen.getByTestId('stat-cell')
+      expect(cell.querySelector('.t-numeral')).toBeNull()
+      const value = cell.firstElementChild
+      expect(value).toHaveClass('font-condensed', 'text-[30px]', 'font-bold')
+      expect(value).toHaveTextContent('9.0')
+    })
+
+    it('renders the label mono 500/9.5px/+0.1em/uppercase via text-muted-foreground, not the default .t-data-label role and not the decorative --alp-faint token', () => {
+      render(<StatCell variant="hero" value="9.0" label="Kilometers" />)
+      const cell = screen.getByTestId('stat-cell')
+      expect(cell.querySelector('.t-data-label')).toBeNull()
+      const label = cell.lastElementChild
+      expect(label).toHaveClass(
+        'font-mono',
+        'text-[9.5px]',
+        'font-medium',
+        'uppercase',
+        'tracking-[0.1em]',
+      )
+      expect(label).toHaveClass('text-muted-foreground')
+      expect(label).not.toHaveClass('text-[color:var(--alp-faint)]')
+      expect(label).toHaveTextContent('Kilometers')
+    })
+
+    it("leaves the default variant byte-identical to today's .t-numeral/.t-data-label styling", () => {
+      render(<StatCell value="9.0" label="Kilometers" />)
+      const cell = screen.getByTestId('stat-cell')
+      expect(cell.querySelector('.t-numeral')).not.toBeNull()
+      expect(cell.querySelector('.t-data-label')).not.toBeNull()
+    })
+
+    it('lays StatBand out on the asymmetric 3-column grid with top+bottom hairlines, not the default flex row', () => {
+      render(
+        <StatBand variant="hero">
+          <StatCell variant="hero" value="9.2 KM" label="Distance" />
+          <StatCell variant="hero" value="4:00–4:30/km" label="Pace" />
+          <StatCell variant="hero" value="5" label="Reps" />
+        </StatBand>,
+      )
+      const band = screen.getByTestId('stat-band')
+      expect(band).toHaveClass(
+        'grid',
+        'grid-cols-[1fr_1.7fr_1fr]',
+        'border-y',
+        'divide-x',
+        'divide-border',
+      )
+      expect(band).not.toHaveClass('flex')
+    })
+  })
 })
