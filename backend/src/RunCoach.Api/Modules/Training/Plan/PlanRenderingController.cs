@@ -17,7 +17,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// Read-only plan rendering surface (spec 13 § Unit 2, R02.4 / DEC-057).
 /// Exposes <c>GET /api/v1/plan/current</c> which materializes the projection of
 /// the user's currently-active <c>Plan</c> stream so the home surface can render
-/// the macro phase strip, meso weeks, and micro detail with zero LLM cost.
+/// <c>TheBlock</c>, <c>TheWeek</c>, and micro detail with zero LLM cost.
 /// The active plan is resolved by reading
 /// <see cref="Modules.Coaching.Onboarding.Entities.RunnerOnboardingProfile.CurrentPlanId"/> from the
 /// EF projection (set atomically via the

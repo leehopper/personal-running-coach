@@ -179,7 +179,10 @@ Pattern: `{name}.{type}.{extension}`
   and maps to a dedicated `--alp-input-border` primitive, distinct from the
   fainter `--alp-hairline` divider tone behind `--border`. Exempt (WCAG
   1.4.11 decorative / non-text): `--border` (pure divider), `--warning`
-  (supplementary severity accent), and `--alp-faint`.
+  (supplementary severity accent), `--alp-faint`, `--clay-marker` (the
+  "current" marker — border/fill only, never text; same exemption posture
+  as `--border`), and `--surface-dim` (fill-only cell background, never
+  text; same exemption posture as `--border`/`--clay-marker`).
 
 ### Typography (DR-6)
 

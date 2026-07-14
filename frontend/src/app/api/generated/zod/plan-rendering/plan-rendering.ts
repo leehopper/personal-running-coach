@@ -12,6 +12,9 @@ export const GetApiV1PlanCurrentResponse = zod.strictObject({
   generatedAt: zod.iso.datetime({ offset: true }),
   planStartDate: zod.iso.date(),
   previousPlanId: zod.uuid().nullish(),
+  targetEventName: zod.string().nullish(),
+  targetEventDistanceKm: zod.number().nullish(),
+  targetEventDate: zod.iso.date().nullish(),
   promptVersion: zod.string(),
   modelId: zod.string(),
   macro: zod.strictObject({

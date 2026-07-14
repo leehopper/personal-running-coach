@@ -1,13 +1,14 @@
 # RunCoach — Roadmap
 
 **Current cycle:** SPLIT / Alpine UI Redesign — `docs/plans/split-ui-cycle/cycle-plan.md` (planned 2026-07-07; design source `docs/design/split-alpine/`). The MVP-0 + Adaptation Loop cycle's build/fix scope is complete and on `main` — `docs/plans/mvp-0-cycle/cycle-plan.md` is the closed record.
-**Active slice:** None — **Slice 1 (Shell & Navigation) shipped 2026-07-08 (PR #277)**: fixed bottom `TabBar` + tab-shell `ShellLayout`, router rewire nesting `/`, `/coach`, `/log`, `/history`, `/settings` under one `RequireAuth` → `ShellLayout`, and a dedicated `/coach` route (mechanical `CoachChat` relocation). Slice 2 (Today) is next. Slice order: 0 Foundation ✅ → 1 Shell & Navigation ✅ → 2 Today → 3 Coach → 4 Log & Log Book → 5 Onboarding → 6 Settings & Auth → 7 States, Light Pass & Cycle Close.
-**Next step:** Spec + build Slice 2 (Today) in a fresh session — read the cycle plan and `slice-2-today.md`. Slices 2/3/4 are independent of each other after Slice 1; numbered order is the default (Today first).
+**Active slice:** Slice 2 (Today) — spec written, implementation starting. Slice 0 (Alpine Foundation) and Slice 1 (Shell & Navigation) shipped 2026-07-08 (PRs #275/#277). Slice order: 0 ✅ → 1 ✅ → 2 (active) → 3 Coach → 4 Log & Log Book → 5 Onboarding → 6 Settings & Auth → 7 States, Light Pass & Cycle Close.
+**Next step:** Build Slice 2 (Today) — spec is written; read the cycle plan and `slice-2-today.md`. Slices 2/3/4 are independent of each other after Slice 1; numbered order is the default (Today first).
+**Parallel workstream:** Rolling Plan Horizon (backend-only; DEC-090; plan `docs/plans/plan-horizon/rolling-horizon-plan.md`) — plan generation hard-caps at 4 meso weeks and 1 micro week, so only week 1 of any plan ever gets real prescribed workouts (a live day-8 bug, not an edge case, in production today). A new `PlanHorizonSweeper` background service extends both tiers on a rolling 2-week buffer. Runs fully parallel to the SPLIT UI slices — no file overlap, no wire/codegen churn. Next step: spec + build PR1.
 **Blockers:** None.
 **After this cycle:** the sequence is pre-agreed as placeholders (not decisions) — OpenRouter-vs-Anthropic provider decision point → final MVP live validation pass → deployment. See § Post-Redesign Sequence.
 **MVP-0 status:** The close live-pass PASSED 2026-07-07 and both findings are fixed and merged (F-LIVE-1 — DEC-087/#271; F-LIVE-2 — DEC-088/#272). **The outstanding funded-key done-gate verification now rides this cycle's closing live pass** (user decision 2026-07-07: redesign first) — see the cycle plan § Goal & Done-State and `docs/plans/mvp-0-cycle/mvp-0-close-live-pass-fixes.md` § Verification.
 **Open follow-ups (non-blocking):** the MVP-0 close-out follow-ups remain triaged in `docs/features/backlog.md` (disposition record: mvp-0 cycle plan § Captured During Cycle → "Open follow-ups"). Additionally, the long-standing cross-account RTK cache-reset follow-up (declined PR #174, previously deferred to pre-public release) is pulled forward into this cycle — it lands with Slice 6's SIGN OUT wiring (DEC-089 D8).
-**Recent decisions:** DEC-089 (SPLIT / Alpine adoption: dark-default token swap, tab-bar IA, client-composed adaptation digest, the four narrow wire additions, narrative onboarding field, SPLIT-now branding), DEC-087/DEC-088 (MVP-0 close fixes) — rationale in `docs/decisions/decision-log.md`.
+**Recent decisions:** DEC-090 (Rolling Plan Horizon: sweeper-driven weekly meso/micro extension, deterministic training-history graft, no LLM call in a user-facing request), DEC-089 (SPLIT / Alpine adoption: dark-default token swap, tab-bar IA, client-composed adaptation digest, the four narrow wire additions, narrative onboarding field, SPLIT-now branding), DEC-087/DEC-088 (MVP-0 close fixes) — rationale in `docs/decisions/decision-log.md`.
 
 This is the front door. For the full picture on session start, run `/catchup`. For anything deeper than the Status block above, open the cycle plan.
 
@@ -100,6 +101,10 @@ Items that span cycles or are permanently deferred. **Active-cycle follow-ups li
 ### From DEC-041 (unit system — partial shipment)
 
 Shipped with DEC-042: `Distance`, `Pace`, `PaceRange(Fast, Slow)`, `TrainingPaces` value objects. Remaining scope deferred to pre-MVP-0: `StandardRace` enum, `UnitPreference` enum, EF Core `ValueConverter` mappings, full controller-layer adoption. See `docs/planning/unit-system-design.md`.
+
+### From DEC-090 (rolling plan horizon — NoAnchor rollover)
+
+NoAnchor (general-fitness, no race date) plan rollover past the last declared week is a genuine open question, explicitly not decided in `docs/plans/plan-horizon/rolling-horizon-plan.md` § 8 — sent to research per `CLAUDE.md` § Research Protocol. Queued as **R-087** in `docs/research/research-queue.md`; prompt at `docs/research/prompts/plan-horizon-noanchor-rollover.md`. Not blocking: the horizon ships using `WeekContext.FromMacro`'s existing last-phase fallback as an explicitly-named, degrades-gracefully-not-scientifically placeholder until the research artifact lands and is integrated.
 
 ### From POC 1 cleanup
 

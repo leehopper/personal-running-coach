@@ -1,5 +1,5 @@
 import { useCallback, type ReactElement } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,29 @@ import { TranscriptScroller } from './transcript-scroller.component'
 // markdown, no raw HTML.
 
 const NO_TURNS: readonly ConversationTimelineTurnDto[] = []
+
+/**
+ * `router.state` shape carried by a `navigate('/coach', { state: {...} })`
+ * call. `prefill` seeds the composer's text; `focusComposer` focuses it
+ * without seeding text. Plain `TabBar` navigation carries no `state`, so
+ * `state` is `null` and neither applies.
+ */
+interface CoachChatLocationState {
+  prefill?: string
+  focusComposer?: boolean
+}
+
+// `location.state` is typed loosely by react-router-dom (it has to accommodate
+// any shape a caller passes to `navigate(to, { state })`), so a plain `as`
+// cast here would silently accept a differently-shaped `state` from a future
+// caller. This guard actually checks the two optional fields' types before
+// the cast-free narrowing below trusts them.
+const isCoachChatLocationState = (value: unknown): value is CoachChatLocationState =>
+  typeof value === 'object' &&
+  value !== null &&
+  (!('prefill' in value) || typeof (value as { prefill?: unknown }).prefill === 'string') &&
+  (!('focusComposer' in value) ||
+    typeof (value as { focusComposer?: unknown }).focusComposer === 'boolean')
 
 interface ChatBubbleProps {
   role: MessageRole
@@ -112,6 +135,8 @@ export const CoachChat = (): ReactElement => {
   const { data } = useGetConversationTimelineQuery(undefined)
   const timeline = data?.turns ?? NO_TURNS
   const units = usePreferredUnits()
+  const location = useLocation()
+  const locationState = isCoachChatLocationState(location.state) ? location.state : null
   const {
     pendingUserMessage,
     streamingText,
@@ -196,7 +221,21 @@ export const CoachChat = (): ReactElement => {
           onCancel={dismissCard}
         />
       )}
-      <CoachComposer onSend={send} isStreaming={isStreaming} />
+      <CoachComposer
+        // React Router mints a fresh `location.key` on every navigation,
+        // including a same-URL replace triggered by re-tapping the active
+        // TabBar tab — keying on `location.key` unconditionally would remount
+        // the composer on that replace and discard an in-progress draft. A
+        // fresh instance is only needed when router state actually delivers
+        // a prefill/focus seed, so key on `location.key` only in that case;
+        // a stable key otherwise leaves the composer (and its draft) mounted
+        // across a null-state re-render or navigation.
+        key={locationState === null ? 'coach-composer' : location.key}
+        onSend={send}
+        isStreaming={isStreaming}
+        initialValue={locationState?.prefill ?? ''}
+        autoFocus={Boolean(locationState?.prefill) || Boolean(locationState?.focusComposer)}
+      />
     </section>
   )
 }
