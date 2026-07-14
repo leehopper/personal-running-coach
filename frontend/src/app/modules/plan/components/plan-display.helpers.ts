@@ -196,18 +196,6 @@ export const phaseForWeek = (
 }
 
 /**
- * Returns `true` when `currentWeek` falls within the inclusive
- * `[startWeek, endWeek]` span of `range`. Returns `false` when
- * `currentWeek` is `null` (no active week — e.g. plan preview).
- */
-export const isCurrentRange = (range: PhaseRange, currentWeek: number | null): boolean => {
-  if (currentWeek === null) {
-    return false
-  }
-  return currentWeek >= range.startWeek && currentWeek <= range.endWeek
-}
-
-/**
  * Returns the day-of-week index (0 = Sunday … 6 = Saturday) for a given
  * `Date`, mirroring `Date.prototype.getDay()`. Extracted here so date-driven
  * plan-rendering logic stays testable without reaching into global `Date`
@@ -432,23 +420,25 @@ export interface HeroThirdStat {
 
 /**
  * Derives the hero stat band's 3rd cell: a rep count (`×N`, label
- * `REPS · M MIN`) when the workout has an interval/repetition-style segment,
- * else the workout's continuous duration (label `MINUTES`). Falls back to a
- * placeholder dash — not reachable under the current DTO, guarded anyway to
- * match the app's established null-value convention.
+ * `Reps · M min`, rendered `REPS · M MIN` via `StatCell`'s `hero` label's own
+ * `uppercase` CSS — source copy stays sentence case, never baked caps) when
+ * the workout has an interval/repetition-style segment, else the workout's
+ * continuous duration (label `Minutes`). Falls back to a placeholder dash —
+ * not reachable under the current DTO, guarded anyway to match the app's
+ * established null-value convention.
  */
 export function resolveHeroThirdStat(workout: MicroWorkoutCardDto): HeroThirdStat {
   const workSegment = workout.segments.find((segment) => segment.repetitions > 1)
   if (workSegment !== undefined) {
     return {
       value: `×${workSegment.repetitions}`,
-      label: `REPS · ${workSegment.durationMinutes} MIN`,
+      label: `Reps · ${workSegment.durationMinutes} min`,
     }
   }
   if (Number.isFinite(workout.targetDurationMinutes) && workout.targetDurationMinutes > 0) {
-    return { value: `${workout.targetDurationMinutes}`, label: 'MINUTES' }
+    return { value: `${workout.targetDurationMinutes}`, label: 'Minutes' }
   }
-  return { value: '—', label: 'MINUTES' }
+  return { value: '—', label: 'Minutes' }
 }
 
 /**

@@ -23,7 +23,11 @@ export interface CoachDigestProps {
   className?: string
 }
 
-const OPEN_ARROW_CLASS = 'font-condensed text-[12px] font-semibold tracking-[0.1em] text-clay-text'
+// Source copy stays sentence case ("Open →") — `uppercase` renders it
+// `OPEN →`, the same presentation-only-caps rule every other label in this
+// slice follows (frontend CLAUDE.md § Typography).
+const OPEN_ARROW_CLASS =
+  'font-condensed text-[12px] font-semibold tracking-[0.1em] text-clay-text uppercase'
 
 const CHIP_CLASS =
   't-button min-h-11 rounded-full border border-border px-4 text-foreground transition-colors duration-200 ease-out focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] focus-visible:outline-none active:scale-[0.98] motion-reduce:transition-none'
@@ -141,7 +145,7 @@ const DigestCard = ({ body, currentWeek, units, className }: DigestCardProps): R
         className="flex flex-col gap-3 rounded-md transition-colors duration-200 ease-out outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] motion-reduce:transition-none"
       >
         <SectionRule as="h2" label="From your coach">
-          <span className={OPEN_ARROW_CLASS}>OPEN →</span>
+          <span className={OPEN_ARROW_CLASS}>Open →</span>
         </SectionRule>
         {body.kind === 'restructure' ? (
           <div

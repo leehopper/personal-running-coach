@@ -11,7 +11,6 @@ import {
   describeSegment,
   formatHeroEyebrowDate,
   formatShortDateUtc,
-  isCurrentRange,
   parseIsoDateUtc,
   phaseForWeek,
   resolveCalendarDateUtc,
@@ -232,18 +231,6 @@ describe('phaseForWeek', () => {
   })
 })
 
-describe('isCurrentRange (regression guard alongside the computePhaseRanges fix)', () => {
-  it('does not claim a week for the empty span of a zero-week phase', () => {
-    const ranges = computePhaseRanges([
-      buildPhase('Base', 4),
-      buildPhase('Recovery', 0),
-      buildPhase('Build', 5),
-    ])
-    expect(isCurrentRange(ranges[1], 5)).toBe(false)
-    expect(isCurrentRange(ranges[2], 5)).toBe(true)
-  })
-})
-
 describe('describeSegment', () => {
   it('describes a Warmup segment', () => {
     expect(describeSegment(buildSegment({ segmentType: 'Warmup', durationMinutes: 12 }))).toBe(
@@ -338,18 +325,20 @@ describe('composeWorkoutSummary', () => {
 describe('resolveHeroThirdStat', () => {
   it('returns the reps branch for a workout with an interval segment', () => {
     // intervalsWednesday: Work segment, durationMinutes: 4, repetitions: 5.
+    // Sentence-case source copy — StatCell's hero label applies `uppercase`
+    // via CSS, so the rendered text is still "REPS · 4 MIN".
     const [, intervalsWednesday] = fixtureWeekOneWorkouts()
-    expect(resolveHeroThirdStat(intervalsWednesday)).toEqual({ value: '×5', label: 'REPS · 4 MIN' })
+    expect(resolveHeroThirdStat(intervalsWednesday)).toEqual({ value: '×5', label: 'Reps · 4 min' })
   })
 
   it('returns the duration branch for a continuous-effort workout with no interval segments', () => {
     const [easyMonday] = fixtureWeekOneWorkouts()
-    expect(resolveHeroThirdStat(easyMonday)).toEqual({ value: '38', label: 'MINUTES' })
+    expect(resolveHeroThirdStat(easyMonday)).toEqual({ value: '38', label: 'Minutes' })
   })
 
   it('returns the defensive dash branch when neither an interval segment nor a positive duration exists', () => {
     const workout = buildWorkout({ segments: [], targetDurationMinutes: 0 })
-    expect(resolveHeroThirdStat(workout)).toEqual({ value: '—', label: 'MINUTES' })
+    expect(resolveHeroThirdStat(workout)).toEqual({ value: '—', label: 'Minutes' })
   })
 })
 

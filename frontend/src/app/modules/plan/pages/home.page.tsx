@@ -17,6 +17,7 @@ import {
 } from '~/modules/plan/components/plan-display.helpers'
 import { TheBlock } from '~/modules/plan/components/the-block.component'
 import { TheWeek } from '~/modules/plan/components/the-week.component'
+import { isDateLogged } from '~/modules/plan/components/the-week.helpers'
 import { TodayHeader } from '~/modules/plan/components/today-header.component'
 import { UpNext } from '~/modules/plan/components/up-next.component'
 import {
@@ -102,17 +103,26 @@ interface PlanLayoutProps {
 
 /**
  * Constructs `WorkoutHero`'s discriminated-union content (Slice 2 §2.1,
- * "C3 fix"). `slot === undefined` and `slot.slotType === 'Run'` with an
- * absent `workout` (a data-integrity edge case not reachable under a
- * healthy plan) both fall back to `unavailable` rather than lying about
- * having a `workout`. Written as an if/else chain, not nested ternaries
- * (sonarjs/no-nested-conditional) — same branches, same outcomes as the
- * spec's pseudocode.
+ * "C3 fix"; extended by the F1 fix's `logged` kind). `slot === undefined`
+ * and `slot.slotType === 'Run'` with an absent `workout` (a data-integrity
+ * edge case not reachable under a healthy plan) both fall back to
+ * `unavailable` rather than lying about having a `workout`. Written as an
+ * if/else chain, not nested ternaries (sonarjs/no-nested-conditional) —
+ * same branches, same outcomes as the spec's pseudocode.
+ *
+ * `isTodayLogged` is derived by the CALLER from the exact same log join
+ * `TheWeek`'s day-cell state uses (`isDateLogged`, `the-week.helpers.ts`) —
+ * this function only threads the already-resolved boolean into the `run` vs.
+ * `logged` choice, it never re-derives "is today logged" itself. That single
+ * shared derivation is what makes it impossible for THE WEEK's today cell
+ * and the hero to disagree about whether today's run has been logged (F1
+ * fix — see `home.page.spec.tsx`'s cross-section agreement test).
  */
 const resolveHeroContent = (
   slot: MesoDaySlotDto | undefined,
   workout: MicroWorkoutCardDto | undefined,
   nextWorkout: MicroWorkoutCardDto | undefined,
+  isTodayLogged: boolean,
 ): WorkoutHeroContent => {
   if (slot === undefined) {
     return { kind: 'unavailable' }
@@ -123,7 +133,7 @@ const resolveHeroContent = (
   if (workout === undefined) {
     return { kind: 'unavailable' }
   }
-  return { kind: 'run', slot, workout }
+  return isTodayLogged ? { kind: 'logged', slot, workout } : { kind: 'run', slot, workout }
 }
 
 /**
@@ -169,10 +179,15 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
 
   const nextWorkout = findNextWorkoutAfter(currentWeekWorkouts, today.getDay())
 
+  // SAME predicate, SAME `logs` array, SAME `todayUtc` epoch `TheWeek` below
+  // uses for its today cell's `done` state (F1 fix) — never a second,
+  // parallel "is today logged" check re-derived here.
+  const isTodayLogged = isDateLogged(logs, todayUtc)
+
   // Constructed HERE, where `slot`/`workout` are both in scope as local
   // consts — this is the one place that can decide what to do when they
   // disagree.
-  const heroContent = resolveHeroContent(slot, workout, nextWorkout)
+  const heroContent = resolveHeroContent(slot, workout, nextWorkout, isTodayLogged)
 
   const phaseLabel =
     plan.macro === null

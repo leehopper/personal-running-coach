@@ -29,6 +29,24 @@ export interface DayCell {
 }
 
 /**
+ * Returns whether any log in `logs` was `occurredOn` the calendar date named
+ * by `dateEpoch` (a UTC-midnight epoch) — the ONE log-matching predicate
+ * {@link resolveDayCells} calls for its `done` cell state and `home.page.tsx`
+ * calls (via this same export) to decide whether `WorkoutHero` should render
+ * its `logged` state for today (Slice 2 F1 fix). ALL fetched logs count
+ * regardless of `completionStatus` (including `Skipped`) — a literal
+ * reading of "a log exists for that date," matching {@link resolveDayCells}'s
+ * own rule. Sharing this one function (never a second, parallel "is today
+ * logged" check re-derived at the hero's mount site) is what makes it
+ * IMPOSSIBLE for THE WEEK's today cell and the hero's logged-state affordance
+ * to disagree about the same date — the exact bug this predicate's
+ * extraction closes.
+ */
+export function isDateLogged(logs: readonly WorkoutLogDto[], dateEpoch: number): boolean {
+  return logs.some((log) => parseIsoDateUtc(log.occurredOn) === dateEpoch)
+}
+
+/**
  * Resolves the 4-state (`done`/`today`/`planned`/`rest`) render state for
  * every day of `weekNumber`, joining the meso day-slot template against this
  * week's logged runs. Always returns 7 entries, Sunday-first.
@@ -54,15 +72,11 @@ export function resolveDayCells(params: {
 }): DayCell[] {
   const { week, weekNumber, planStartDate, logs, todayUtc } = params
 
-  const loggedEpochs = logs
-    .map((log) => parseIsoDateUtc(log.occurredOn))
-    .filter((epoch): epoch is number => epoch !== null)
-
   const cells: DayCell[] = []
   for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
     const cellDate = resolveCalendarDateUtc(planStartDate, weekNumber, dayOfWeek)
     const cellEpoch = cellDate === null ? null : cellDate.getTime()
-    const hasLog = cellEpoch !== null && loggedEpochs.includes(cellEpoch)
+    const hasLog = cellEpoch !== null && isDateLogged(logs, cellEpoch)
     const isToday = cellEpoch !== null && cellEpoch === todayUtc
     const slot = week?.[DAY_SLOT_KEYS[dayOfWeek]]
 

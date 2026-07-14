@@ -49,7 +49,8 @@ describe('UpNext', () => {
     )
 
     expect(screen.getByTestId('up-next')).toBeInTheDocument()
-    expect(screen.getByText('UP NEXT')).toBeInTheDocument()
+    // Source copy stays sentence case — `uppercase` is applied via CSS only.
+    expect(screen.getByText('Up next')).toBeInTheDocument()
     expect(screen.queryByTestId('up-next-row')).not.toBeInTheDocument()
   })
 

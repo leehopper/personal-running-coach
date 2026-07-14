@@ -3,7 +3,7 @@ import type { WorkoutLogDto } from '~/api/generated'
 import { CompletionStatus, PreferredUnits } from '~/api/generated'
 import { toUtcMidnight } from './plan-display.helpers'
 import { buildPlanFixture } from './plan-display.fixture'
-import { formatWeekProgress, resolveDayCells, weekLoggedKm } from './the-week.helpers'
+import { formatWeekProgress, isDateLogged, resolveDayCells, weekLoggedKm } from './the-week.helpers'
 
 // planStartDate anchors to Sunday 2026-04-19 (matching the shared fixture),
 // so week 1 spans 2026-04-19 (Sun) .. 2026-04-25 (Sat). Week 1's template
@@ -102,6 +102,37 @@ describe('resolveDayCells', () => {
       5: 'rest',
       6: 'rest',
     })
+  })
+})
+
+// The shared predicate `resolveDayCells` above and `home.page.tsx`'s hero
+// logged-state derivation both call — see the `Given the same fixture, THE
+// WEEK's today cell and the hero AGREE` integration test in
+// `home.page.spec.tsx` for the regression guard this makes possible (Slice 2
+// F1 fix).
+describe('isDateLogged', () => {
+  it('returns true when a log occurred on the exact date', () => {
+    const dateEpoch = toUtcMidnight(new Date(2026, 3, 20))
+    expect(isDateLogged([log('2026-04-20')], dateEpoch)).toBe(true)
+  })
+
+  it('returns false when no log matches the date', () => {
+    const dateEpoch = toUtcMidnight(new Date(2026, 3, 20))
+    expect(isDateLogged([log('2026-04-21')], dateEpoch)).toBe(false)
+  })
+
+  it('returns false for an empty log list', () => {
+    const dateEpoch = toUtcMidnight(new Date(2026, 3, 20))
+    expect(isDateLogged([], dateEpoch)).toBe(false)
+  })
+
+  it('ignores completionStatus — a Skipped log still counts as "logged"', () => {
+    const dateEpoch = toUtcMidnight(new Date(2026, 3, 20))
+    const skipped: WorkoutLogDto = {
+      ...log('2026-04-20'),
+      completionStatus: CompletionStatus.Skipped,
+    }
+    expect(isDateLogged([skipped], dateEpoch)).toBe(true)
   })
 })
 

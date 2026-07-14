@@ -117,10 +117,13 @@ describe('TheBlock', () => {
       'Peak 10–11',
       'Taper 12',
     ])
-    expect(labels[0]).toHaveClass('text-muted-foreground')
-    expect(labels[1]).toHaveClass('text-[color:var(--alp-faint)]')
-    expect(labels[2]).toHaveClass('text-[color:var(--alp-faint)]')
-    expect(labels[3]).toHaveClass('text-[color:var(--alp-faint)]')
+    // `--muted-foreground` on every label, current phase or not — essential
+    // text (a runner's only way to tell which weeks belong to which named
+    // phase) never carries the decorative `--alp-faint` token (spec §8 FIX 5).
+    for (const label of labels) {
+      expect(label).toHaveClass('text-muted-foreground')
+      expect(label).not.toHaveClass('text-[color:var(--alp-faint)]')
+    }
   })
 
   it('scales the grid to an arbitrary TotalWeeks, not hardcoded to 12', () => {

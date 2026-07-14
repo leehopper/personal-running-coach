@@ -83,7 +83,7 @@ describe('CoachDigest', () => {
   })
 
   describe('state 1/2 — short/long reply with a precedent user turn', () => {
-    it('renders the You: line, the coach line, OPEN →, and the tap-through Link', () => {
+    it('renders the You: line, the coach line, Open →, and the tap-through Link', () => {
       setTimeline(buildTimeline())
       renderDigest()
 
@@ -91,17 +91,17 @@ describe('CoachDigest', () => {
       expect(screen.getByTestId('coach-digest-tap-through')).toHaveAttribute('href', '/coach')
       expect(screen.getByTestId('coach-digest-user-line')).toHaveTextContent('You: How was my run?')
       expect(screen.getByTestId('coach-digest-coach-line')).toHaveTextContent('You ran well.')
-      expect(screen.getByText('OPEN →')).toBeInTheDocument()
+      expect(screen.getByText('Open →')).toBeInTheDocument()
       expect(screen.getByTestId('coach-digest-composer-stub')).toBeInTheDocument()
     })
 
-    it('renders the pathological-content clamp classes and does not grow the module with content length', () => {
-      setTimeline(buildTimeline())
-      const { container: shortContainer } = renderDigest()
-      const shortHeight = shortContainer
-        .querySelector('[data-testid="coach-digest"]')
-        ?.getBoundingClientRect().height
-
+    it('renders the pathological-content clamp classes (truncate / line-clamp-3) on very long user/coach content', () => {
+      // jsdom performs no real layout, so `getBoundingClientRect().height`
+      // is always 0 regardless of content length — a height-parity
+      // assertion here would be `0 === 0`, always true, and would not
+      // fail if the clamp classes below were removed. The class-presence
+      // assertions are the only load-bearing check this test can make
+      // (Slice 2 §5 DU-5's "never grows the module" contract).
       const longUserLine = 'x'.repeat(400)
       const longCoachReply = Array.from({ length: 13 }, (_, i) => `Sentence number ${i + 1}.`).join(
         ' ',
@@ -110,20 +110,12 @@ describe('CoachDigest', () => {
         buildUserTimelineTurn(longUserLine),
         buildCoachTimelineTurn({ content: longCoachReply }),
       ])
-      const { container: longContainer } = renderDigest()
-      const longHeight = longContainer
-        .querySelector('[data-testid="coach-digest"]')
-        ?.getBoundingClientRect().height
+      renderDigest()
 
       const userLines = screen.getAllByTestId('coach-digest-user-line')
       const coachLines = screen.getAllByTestId('coach-digest-coach-line')
       expect(userLines[userLines.length - 1]).toHaveClass('truncate')
       expect(coachLines[coachLines.length - 1]).toHaveClass('line-clamp-3')
-      // jsdom performs no real layout, so both heights collapse to the same
-      // (zero) value — this is the "computed height parity" half of the
-      // dual contract (Slice 2 §5 DU-5); the class-presence assertions
-      // above are the load-bearing half.
-      expect(longHeight).toBe(shortHeight)
     })
   })
 
@@ -156,7 +148,7 @@ describe('CoachDigest', () => {
       expect(screen.getByTestId('coach-digest-coach-line')).toHaveTextContent(
         "That reply didn't go through.",
       )
-      expect(screen.getByText('OPEN →')).toBeInTheDocument()
+      expect(screen.getByText('Open →')).toBeInTheDocument()
     })
   })
 
@@ -186,7 +178,7 @@ describe('CoachDigest', () => {
       // The border-left text block is NOT nested inside the card's markup.
       expect(screen.queryByTestId('coach-digest-user-line')).not.toBeInTheDocument()
       expect(screen.queryByTestId('coach-digest-coach-line')).not.toBeInTheDocument()
-      expect(screen.getByText('OPEN →')).toBeInTheDocument()
+      expect(screen.getByText('Open →')).toBeInTheDocument()
     })
 
     it('threads the Miles preference into the headline (F3 catch)', () => {
@@ -220,14 +212,14 @@ describe('CoachDigest', () => {
   })
 
   describe('state 4 — empty', () => {
-    it('renders the exact empty copy, two chips, no OPEN →, and no composer stub', () => {
+    it('renders the exact empty copy, two chips, no Open →, and no composer stub', () => {
       setTimeline([])
       renderDigest()
 
       expect(
         screen.getByText('Nothing yet. Tell me how training feels, or hand me a run to log.'),
       ).toBeInTheDocument()
-      expect(screen.queryByText('OPEN →')).not.toBeInTheDocument()
+      expect(screen.queryByText('Open →')).not.toBeInTheDocument()
       expect(screen.queryByTestId('coach-digest-composer-stub')).not.toBeInTheDocument()
       expect(screen.getAllByTestId('coach-digest-chip')).toHaveLength(2)
     })

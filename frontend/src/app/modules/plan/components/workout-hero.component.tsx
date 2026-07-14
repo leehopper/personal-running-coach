@@ -1,4 +1,5 @@
 import { type ReactElement, type ReactNode, useState } from 'react'
+import { CheckIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -33,9 +34,21 @@ import {
 // included, no non-null assertions needed. `home.page.tsx`'s mount site
 // constructs this union instead of passing `slot`/`workout`/`nextWorkout` as
 // three flat props.
+//
+// F1 fix: `logged` is a 4th, sibling kind — not a boolean layered onto
+// `run` — carrying the exact same `slot`/`workout` shape `run` does. Today's
+// workout is either not-yet-logged (`run`) or already-logged (`logged`);
+// there is no state where `logged` is true without a `workout` to show, so a
+// distinct kind (rather than an `isLogged` flag that could theoretically be
+// `true` while `workout` is somehow absent) keeps that impossible state
+// unrepresentable, the same discipline the original C3 fix established.
+// `home.page.tsx`'s `resolveHeroContent` picks `logged` vs. `run` from
+// `isTodayLogged`, itself derived from THE WEEK's own log-join predicate
+// (`isDateLogged`, `the-week.helpers.ts`) — see that function's doc comment.
 export type WorkoutHeroContent =
   | { kind: 'unavailable' }
   | { kind: 'run'; slot: MesoDaySlotDto; workout: MicroWorkoutCardDto }
+  | { kind: 'logged'; slot: MesoDaySlotDto; workout: MicroWorkoutCardDto }
   | { kind: 'rest'; slot: MesoDaySlotDto; nextWorkout: MicroWorkoutCardDto | undefined }
 
 export type WorkoutHeroProps = {
@@ -49,12 +62,12 @@ export type WorkoutHeroProps = {
 } & WorkoutHeroContent
 
 interface WorkoutHeroShellProps {
-  variant: 'unavailable' | 'run' | 'rest'
+  variant: 'unavailable' | 'run' | 'logged' | 'rest'
   className?: string
   children: ReactNode
 }
 
-/** Root element shared by all 3 render branches — the testid/variant contract lives here once. */
+/** Root element shared by all 4 render branches — the testid/variant contract lives here once. */
 const WorkoutHeroShell = ({
   variant,
   className,
@@ -73,12 +86,21 @@ interface WorkoutHeroRunContentProps {
   todayUtc: number
   units: PreferredUnits
   workout: MicroWorkoutCardDto
+  /**
+   * F1 fix — `true` when a log already exists for today's slot date
+   * (`home.page.tsx`'s `isTodayLogged`, threaded through `WorkoutHeroContent`'s
+   * `logged` kind). Swaps the CTA only — eyebrow/title/summary/stat
+   * band/DETAILS are unchanged, so the workout's own detail stays fully
+   * visible on a day the runner has already logged.
+   */
+  isLogged: boolean
 }
 
 const WorkoutHeroRunContent = ({
   todayUtc,
   units,
   workout,
+  isLogged,
 }: WorkoutHeroRunContentProps): ReactElement => {
   const [open, setOpen] = useState(false)
   const isMiles = units === PreferredUnits.Miles
@@ -104,15 +126,38 @@ const WorkoutHeroRunContent = ({
         <StatCell
           variant="hero"
           value={resolveHeroDistanceStat(workout.targetDistanceKm, units)}
-          label={isMiles ? 'MILES' : 'KILOMETERS'}
+          // Source copy stays sentence case — StatCell's `hero` label class
+          // already applies `uppercase` via CSS (spec §8 FIX 3 precedent).
+          label={isMiles ? 'Miles' : 'Kilometers'}
         />
-        <StatCell variant="hero" value={paceValue} label={isMiles ? 'PACE /MI' : 'PACE /KM'} />
+        <StatCell variant="hero" value={paceValue} label={isMiles ? 'Pace /mi' : 'Pace /km'} />
         <StatCell variant="hero" value={thirdStat.value} label={thirdStat.label} />
       </StatBand>
       <div className="flex flex-wrap items-center gap-3">
-        <Button asChild size="lg" className="flex-1" data-testid="workout-hero-log-action">
-          <Link to="/log">Log run</Link>
-        </Button>
+        {isLogged ? (
+          // F1 fix — a completed/confirmatory treatment, not a fresh
+          // call-to-action: `--positive`/moss is the established "done"
+          // signal (THE WEEK's done cell already fills moss + a check icon
+          // for the same underlying fact), reused here rather than inventing
+          // a new done treatment. Links to the logged run itself (`/history`)
+          // instead of the log form — there is nothing left to log today.
+          <Button
+            asChild
+            size="lg"
+            variant="outline"
+            className="flex-1 border-positive text-positive"
+            data-testid="workout-hero-logged-action"
+          >
+            <Link to="/history">
+              <CheckIcon aria-hidden="true" className="size-4" />
+              Logged
+            </Link>
+          </Button>
+        ) : (
+          <Button asChild size="lg" className="flex-1" data-testid="workout-hero-log-action">
+            <Link to="/log">Log run</Link>
+          </Button>
+        )}
         {/*
          * Spec's locked markup: `<Collapsible>` wraps ONLY the DETAILS
          * trigger + `CollapsibleContent` — LOG RUN is a sibling OUTSIDE it,
@@ -201,11 +246,12 @@ const WorkoutHeroRestContent = ({
 )
 
 /**
- * Today screen's hero: today's workout (or rest-day variant, or a graceful
- * "not ready yet" state when no slot data is available). `props.kind`
- * discriminates the 3 render branches (§ Slice 2 PR-B) — narrow on it before
- * touching any of `slot`/`workout`/`nextWorkout`, none of which exists on
- * every union member.
+ * Today screen's hero: today's workout (not yet logged, or already logged,
+ * §F1), the rest-day variant, or a graceful "not ready yet" state when no
+ * slot data is available. `props.kind` discriminates the 4 render branches
+ * (§ Slice 2 PR-B, extended by the F1 fix) — narrow on it before touching
+ * any of `slot`/`workout`/`nextWorkout`, none of which exists on every union
+ * member.
  */
 export const WorkoutHero = (props: WorkoutHeroProps): ReactElement => {
   if (props.kind === 'unavailable') {
@@ -216,11 +262,16 @@ export const WorkoutHero = (props: WorkoutHeroProps): ReactElement => {
     )
   }
 
-  if (props.kind === 'run') {
-    const { todayUtc, units, workout, className } = props
+  if (props.kind === 'run' || props.kind === 'logged') {
+    const { todayUtc, units, workout, className, kind } = props
     return (
-      <WorkoutHeroShell variant="run" className={className}>
-        <WorkoutHeroRunContent todayUtc={todayUtc} units={units} workout={workout} />
+      <WorkoutHeroShell variant={kind} className={className}>
+        <WorkoutHeroRunContent
+          todayUtc={todayUtc}
+          units={units}
+          workout={workout}
+          isLogged={kind === 'logged'}
+        />
       </WorkoutHeroShell>
     )
   }

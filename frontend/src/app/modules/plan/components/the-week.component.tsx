@@ -96,7 +96,7 @@ export const TheWeek = ({
 
   return (
     <section data-testid="the-week" className={cn('flex flex-col gap-3', className)}>
-      <SectionRule label="THE WEEK">
+      <SectionRule label="The week">
         <span className="t-data-label text-muted-foreground">{progress}</span>
       </SectionRule>
       <div className="grid grid-cols-7 gap-2">

@@ -36,7 +36,7 @@ export const UpNext = ({
 
   return (
     <section data-testid="up-next" className={cn('flex flex-col gap-3', className)}>
-      <SectionRule label="UP NEXT" />
+      <SectionRule label="Up next" />
       {remaining.map((workout, index) => (
         <div
           key={workout.dayOfWeek}

@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { QueryWorkoutLogsResponseDto } from '~/api/generated'
-import { PreferredUnits } from '~/api/generated'
+import type { QueryWorkoutLogsResponseDto, WorkoutLogDto } from '~/api/generated'
+import { CompletionStatus, PreferredUnits } from '~/api/generated'
 import { buildPlanFixture } from '~/modules/plan/components/plan-display.fixture'
 import { resolveCurrentWeek } from '~/modules/plan/hooks/use-plan.hooks'
 import type { PlanProjectionDto } from '~/modules/plan/models/plan.model'
@@ -98,6 +98,21 @@ const renderHome = () =>
       <HomePage />
     </MemoryRouter>,
   )
+
+const log = (occurredOn: string, distanceMeters = 6000): WorkoutLogDto => ({
+  workoutLogId: `log-${occurredOn}`,
+  occurredOn,
+  distanceMeters,
+  durationSeconds: 1800,
+  completionStatus: CompletionStatus.Complete,
+})
+
+const logsPage = (
+  logs: WorkoutLogDto[],
+): { pages: QueryWorkoutLogsResponseDto[]; pageParams: unknown[] } => ({
+  pages: [{ logs, nextCursor: null }],
+  pageParams: [null],
+})
 
 const SECTION_TESTIDS = [
   'today-header',
@@ -248,7 +263,9 @@ describe('HomePage', () => {
     // is 30 km -> 18.6 mi (THE WEEK progress denominator, THE BLOCK's
     // upcoming-week row).
     expect(home.textContent).toContain('3.7')
-    expect(home.textContent).toContain('MILES')
+    // Sentence-case source copy — StatCell's hero label applies `uppercase`
+    // via CSS, so this asserts the RENDERED (source) text, not "MILES".
+    expect(home.textContent).toContain('Miles')
     expect(home.textContent).toContain('18.6')
     // Nothing on the plan surface should still be rendering kilometres.
     expect(screen.queryByText(/\d\.\d km/u)).not.toBeInTheDocument()
@@ -324,5 +341,71 @@ describe('HomePage', () => {
     // BLOCK's own subtree — TheWeek renders an unrelated `section-rule-slot`
     // of its own (the progress string) elsewhere on the page.
     expect(block.querySelector('[data-testid="section-rule-slot"]')).toBeNull()
+  })
+
+  // F1 regression guard: the hero used to render its full LOG RUN branch
+  // even after a log existed for today, while THE WEEK's today cell
+  // correctly flipped to `done` — the same run reading as done and
+  // not-done on one screen. Both assertions below read off ONE render of
+  // the real `HomePage` tree, so a future change that re-splits the hero's
+  // and THE WEEK's log-join logic into two independent checks (rather than
+  // sharing `isDateLogged`, `the-week.helpers.ts`) fails this test the
+  // moment the two disagree.
+  describe('hero / THE WEEK agreement on logged state', () => {
+    it("given a log exists for today's slot date, the hero renders LOGGED and THE WEEK's today cell renders done", () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2026, 3, 20)) // Monday 2026-04-20 → dayOfWeek 1, week 1 (Run/Easy slot)
+
+      getCurrentPlanMock.mockReturnValue({
+        data: buildPlanFixture(),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      })
+      historyQueryMock.mockReturnValue({
+        data: logsPage([log('2026-04-20')]),
+        isLoading: false,
+        isError: false,
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        fetchNextPage: fetchNextPageMock,
+        refetch: vi.fn(),
+      })
+      renderHome()
+
+      const hero = screen.getByTestId('workout-hero')
+      expect(hero.dataset.variant).toBe('logged')
+      expect(screen.getByTestId('workout-hero-logged-action')).toBeInTheDocument()
+      expect(screen.queryByTestId('workout-hero-log-action')).not.toBeInTheDocument()
+
+      const todayCell = screen
+        .getAllByTestId('the-week-day-cell')
+        .find((cell) => cell.dataset.dayOfWeek === '1')
+      expect(todayCell?.dataset.state).toBe('done')
+    })
+
+    it("given no log exists for today, the hero renders LOG RUN and THE WEEK's today cell renders today (still in agreement)", () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2026, 3, 20)) // Monday 2026-04-20 → dayOfWeek 1, week 1
+
+      getCurrentPlanMock.mockReturnValue({
+        data: buildPlanFixture(),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      })
+      // historyQueryMock keeps `beforeEach`'s default `data: undefined` (no logs).
+      renderHome()
+
+      const hero = screen.getByTestId('workout-hero')
+      expect(hero.dataset.variant).toBe('run')
+      expect(screen.getByTestId('workout-hero-log-action')).toBeInTheDocument()
+      expect(screen.queryByTestId('workout-hero-logged-action')).not.toBeInTheDocument()
+
+      const todayCell = screen
+        .getAllByTestId('the-week-day-cell')
+        .find((cell) => cell.dataset.dayOfWeek === '1')
+      expect(todayCell?.dataset.state).toBe('today')
+    })
   })
 })

@@ -4,7 +4,7 @@ import type { PreferredUnits } from '~/api/generated'
 import { formatDistanceKm } from '~/modules/common/utils/unit-format.helpers'
 import { SectionRule } from '~/modules/common/components/section-rule/section-rule.component'
 import type { MacroPhaseDto, MesoWeekTemplateDto } from '~/modules/plan/models/plan.model'
-import { computePhaseRanges, isCurrentRange, labelForPhase } from './plan-display.helpers'
+import { computePhaseRanges, labelForPhase } from './plan-display.helpers'
 import { formatGoalChip, resolveBlockFillTiers, type BlockFillTier } from './the-block-fill.helpers'
 
 /** Props for {@link TheBlock}. */
@@ -49,7 +49,7 @@ export const TheBlock = ({
         data-state="unavailable"
         className={cn('flex flex-col gap-4', className)}
       >
-        <SectionRule label="THE BLOCK" />
+        <SectionRule label="The block" />
       </section>
     )
   }
@@ -68,7 +68,6 @@ export const TheBlock = ({
       text: `${labelForPhase(range.phase.phaseType)} ${range.startWeek}${
         range.startWeek === range.endWeek ? '' : `–${range.endWeek}`
       }`,
-      isCurrent: isCurrentRange(range, currentWeek),
     }))
   // "Upcoming" is a literal weekNumber >= currentWeek filter — an
   // already-completed week never renders under this list. Weeks absent from
@@ -87,9 +86,9 @@ export const TheBlock = ({
        * conditional expression as `children`) is the required pattern.
        */}
       {goalChip === null ? (
-        <SectionRule label="THE BLOCK" />
+        <SectionRule label="The block" />
       ) : (
-        <SectionRule label="THE BLOCK">
+        <SectionRule label="The block">
           <span className="font-mono text-[11px] font-medium text-muted-foreground">
             {goalChip}
           </span>
@@ -132,10 +131,14 @@ export const TheBlock = ({
             key={`${row.phaseType}-${row.startWeek}`}
             data-testid="the-block-phase-label"
             data-phase={row.phaseType}
-            className={cn(
-              'font-mono text-[11px] font-medium uppercase tracking-[0.05em]',
-              row.isCurrent ? 'text-muted-foreground' : 'text-[color:var(--alp-faint)]',
-            )}
+            // `--muted-foreground`, not `--alp-faint`: once more than one
+            // phase precedes the current one, this label is the runner's
+            // ONLY way to learn which weeks belong to which named phase —
+            // the fill-tier grid above collapses every pre-current phase to
+            // the same `currentPhase` tier (BD2, §2.6), so it cannot carry
+            // that distinction. Essential text, not decoration (spec §8's
+            // FIX 5 note) — applies uniformly, current phase or not.
+            className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-muted-foreground"
           >
             {row.text}
           </span>

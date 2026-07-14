@@ -41,11 +41,24 @@ describe('WorkoutHero', () => {
         'Wednesday, JUL 8 — ON THE SCHEDULE',
       )
       expect(screen.getByRole('heading', { name: 'Threshold intervals' })).toBeInTheDocument()
+      // intervalsWednesday's composed summary (F3 catch: this assertion is
+      // the only thing that fails if the summary `<p>` is deleted, or the
+      // wrong workout is wired into it — `composeWorkoutSummary` itself is
+      // unit-tested in isolation in plan-display.helpers.spec.ts, but
+      // nothing previously proved WorkoutHero renders its output at all).
+      expect(
+        screen.getByText(
+          "12' easy, then 5 × 4' at threshold, then 8' down. Threshold session — controlled discomfort.",
+        ),
+      ).toBeInTheDocument()
       const cells = screen.getAllByTestId('stat-cell')
       expect(cells).toHaveLength(3)
       const logAction = screen.getByTestId('workout-hero-log-action')
       expect(logAction).toHaveAttribute('href', '/log')
       expect(screen.getByTestId('workout-hero-details-trigger')).toBeInTheDocument()
+      // F1 catch: the run (not-yet-logged) branch must never show the
+      // logged-state CTA.
+      expect(screen.queryByTestId('workout-hero-logged-action')).not.toBeInTheDocument()
     })
 
     it("derives the eyebrow's weekday and date fragments from the same todayUtc, agreeing even under a non-UTC test timezone", () => {
@@ -131,10 +144,12 @@ describe('WorkoutHero', () => {
       const cells = screen.getAllByTestId('stat-cell')
       // 9 km target distance -> 5.6 mi.
       expect(cells[0]).toHaveTextContent('5.6')
-      expect(cells[0]).toHaveTextContent('MILES')
+      // Sentence-case source copy — StatCell's hero label applies
+      // `uppercase` via CSS, so this asserts the RENDERED (source) text.
+      expect(cells[0]).toHaveTextContent('Miles')
     })
 
-    it('shows the reps branch (×N, REPS · M MIN) for an interval workout', () => {
+    it('shows the reps branch (×N, Reps · M min) for an interval workout', () => {
       renderHero({
         kind: 'run',
         slot: { slotType: 'Run', workoutType: 'Interval', notes: '' },
@@ -144,10 +159,10 @@ describe('WorkoutHero', () => {
       })
       const cells = screen.getAllByTestId('stat-cell')
       expect(cells[2]).toHaveTextContent('×5')
-      expect(cells[2]).toHaveTextContent('REPS · 4 MIN')
+      expect(cells[2]).toHaveTextContent('Reps · 4 min')
     })
 
-    it('shows the duration branch (bare number, MINUTES) for a continuous-effort workout', () => {
+    it('shows the duration branch (bare number, Minutes) for a continuous-effort workout', () => {
       renderHero({
         kind: 'run',
         slot: { slotType: 'Run', workoutType: 'Easy', notes: '' },
@@ -157,7 +172,7 @@ describe('WorkoutHero', () => {
       })
       const cells = screen.getAllByTestId('stat-cell')
       expect(cells[2]).toHaveTextContent('38')
-      expect(cells[2]).toHaveTextContent('MINUTES')
+      expect(cells[2]).toHaveTextContent('Minutes')
     })
 
     it("renders the stat band via StatCell's hero typography, not the generic .t-numeral/.t-data-label role (§2.8)", () => {
@@ -177,11 +192,65 @@ describe('WorkoutHero', () => {
         expect(value).toHaveClass('font-condensed', 'text-[30px]', 'font-bold')
         // Label color is `text-muted-foreground`, not the decorative
         // `--alp-faint` — builder decision (Slice 2 FIX 3): a stat-band unit
-        // label (KILOMETERS, PACE /KM) is essential text (disambiguates a
+        // label (Kilometers, Pace /km) is essential text (disambiguates a
         // bare numeral under a km/miles preference), not decoration.
         expect(label).toHaveClass('font-mono', 'text-[9.5px]', 'uppercase', 'text-muted-foreground')
         expect(label).not.toHaveClass('text-[color:var(--alp-faint)]')
       }
+    })
+  })
+
+  describe('logged-day branch (F1 fix)', () => {
+    it('renders the LOGGED affordance linking to /history instead of LOG RUN, with the workout detail (title/summary/stat band/DETAILS) still visible', () => {
+      renderHero({
+        kind: 'logged',
+        slot: { slotType: 'Run', workoutType: 'Interval', notes: '' },
+        workout: intervalsWednesday,
+        todayUtc: TODAY_UTC,
+        units: PreferredUnits.Kilometers,
+      })
+
+      const hero = screen.getByTestId('workout-hero')
+      expect(hero.dataset.variant).toBe('logged')
+      // Workout detail is unchanged from the run-day branch.
+      expect(screen.getByRole('heading', { name: 'Threshold intervals' })).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          "12' easy, then 5 × 4' at threshold, then 8' down. Threshold session — controlled discomfort.",
+        ),
+      ).toBeInTheDocument()
+      expect(screen.getAllByTestId('stat-cell')).toHaveLength(3)
+      expect(screen.getByTestId('workout-hero-details-trigger')).toBeInTheDocument()
+
+      // The CTA is the LOGGED affordance, not LOG RUN.
+      expect(screen.queryByTestId('workout-hero-log-action')).not.toBeInTheDocument()
+      const loggedAction = screen.getByTestId('workout-hero-logged-action')
+      expect(loggedAction).toHaveTextContent('Logged')
+      expect(loggedAction).toHaveAttribute('href', '/history')
+    })
+
+    it('gives the LOGGED affordance an accessible name and renders it as a real link', () => {
+      renderHero({
+        kind: 'logged',
+        slot: { slotType: 'Run', workoutType: 'Interval', notes: '' },
+        workout: intervalsWednesday,
+        todayUtc: TODAY_UTC,
+        units: PreferredUnits.Kilometers,
+      })
+      const loggedAction = screen.getByRole('link', { name: /logged/i })
+      expect(loggedAction).toHaveAttribute('href', '/history')
+    })
+
+    it('uses the --positive/moss "done" token, not a new treatment', () => {
+      renderHero({
+        kind: 'logged',
+        slot: { slotType: 'Run', workoutType: 'Interval', notes: '' },
+        workout: intervalsWednesday,
+        todayUtc: TODAY_UTC,
+        units: PreferredUnits.Kilometers,
+      })
+      const loggedAction = screen.getByTestId('workout-hero-logged-action')
+      expect(loggedAction).toHaveClass('border-positive', 'text-positive')
     })
   })
 
@@ -251,11 +320,18 @@ describe('WorkoutHero', () => {
     })
   })
 
-  it('restates the workout-hero root testid on all three render branches, distinguished by data-variant', () => {
+  it('restates the workout-hero root testid on all four render branches, distinguished by data-variant', () => {
     const cases: WorkoutHeroProps[] = [
       { kind: 'unavailable', todayUtc: TODAY_UTC, units: PreferredUnits.Kilometers },
       {
         kind: 'run',
+        slot: { slotType: 'Run', workoutType: 'Interval', notes: '' },
+        workout: intervalsWednesday,
+        todayUtc: TODAY_UTC,
+        units: PreferredUnits.Kilometers,
+      },
+      {
+        kind: 'logged',
         slot: { slotType: 'Run', workoutType: 'Interval', notes: '' },
         workout: intervalsWednesday,
         todayUtc: TODAY_UTC,
@@ -282,6 +358,25 @@ describe('WorkoutHero', () => {
         <MemoryRouter>
           <WorkoutHero
             kind="run"
+            slot={{ slotType: 'Run', workoutType: 'Interval', notes: '' }}
+            workout={intervalsWednesday}
+            todayUtc={TODAY_UTC}
+            units={PreferredUnits.Kilometers}
+          />
+        </MemoryRouter>,
+      )
+      for (const result of [dark, light]) {
+        expect(result.getByTestId('workout-hero')).toBeInTheDocument()
+        expect(result.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+      }
+      expect(testidsIn(dark.container)).toEqual(testidsIn(light.container))
+    })
+
+    it('renders the logged-day variant identically in both themes with zero raw colour literals', () => {
+      const { dark, light } = renderInBothThemes(
+        <MemoryRouter>
+          <WorkoutHero
+            kind="logged"
             slot={{ slotType: 'Run', workoutType: 'Interval', notes: '' }}
             workout={intervalsWednesday}
             todayUtc={TODAY_UTC}
