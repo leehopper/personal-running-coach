@@ -581,6 +581,9 @@ export type PlanProjectionDto = {
   generatedAt: string
   planStartDate: string
   previousPlanId?: string | null
+  targetEventName?: string | null
+  targetEventDistanceKm?: number | null
+  targetEventDate?: string | null
   promptVersion: string
   modelId: string
   macro: MacroPlanOutput

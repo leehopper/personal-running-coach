@@ -154,7 +154,10 @@ public sealed class PlanEventSequenceTests
         PlanStartDate: PlanCalendar.StartOfTrainingWeek(new DateOnly(2026, 5, 1)),
         PromptVersion: "v1",
         ModelId: "test-model",
-        PreviousPlanId: null);
+        PreviousPlanId: null,
+        TargetEventName: null,
+        TargetEventDistanceKm: null,
+        TargetEventDate: null);
 
     private static MesoWeekOutput BuildMeso(int weekNumber)
     {

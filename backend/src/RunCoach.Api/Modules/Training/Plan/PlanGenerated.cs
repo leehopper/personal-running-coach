@@ -17,7 +17,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <see cref="Coaching.Models.Structured.WorkoutOutput.DayOfWeek"/> 0 = Sunday)
 /// begins — the start-of-week (Sunday) of the generation date. Lets a logged
 /// run's date map deterministically to a <c>(week, day)</c> slot server-side
-/// (slice-2b Unit 1 / DEC-076); the regenerate flow re-anchors week 1 to the
+/// (DEC-076); the regenerate flow re-anchors week 1 to the
 /// regeneration week because it shares this construction site.
 /// </param>
 /// <param name="PromptVersion">
@@ -35,6 +35,20 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// initial onboarding-driven generation. The regenerate handler reuses this
 /// slot without a schema bump.
 /// </param>
+/// <param name="TargetEventName">
+/// The name of the goal race or event (e.g. "Berlin Marathon") captured during
+/// onboarding, or <see langword="null"/> for a general-fitness plan with no
+/// target event. Threaded from <c>OnboardingView.TargetEvent?.EventName</c>.
+/// </param>
+/// <param name="TargetEventDistanceKm">
+/// The target event's distance in kilometers, or <see langword="null"/> for a
+/// general-fitness plan. Threaded from <c>OnboardingView.TargetEvent?.DistanceKm</c>.
+/// </param>
+/// <param name="TargetEventDate">
+/// The target event's calendar date, or <see langword="null"/> for a
+/// general-fitness plan or an unparseable onboarding date. Threaded from the
+/// same <c>ResolveTargetEventDate</c> parse already used for horizon math.
+/// </param>
 public sealed record PlanGenerated(
     Guid PlanId,
     Guid UserId,
@@ -43,4 +57,7 @@ public sealed record PlanGenerated(
     DateOnly PlanStartDate,
     string PromptVersion,
     string ModelId,
-    Guid? PreviousPlanId);
+    Guid? PreviousPlanId,
+    string? TargetEventName,
+    double? TargetEventDistanceKm,
+    DateOnly? TargetEventDate);

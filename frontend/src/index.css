@@ -97,6 +97,13 @@
   --alp-input: #131812;
   --alp-input-border: #646959;
   --alp-hairline: #2a3326;
+  /* THE BLOCK's `distant`-tier (far-future week) cell fill — an exact match
+   * to the mock's dimmer #141911. No existing primitive matched it
+   * (--alp-input is close but off by a visible margin); the value is the
+   * component-wise midpoint of --alp-bg/--alp-surface (see the
+   * semantic-tier `--surface-dim` comment below for the full derivation and
+   * the `.light` value's arithmetic). */
+  --alp-surface-dim: #141911;
   --alp-bone: #ede8db;
   --alp-muted: #a9a594;
   --alp-faint: #6f6d5e;
@@ -163,6 +170,13 @@
   --alp-input: #efebdd;
   --alp-input-border: #848273;
   --alp-hairline: #d6d1c1;
+  /* Derived, not guessed: the component-wise midpoint of light --alp-bg
+   * (#f3f0e7) and light --alp-surface (#eae5d7) — the same relationship
+   * dark's locked #141911 bears to dark --alp-bg/--alp-surface (exact on 2
+   * of 3 RGB channels, within 2 hex units on the third). R: (243+234)/2=
+   * 238.5→239; G: (240+229)/2=234.5→235; B: (231+215)/2=223 →
+   * rgb(239,235,223) = #efebdf. */
+  --alp-surface-dim: #efebdf;
   --alp-bone: #1c2418;
   --alp-muted: #5b5c4e;
   --alp-faint: #8b897a;
@@ -259,6 +273,22 @@
   --clay-text: var(--alp-clay-text);
   --clay-pressed: var(--alp-clay-pressed);
   --input-fill: var(--alp-input);
+  /* Clay used as a BORDER OR FILL only, never as text — the "current"
+   * marker (THE WEEK's today-cell 2px outline, THE BLOCK's current-week
+   * cell, the coach digest's accent-indent border). Maps to the
+   * already-existing `--alp-clay-marker` primitive (already used for
+   * `--sidebar-ring`). Border/fill-only, so it carries the same WCAG
+   * 1.4.11 decorative/non-text contrast exemption as `--border` above.
+   * Text usages of clay use `--clay-text` above instead (AA-verified for
+   * text; `--clay-marker`'s light value is a different,
+   * untested-for-contrast color). */
+  --clay-marker: var(--alp-clay-marker);
+  /* THE BLOCK's `distant`-tier cell fill — a genuinely new primitive (no
+   * existing token matched the mock's dimmer fill), border/fill-only
+   * (never text — the phase-span label row sits below the cell grid, never
+   * layered over a cell), so it carries the same contrast exemption as
+   * `--border`/`--clay-marker`. */
+  --surface-dim: var(--alp-surface-dim);
 
   /* Alpine accent ramp for charts — non-text, decorative. */
   --chart-1: var(--alp-clay);
@@ -313,6 +343,8 @@
   --clay-text: var(--alp-clay-text);
   --clay-pressed: var(--alp-clay-pressed);
   --input-fill: var(--alp-input);
+  --clay-marker: var(--alp-clay-marker);
+  --surface-dim: var(--alp-surface-dim);
 
   --chart-1: var(--alp-clay);
   --chart-2: var(--alp-moss);
@@ -385,6 +417,8 @@
   --color-rule: var(--rule);
   --color-clay-text: var(--clay-text);
   --color-clay-pressed: var(--clay-pressed);
+  --color-clay-marker: var(--clay-marker);
+  --color-surface-dim: var(--surface-dim);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

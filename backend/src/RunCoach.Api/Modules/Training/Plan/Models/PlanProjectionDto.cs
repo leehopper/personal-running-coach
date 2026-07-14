@@ -39,7 +39,7 @@ public sealed record PlanProjectionDto
     /// Gets or sets the calendar date on which the plan's week 1, day 0 (Sunday)
     /// begins — the start-of-week of the generation date. Threaded through from
     /// <see cref="PlanGenerated.PlanStartDate"/> verbatim; the frontend derives the
-    /// current week from this anchor relative to today (slice-2b Unit 1 / DEC-076).
+    /// current week from this anchor relative to today (DEC-076).
     /// </summary>
     public DateOnly PlanStartDate { get; set; }
 
@@ -49,6 +49,27 @@ public sealed record PlanProjectionDto
     /// <see cref="PlanGenerated.PreviousPlanId"/> verbatim.
     /// </summary>
     public Guid? PreviousPlanId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the goal race or event, or <see langword="null"/> for a
+    /// general-fitness plan with no target event. Threaded through from
+    /// <see cref="PlanGenerated.TargetEventName"/> verbatim.
+    /// </summary>
+    public string? TargetEventName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the target event's distance in kilometers, or <see langword="null"/> for a
+    /// general-fitness plan. Threaded through from
+    /// <see cref="PlanGenerated.TargetEventDistanceKm"/> verbatim.
+    /// </summary>
+    public double? TargetEventDistanceKm { get; set; }
+
+    /// <summary>
+    /// Gets or sets the target event's calendar date, or <see langword="null"/> for a
+    /// general-fitness plan or an unparseable onboarding date. Threaded through from
+    /// <see cref="PlanGenerated.TargetEventDate"/> verbatim.
+    /// </summary>
+    public DateOnly? TargetEventDate { get; set; }
 
     /// <summary>
     /// Gets or sets the semantic version of the coaching prompt YAML that
@@ -63,7 +84,7 @@ public sealed record PlanProjectionDto
     public string ModelId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the periodized macro plan rendered as the home page's macro phase strip.
+    /// Gets or sets the periodized macro plan consumed by the frontend's <c>TheBlock</c>.
     /// Set by the <see cref="PlanGenerated"/> apply method; never null after the projection
     /// has consumed the stream-creation event.
     /// </summary>
@@ -71,7 +92,7 @@ public sealed record PlanProjectionDto
 
     /// <summary>
     /// Gets or sets the detailed weekly templates emitted by the meso tier, in week-index
-    /// order. The frontend's <c>MesoWeekBlock</c> renders this directly.
+    /// order. The frontend's <c>TheWeek</c> and <c>TheBlock</c> render this directly.
     /// </summary>
     public IReadOnlyList<MesoWeekOutput> MesoWeeks { get; set; } = Array.Empty<MesoWeekOutput>();
 
