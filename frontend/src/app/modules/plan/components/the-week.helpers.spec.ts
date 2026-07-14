@@ -3,7 +3,13 @@ import type { WorkoutLogDto } from '~/api/generated'
 import { CompletionStatus, PreferredUnits } from '~/api/generated'
 import { toUtcMidnight } from './plan-display.helpers'
 import { buildPlanFixture, buildWorkoutLog as log, PLAN_START_DATE } from './plan-display.fixture'
-import { formatWeekProgress, isDateLogged, resolveDayCells, weekLoggedKm } from './the-week.helpers'
+import {
+  formatWeekProgress,
+  formatWeekProgressUnknown,
+  isDateLogged,
+  resolveDayCells,
+  weekLoggedKm,
+} from './the-week.helpers'
 
 // PLAN_START_DATE anchors to Sunday 2026-04-19, so week 1 spans 2026-04-19
 // (Sun) .. 2026-04-25 (Sat). Week 1's template (baseWeek(1, false)) is
@@ -199,5 +205,20 @@ describe('formatWeekProgress', () => {
 
   it('renders "0.0" rather than omitting the logged side when nothing has been run yet', () => {
     expect(formatWeekProgress(0, 30, PreferredUnits.Kilometers)).toBe('0.0/30.0 KM')
+  })
+})
+
+describe('formatWeekProgressUnknown', () => {
+  it('formats "—/NN.N KM" for the kilometres preference', () => {
+    expect(formatWeekProgressUnknown(30, PreferredUnits.Kilometers)).toBe('—/30.0 KM')
+  })
+
+  it('formats "—/NN.N MI" for the miles preference', () => {
+    // 30 km -> 18.6 mi
+    expect(formatWeekProgressUnknown(30, PreferredUnits.Miles)).toBe('—/18.6 MI')
+  })
+
+  it('marks the logged side unknown rather than fabricating a "0.0" that reads as "nothing logged"', () => {
+    expect(formatWeekProgressUnknown(30, PreferredUnits.Kilometers)).not.toContain('0.0/')
   })
 })
