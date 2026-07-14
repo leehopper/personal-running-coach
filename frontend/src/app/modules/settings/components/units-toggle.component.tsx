@@ -14,8 +14,8 @@ import { parsePreferredUnits, UNIT_OPTIONS } from '~/modules/common/utils/unit-o
  * query. While the preference is still loading it falls back to Kilometers so
  * the control always renders with a selection.
  *
- * This preference drives the plan render tree (`TodayCard`, `UpcomingList`,
- * `MesoWeekBlock`, `MicroWorkoutCard`) via `usePreferredUnits`. The
+ * This preference drives the plan render tree (`WorkoutHero`, `TheWeek`,
+ * `UpNext`, `TheBlock`, `CoachDigest`) via `usePreferredUnits`. The
  * logging/history and adaptation surfaces remain km-only.
  */
 export const UnitsToggle = (): ReactElement => {

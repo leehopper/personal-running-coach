@@ -179,9 +179,9 @@ const WorkoutHeroRestContent = ({
     <p className="t-body text-muted-foreground">Recovery is training.</p>
     {nextWorkout === undefined ? null : (
       // Styled like UpNext's row markup (mono day abbrev + row-title,
-      // right-aligned distance) — NOT the pre-redesign TodayCard's prose
-      // form. No mock covers the rest-day hero; this is the spec's proposed
-      // default (§9 open question #5).
+      // right-aligned distance) — NOT a prose form. No mock covers the
+      // rest-day hero; this is the spec's proposed default (§9 open
+      // question #5).
       <div
         data-testid="workout-hero-next-workout"
         className="flex items-baseline justify-between gap-3 border-t border-border pt-3"

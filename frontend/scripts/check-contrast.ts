@@ -33,6 +33,10 @@
  *     cell, the coach digest's accent-indent border). Text usages of clay
  *     use --clay-text instead, which IS gated above. Same exemption posture
  *     as --border.
+ *   --surface-dim — the Slice 2 THE BLOCK "distant" (far-future week) cell
+ *     fill (AD-10): fill-only, never text — the phase-span label row sits
+ *     below the cell grid, never layered over a cell's fill. Same
+ *     exemption posture as --border/--clay-marker.
  *
  * NOT exempt — --input IS asserted (3:1 UI-component rule): it is a
  *   form-control boundary and the only cue that an empty resting field

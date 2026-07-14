@@ -12,7 +12,14 @@ import { DAY_OF_WEEK_LABELS, WORKOUT_TYPE_LABELS } from './plan-display.helpers'
 export interface MicroWorkoutCardProps {
   /** Detailed workout from `PlanProjectionDto.microWorkoutsByWeek[N]`. */
   workout: MicroWorkoutCardDto
-  /** Optional emphasis flag used by `TodayCard` to render the prominent variant. */
+  /**
+   * Optional emphasis flag for a prominent-variant render. No current call
+   * site sets this to `true` — `MicroWorkoutCard` itself has no mount point
+   * in the Today screen's render tree post-Slice-2 (superseded by
+   * `WorkoutHero`, which composes its own hero markup and
+   * `MicroWorkoutSegmentRow` directly); kept exported, with its spec
+   * intact, for a future screen that wants the full detail-card treatment.
+   */
   emphasized?: boolean
   /**
    * Display unit for the distance + pace. Defaults to Kilometers so callers
@@ -80,7 +87,10 @@ export const MicroWorkoutCard = ({
           <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Distance
           </dt>
-          <dd data-testid="micro-workout-distance" className="text-base font-semibold text-foreground">
+          <dd
+            data-testid="micro-workout-distance"
+            className="text-base font-semibold text-foreground"
+          >
             {distance ?? '—'}
           </dd>
         </div>

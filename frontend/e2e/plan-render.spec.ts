@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Page, type Route } from '@playwright/test'
 
 // Plan-render e2e per spec § Unit 4 R04.1, R04.3, R04.9 + the canonical
-// `plan-view-on-home.feature` Gherkin (slice 1).
+// `plan-view-on-home.feature` Gherkin (slice 1), realigned for the SPLIT/
+// Alpine Today-screen recomposition (Slice 2 §7).
 //
 // Strategy:
 //   1. Use the real backend for `register` so the auth cookie + antiforgery
@@ -16,14 +17,19 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 //      description: "deterministic stub LLM via Playwright route
 //      interception").
 //   3. Stub `GET /api/v1/plan/current` with a hand-crafted projection that
-//      exercises `MacroPhaseStrip`, `TodayCard`, and `UpcomingList`. The
-//      projection contains a workout for every day of the week so the
-//      "today" card always picks one regardless of when the suite runs.
-//   4. Assert the three sections render, reload, assert again, and grep
+//      exercises all six Today-screen sections (header, hero, THE WEEK, FROM
+//      YOUR COACH, UP NEXT, THE BLOCK) — including a race-training target
+//      event so THE BLOCK's goal chip renders. The projection contains a
+//      workout for every day of the week so the hero always picks one
+//      regardless of when the suite runs.
+//   4. Assert the six sections render, reload, assert again, and grep
 //      `body.innerHTML` for `/vdot/i` returning zero matches per the
 //      trademark rule (root `CLAUDE.md` § Trademark Rule: VDOT). This is the
 //      DOM-level enforcement called out in spec § Unit 4 R04.9.
 
+// e2e specs; not a secret. Suppress the sonarjs hardcoded-password false positive
+// (the sibling specs predate the rule and stay red — repo-wide noise, not this PR).
+// eslint-disable-next-line sonarjs/no-hardcoded-passwords
 const VALID_PASSWORD = 'Correct-Horse-9!'
 
 // Fresh email per run so the suite is re-runnable against a shared dev
@@ -38,11 +44,28 @@ const OnboardingStatus = { NotStarted: 0, InProgress: 1, Completed: 2 } as const
 const completedPlanId = '8a4b9b2a-1d3f-4f1c-9aab-5e2c1f0b1234'
 const userId = '00000000-0000-0000-0000-000000000001'
 
+// The Sunday (LOCAL calendar day, matching `toUtcMidnight`'s
+// getFullYear/getMonth/getDate approach in `plan-display.helpers.ts`) on or
+// before "now", formatted `YYYY-MM-DD`. Used as `planStartDate` so week 1's
+// Sunday–Saturday span always contains "today" regardless of when the suite
+// runs (same no-flake principle the fixture already applies to workout
+// selection) — this is what makes THE WEEK's `today` day-cell state
+// reachable at all: an absent/unparseable `planStartDate` makes every cell
+// degrade to `planned`/`rest` (`resolveDayCells`'s unparseable-date path).
+const planStartDateForCurrentWeek = (): string => {
+  const now = new Date()
+  const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
+  const yyyy = sunday.getFullYear()
+  const mm = String(sunday.getMonth() + 1).padStart(2, '0')
+  const dd = String(sunday.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 // PlanProjectionDto fixture — wide enough to populate every plan-render
 // surface. The macro carries three phases summing to 12 weeks; the four
 // meso templates cover weeks 1-4; week 1's micro list contains a workout
-// for every day-of-week index 0-6 so `TodayCard` always resolves to the
-// workout variant regardless of when the suite runs (no rest-day flake).
+// for every day-of-week index 0-6 so the workout hero always resolves to
+// its `run` variant regardless of when the suite runs (no rest-day flake).
 //
 // String literals here must obey the trademark rule — every label uses
 // "Daniels-Gilbert" / "pace-zone index" / Daniels phrasing, never "VDOT".
@@ -96,6 +119,14 @@ const buildPlanProjection = () => {
     userId,
     generatedAt: '2026-04-25T12:00:00.000Z',
     previousPlanId: null,
+    // Anchors THE WEEK's calendar-date join to a real Sunday-first span
+    // containing "today" — see `planStartDateForCurrentWeek`'s doc comment.
+    planStartDate: planStartDateForCurrentWeek(),
+    // Race-training target event — exercises THE BLOCK's goal chip
+    // (`formatGoalChip`, Slice 2 §2.6) through a real stub round-trip.
+    targetEventName: 'Local Half Marathon',
+    targetEventDistanceKm: 21.1,
+    targetEventDate: '2026-10-03',
     promptVersion: 'plan-generation-v1',
     modelId: 'claude-sonnet-4-6',
     macro: {
@@ -226,23 +257,41 @@ test('register → land on / → plan renders → reload → identical content +
   await page.getByRole('button', { name: /create account/i }).click()
   await expect(page).toHaveURL('/')
 
-  // 2. The three plan-render sections must be visible on the home page.
-  //    These three test ids are the public contract from spec § Unit 4
-  //    R04.4 / R04.5 / R04.6.
+  // 2. All six Today-screen sections must be visible on the home page.
+  //    These test ids are the public contract from Slice 2 §1 PR-B/C/D.
   const homePage = page.getByTestId('home-page')
   await expect(homePage).toBeVisible()
-  await expect(page.getByTestId('macro-phase-strip')).toBeVisible()
-  await expect(page.getByTestId('today-card')).toBeVisible()
-  await expect(page.getByTestId('upcoming-list')).toBeVisible()
+  await expect(page.getByTestId('today-header')).toBeVisible()
+  await expect(page.getByTestId('workout-hero')).toBeVisible()
+  await expect(page.getByTestId('the-week')).toBeVisible()
+  await expect(page.getByTestId('coach-digest')).toBeVisible()
+  await expect(page.getByTestId('up-next')).toBeVisible()
+  await expect(page.getByTestId('the-block')).toBeVisible()
 
-  // Capture the rendered macro segments + today-card title before reload
-  // so we can prove the post-reload DOM matches.
-  const segmentsBefore = await page
-    .getByTestId('macro-phase-segment')
-    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-phase')))
+  // THE WEEK's headline states, not just visibility: with a real
+  // `planStartDate` anchoring the grid to the current calendar week, exactly
+  // one of the 7 day cells must resolve to `today` — the "you are here"
+  // marker `resolveDayCells` derives from `todayUtc`. Without a real
+  // `planStartDate` this state is structurally unreachable (every cell
+  // degrades to `planned`/`rest`), so this assertion is genuine end-to-end
+  // coverage of the grid's headline state, not mere DOM-presence coverage.
+  const dayCellStates = await page
+    .getByTestId('the-week-day-cell')
+    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-state')))
+  expect(dayCellStates).toHaveLength(7)
+  expect(dayCellStates.filter((state) => state === 'today')).toHaveLength(1)
+
+  // Capture THE BLOCK's rendered fill-tier cell sequence before reload so we
+  // can prove the post-reload DOM matches — the direct successor to the
+  // deleted `MacroPhaseStrip`'s `macro-phase-segment` snapshot proof (Slice
+  // 2 §7): same "no double-fetch, same content" invariant, new selectors.
+  const tiersBefore = await page
+    .getByTestId('the-block-cell')
+    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-tier')))
   const homeHtmlBefore = await homePage.innerHTML()
 
-  expect(segmentsBefore).toEqual(['Base', 'Build', 'Taper'])
+  expect(tiersBefore).toHaveLength(12)
+  expect(tiersBefore[0]).toBe('current')
   expect(counter.planCurrentRequests).toBeGreaterThan(0)
 
   // 3. Reload the page and assert the same content renders. The projection
@@ -253,14 +302,17 @@ test('register → land on / → plan renders → reload → identical content +
   await page.reload()
   await expect(page).toHaveURL('/')
   await expect(page.getByTestId('home-page')).toBeVisible()
-  await expect(page.getByTestId('macro-phase-strip')).toBeVisible()
-  await expect(page.getByTestId('today-card')).toBeVisible()
-  await expect(page.getByTestId('upcoming-list')).toBeVisible()
+  await expect(page.getByTestId('today-header')).toBeVisible()
+  await expect(page.getByTestId('workout-hero')).toBeVisible()
+  await expect(page.getByTestId('the-week')).toBeVisible()
+  await expect(page.getByTestId('coach-digest')).toBeVisible()
+  await expect(page.getByTestId('up-next')).toBeVisible()
+  await expect(page.getByTestId('the-block')).toBeVisible()
 
-  const segmentsAfter = await page
-    .getByTestId('macro-phase-segment')
-    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-phase')))
-  expect(segmentsAfter).toEqual(segmentsBefore)
+  const tiersAfter = await page
+    .getByTestId('the-block-cell')
+    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-tier')))
+  expect(tiersAfter).toEqual(tiersBefore)
 
   const homeHtmlAfter = await page.getByTestId('home-page').innerHTML()
   expect(homeHtmlAfter).toBe(homeHtmlBefore)
