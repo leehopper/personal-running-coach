@@ -34,22 +34,20 @@ const CELL_FILL_CLASSES: Record<DayCellState, string> = {
 }
 
 /**
- * State-dependent day-label styling (design source: `split-alpine.dc.html`
- * sheets 2a/4a's THE WEEK grid). `today` goes semibold clay-text (the only
- * day singled out as "you are here"); `done`/`planned`/`rest` all share the
- * ordinary muted mono label.
+ * State-dependent day-label styling. `today` goes semibold clay-text (the
+ * only day singled out as "you are here"); `done`/`planned`/`rest` all
+ * share the ordinary muted mono label.
  *
- * Builder decision (Slice 2 FIX 3): the mock dims `rest` to `--alp-faint`,
- * rejected here — `--alp-faint` is decorative-only by design (fails AA,
- * `check-contrast` exempts it, CLAUDE.md forbids essential text in it), but
- * a rest-day label ("SUN") is essential calendar-legibility text, not
- * decoration. `rest` now renders in `--muted-foreground` (already
- * contrast-gated), the same class `done`/`planned` already use — a
- * deliberate, documented deviation from the mock (see spec §8) that
- * collapses three of the four states to one shared treatment. `today`
- * remains the only visually distinguished label, which is still the
- * meaningful state distinction this grid needs to carry ("you are here"
- * vs. everything else).
+ * The design mock dims `rest` to the decorative-only faint tint, rejected
+ * here — that tint fails AA contrast by design and must never carry
+ * essential text, but a rest-day label ("SUN") is essential
+ * calendar-legibility text, not decoration. `rest` instead renders in
+ * `--muted-foreground` (already contrast-gated), the same class
+ * `done`/`planned` already use — a deliberate, documented deviation from
+ * the mock that collapses three of the four states to one shared
+ * treatment. `today` remains the only visually distinguished label, which
+ * is still the meaningful state distinction this grid needs to carry ("you
+ * are here" vs. everything else).
  */
 const CELL_LABEL_CLASSES: Record<DayCellState, string> = {
   done: 'text-muted-foreground',

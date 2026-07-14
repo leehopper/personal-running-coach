@@ -13,12 +13,10 @@ export interface MicroWorkoutCardProps {
   /** Detailed workout from `PlanProjectionDto.microWorkoutsByWeek[N]`. */
   workout: MicroWorkoutCardDto
   /**
-   * Optional emphasis flag for a prominent-variant render. No current call
-   * site sets this to `true` — `MicroWorkoutCard` itself has no mount point
-   * in the Today screen's render tree post-Slice-2 (superseded by
-   * `WorkoutHero`, which composes its own hero markup and
-   * `MicroWorkoutSegmentRow` directly); kept exported, with its spec
-   * intact, for a future screen that wants the full detail-card treatment.
+   * Optional emphasis flag for a prominent-variant render. Not currently
+   * used in the Today screen's render tree (`WorkoutHero` composes its own
+   * hero markup directly instead), but kept as part of this component's
+   * public contract.
    */
   emphasized?: boolean
   /**

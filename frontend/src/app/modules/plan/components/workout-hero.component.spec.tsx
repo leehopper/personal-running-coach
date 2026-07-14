@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { PreferredUnits } from '~/api/generated'
-import { renderInBothThemes } from '~/modules/common/test-utils/render-in-both-themes'
+import {
+  expectDualThemeParity,
+  renderInBothThemes,
+} from '~/modules/common/test-utils/render-in-both-themes'
 import { fixtureWeekOneWorkouts } from './plan-display.fixture'
 import { WorkoutHero, type WorkoutHeroProps } from './workout-hero.component'
 
@@ -18,11 +21,6 @@ const renderHero = (props: WorkoutHeroProps) =>
 const TODAY_UTC = Date.UTC(2026, 6, 8)
 
 const [easyMonday, intervalsWednesday] = fixtureWeekOneWorkouts()
-
-const testidsIn = (container: HTMLElement): (string | null)[] =>
-  [...container.querySelectorAll('[data-testid]')]
-    .map((el) => el.getAttribute('data-testid'))
-    .sort()
 
 describe('WorkoutHero', () => {
   describe('run-day branch', () => {
@@ -41,11 +39,10 @@ describe('WorkoutHero', () => {
         'Wednesday, JUL 8 — ON THE SCHEDULE',
       )
       expect(screen.getByRole('heading', { name: 'Threshold intervals' })).toBeInTheDocument()
-      // intervalsWednesday's composed summary (F3 catch: this assertion is
-      // the only thing that fails if the summary `<p>` is deleted, or the
-      // wrong workout is wired into it — `composeWorkoutSummary` itself is
-      // unit-tested in isolation in plan-display.helpers.spec.ts, but
-      // nothing previously proved WorkoutHero renders its output at all).
+      // This assertion is the only thing that fails if the summary `<p>` is
+      // deleted, or the wrong workout is wired into it — `composeWorkoutSummary`'s
+      // own logic is unit-tested separately, but that alone doesn't prove
+      // WorkoutHero actually renders its output.
       expect(
         screen.getByText(
           "12' easy, then 5 × 4' at threshold, then 8' down. Threshold session — controlled discomfort.",
@@ -56,8 +53,8 @@ describe('WorkoutHero', () => {
       const logAction = screen.getByTestId('workout-hero-log-action')
       expect(logAction).toHaveAttribute('href', '/log')
       expect(screen.getByTestId('workout-hero-details-trigger')).toBeInTheDocument()
-      // F1 catch: the run (not-yet-logged) branch must never show the
-      // logged-state CTA.
+      // The run (not-yet-logged) branch must never show the logged-state
+      // CTA.
       expect(screen.queryByTestId('workout-hero-logged-action')).not.toBeInTheDocument()
     })
 
@@ -120,7 +117,7 @@ describe('WorkoutHero', () => {
       expect(trigger.closest('[data-slot="collapsible"]')).not.toBeNull()
     })
 
-    it('renders the DETAILS trigger as a text-only affordance with no icon (BD3 — no chevron)', () => {
+    it('renders the DETAILS trigger as a text-only affordance with no icon', () => {
       renderHero({
         kind: 'run',
         slot: { slotType: 'Run', workoutType: 'Interval', notes: '' },
@@ -175,7 +172,7 @@ describe('WorkoutHero', () => {
       expect(cells[2]).toHaveTextContent('Minutes')
     })
 
-    it("renders the stat band via StatCell's hero typography, not the generic .t-numeral/.t-data-label role (§2.8)", () => {
+    it("renders the stat band via StatCell's hero typography, not the generic .t-numeral/.t-data-label role", () => {
       renderHero({
         kind: 'run',
         slot: { slotType: 'Run', workoutType: 'Interval', notes: '' },
@@ -191,16 +188,16 @@ describe('WorkoutHero', () => {
         const label = cell.lastElementChild
         expect(value).toHaveClass('font-condensed', 'text-[30px]', 'font-bold')
         // Label color is `text-muted-foreground`, not the decorative
-        // `--alp-faint` — builder decision (Slice 2 FIX 3): a stat-band unit
-        // label (Kilometers, Pace /km) is essential text (disambiguates a
-        // bare numeral under a km/miles preference), not decoration.
+        // `--alp-faint`: a stat-band unit label (Kilometers, Pace /km) is
+        // essential text (it disambiguates a bare numeral under a km/miles
+        // preference), not decoration.
         expect(label).toHaveClass('font-mono', 'text-[9.5px]', 'uppercase', 'text-muted-foreground')
         expect(label).not.toHaveClass('text-[color:var(--alp-faint)]')
       }
     })
   })
 
-  describe('logged-day branch (F1 fix)', () => {
+  describe('logged-day branch', () => {
     it('renders the LOGGED affordance linking to /history instead of LOG RUN, with the workout detail (title/summary/stat band/DETAILS) still visible', () => {
       renderHero({
         kind: 'logged',
@@ -353,8 +350,12 @@ describe('WorkoutHero', () => {
   })
 
   describe('dual-theme parity', () => {
+    // The assertions live inside the shared expectDualThemeParity helper —
+    // sonarjs's static check can't see through the function call. Applies to
+    // all three variant tests below.
+    // eslint-disable-next-line sonarjs/assertions-in-tests
     it('renders the run-day variant identically in both themes with zero raw colour literals', () => {
-      const { dark, light } = renderInBothThemes(
+      const result = renderInBothThemes(
         <MemoryRouter>
           <WorkoutHero
             kind="run"
@@ -365,15 +366,12 @@ describe('WorkoutHero', () => {
           />
         </MemoryRouter>,
       )
-      for (const result of [dark, light]) {
-        expect(result.getByTestId('workout-hero')).toBeInTheDocument()
-        expect(result.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
-      }
-      expect(testidsIn(dark.container)).toEqual(testidsIn(light.container))
+      expectDualThemeParity(result, 'workout-hero')
     })
 
+    // eslint-disable-next-line sonarjs/assertions-in-tests -- see the run-day variant test above
     it('renders the logged-day variant identically in both themes with zero raw colour literals', () => {
-      const { dark, light } = renderInBothThemes(
+      const result = renderInBothThemes(
         <MemoryRouter>
           <WorkoutHero
             kind="logged"
@@ -384,15 +382,12 @@ describe('WorkoutHero', () => {
           />
         </MemoryRouter>,
       )
-      for (const result of [dark, light]) {
-        expect(result.getByTestId('workout-hero')).toBeInTheDocument()
-        expect(result.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
-      }
-      expect(testidsIn(dark.container)).toEqual(testidsIn(light.container))
+      expectDualThemeParity(result, 'workout-hero')
     })
 
+    // eslint-disable-next-line sonarjs/assertions-in-tests -- see the run-day variant test above
     it('renders the rest-day variant identically in both themes with zero raw colour literals', () => {
-      const { dark, light } = renderInBothThemes(
+      const result = renderInBothThemes(
         <MemoryRouter>
           <WorkoutHero
             kind="rest"
@@ -403,11 +398,7 @@ describe('WorkoutHero', () => {
           />
         </MemoryRouter>,
       )
-      for (const result of [dark, light]) {
-        expect(result.getByTestId('workout-hero')).toBeInTheDocument()
-        expect(result.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
-      }
-      expect(testidsIn(dark.container)).toEqual(testidsIn(light.container))
+      expectDualThemeParity(result, 'workout-hero')
     })
   })
 

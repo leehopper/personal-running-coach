@@ -28,15 +28,14 @@
  *     also conveyed by content and structure, never by colour alone).
  *   --alp-faint   — a decorative-only label tint that fails AA by design and
  *     must never carry essential text; documented, not machine-checked.
- *   --clay-marker — the Slice 2 "current" marker (AD-9): border/fill only,
- *     never text (THE WEEK's today-cell outline, THE BLOCK's current-week
- *     cell, the coach digest's accent-indent border). Text usages of clay
- *     use --clay-text instead, which IS gated above. Same exemption posture
- *     as --border.
- *   --surface-dim — the Slice 2 THE BLOCK "distant" (far-future week) cell
- *     fill (AD-10): fill-only, never text — the phase-span label row sits
- *     below the cell grid, never layered over a cell's fill. Same
- *     exemption posture as --border/--clay-marker.
+ *   --clay-marker — the "current" marker: border/fill only, never text (THE
+ *     WEEK's today-cell outline, THE BLOCK's current-week cell, the coach
+ *     digest's accent-indent border). Text usages of clay use --clay-text
+ *     instead, which IS gated above. Same exemption posture as --border.
+ *   --surface-dim — THE BLOCK's "distant" (far-future week) cell fill:
+ *     fill-only, never text — the phase-span label row sits below the cell
+ *     grid, never layered over a cell's fill. Same exemption posture as
+ *     --border/--clay-marker.
  *
  * NOT exempt — --input IS asserted (3:1 UI-component rule): it is a
  *   form-control boundary and the only cue that an empty resting field

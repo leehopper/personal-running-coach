@@ -57,7 +57,7 @@ describe('resolveBlockFillTiers', () => {
     expect(tiers[8]).toBe('currentPhase') // week 9
   })
 
-  it('renders weeks in an EARLIER phase than the current one as currentPhase (BD2), not distant', () => {
+  it('renders weeks in an EARLIER phase than the current one as currentPhase, not distant', () => {
     const ranges = computePhaseRanges([
       buildPhase('Base', 4),
       buildPhase('Build', 5),
@@ -93,7 +93,7 @@ describe('resolveBlockFillTiers', () => {
     expect(tiers[8]).toBe('nextPhase') // week 9
   })
 
-  it('does not let a zero-week phase BEFORE the current phase shift which weeks count as "before" it (BD2 + §2.3 composition)', () => {
+  it('does not let a zero-week phase BEFORE the current phase shift which weeks count as "before" it', () => {
     // phases = [{Base,4},{Recovery,0},{Build,5}], totalWeeks=9, currentWeek=7 (mid-Build)
     // -> weeks 1-4 (Base) still read currentPhase.
     const ranges = computePhaseRanges([

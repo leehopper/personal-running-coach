@@ -1,7 +1,7 @@
-// THE BLOCK's fill-tier + goal-chip derivations (Slice 2 §2.6). Imports the
-// shared phase-range/date primitives from `plan-display.helpers.ts` rather
-// than re-deriving them — the single-date-pipeline / single-phase-math
-// contract that module's own header establishes.
+// THE BLOCK's fill-tier + goal-chip derivations. Imports the shared
+// phase-range/date primitives rather than re-deriving them — every
+// phase-boundary and date calculation on the Today screen has exactly one
+// implementation, never a second competing one.
 
 import type { PhaseRange } from './plan-display.helpers'
 import { formatShortDateUtc, parseIsoDateUtc } from './plan-display.helpers'
@@ -11,10 +11,11 @@ import { formatShortDateUtc, parseIsoDateUtc } from './plan-display.helpers'
  * phase identity (the separate phase-label row, driven by
  * `computePhaseRanges` directly, carries phase identity). `current` is the
  * single "you are here" week; `currentPhase` covers the remainder of the
- * active phase PLUS every earlier phase (Slice 2 spec §2.6, BD2 — the tier
- * system draws a defined-vs-unknown-training line, not a past-vs-present
- * one); `nextPhase` is the phase immediately following the current one;
- * `distant` is everything beyond that.
+ * active phase PLUS every earlier phase — the tier system draws a
+ * defined-vs-unknown-training line, not a past-vs-present one, so a week
+ * that's already behind the runner reads the same as a week later in the
+ * same phase; `nextPhase` is the phase immediately following the current
+ * one; `distant` is everything beyond that.
  */
 export type BlockFillTier = 'current' | 'currentPhase' | 'nextPhase' | 'distant'
 
@@ -57,8 +58,9 @@ export function resolveBlockFillTiers(params: {
     ) {
       tiers.push('currentPhase')
     } else if (currentRange !== undefined && week < currentRange.startWeek) {
-      // Decided (BD2): weeks in phases before the current phase render
-      // identically to the remaining weeks of the current phase.
+      // Weeks in phases before the current phase render identically to the
+      // remaining weeks of the current phase — same defined-vs-unknown
+      // rationale as `currentPhase`'s doc comment above.
       tiers.push('currentPhase')
     } else if (
       nextRange !== undefined &&
@@ -74,10 +76,10 @@ export function resolveBlockFillTiers(params: {
 }
 
 /**
- * Maps a target-event distance to its literal race-distance proper noun —
- * trademark-safe (see `unit-format.helpers.ts`'s own comment: race
- * distances are proper nouns, not the enforced VDOT mark) — tolerant of a
- * small rounding band around each canonical distance.
+ * Maps a target-event distance to its literal race-distance proper noun.
+ * Trademark-safe: named race distances ("5K", "MARATHON") are proper nouns,
+ * not the enforced VDOT mark this codebase must avoid — tolerant of a small
+ * rounding band around each canonical distance.
  */
 export function shortEventLabel(distanceKm: number): string {
   if (Math.abs(distanceKm - 5) <= 0.5) {
@@ -98,10 +100,8 @@ export function shortEventLabel(distanceKm: number): string {
 /**
  * Formats THE BLOCK's goal-chip text (`"10K — OCT 3"`), or `null` for a
  * general-fitness plan (either field absent) or a non-null-but-unparseable
- * `targetEventDate`. Null-propagates like every sibling date helper in
- * `plan-display.helpers.ts` (`resolveCalendarDateUtc`, `resolveDayCells`,
- * `weekLoggedKm`, `formatChangeLocusDate`) rather than trusting an upstream
- * null check alone.
+ * `targetEventDate`. Null-propagates like every other date-driven helper on
+ * the Today screen rather than trusting an upstream null check alone.
  */
 export function formatGoalChip(params: {
   targetEventDistanceKm: number | null

@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { PreferredUnits } from '~/api/generated'
-import { renderInBothThemes } from '~/modules/common/test-utils/render-in-both-themes'
+import {
+  expectDualThemeParity,
+  renderInBothThemes,
+} from '~/modules/common/test-utils/render-in-both-themes'
 import { fixtureWeekOneWorkouts } from './plan-display.fixture'
 import { UpNext } from './up-next.component'
 
@@ -11,11 +14,6 @@ const workouts = fixtureWeekOneWorkouts()
 // 2026-04-20 is a Monday; 2026-04-25 is a Saturday.
 const MONDAY = new Date(2026, 3, 20)
 const SATURDAY = new Date(2026, 3, 25)
-
-const testidsIn = (container: HTMLElement): (string | null)[] =>
-  [...container.querySelectorAll('[data-testid]')]
-    .map((el) => el.getAttribute('data-testid'))
-    .sort()
 
 describe('UpNext', () => {
   it('shows the remaining workouts this week, in day order, each {DAY}/{title}/{distance}', () => {
@@ -65,15 +63,14 @@ describe('UpNext', () => {
   })
 
   describe('dual-theme parity', () => {
+    // The assertions live inside the shared expectDualThemeParity helper —
+    // sonarjs's static check can't see through the function call.
+    // eslint-disable-next-line sonarjs/assertions-in-tests
     it('renders identically in both themes with zero raw colour literals', () => {
-      const { dark, light } = renderInBothThemes(
+      const result = renderInBothThemes(
         <UpNext currentWeekWorkouts={workouts} today={MONDAY} units={PreferredUnits.Kilometers} />,
       )
-      for (const result of [dark, light]) {
-        expect(result.getByTestId('up-next')).toBeInTheDocument()
-        expect(result.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
-      }
-      expect(testidsIn(dark.container)).toEqual(testidsIn(light.container))
+      expectDualThemeParity(result, 'up-next')
     })
   })
 

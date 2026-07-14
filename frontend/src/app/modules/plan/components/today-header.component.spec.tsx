@@ -1,27 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { renderInBothThemes } from '~/modules/common/test-utils/render-in-both-themes'
+import {
+  expectDualThemeParity,
+  renderInBothThemes,
+} from '~/modules/common/test-utils/render-in-both-themes'
 import { TodayHeader } from './today-header.component'
 
 describe('TodayHeader', () => {
   it('shows the wordmark, a 2px rule, and WEEK N OF M — PHASE in both themes', () => {
-    const { dark, light } = renderInBothThemes(
+    const result = renderInBothThemes(
       <TodayHeader weekNumber={3} totalWeeks={12} phaseLabel="Base" />,
     )
 
-    for (const result of [dark, light]) {
-      expect(result.getByTestId('today-header')).toBeInTheDocument()
-      expect(result.getByRole('img', { name: 'Split' })).toBeInTheDocument()
-      expect(result.getByTestId('today-header').textContent).toMatch(/week 3 of 12.*base/i)
-      // Token-only proof: zero raw colour literals anywhere in the rendered HTML.
-      expect(result.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+    for (const themed of [result.dark, result.light]) {
+      expect(themed.getByRole('img', { name: 'Split' })).toBeInTheDocument()
+      expect(themed.getByTestId('today-header').textContent).toMatch(/week 3 of 12.*base/i)
     }
 
-    // Structural parity: the same testid set renders in both modes.
-    const testidsIn = (container: HTMLElement) =>
-      [...container.querySelectorAll('[data-testid]')]
-        .map((el) => el.getAttribute('data-testid'))
-        .sort()
-    expect(testidsIn(dark.container)).toEqual(testidsIn(light.container))
+    expectDualThemeParity(result, 'today-header')
   })
 
   it('renders WEEK {N} alone, with no "OF … —" suffix, when plan.macro is null', () => {

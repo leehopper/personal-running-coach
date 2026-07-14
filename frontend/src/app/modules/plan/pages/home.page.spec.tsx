@@ -2,8 +2,11 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QueryWorkoutLogsResponseDto, WorkoutLogDto } from '~/api/generated'
-import { CompletionStatus, PreferredUnits } from '~/api/generated'
-import { buildPlanFixture } from '~/modules/plan/components/plan-display.fixture'
+import { PreferredUnits } from '~/api/generated'
+import {
+  buildPlanFixture,
+  buildWorkoutLog as log,
+} from '~/modules/plan/components/plan-display.fixture'
 import { resolveCurrentWeek } from '~/modules/plan/hooks/use-plan.hooks'
 import type { PlanProjectionDto } from '~/modules/plan/models/plan.model'
 
@@ -55,21 +58,18 @@ vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
 // `HomePage` mounts `CoachDigest`, which calls this real RTK Query hook
 // internally — with no Redux `<Provider>` in `renderHome()`'s tree, an
 // unmocked call throws "could not find react-redux context value" the
-// instant `CoachDigest` renders. Same `~/api/conversation.api` mocking idiom
-// `coach-chat.component.spec.tsx` established (Slice 2 §1 PR-C's F2 catch).
+// instant `CoachDigest` renders. Same hoisted-mock idiom used everywhere
+// else in this suite that this real hook needs stubbing.
 vi.mock('~/api/conversation.api', () => ({
   useGetConversationTimelineQuery: () => conversationTimelineMock(),
 }))
 
 // `HomePage` mounts `TheWeek`, sourcing its `logs` prop from this real RTK
 // Query hook (the SAME hook, same `undefined` arg, `/history` already
-// uses — a shared cache entry, never double-fetched). Mocked per
-// `history.page.spec.tsx`'s established `historyQueryMock`/
-// `fetchNextPageMock` hoisted-mock idiom (Slice 2 §1 PR-D's F2 audit).
-// Forwards the real call-site argument to `historyQueryMock` (rather than
-// discarding it) so tests can assert WHAT `home.page.tsx` passes, not just
-// THAT it called the hook — see the `historyQueryMock` argument-contract
-// test below.
+// uses — a shared cache entry, never double-fetched). Forwards the real
+// call-site argument to `historyQueryMock` (rather than discarding it) so
+// tests can assert WHAT `HomePage` passes, not just THAT it called the
+// hook — see the `historyQueryMock` argument-contract test below.
 vi.mock('~/api/workout-log.api', () => ({
   useGetWorkoutLogHistoryInfiniteQuery: (arg: unknown) => historyQueryMock(arg),
 }))
@@ -78,8 +78,8 @@ vi.mock('~/api/workout-log.api', () => ({
 // implementation via `vi.fn(actual.resolveCurrentWeek)`) rather than
 // replacing it — every other export of this module (`usePlan`,
 // `findCurrentMesoWeek`, `findCurrentWeekWorkouts`) stays real. Lets one
-// test assert the single-date-pipeline contract (§2.1): `home.page.tsx`
-// must pass its own `today` explicitly as the 2nd argument, never rely on
+// test assert the single-date-pipeline contract: `HomePage` must pass its
+// own `today` explicitly as the 2nd argument, never rely on
 // `resolveCurrentWeek`'s `referenceDate = new Date()` default (which would
 // silently reintroduce a second `new Date()` call site).
 vi.mock('~/modules/plan/hooks/use-plan.hooks', async (importOriginal) => {
@@ -98,14 +98,6 @@ const renderHome = () =>
       <HomePage />
     </MemoryRouter>,
   )
-
-const log = (occurredOn: string, distanceMeters = 6000): WorkoutLogDto => ({
-  workoutLogId: `log-${occurredOn}`,
-  occurredOn,
-  distanceMeters,
-  durationSeconds: 1800,
-  completionStatus: CompletionStatus.Complete,
-})
 
 const logsPage = (
   logs: WorkoutLogDto[],
@@ -131,8 +123,8 @@ describe('HomePage', () => {
     // `{ turns: [] }` renders `CoachDigest`'s empty state (state 4) — the
     // safest default: no wrapping `<Link>` that could intercept a click meant
     // for another section, and no content colliding with this file's own
-    // assertions. `CoachDigest`'s own per-state content is
-    // `coach-digest.component.spec.tsx`'s job, not this file's.
+    // assertions. `CoachDigest`'s own per-state rendering has its own
+    // dedicated test coverage — this file only needs the empty state.
     conversationTimelineMock.mockReturnValue({
       data: { turns: [] },
       isLoading: false,
@@ -151,9 +143,9 @@ describe('HomePage', () => {
   })
 
   afterEach(() => {
-    // §2.5/C7's "never call fetchNextPage from Home" rule, pinned across
-    // every rendered scenario in this file — calling it would permanently
-    // append pages to the shared `/history` cache entry TheWeek reads from,
+    // "Never call fetchNextPage from Home" rule, pinned across every
+    // rendered scenario in this file — calling it would permanently append
+    // pages to the shared `/history` cache entry TheWeek reads from,
     // corrupting the history page's own pagination.
     expect(fetchNextPageMock).not.toHaveBeenCalled()
     vi.useRealTimers()
@@ -271,7 +263,7 @@ describe('HomePage', () => {
     expect(screen.queryByText(/\d\.\d km/u)).not.toBeInTheDocument()
   })
 
-  it("calls resolveCurrentWeek with the page's own `today`, not the default parameter (single-date-pipeline contract, §2.1)", () => {
+  it("calls resolveCurrentWeek with the page's own `today`, not the default parameter", () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 3, 20))
 
@@ -301,12 +293,12 @@ describe('HomePage', () => {
     })
     renderHome()
 
-    // Asserts WHAT was passed, not just THAT the hook was called: the
-    // shared-cache contract (§2.5/C7) requires `home.page.tsx` to call this
-    // hook with the exact same argument `/history` uses (`undefined`) — a
+    // Asserts WHAT was passed, not just THAT the hook was called: `HomePage`
+    // must call this hook with the exact same argument `/history` uses
+    // (`undefined`) so the two share one RTK Query cache entry — a
     // regression that started passing a different argument (e.g. an options
-    // object) would silently mint a second, unshared RTK Query cache entry
-    // and this test must fail.
+    // object) would silently mint a second, unshared cache entry, and this
+    // test must fail.
     expect(historyQueryMock).toHaveBeenCalledExactlyOnceWith(undefined)
   })
 
@@ -343,14 +335,11 @@ describe('HomePage', () => {
     expect(block.querySelector('[data-testid="section-rule-slot"]')).toBeNull()
   })
 
-  // F1 regression guard: the hero used to render its full LOG RUN branch
-  // even after a log existed for today, while THE WEEK's today cell
-  // correctly flipped to `done` — the same run reading as done and
-  // not-done on one screen. Both assertions below read off ONE render of
-  // the real `HomePage` tree, so a future change that re-splits the hero's
-  // and THE WEEK's log-join logic into two independent checks (rather than
-  // sharing `isDateLogged`, `the-week.helpers.ts`) fails this test the
-  // moment the two disagree.
+  // Both assertions below read off ONE render of the real `HomePage` tree,
+  // so a future change that re-splits the hero's and THE WEEK's log-join
+  // logic into two independent checks (rather than sharing one predicate)
+  // fails this test the moment the two disagree about whether today's run
+  // is logged.
   describe('hero / THE WEEK agreement on logged state', () => {
     it("given a log exists for today's slot date, the hero renders LOGGED and THE WEEK's today cell renders done", () => {
       vi.useFakeTimers()

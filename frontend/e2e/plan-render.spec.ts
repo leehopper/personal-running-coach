@@ -1,31 +1,28 @@
 import { randomUUID } from 'node:crypto'
 import { expect, test, type Page, type Route } from '@playwright/test'
 
-// Plan-render e2e per spec § Unit 4 R04.1, R04.3, R04.9 + the canonical
-// `plan-view-on-home.feature` Gherkin (slice 1), realigned for the SPLIT/
-// Alpine Today-screen recomposition (Slice 2 §7).
+// Plan-render e2e covering the SPLIT/Alpine Today screen's six-section
+// recomposition (header, hero, THE WEEK, FROM YOUR COACH, UP NEXT, THE
+// BLOCK).
 //
 // Strategy:
 //   1. Use the real backend for `register` so the auth cookie + antiforgery
-//      pair are seeded the same way the runtime app expects (see
-//      auth.spec.ts for that contract).
+//      pair are seeded the same way the runtime app expects.
 //   2. Stub `GET /api/v1/onboarding/state` with a `Completed` shape from the
 //      first request — this short-circuits the home redirect-guard so the
 //      test lands on `/` without walking the chat. The chat path is already
-//      covered end to end by `onboarding.spec.ts`; here we only care about
-//      the plan-render surface, hence the deterministic stubs (per task
-//      description: "deterministic stub LLM via Playwright route
-//      interception").
+//      covered end to end by a dedicated onboarding suite; here we only
+//      care about the plan-render surface, hence the deterministic stub of
+//      the LLM-backed onboarding state via Playwright route interception.
 //   3. Stub `GET /api/v1/plan/current` with a hand-crafted projection that
-//      exercises all six Today-screen sections (header, hero, THE WEEK, FROM
-//      YOUR COACH, UP NEXT, THE BLOCK) — including a race-training target
-//      event so THE BLOCK's goal chip renders. The projection contains a
-//      workout for every day of the week so the hero always picks one
-//      regardless of when the suite runs.
+//      exercises all six Today-screen sections — including a race-training
+//      target event so THE BLOCK's goal chip renders. The projection
+//      contains a workout for every day of the week so the hero always
+//      picks one regardless of when the suite runs.
 //   4. Assert the six sections render, reload, assert again, and grep
-//      `body.innerHTML` for `/vdot/i` returning zero matches per the
-//      trademark rule (root `CLAUDE.md` § Trademark Rule: VDOT). This is the
-//      DOM-level enforcement called out in spec § Unit 4 R04.9.
+//      `body.innerHTML` for `/vdot/i` returning zero matches — the DOM-level
+//      enforcement of the trademark rule banning the term "VDOT" from any
+//      user-facing surface.
 
 // e2e specs; not a secret. Suppress the sonarjs hardcoded-password false positive
 // (the sibling specs predate the rule and stay red — repo-wide noise, not this PR).
@@ -36,22 +33,24 @@ const VALID_PASSWORD = 'Correct-Horse-9!'
 // Postgres without collisions. `npm run e2e:clean` flushes the orphans.
 const uniqueEmail = (): string => `e2e-${randomUUID()}@runcoach.test`
 
-// Wire-format integer enum duplicated from
-// `frontend/src/app/modules/onboarding/models/onboarding.model.ts` so the
-// stub round-trips the exact JSON the page-level Zod schema accepts.
+// Wire-format integer enum duplicated inline so the stub round-trips the
+// exact JSON the page-level Zod schema accepts. Holding the e2e suite at
+// arm's length from the production model module keeps the integers under
+// explicit test-side control.
 const OnboardingStatus = { NotStarted: 0, InProgress: 1, Completed: 2 } as const
 
 const completedPlanId = '8a4b9b2a-1d3f-4f1c-9aab-5e2c1f0b1234'
 const userId = '00000000-0000-0000-0000-000000000001'
 
-// The Sunday (LOCAL calendar day, matching `toUtcMidnight`'s
-// getFullYear/getMonth/getDate approach in `plan-display.helpers.ts`) on or
-// before "now", formatted `YYYY-MM-DD`. Used as `planStartDate` so week 1's
-// Sunday–Saturday span always contains "today" regardless of when the suite
-// runs (same no-flake principle the fixture already applies to workout
-// selection) — this is what makes THE WEEK's `today` day-cell state
-// reachable at all: an absent/unparseable `planStartDate` makes every cell
-// degrade to `planned`/`rest` (`resolveDayCells`'s unparseable-date path).
+// The Sunday (LOCAL calendar day — getFullYear/getMonth/getDate, matching
+// the app's own UTC-midnight-normalization approach for this same
+// calculation) on or before "now", formatted `YYYY-MM-DD`. Used as
+// `planStartDate` so week 1's Sunday–Saturday span always contains "today"
+// regardless of when the suite runs (same no-flake principle the fixture
+// already applies to workout selection) — this is what makes THE WEEK's
+// `today` day-cell state reachable at all: an absent/unparseable
+// `planStartDate` degrades every cell to a non-today, non-done state
+// instead of crashing.
 const planStartDateForCurrentWeek = (): string => {
   const now = new Date()
   const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
@@ -123,7 +122,7 @@ const buildPlanProjection = () => {
     // containing "today" — see `planStartDateForCurrentWeek`'s doc comment.
     planStartDate: planStartDateForCurrentWeek(),
     // Race-training target event — exercises THE BLOCK's goal chip
-    // (`formatGoalChip`, Slice 2 §2.6) through a real stub round-trip.
+    // (`formatGoalChip`) through a real stub round-trip.
     targetEventName: 'Local Half Marathon',
     targetEventDistanceKm: 21.1,
     targetEventDate: '2026-10-03',
@@ -258,7 +257,6 @@ test('register → land on / → plan renders → reload → identical content +
   await expect(page).toHaveURL('/')
 
   // 2. All six Today-screen sections must be visible on the home page.
-  //    These test ids are the public contract from Slice 2 §1 PR-B/C/D.
   const homePage = page.getByTestId('home-page')
   await expect(homePage).toBeVisible()
   await expect(page.getByTestId('today-header')).toBeVisible()
@@ -283,8 +281,8 @@ test('register → land on / → plan renders → reload → identical content +
 
   // Capture THE BLOCK's rendered fill-tier cell sequence before reload so we
   // can prove the post-reload DOM matches — the direct successor to the
-  // deleted `MacroPhaseStrip`'s `macro-phase-segment` snapshot proof (Slice
-  // 2 §7): same "no double-fetch, same content" invariant, new selectors.
+  // deleted `MacroPhaseStrip`'s `macro-phase-segment` snapshot proof: same
+  // "no double-fetch, same content" invariant, new selectors.
   const tiersBefore = await page
     .getByTestId('the-block-cell')
     .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-tier')))

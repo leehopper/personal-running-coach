@@ -157,7 +157,7 @@ describe('composeAdaptationHeadline', () => {
     ).toBe('Your plan was adjusted.')
   })
 
-  it('threads the Miles preference into the weekly-target sentence (F3 catch)', () => {
+  it('threads the Miles preference into the weekly-target sentence', () => {
     const diff: PlanAdaptationDiffDto = {
       ...emptyDiff,
       weeklyTargetChanges: [{ weekNumber: 3, beforeWeeklyTargetKm: 30, afterWeeklyTargetKm: 26 }],

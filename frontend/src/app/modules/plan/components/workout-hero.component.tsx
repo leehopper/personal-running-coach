@@ -20,31 +20,24 @@ import {
   resolveHeroThirdStat,
 } from './plan-display.helpers'
 
-// C3 fix: `slot`/`workout` were originally two SEPARATE, uncorrelated
-// optional props (`slot: MesoDaySlotDto | undefined`, `workout:
-// MicroWorkoutCardDto | undefined`). A correct branch-2 implementation
-// narrows `slot.slotType === 'Run'` and then dereferences `workout.title` /
-// `composeWorkoutSummary(workout)` / `workout.segments.map(...)` — but
-// narrowing `slot` tells the compiler NOTHING about the separately-optional
-// `workout` prop, so every `workout.*` access fails strict-mode compilation
-// ("'workout' is possibly 'undefined'"). Fixed by collapsing the two
-// correlated fields into one discriminated union so the impossible state
-// (`kind: 'run'` with no `workout`) is unrepresentable — narrowing
-// `props.kind` narrows the whole props type, `workout`/`nextWorkout`
-// included, no non-null assertions needed. `home.page.tsx`'s mount site
-// constructs this union instead of passing `slot`/`workout`/`nextWorkout` as
-// three flat props.
+// `slot`/`workout`/`nextWorkout` are modeled as one discriminated union
+// rather than three independently-optional props: narrowing `props.kind`
+// narrows the WHOLE props type in one step (no non-null assertions needed
+// downstream), and it makes the impossible state — `kind: 'run'` with no
+// `workout` — unrepresentable. The mount site constructs this union instead
+// of passing `slot`/`workout`/`nextWorkout` as three flat props.
 //
-// F1 fix: `logged` is a 4th, sibling kind — not a boolean layered onto
-// `run` — carrying the exact same `slot`/`workout` shape `run` does. Today's
+// `logged` is a 4th, sibling kind — not a boolean layered onto `run` —
+// carrying the exact same `slot`/`workout` shape `run` does. Today's
 // workout is either not-yet-logged (`run`) or already-logged (`logged`);
 // there is no state where `logged` is true without a `workout` to show, so a
 // distinct kind (rather than an `isLogged` flag that could theoretically be
 // `true` while `workout` is somehow absent) keeps that impossible state
-// unrepresentable, the same discipline the original C3 fix established.
-// `home.page.tsx`'s `resolveHeroContent` picks `logged` vs. `run` from
-// `isTodayLogged`, itself derived from THE WEEK's own log-join predicate
-// (`isDateLogged`, `the-week.helpers.ts`) — see that function's doc comment.
+// unrepresentable, the same discipline the union above establishes. The
+// mount site picks `logged` vs. `run` from whether a log already exists for
+// today's date — the exact same log-join predicate THE WEEK's day-cell state
+// uses, so the two sections can never disagree about whether today's run has
+// been logged.
 export type WorkoutHeroContent =
   | { kind: 'unavailable' }
   | { kind: 'run'; slot: MesoDaySlotDto; workout: MicroWorkoutCardDto }
@@ -53,8 +46,8 @@ export type WorkoutHeroContent =
 
 export type WorkoutHeroProps = {
   /**
-   * Pre-normalized UTC-midnight epoch from `home.page.tsx`'s single
-   * `new Date()` call site — NEVER re-derive a second `Date` here.
+   * Pre-normalized UTC-midnight epoch from the page's single `new Date()`
+   * call site — NEVER re-derive a second `Date` here.
    */
   todayUtc: number
   units: PreferredUnits
@@ -87,11 +80,10 @@ interface WorkoutHeroRunContentProps {
   units: PreferredUnits
   workout: MicroWorkoutCardDto
   /**
-   * F1 fix — `true` when a log already exists for today's slot date
-   * (`home.page.tsx`'s `isTodayLogged`, threaded through `WorkoutHeroContent`'s
-   * `logged` kind). Swaps the CTA only — eyebrow/title/summary/stat
-   * band/DETAILS are unchanged, so the workout's own detail stays fully
-   * visible on a day the runner has already logged.
+   * `true` when a log already exists for today's slot date (threaded
+   * through `WorkoutHeroContent`'s `logged` kind). Swaps the CTA only —
+   * eyebrow/title/summary/stat band/DETAILS are unchanged, so the workout's
+   * own detail stays fully visible on a day the runner has already logged.
    */
   isLogged: boolean
 }
@@ -127,7 +119,7 @@ const WorkoutHeroRunContent = ({
           variant="hero"
           value={resolveHeroDistanceStat(workout.targetDistanceKm, units)}
           // Source copy stays sentence case — StatCell's `hero` label class
-          // already applies `uppercase` via CSS (spec §8 FIX 3 precedent).
+          // already applies `uppercase` via CSS.
           label={isMiles ? 'Miles' : 'Kilometers'}
         />
         <StatCell variant="hero" value={paceValue} label={isMiles ? 'Pace /mi' : 'Pace /km'} />
@@ -135,12 +127,12 @@ const WorkoutHeroRunContent = ({
       </StatBand>
       <div className="flex flex-wrap items-center gap-3">
         {isLogged ? (
-          // F1 fix — a completed/confirmatory treatment, not a fresh
-          // call-to-action: `--positive`/moss is the established "done"
-          // signal (THE WEEK's done cell already fills moss + a check icon
-          // for the same underlying fact), reused here rather than inventing
-          // a new done treatment. Links to the logged run itself (`/history`)
-          // instead of the log form — there is nothing left to log today.
+          // A completed/confirmatory treatment, not a fresh call-to-action:
+          // `--positive`/moss is the established "done" signal (THE WEEK's
+          // done cell already fills moss + a check icon for the same
+          // underlying fact), reused here rather than inventing a new done
+          // treatment. Links to the logged run itself (`/history`) instead
+          // of the log form — there is nothing left to log today.
           <Button
             asChild
             size="lg"
@@ -159,18 +151,18 @@ const WorkoutHeroRunContent = ({
           </Button>
         )}
         {/*
-         * Spec's locked markup: `<Collapsible>` wraps ONLY the DETAILS
-         * trigger + `CollapsibleContent` — LOG RUN is a sibling OUTSIDE it,
-         * never nested inside. `className="contents"` takes the Radix
-         * Root's own box out of the layout tree so the trigger still lays
-         * out inline in this row (next to LOG RUN, not visually wrapped in
-         * an extra box); `CollapsibleContent`'s `w-full basis-full` forces
-         * it onto its own full-width line when the row wraps open.
+         * `<Collapsible>` wraps ONLY the DETAILS trigger +
+         * `CollapsibleContent` — LOG RUN is a sibling OUTSIDE it, never
+         * nested inside. `className="contents"` takes the Radix Root's own
+         * box out of the layout tree so the trigger still lays out inline in
+         * this row (next to LOG RUN, not visually wrapped in an extra box);
+         * `CollapsibleContent`'s `w-full basis-full` forces it onto its own
+         * full-width line when the row wraps open.
          */}
         <Collapsible open={open} onOpenChange={setOpen} className="contents">
-          {/* BD3, decided: text-only affordance — no chevron, no icon of any
-           * kind. `aria-expanded`/`aria-controls`/`data-state` are supplied
-           * by Radix's `CollapsibleTrigger asChild` for free. */}
+          {/* Text-only affordance — no chevron, no icon of any kind.
+           * `aria-expanded`/`aria-controls`/`data-state` are supplied by
+           * Radix's `CollapsibleTrigger asChild` for free. */}
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="lg" data-testid="workout-hero-details-trigger">
               Details
@@ -224,9 +216,9 @@ const WorkoutHeroRestContent = ({
     <p className="t-body text-muted-foreground">Recovery is training.</p>
     {nextWorkout === undefined ? null : (
       // Styled like UpNext's row markup (mono day abbrev + row-title,
-      // right-aligned distance) — NOT a prose form. No mock covers the
-      // rest-day hero; this is the spec's proposed default (§9 open
-      // question #5).
+      // right-aligned distance) — NOT a prose form. No design mock covers
+      // the rest-day hero, so this is a deliberate default rather than a
+      // literal mock match.
       <div
         data-testid="workout-hero-next-workout"
         className="flex items-baseline justify-between gap-3 border-t border-border pt-3"
@@ -246,12 +238,11 @@ const WorkoutHeroRestContent = ({
 )
 
 /**
- * Today screen's hero: today's workout (not yet logged, or already logged,
- * §F1), the rest-day variant, or a graceful "not ready yet" state when no
- * slot data is available. `props.kind` discriminates the 4 render branches
- * (§ Slice 2 PR-B, extended by the F1 fix) — narrow on it before touching
- * any of `slot`/`workout`/`nextWorkout`, none of which exists on every union
- * member.
+ * Today screen's hero: today's workout (not yet logged, or already logged),
+ * the rest-day variant, or a graceful "not ready yet" state when no slot
+ * data is available. `props.kind` discriminates the 4 render branches —
+ * narrow on it before touching any of `slot`/`workout`/`nextWorkout`, none
+ * of which exists on every union member.
  */
 export const WorkoutHero = (props: WorkoutHeroProps): ReactElement => {
   if (props.kind === 'unavailable') {

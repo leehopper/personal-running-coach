@@ -39,8 +39,7 @@ const NO_TURNS: readonly ConversationTimelineTurnDto[] = []
 
 /**
  * `router.state` shape carried by a `navigate('/coach', { state: {...} })`
- * call — the digest's composer-stub/chip receiver contract (Slice 2 spec §1
- * PR-C). `prefill` seeds the composer's text; `focusComposer` focuses it
+ * call. `prefill` seeds the composer's text; `focusComposer` focuses it
  * without seeding text. Plain `TabBar` navigation carries no `state`, so
  * `state` is `null` and neither applies.
  */
@@ -48,6 +47,18 @@ interface CoachChatLocationState {
   prefill?: string
   focusComposer?: boolean
 }
+
+// `location.state` is typed loosely by react-router-dom (it has to accommodate
+// any shape a caller passes to `navigate(to, { state })`), so a plain `as`
+// cast here would silently accept a differently-shaped `state` from a future
+// caller. This guard actually checks the two optional fields' types before
+// the cast-free narrowing below trusts them.
+const isCoachChatLocationState = (value: unknown): value is CoachChatLocationState =>
+  typeof value === 'object' &&
+  value !== null &&
+  (!('prefill' in value) || typeof (value as { prefill?: unknown }).prefill === 'string') &&
+  (!('focusComposer' in value) ||
+    typeof (value as { focusComposer?: unknown }).focusComposer === 'boolean')
 
 interface ChatBubbleProps {
   role: MessageRole
@@ -125,7 +136,7 @@ export const CoachChat = (): ReactElement => {
   const timeline = data?.turns ?? NO_TURNS
   const units = usePreferredUnits()
   const location = useLocation()
-  const locationState = location.state as CoachChatLocationState | null
+  const locationState = isCoachChatLocationState(location.state) ? location.state : null
   const {
     pendingUserMessage,
     streamingText,

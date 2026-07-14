@@ -106,10 +106,10 @@ export const DAY_OF_WEEK_LABELS: readonly string[] = [
 export type DaySlotKey = (typeof DAY_SLOT_KEYS)[number]
 
 /**
- * Guard predicate `home.page.tsx` uses to locate the workout matching a
- * particular `dayOfWeek` (0-6) when constructing `WorkoutHero`'s
- * `WorkoutHeroContent` (§2.1). Returns `undefined` when no workout is
- * scheduled for that day — typical for the runner's rest day.
+ * Guard predicate that locates the workout matching a particular
+ * `dayOfWeek` (0-6) when constructing `WorkoutHero`'s `WorkoutHeroContent`.
+ * Returns `undefined` when no workout is scheduled for that day — typical
+ * for the runner's rest day.
  */
 export const findWorkoutForDay = (
   workouts: readonly MicroWorkoutCardDto[],
@@ -119,9 +119,8 @@ export const findWorkoutForDay = (
 
 /**
  * Returns the next scheduled workout strictly *after* `fromDayOfWeek`,
- * wrapping past Saturday into the start of the week. Used by `home.page.tsx`
- * to source `WorkoutHero`'s rest-day variant's next-workout line (§1 PR-B
- * branch 3).
+ * wrapping past Saturday into the start of the week. Sources `WorkoutHero`'s
+ * rest-day variant's next-workout line.
  */
 export const findNextWorkoutAfter = (
   workouts: readonly MicroWorkoutCardDto[],
@@ -153,13 +152,13 @@ export interface PhaseRange {
  * start/end week. The structured-output schema exposes only `weeks` per
  * phase; the strip needs absolute boundaries to label segments.
  *
- * Mirrors the server's `WeekContext.FromMacro` cumulative-sum walk exactly:
- * a zero-week phase produces an EMPTY span (`startWeek > endWeek`, cursor not
- * advanced) rather than a spurious 1-week span that would shift every later
- * phase. The phase stays IN the returned array (not filtered) so
- * `ranges[ranges.length - 1]` still matches `WeekContext.cs`'s
- * `macro.Phases[^1]` — the literal last array element — even when that
- * element is zero-week.
+ * Mirrors the server's own cumulative-sum walk over the same phase list
+ * exactly: a zero-week phase produces an EMPTY span (`startWeek > endWeek`,
+ * cursor not advanced) rather than a spurious 1-week span that would shift
+ * every later phase. The phase stays IN the returned array (not filtered) so
+ * `ranges[ranges.length - 1]` still resolves to the literal last phase —
+ * matching the server's own fallback to its last phase entry — even when
+ * that element is zero-week.
  * Consumers that render one row per phase (THE BLOCK's phase-label row, the
  * header's `phaseForWeek` lookup below) must filter `endWeek >= startWeek`
  * before rendering; this function itself does not filter.
@@ -179,13 +178,13 @@ export const computePhaseRanges = (phases: readonly PlanPhaseDto[]): PhaseRange[
 
 /**
  * Resolves the macro-phase active during `weekNumber`, falling back to the
- * last phase in `ranges` when no span matches (mirrors `WeekContext.cs`'s own
- * defensive fallback). Correctly agrees with that fallback even when the last
- * phase is zero-week: {@link computePhaseRanges} keeps a zero-week phase's
- * entry in `ranges` (merely unmatchable by span), so `ranges[ranges.length -
- * 1]` still resolves to the true last phase. Uses index arithmetic, not
- * `Array.prototype.at`, to stay within the project's ES2020 TypeScript
- * target (`tsconfig.app.json`) — do not reintroduce `.at()` here.
+ * last phase in `ranges` when no span matches (mirrors the server's own
+ * defensive fallback for the same lookup). Correctly agrees with that
+ * fallback even when the last phase is zero-week: {@link computePhaseRanges}
+ * keeps a zero-week phase's entry in `ranges` (merely unmatchable by span),
+ * so `ranges[ranges.length - 1]` still resolves to the true last phase. Uses
+ * index arithmetic, not `Array.prototype.at`, to stay within the project's
+ * ES2020 TypeScript target — do not reintroduce `.at()` here.
  */
 export const phaseForWeek = (
   ranges: readonly PhaseRange[],
@@ -212,13 +211,12 @@ export const getSlotForToday = (week: MesoWeekTemplateDto, dayIndex: number): Me
   week[DAY_SLOT_KEYS[dayIndex]]
 
 // ─────────────────────────────────────────────────────────────────────────
-// Single date pipeline (Slice 2 §2.1/§2.2/§2.4) — the shared UTC-midnight-
-// epoch primitives every date-driven derivation on the Today screen (and
-// `use-plan.hooks.ts`'s `resolveCurrentWeek`) imports rather than
-// re-deriving. See the Today spec §2 for the full pipeline contract: a wall-
-// clock `Date` is normalized to a UTC-midnight epoch exactly once
-// (`toUtcMidnight`), and every downstream read of that epoch uses `getUTC*`
-// getters only — never a local getter on the same instant.
+// Single date pipeline — the shared UTC-midnight-epoch primitives every
+// date-driven derivation on the Today screen imports rather than
+// re-deriving. The pipeline contract: a wall-clock `Date` is normalized to
+// a UTC-midnight epoch exactly once (`toUtcMidnight`), and
+// every downstream read of that epoch uses `getUTC*` getters only — never a
+// local getter on the same instant.
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Milliseconds in one calendar day — the unit every epoch-based derivation below walks in. */
@@ -329,8 +327,8 @@ export function formatHeroEyebrowDate(todayUtc: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Hero summary composition (Slice 2 §2.7) — one-sentence workout summary
-// composed client-side from a workout's segments + coaching note, and the
+// Hero summary composition — one-sentence workout summary composed
+// client-side from a workout's segments + coaching note, and the
 // per-`SegmentType` phrase table it reads.
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -408,8 +406,8 @@ export function composeWorkoutSummary(workout: MicroWorkoutCardDto): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Hero stat band (Slice 2 §2.8) — the 3rd stat cell's reps-or-duration
-// derivation, plus cell 1's distance-formatting adapter.
+// Hero stat band — the 3rd stat cell's reps-or-duration derivation, plus
+// cell 1's distance-formatting adapter.
 // ─────────────────────────────────────────────────────────────────────────
 
 /** The hero stat band's 3rd cell — either a reps count or a plain duration. */

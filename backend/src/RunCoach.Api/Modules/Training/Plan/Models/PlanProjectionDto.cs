@@ -39,7 +39,7 @@ public sealed record PlanProjectionDto
     /// Gets or sets the calendar date on which the plan's week 1, day 0 (Sunday)
     /// begins — the start-of-week of the generation date. Threaded through from
     /// <see cref="PlanGenerated.PlanStartDate"/> verbatim; the frontend derives the
-    /// current week from this anchor relative to today (slice-2b Unit 1 / DEC-076).
+    /// current week from this anchor relative to today (DEC-076).
     /// </summary>
     public DateOnly PlanStartDate { get; set; }
 

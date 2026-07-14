@@ -17,7 +17,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <see cref="Coaching.Models.Structured.WorkoutOutput.DayOfWeek"/> 0 = Sunday)
 /// begins — the start-of-week (Sunday) of the generation date. Lets a logged
 /// run's date map deterministically to a <c>(week, day)</c> slot server-side
-/// (slice-2b Unit 1 / DEC-076); the regenerate flow re-anchors week 1 to the
+/// (DEC-076); the regenerate flow re-anchors week 1 to the
 /// regeneration week because it shares this construction site.
 /// </param>
 /// <param name="PromptVersion">

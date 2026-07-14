@@ -18,11 +18,11 @@ export interface CoachComposerProps {
  * blank — the textarea stays enabled so the runner can compose the next
  * message while the coach is still answering.
  *
- * `initialValue`/`autoFocus` back the digest's composer-stub/chip receiver
- * contract (Slice 2 spec §1 PR-C): `coach-chat.component.tsx` remounts this
- * component (via `key={location.key}`) on every navigation into `/coach`, so
- * a fresh `initialValue`/focus application applies per navigation without a
- * custom nav-key counter.
+ * `initialValue`/`autoFocus` let a caller seed text or focus into a fresh
+ * composer instance. The parent chat panel remounts this component (via
+ * `key={location.key}`) on every navigation into `/coach`, so a fresh
+ * `initialValue`/focus application applies per navigation without a custom
+ * nav-key counter.
  */
 export const CoachComposer = ({
   onSend,
@@ -38,11 +38,11 @@ export const CoachComposer = ({
   // Mount-only ref-imperative focus call — not a `setState`, so this does not
   // trip `react-hooks/set-state-in-effect`. Empty deps is deliberate: a prop
   // change on an already-mounted instance must NOT re-trigger focus (only a
-  // fresh mount, via `coach-chat.component.tsx`'s `key={location.key}`,
-  // should). `autoFocus` is intentionally omitted from the deps array —
-  // including it would re-run the focus call whenever the prop changes on an
-  // already-mounted instance, which is exactly the behavior this effect must
-  // NOT have.
+  // fresh mount, driven by the parent remounting this component with a new
+  // `key`, should). `autoFocus` is intentionally omitted from the deps
+  // array — including it would re-run the focus call whenever the prop
+  // changes on an already-mounted instance, which is exactly the behavior
+  // this effect must NOT have.
   useEffect(() => {
     if (autoFocus) {
       textareaRef.current?.focus()

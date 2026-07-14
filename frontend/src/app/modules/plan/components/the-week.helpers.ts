@@ -1,12 +1,10 @@
-// Pure derivations for THE WEEK's 7-day grid + progress string (Slice 2
-// §2.5). Date math is UTC-midnight-epoch style throughout, matching
-// `resolveCurrentWeek`'s style in `use-plan.hooks.ts` — NOT
-// `logging/history/week-grouping.helpers.ts`'s local-`Date`/Monday-anchored
-// style, which is the wrong week boundary (ISO-Monday vs. Sunday-training-
-// week) for this surface. All log-join arithmetic imports the shared
-// `plan-display.helpers.ts` primitives (`parseIsoDateUtc`,
-// `resolveCalendarDateUtc`) rather than re-deriving them — "one
-// implementation of the date math, not two."
+// Pure derivations for THE WEEK's 7-day grid + progress string. Date math
+// is UTC-midnight-epoch style throughout, the same style
+// used everywhere else this training week's boundary is computed — NOT a
+// local-`Date`/Monday-anchored style, which is the wrong week boundary
+// (ISO-Monday vs. Sunday-training-week) for this surface. All log-join
+// arithmetic imports the shared UTC-midnight date primitives rather than
+// re-deriving them — one implementation of the date math, not two.
 
 import { PreferredUnits } from '~/api/generated'
 import type { WorkoutLogDto } from '~/api/generated'
@@ -31,9 +29,9 @@ export interface DayCell {
 /**
  * Returns whether any log in `logs` was `occurredOn` the calendar date named
  * by `dateEpoch` (a UTC-midnight epoch) — the ONE log-matching predicate
- * {@link resolveDayCells} calls for its `done` cell state and `home.page.tsx`
- * calls (via this same export) to decide whether `WorkoutHero` should render
- * its `logged` state for today (Slice 2 F1 fix). ALL fetched logs count
+ * {@link resolveDayCells} calls for its `done` cell state, and that the
+ * Today screen's mount site also calls directly to decide whether the hero
+ * should render its `logged` state for today. ALL fetched logs count
  * regardless of `completionStatus` (including `Skipped`) — a literal
  * reading of "a log exists for that date," matching {@link resolveDayCells}'s
  * own rule. Sharing this one function (never a second, parallel "is today
@@ -67,7 +65,7 @@ export function resolveDayCells(params: {
   weekNumber: number
   planStartDate: string
   logs: readonly WorkoutLogDto[]
-  /** Pre-normalized UTC-midnight epoch — `plan-display.helpers.ts`'s `toUtcMidnight`. */
+  /** Pre-normalized UTC-midnight epoch — the same epoch every other Today-screen section reads for "today". */
   todayUtc: number
 }): DayCell[] {
   const { week, weekNumber, planStartDate, logs, todayUtc } = params

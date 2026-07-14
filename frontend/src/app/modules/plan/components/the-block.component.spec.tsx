@@ -119,7 +119,7 @@ describe('TheBlock', () => {
     ])
     // `--muted-foreground` on every label, current phase or not — essential
     // text (a runner's only way to tell which weeks belong to which named
-    // phase) never carries the decorative `--alp-faint` token (spec §8 FIX 5).
+    // phase) never carries the decorative `--alp-faint` token.
     for (const label of labels) {
       expect(label).toHaveClass('text-muted-foreground')
       expect(label).not.toHaveClass('text-[color:var(--alp-faint)]')
@@ -143,7 +143,7 @@ describe('TheBlock', () => {
     expect(tiers['9']).toBe('currentPhase')
   })
 
-  it('renders weeks in an earlier phase than the current one as currentPhase (BD2), not distant', () => {
+  it('renders weeks in an earlier phase than the current one as currentPhase, not distant', () => {
     render(<TheBlock {...baseProps({ currentWeek: 7 })} />)
     const tiers = tierByWeek(screen.getAllByTestId('the-block-cell'))
     expect(tiers['1']).toBe('currentPhase')
@@ -247,7 +247,7 @@ describe('TheBlock', () => {
   })
 
   describe('dual-theme parity', () => {
-    it('renders the DU-7 12-cell scenario identically in both themes with zero raw colour literals', () => {
+    it('renders the 12-cell scenario identically in both themes with zero raw colour literals', () => {
       const { dark, light } = renderInBothThemes(<TheBlock {...baseProps()} />)
       for (const result of [dark, light]) {
         expect(result.getByTestId('the-block')).toBeInTheDocument()

@@ -16,8 +16,8 @@ using RunCoach.Api.Modules.Training.Plan;
 namespace RunCoach.Api.Tests.Modules.Training.Plan;
 
 /// <summary>
-/// Unit tests over <see cref="PlanGenerationService"/> per Slice 1 § Unit 2
-/// R02.4-R02.6 (DEC-057 / R-066). Covers the six-call sequential ordering
+/// Unit tests over <see cref="PlanGenerationService"/> (DEC-057 / R-066).
+/// Covers the six-call sequential ordering
 /// (1 macro + 4 meso + 1 micro), the <see cref="CacheControl.Ephemeral1h"/>
 /// breakpoint on every call, the partial-failure path (failure on the 4th
 /// meso call throws and returns no events), the input-prompt-stability rule
@@ -34,7 +34,7 @@ public sealed class PlanGenerationServiceTests
 
     private static readonly DateTimeOffset Now = new(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
 
-    // Phase-week shapes for the F3 validation tests (CA1861: hoisted to static fields
+    // Phase-week shapes for the macro validation tests (CA1861: hoisted to static fields
     // so the repeated BuildMacroWithTotalWeeks calls do not allocate a fresh array each time).
     private static readonly int[] NineWeekPhaseWeeks = [5, 4];
 
@@ -195,7 +195,7 @@ public sealed class PlanGenerationServiceTests
     public async Task GeneratePlanAsync_AnchorsPlanStartDateToGenerationWeekSunday()
     {
         // Arrange — generate on Wednesday 2026-06-10; week 1, day 0 anchors to the
-        // preceding Sunday 2026-06-07 (slice-2b Unit 1 / DEC-076).
+        // preceding Sunday 2026-06-07 (DEC-076).
         var generationDate = new DateTimeOffset(2026, 6, 10, 9, 30, 0, TimeSpan.Zero);
         var (sut, llm, _) = CreateSut(generationDate);
         ConfigureLlmHappyPath(llm);
@@ -228,7 +228,7 @@ public sealed class PlanGenerationServiceTests
     [Fact]
     public async Task GeneratePlanAsync_PreviousPlanIdNonNull_ThreadsOntoPlanGenerated()
     {
-        // Arrange — Unit 5 regenerate flow passes the prior plan id; the
+        // Arrange — the regenerate flow passes the prior plan id; the
         // service threads it through verbatim onto the stream-creation event.
         var (sut, llm, _) = CreateSut();
         ConfigureLlmHappyPath(llm);
@@ -244,7 +244,7 @@ public sealed class PlanGenerationServiceTests
     [Fact]
     public async Task GeneratePlanAsync_PreviousPlanIdNull_LeavesPlanGeneratedPreviousNull()
     {
-        // Arrange — Unit 1 onboarding-terminal flow passes null; the projection
+        // Arrange — the onboarding-terminal flow passes null; the projection
         // surface treats null as "this is the first plan".
         var (sut, llm, _) = CreateSut();
         ConfigureLlmHappyPath(llm);
@@ -1344,9 +1344,9 @@ public sealed class PlanGenerationServiceTests
     [Fact]
     public void WeekContext_FromMacro_WeekIndexPastDeclaredPhases_ReturnsLastPhaseWithoutDeload()
     {
-        // Arrange — 12-week macro (8 Base + 4 Build); the defensive path at
-        // PlanGenerationService.cs:340-341 fires when weekIndex exceeds the
-        // cumulative phase coverage (e.g. an LLM under-declared the macro).
+        // Arrange — 12-week macro (8 Base + 4 Build); the defensive fall-through
+        // path fires when weekIndex exceeds the cumulative phase coverage
+        // (e.g. an LLM under-declared the macro).
         var macro = BuildMacro();
         const int weekIndexPastEnd = 13;
 
@@ -1422,7 +1422,7 @@ public sealed class PlanGenerationServiceTests
         timeProvider.GetUtcNow().Returns(effectiveNow);
 
         // The local-date provider drives both the date-aware horizon and the
-        // PlanStartDate anchor (F3). It defaults to the calendar day of the pinned
+        // PlanStartDate anchor. It defaults to the calendar day of the pinned
         // clock so the existing PlanStartDate assertions stay valid. Tests that
         // exercise anchoring pass an explicit localToday instead.
         var localDate = Substitute.For<ILocalDateProvider>();
@@ -1464,7 +1464,7 @@ public sealed class PlanGenerationServiceTests
     }
 
     /// <summary>
-    /// Stubs the macro tier call to return the supplied macro verbatim. Used by the F3
+    /// Stubs the macro tier call to return the supplied macro verbatim. Used by the macro
     /// validation tests to feed a horizon-violating or phase-sum-inconsistent macro.
     /// </summary>
     private static void ConfigureMacro(ICoachingLlm llm, MacroPlanOutput macro)
@@ -1638,7 +1638,7 @@ public sealed class PlanGenerationServiceTests
     };
 
     /// <summary>
-    /// A completed view carrying a future target event (F3). The supplied ISO date drives
+    /// A completed view carrying a future target event. The supplied ISO date drives
     /// the deterministic horizon, which gates macro validation in the service.
     /// </summary>
     private static OnboardingView CreateRaceView(string eventDateIso)

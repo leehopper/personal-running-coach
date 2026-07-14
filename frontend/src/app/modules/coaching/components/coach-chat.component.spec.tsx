@@ -337,7 +337,7 @@ describe('CoachChat', () => {
     ).toBeInTheDocument()
   })
 
-  describe('composer prefill/focus receiver (Slice 2 §1 PR-C)', () => {
+  describe('composer prefill/focus receiver', () => {
     it('seeds the composer and focuses it when navigation state carries a prefill', () => {
       locationMock.mockReturnValue({ state: { prefill: "How's my week look?" }, key: 'nav-1' })
       setTimeline([])

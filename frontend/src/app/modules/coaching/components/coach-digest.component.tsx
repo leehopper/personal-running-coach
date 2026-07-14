@@ -24,8 +24,8 @@ export interface CoachDigestProps {
 }
 
 // Source copy stays sentence case ("Open →") — `uppercase` renders it
-// `OPEN →`, the same presentation-only-caps rule every other label in this
-// slice follows (frontend CLAUDE.md § Typography).
+// `OPEN →`. Capitalization is always a presentation concern applied via
+// CSS, never baked into the stored string.
 const OPEN_ARROW_CLASS =
   'font-condensed text-[12px] font-semibold tracking-[0.1em] text-clay-text uppercase'
 
@@ -34,15 +34,15 @@ const CHIP_CLASS =
 
 /**
  * The digest's resolved body shape — a pure derivation from the composed
- * timeline's last two turns (Slice 2 spec §1 PR-C "Branch:" list).
+ * timeline's last two turns.
  *
- * `restructure` fully replaces the border-left text block (DU-5's "card
- * fully replaces… not nested inside it"), so it carries only the raw
- * `diff` — `composeAdaptationHeadline` is called at render time with the
- * live `currentWeek`/`units` props. `plain` covers states 1/2 AND the
- * nudge/safety/errored sub-branches, which all fold into the same clamped
- * treatment; `coachLine === null` is the "no reply yet" case (`latest.kind
- * === user`), which renders no coach paragraph at all.
+ * `restructure` fully replaces the border-left text block — it's a
+ * different card shape entirely, not layered inside the plain treatment —
+ * so it carries only the raw `diff`; `composeAdaptationHeadline` is called
+ * at render time with the live `currentWeek`/`units` props. `plain` covers
+ * states 1/2 AND the nudge/safety/errored sub-branches, which all fold into
+ * the same clamped treatment; `coachLine === null` is the "no reply yet"
+ * case (`latest.kind === user`), which renders no coach paragraph at all.
  */
 type CoachDigestBody =
   | { kind: 'empty' }
@@ -50,11 +50,10 @@ type CoachDigestBody =
   | { kind: 'plain'; userLine: string | null; coachLine: string | null }
 
 /**
- * The fixed one-step lookback (Slice 2 spec §1 PR-C "userLine rule"): reads
- * `turns[turns.length - 2]` as its own array element, never a field nested on
- * the latest turn. Index arithmetic, not `Array.prototype.at` (ES2020
- * target — see `plan-display.helpers.ts`'s `phaseForWeek` for the same
- * convention).
+ * The fixed one-step lookback: reads `turns[turns.length - 2]` as its own
+ * array element, never a field nested on the latest turn. Index arithmetic,
+ * not `Array.prototype.at` — this file targets ES2020, so `at` isn't used
+ * here.
  */
 const resolveDigestBody = (turns: readonly ConversationTimelineTurnDto[]): CoachDigestBody => {
   const latest = turns[turns.length - 1]
@@ -201,7 +200,7 @@ const DigestCard = ({ body, currentWeek, units, className }: DigestCardProps): R
  * the full transcript. The user line is a 1-line ellipsis (`truncate`) and
  * the coach text is `line-clamp-3`: pathological input (a very long user
  * line, a multi-paragraph coach reply) never changes this module's height —
- * nothing in it ever scrolls (Slice 2 spec §3a / DEC-089 D3).
+ * nothing in it ever scrolls.
  *
  * A restructure-level adaptation renders as a one-line `PLAN ADJUSTED`
  * headline card whose summary is composed CLIENT-SIDE, DETERMINISTICALLY,

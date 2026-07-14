@@ -2,22 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { WorkoutLogDto } from '~/api/generated'
 import { CompletionStatus, PreferredUnits } from '~/api/generated'
 import { toUtcMidnight } from './plan-display.helpers'
-import { buildPlanFixture } from './plan-display.fixture'
+import { buildPlanFixture, buildWorkoutLog as log, PLAN_START_DATE } from './plan-display.fixture'
 import { formatWeekProgress, isDateLogged, resolveDayCells, weekLoggedKm } from './the-week.helpers'
 
-// planStartDate anchors to Sunday 2026-04-19 (matching the shared fixture),
-// so week 1 spans 2026-04-19 (Sun) .. 2026-04-25 (Sat). Week 1's template
-// (baseWeek(1, false)) is Sunday=Rest, Monday=Run, Tuesday=Rest,
-// Wednesday=Run, Thursday=Rest, Friday=Run, Saturday=Run.
-const PLAN_START_DATE = '2026-04-19'
-
-const log = (occurredOn: string, distanceMeters = 6000): WorkoutLogDto => ({
-  workoutLogId: `log-${occurredOn}`,
-  occurredOn,
-  distanceMeters,
-  durationSeconds: 1800,
-  completionStatus: CompletionStatus.Complete,
-})
+// PLAN_START_DATE anchors to Sunday 2026-04-19, so week 1 spans 2026-04-19
+// (Sun) .. 2026-04-25 (Sat). Week 1's template (baseWeek(1, false)) is
+// Sunday=Rest, Monday=Run, Tuesday=Rest, Wednesday=Run, Thursday=Rest,
+// Friday=Run, Saturday=Run.
 
 const weekOneTemplate = () => buildPlanFixture().mesoWeeks[0]
 
@@ -105,11 +96,11 @@ describe('resolveDayCells', () => {
   })
 })
 
-// The shared predicate `resolveDayCells` above and `home.page.tsx`'s hero
-// logged-state derivation both call — see the `Given the same fixture, THE
-// WEEK's today cell and the hero AGREE` integration test in
-// `home.page.spec.tsx` for the regression guard this makes possible (Slice 2
-// F1 fix).
+// The shared predicate `resolveDayCells` above and the Today screen's hero
+// logged-state derivation both call — a page-level integration test asserts
+// THE WEEK's today cell and the hero AGREE on the same fixture, which this
+// sharing is what makes possible: two call sites can never disagree about
+// whether today has been logged when they both read the same function.
 describe('isDateLogged', () => {
   it('returns true when a log occurred on the exact date', () => {
     const dateEpoch = toUtcMidnight(new Date(2026, 3, 20))

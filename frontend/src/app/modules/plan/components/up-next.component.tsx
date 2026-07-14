@@ -10,7 +10,7 @@ import { DAY_OF_WEEK_LABELS } from './plan-display.helpers'
 export interface UpNextProps {
   /** Detailed workouts for the *current* week. */
   currentWeekWorkouts: readonly MicroWorkoutCardDto[]
-  /** Raw local `Date` — a LOCAL-getter consumer (`today.getDay()`), not a `todayUtc` one (Slice 2 §2.1). */
+  /** Raw local `Date` — a LOCAL-getter consumer (`today.getDay()`), not a `todayUtc` one. */
   today: Date
   units: PreferredUnits
   className?: string

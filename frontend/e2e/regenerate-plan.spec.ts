@@ -50,14 +50,15 @@ const planAId = '8a4b9b2a-1d3f-4f1c-9aab-5e2c1f0b1234'
 const planBId = '7e1d9b2a-1d3f-4f1c-9aab-5e2c1f0b9876'
 const userId = '00000000-0000-0000-0000-000000000001'
 
-// The Sunday (LOCAL calendar day, matching `toUtcMidnight`'s
-// getFullYear/getMonth/getDate approach in `plan-display.helpers.ts`) on or
-// before "now", formatted `YYYY-MM-DD`. Both plan A and plan B share this
-// anchor (their `mesoWeeks`/`microWorkoutsByWeek` shapes are otherwise
-// identical week-1-4 templates) so THE WEEK's calendar-date join resolves
-// for either fixture — an absent/unparseable `planStartDate` makes every
-// day cell degrade to `planned`/`rest` (`resolveDayCells`'s unparseable-date
-// path), same fixture gap `plan-render.spec.ts` had.
+// The Sunday (LOCAL calendar day — getFullYear/getMonth/getDate, matching
+// the app's own UTC-midnight-normalization approach for this same
+// calculation) on or before "now", formatted `YYYY-MM-DD`. Both plan A and
+// plan B share this anchor (their `mesoWeeks`/`microWorkoutsByWeek` shapes
+// are otherwise identical week-1-4 templates) so THE WEEK's calendar-date
+// join resolves for either fixture — an absent/unparseable `planStartDate`
+// degrades every day cell to a non-today, non-done state instead of
+// crashing, which would otherwise make THE WEEK's `today` cell unreachable
+// in this suite.
 const planStartDateForCurrentWeek = (): string => {
   const now = new Date()
   const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
@@ -391,8 +392,7 @@ test('register → settings → regenerate with intent → home shows new plan',
   // THE BLOCK's `the-block-phase-label` `data-phase` attribute is the most
   // stable selector — workout titles depend on the day-of-week resolution
   // which we deliberately avoid coupling to the calendar. (Direct successor
-  // to the deleted `MacroPhaseStrip`'s `macro-phase-segment` selector,
-  // Slice 2 §7.)
+  // to the deleted `MacroPhaseStrip`'s `macro-phase-segment` selector.)
   const planAPhases = await page
     .getByTestId('the-block-phase-label')
     .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-phase')))

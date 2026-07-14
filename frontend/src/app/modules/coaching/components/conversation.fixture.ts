@@ -55,15 +55,14 @@ export const buildDiff = (
 })
 
 // ─────────────────────────────────────────────────────────────────────────
-// Composed-timeline fixtures (Slice 2 §1 PR-C) — `CoachDigest`'s specs need a
-// real, multi-element `turns` array (each user/coach message its own array
-// entry, never a single record carrying both — the doc comment on
-// `conversation.model.ts`'s `ConversationTimelineTurnDto` is ground truth
-// here) so the `userLine` one-step-lookback tests can control
-// `turns[turns.length - 2]` independently of `turns[turns.length - 1]`.
-// `coach-chat.component.spec.tsx` keeps its own unexported inline builders
-// (a different, page-level test surface) — these are the digest's own,
-// centralised here rather than re-inlined a third time.
+// Composed-timeline fixtures — `CoachDigest`'s specs need a real,
+// multi-element `turns` array (each user/coach message its own array
+// entry, never a single record carrying both — a `ConversationTimelineTurnDto`
+// is one turn, one role, always) so the `userLine` one-step-lookback tests
+// can control `turns[turns.length - 2]` independently of
+// `turns[turns.length - 1]`. Other page-level test surfaces keep their own
+// unexported inline builders for their own narrower needs — these are the
+// digest's own, centralised here rather than re-inlined a third time.
 // ─────────────────────────────────────────────────────────────────────────
 
 /** A `user`-kind timeline turn — always `isErrored: false` per its own wire contract. */
@@ -118,7 +117,7 @@ export const buildNudgeTimelineTurn = (turnId = 'nudge-1'): ConversationTimeline
 
 /**
  * A restructure-kind `adaptation` timeline turn carrying the caller-supplied
- * `diff` — never hardcoded, so both the DU-5 state-3 test and the
+ * `diff` — never hardcoded, so both the restructure-headline test and the
  * units-Miles headline test can each pin their own
  * `composeAdaptationHeadline` input/output pair without a second, competing
  * fixture shape.

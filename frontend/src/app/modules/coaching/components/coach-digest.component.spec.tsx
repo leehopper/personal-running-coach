@@ -63,8 +63,7 @@ const weeklyTargetOnlyDiff: PlanAdaptationDiffDto = {
 // Saturday trims to 8.0 km.", ~54 chars). This is the fixture the
 // short-single-sentence `weeklyTargetOnlyDiff` above cannot exercise: at a
 // realistic mobile card width, 2 sentences wraps to a second line unless the
-// summary is genuinely clamped to one line (Slice 2 spec DU-5 state 3 / D3's
-// "one-line headline card").
+// summary is genuinely clamped to one line.
 const twoSentenceDiff: PlanAdaptationDiffDto = {
   weeklyTargetChanges: [{ weekNumber: 3, beforeWeeklyTargetKm: 30, afterWeeklyTargetKm: 26 }],
   workoutChanges: [
@@ -100,8 +99,7 @@ describe('CoachDigest', () => {
       // is always 0 regardless of content length — a height-parity
       // assertion here would be `0 === 0`, always true, and would not
       // fail if the clamp classes below were removed. The class-presence
-      // assertions are the only load-bearing check this test can make
-      // (Slice 2 §5 DU-5's "never grows the module" contract).
+      // assertions are the only load-bearing check this test can make.
       const longUserLine = 'x'.repeat(400)
       const longCoachReply = Array.from({ length: 13 }, (_, i) => `Sentence number ${i + 1}.`).join(
         ' ',
@@ -181,7 +179,7 @@ describe('CoachDigest', () => {
       expect(screen.getByText('Open →')).toBeInTheDocument()
     })
 
-    it('threads the Miles preference into the headline (F3 catch)', () => {
+    it('threads the Miles preference into the headline', () => {
       setTimeline(buildRestructureLatestTimeline(weeklyTargetOnlyDiff))
       renderDigest(3, PreferredUnits.Miles)
 

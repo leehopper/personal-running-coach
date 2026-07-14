@@ -11,9 +11,9 @@ export interface StatCellProps {
   /**
    * `'default'` (today's `.t-numeral`/`.t-data-label` styling, unchanged) —
    * `'hero'` — the workout hero's stat band typography: condensed 700/30px
-   * value, mono 500/9.5px/+0.1em/uppercase label in `--muted-foreground`
-   * (Slice 2 §2.8). Mirrors {@link StatBand}'s own `variant` prop so the two
-   * stay consistent — same default-preserving pattern, same naming.
+   * value, mono 500/9.5px/+0.1em/uppercase label in `--muted-foreground`.
+   * Mirrors {@link StatBand}'s own `variant` prop so the two stay
+   * consistent — same default-preserving pattern, same naming.
    */
   variant?: 'default' | 'hero'
 }
@@ -25,14 +25,12 @@ const STAT_CELL_VALUE_CLASSES: Record<NonNullable<StatCellProps['variant']>, str
 
 const STAT_CELL_LABEL_CLASSES: Record<NonNullable<StatCellProps['variant']>, string> = {
   default: 't-data-label text-muted-foreground',
-  // Builder decision (Slice 2 FIX 3): the mock's `--alp-faint` treatment is
-  // rejected here — `--alp-faint` is decorative-only by design (fails AA,
-  // `check-contrast` exempts it, CLAUDE.md forbids essential text in it),
-  // but these labels (KILOMETERS, PACE /KM) are the unit qualifiers on a
-  // bare numeral: with a km/miles preference in the app, "10.0" alone is
-  // ambiguous, so the unit label is essential text, not decoration.
-  // `--muted-foreground` (already contrast-gated) carries it instead — a
-  // deliberate, documented deviation from the mock (see spec §8).
+  // The design mock renders these labels in the decorative, AA-failing
+  // faint tint; that's rejected here because KILOMETERS/PACE /KM are the
+  // unit qualifiers on a bare numeral — with a km/miles preference in the
+  // app, "10.0" alone is ambiguous, so the label is essential text, not
+  // decoration, and must clear contrast. The contrast-gated
+  // muted-foreground token carries it instead.
   hero: 'font-mono text-[9.5px] font-medium uppercase tracking-[0.1em] text-muted-foreground',
 }
 
@@ -64,8 +62,7 @@ export interface StatBandProps {
   /**
    * `'divided'` (default) — today's equal-width flex row with `divide-x`
    * hairline separators, unchanged. `'hero'` — the workout hero's asymmetric
-   * `1fr/1.7fr/1fr` CSS grid with a full top+bottom hairline border,
-   * introduced by Slice 2.
+   * `1fr/1.7fr/1fr` CSS grid with a full top+bottom hairline border.
    */
   variant?: 'divided' | 'hero'
 }

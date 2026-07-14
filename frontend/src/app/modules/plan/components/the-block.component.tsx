@@ -57,9 +57,10 @@ export const TheBlock = ({
   const ranges = computePhaseRanges(macro.phases)
   const tiers = resolveBlockFillTiers({ ranges, currentWeek, totalWeeks: macro.totalWeeks })
   const goalChip = formatGoalChip({ targetEventDistanceKm, targetEventDate })
-  // §2.3's consumer-side guard: filter empty (zero-week) spans before
-  // rendering a phase label — computePhaseRanges deliberately keeps them in
-  // the array so `ranges.at(-1)`-equivalent lookups still resolve.
+  // Filter out empty (zero-week) spans before rendering a phase label —
+  // computePhaseRanges deliberately keeps them in the array (so a
+  // last-element lookup still resolves to the true last phase), but an
+  // empty span has no weeks to label.
   const phaseLabelRows = ranges
     .filter((range) => range.endWeek >= range.startWeek)
     .map((range) => ({
@@ -72,8 +73,9 @@ export const TheBlock = ({
   // "Upcoming" is a literal weekNumber >= currentWeek filter — an
   // already-completed week never renders under this list. Weeks absent from
   // `mesoWeeks` (beyond whatever's currently populated) are skipped
-  // silently, no placeholder row — the permanent shape under DEC-090's
-  // rolling horizon, not a stopgap (§11).
+  // silently, no placeholder row — the plan only ever carries a rolling
+  // window of populated weeks, so an unpopulated future week is expected,
+  // not an error state.
   const upcomingWeeks = mesoWeeks.filter((week) => week.weekNumber >= currentWeek)
 
   return (
@@ -98,9 +100,10 @@ export const TheBlock = ({
       {/*
        * `TotalWeeks` is a runtime value, not known at build time, so
        * Tailwind's static class scanner cannot pre-generate a
-       * `grid-cols-[repeat(N,1fr)]` utility for it — the column count is
-       * genuinely dynamic (DU-7's 16-week case), so this is inline style,
-       * not a hardcoded arbitrary-value class.
+       * `grid-cols-[repeat(N,1fr)]` utility for it — a plan's total week
+       * count varies (e.g. a 16-week plan), so the column count is
+       * genuinely dynamic. This is inline style, not a hardcoded
+       * arbitrary-value class.
        */}
       <div
         className="grid gap-1"
@@ -135,9 +138,9 @@ export const TheBlock = ({
             // phase precedes the current one, this label is the runner's
             // ONLY way to learn which weeks belong to which named phase —
             // the fill-tier grid above collapses every pre-current phase to
-            // the same `currentPhase` tier (BD2, §2.6), so it cannot carry
-            // that distinction. Essential text, not decoration (spec §8's
-            // FIX 5 note) — applies uniformly, current phase or not.
+            // the same `currentPhase` tier, so it cannot carry that
+            // distinction. Essential text, not decoration — the contrast
+            // requirement applies uniformly, current phase or not.
             className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-muted-foreground"
           >
             {row.text}
@@ -161,9 +164,9 @@ export const TheBlock = ({
                 {/*
                  * `--muted-foreground`, not `--alp-faint`: this label is the
                  * row's ONLY identifier of which week its summary/volume
-                 * refer to — essential text, not decoration (frontend
-                 * CLAUDE.md's "must never carry essential text" rule; see
-                 * spec §8's FIX 4 note).
+                 * refer to, so it must stay legible — use the contrast-gated
+                 * muted token, never the faint decorative one (which fails
+                 * AA by design).
                  */}
                 <span className="font-condensed text-[13px] font-semibold whitespace-nowrap tracking-[0.1em] text-muted-foreground">
                   WK {week.weekNumber}

@@ -173,15 +173,15 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
     }
 
     /// <summary>
-    /// The wire-contract proof for the PR-A backend delta (DEC-089 D4): seeds a
-    /// Plan stream with non-null target-event values and asserts the raw HTTP
+    /// The wire-contract proof for the target-event fields: seeds a Plan
+    /// stream with non-null target-event values and asserts the raw HTTP
     /// JSON response body carries them verbatim under their camelCase names.
-    /// This is the only test in the target-event slice that exercises the
-    /// actual serialized wire bytes rather than stopping at the in-process
-    /// DTO/event layer — every frontend consumer trusts the hand-written
-    /// <c>PlanProjectionDto</c> TS interface rather than re-verifying what the
-    /// backend actually serializes, so a <c>[JsonPropertyName]</c> mismatch or
-    /// a serializer-config gap would otherwise pass every other test and still
+    /// This is the only test that exercises the actual serialized wire bytes
+    /// rather than stopping at the in-process DTO/event layer — every
+    /// frontend consumer trusts the hand-written <c>PlanProjectionDto</c>
+    /// TypeScript interface rather than re-verifying what the backend
+    /// actually serializes, so a <c>[JsonPropertyName]</c> mismatch or a
+    /// serializer-config gap would otherwise pass every other test and still
     /// silently corrupt the rendered goal chip in production.
     /// </summary>
     [Fact]

@@ -2,9 +2,9 @@ import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useGetWorkoutLogHistoryInfiniteQuery } from '~/api/workout-log.api'
-// Cross-module import — mirrors the codebase's existing bidirectional
-// cross-module precedent (`before-after-diff.helpers.ts` already imports
-// FROM `plan` INTO `coaching`; this is the same pattern in reverse).
+// Cross-module import: plan → coaching. The coaching and plan modules
+// already import from each other elsewhere in the app — neither one is a
+// one-way dependency root — so this direction is not a layering violation.
 import { CoachDigest } from '~/modules/coaching/components/coach-digest.component'
 import {
   computePhaseRanges,
@@ -45,21 +45,16 @@ import { usePreferredUnits } from '~/modules/settings/hooks/use-preferred-units.
  * progress), FROM YOUR COACH (the latest conversation exchange, a
  * tap-through to `/coach`), UP NEXT (the remainder of this week's
  * workouts), and THE BLOCK (the whole macro-cycle at a glance). The
- * interactive coach chat itself lives on its own `/coach` route (spec §
- * AD3) — home is the plan-render surface only, navigated to and from via
- * the `TabBar`.
+ * interactive coach chat itself lives on its own `/coach` route — home is
+ * the plan-render surface only, navigated to and from via the `TabBar`.
  *
  * Behaviour:
  *   - On mount calls `getCurrentPlan` via the `usePlan` hook.
  *   - On 200 renders all six sections.
  *   - On 404 renders the "no plan yet" defensive state with a CTA back
  *     to `/onboarding` — should not appear in normal flow because the
- *     top-level route guard catches the unborn-plan case first
- *     (spec § Unit 4 R04.3).
+ *     top-level route guard catches the unborn-plan case first.
  *   - On other errors renders a generic failure surface.
- *
- * Spec § Unit 4 R04.1, R04.3, R04.4, R04.5, R04.6, R04.7 (Slice 1); Slice 2
- * §1 PR-D for the six-section recomposition.
  */
 export const HomePage = (): ReactElement => {
   const { plan, isLoading, isError, isNotFound } = usePlan()
@@ -102,21 +97,19 @@ interface PlanLayoutProps {
 }
 
 /**
- * Constructs `WorkoutHero`'s discriminated-union content (Slice 2 §2.1,
- * "C3 fix"; extended by the F1 fix's `logged` kind). `slot === undefined`
- * and `slot.slotType === 'Run'` with an absent `workout` (a data-integrity
- * edge case not reachable under a healthy plan) both fall back to
- * `unavailable` rather than lying about having a `workout`. Written as an
- * if/else chain, not nested ternaries (sonarjs/no-nested-conditional) —
- * same branches, same outcomes as the spec's pseudocode.
+ * Constructs `WorkoutHero`'s discriminated-union content. `slot ===
+ * undefined` and `slot.slotType === 'Run'` with an absent `workout` (a
+ * data-integrity edge case not reachable under a healthy plan) both fall
+ * back to `unavailable` rather than lying about having a `workout`. Written
+ * as an if/else chain, not nested ternaries (sonarjs/no-nested-conditional)
+ * — same branches, same outcomes either way.
  *
- * `isTodayLogged` is derived by the CALLER from the exact same log join
- * `TheWeek`'s day-cell state uses (`isDateLogged`, `the-week.helpers.ts`) —
- * this function only threads the already-resolved boolean into the `run` vs.
- * `logged` choice, it never re-derives "is today logged" itself. That single
- * shared derivation is what makes it impossible for THE WEEK's today cell
- * and the hero to disagree about whether today's run has been logged (F1
- * fix — see `home.page.spec.tsx`'s cross-section agreement test).
+ * `isTodayLogged` is derived by the CALLER from the exact same log-join
+ * predicate THE WEEK's day-cell state uses — this function only threads the
+ * already-resolved boolean into the `run` vs. `logged` choice, it never
+ * re-derives "is today logged" itself. That single shared derivation is
+ * what makes it impossible for THE WEEK's today cell and the hero to
+ * disagree about whether today's run has been logged.
  */
 const resolveHeroContent = (
   slot: MesoDaySlotDto | undefined,
@@ -144,7 +137,7 @@ const resolveHeroContent = (
  * `goalDescription` reflects the absence of a named race, and THE BLOCK
  * renders no goal chip — no special-casing required at the page level.
  *
- * This is the page's single `new Date()` call site (Slice 2 §2.1): `today`
+ * This is the page's single `new Date()` call site: `today`
  * (a raw wall-clock `Date`) fans into `todayUtc` (a UTC-midnight epoch)
  * exactly once, immediately, and every downstream section reads one or the
  * other — never a second `new Date()`.
@@ -163,12 +156,14 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
   // Sources THE WEEK's `logs` prop from the SAME cache entry `/history`
   // already uses (same hook, same `undefined` arg) — never calls
   // `fetchNextPage`, which would permanently append pages to that shared
-  // cache entry and break the history page's own pagination (§2.5/C7).
+  // cache entry and break the history page's own pagination.
   const { data: historyData } = useGetWorkoutLogHistoryInfiniteQuery(undefined)
   const logs = historyData?.pages.flatMap((page) => page.logs) ?? []
 
-  // LOCAL getters only — `dayOfWeek` is a plain-local-training-date concept
-  // (PlanCalendar.cs's docstring), must NOT be UTC-normalized.
+  // LOCAL getters only — `dayOfWeek` indexes the plan's day-slot template
+  // (Sunday=0..Saturday=6), which the server assigns by the runner's local
+  // calendar day, not a UTC one; reading it via a UTC getter could disagree
+  // with the server's own day boundary near local midnight.
   const slot: MesoDaySlotDto | undefined =
     currentWeekTemplate === undefined
       ? undefined
@@ -180,8 +175,8 @@ const PlanLayout = ({ plan }: PlanLayoutProps): ReactElement => {
   const nextWorkout = findNextWorkoutAfter(currentWeekWorkouts, today.getDay())
 
   // SAME predicate, SAME `logs` array, SAME `todayUtc` epoch `TheWeek` below
-  // uses for its today cell's `done` state (F1 fix) — never a second,
-  // parallel "is today logged" check re-derived here.
+  // uses for its today cell's `done` state — never a second, parallel "is
+  // today logged" check re-derived here.
   const isTodayLogged = isDateLogged(logs, todayUtc)
 
   // Constructed HERE, where `slot`/`workout` are both in scope as local

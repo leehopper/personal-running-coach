@@ -3,11 +3,20 @@
 // projection from a different angle; the shared fixture keeps the
 // trademark-cleanliness assertions auditable in one place.
 
+import { CompletionStatus, type WorkoutLogDto } from '~/api/generated'
 import type {
   MesoWeekTemplateDto,
   MicroWorkoutCardDto,
   PlanProjectionDto,
 } from '~/modules/plan/models/plan.model'
+
+/**
+ * {@link buildPlanFixture}'s `planStartDate` — exported so specs that build
+ * their own `WorkoutLogDto` fixtures against week/day offsets can anchor to
+ * the exact same Sunday without hardcoding a second copy of the literal that
+ * could drift out of sync with the fixture.
+ */
+export const PLAN_START_DATE = '2026-04-19'
 
 const easyMonday: MicroWorkoutCardDto = {
   dayOfWeek: 1,
@@ -114,8 +123,9 @@ export const buildPlanFixture = (): PlanProjectionDto => ({
   planId: '00000000-0000-0000-0000-00000000abcd',
   userId: '00000000-0000-0000-0000-0000000000aa',
   generatedAt: '2026-04-25T10:00:00Z',
-  // 2026-04-19 is the Sunday opening the week containing generatedAt (a Saturday).
-  planStartDate: '2026-04-19',
+  // PLAN_START_DATE (2026-04-19) is the Sunday opening the week containing
+  // generatedAt (a Saturday).
+  planStartDate: PLAN_START_DATE,
   previousPlanId: null,
   targetEventName: null,
   targetEventDistanceKm: null,
@@ -189,11 +199,25 @@ export const fixtureWeekOneWorkouts = (): readonly MicroWorkoutCardDto[] =>
   buildPlanFixture().microWorkoutsByWeek[1]?.workouts ?? []
 
 /**
+ * A minimal `WorkoutLogDto` for THE WEEK / hero log-join specs — every
+ * field except `occurredOn` and `distanceMeters` defaults to an arbitrary
+ * fixed value, since those two are what the log-matching predicates under
+ * test actually read.
+ */
+export const buildWorkoutLog = (occurredOn: string, distanceMeters = 6000): WorkoutLogDto => ({
+  workoutLogId: `log-${occurredOn}`,
+  occurredOn,
+  distanceMeters,
+  durationSeconds: 1800,
+  completionStatus: CompletionStatus.Complete,
+})
+
+/**
  * A race-training variant of {@link buildPlanFixture} with all three
  * target-event fields populated — the wire shape a plan takes when the
- * runner has a goal race (§1 PR-A's D4 backend delta). Everything else is
- * identical to the base fixture; specs covering the race / goal-chip branch
- * reach for this rather than hand-rolling their own override.
+ * runner has a goal race. Everything else is identical to the base
+ * fixture; specs covering the race / goal-chip branch reach for this
+ * rather than hand-rolling their own override.
  */
 export const buildRacePlanFixture = (): PlanProjectionDto => ({
   ...buildPlanFixture(),

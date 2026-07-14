@@ -1,17 +1,10 @@
-// Shared adaptation-diff presentation helper (Slice 2 §3 / D3). Owns the
-// pieces `before-after-diff.helpers.ts` does NOT: calendar-date math (that
-// file only echoes `Week N · Weekday`, never touching `PlanStartDate`) and
-// the one-sentence adaptation headline `CoachDigest`'s state-3 card renders.
-// `before-after-diff.helpers.ts` stays untouched this slice — it keeps
-// backing the pre-Slice-3 `AdaptationTurn`/`BeforeAfterDiff` transcript card
-// on `/coach`. This file is additive, not a replacement.
+// Shared adaptation-diff presentation helper: owns calendar-date math and
+// the one-sentence adaptation headline `CoachDigest` renders. This is the
+// single implementation of weekNumber/dayOfWeek → calendar-date locus math
+// — do not re-derive it elsewhere.
 //
-// `formatChangeLocusDate` is built here, in this slice, purely so Slice 3 can
-// import it unchanged for its own "WHAT CHANGED" expander rows — Slice 2
-// itself never calls it (the digest card shows a headline sentence, never a
-// date). "One implementation of the weekNumber/dayOfWeek → calendar-date
-// locus math, not two" (Slice 2 spec §3) — do not let a future slice
-// re-derive this inside `before-after-diff.helpers.ts` instead.
+// `formatChangeLocusDate` resolves the date fragment only; the digest card
+// itself never calls it — it shows a headline sentence, never a date.
 
 import { PreferredUnits } from '~/api/generated'
 import { formatDistanceKm } from '~/modules/common/utils/unit-format.helpers'
@@ -34,9 +27,9 @@ import type { PlanAdaptationDiffDto } from '~/modules/coaching/models/conversati
  * an empty {@link PlanAdaptationDiffDto}, so this guards defensively.
  *
  * Reuses the shared, unit-aware {@link formatDistanceKm} rather than a bare
- * integer formatter — a deliberate, flagged trade of exact copy fidelity to
- * the design mock (`"30 → 26 km"`) for zero new distance-formatting code
- * (Slice 2 spec §3/§9 open question #14): output reads `"30.0 → 26.0 km"`.
+ * integer formatter — a deliberate trade of exact copy fidelity to the
+ * design mock (`"30 → 26 km"`) for zero new distance-formatting code:
+ * output reads `"30.0 → 26.0 km"`.
  */
 export function composeAdaptationHeadline(params: {
   diff: PlanAdaptationDiffDto
@@ -87,9 +80,9 @@ export function composeAdaptationHeadline(params: {
 /**
  * Resolves a `(weekNumber, dayOfWeek)` locus to its calendar-date fragment
  * (e.g. `"JUN 29"`) — the date fragment ONLY, no `"WK "` prefix, no
- * `· WEEKDAY` suffix. Slice 3's row-level chrome is that slice's own
- * presentation concern; this helper's contract stays narrow so both slices
- * can compose it differently without a breaking change. Returns `null` when
+ * `· WEEKDAY` suffix. Callers own their own surrounding chrome, so this
+ * helper's contract stays narrow enough to be composed differently by
+ * different callers without a breaking change. Returns `null` when
  * `planStartDate` is unparseable (propagated from
  * {@link resolveCalendarDateUtc}), mirroring every other date helper in the
  * shared pipeline rather than throwing.

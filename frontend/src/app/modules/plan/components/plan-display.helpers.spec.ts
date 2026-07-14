@@ -149,7 +149,16 @@ describe('formatHeroEyebrowDate', () => {
   const originalTz = process.env.TZ
 
   afterEach(() => {
-    process.env.TZ = originalTz
+    // `originalTz` is `undefined` when TZ was unset before this suite ran —
+    // assigning `undefined` back to `process.env.TZ` would coerce it to the
+    // literal string `"undefined"` (env vars are always strings), leaking a
+    // bogus TZ into later tests in the same worker. Delete the key instead
+    // to restore the true "unset" state.
+    if (originalTz === undefined) {
+      delete process.env.TZ
+    } else {
+      process.env.TZ = originalTz
+    }
   })
 
   it('composes "{Weekday}, {MONTH_ABBR} {DAY}" from a single UTC-normalized epoch', () => {

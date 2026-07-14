@@ -1,21 +1,13 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { WorkoutLogDto } from '~/api/generated'
-import { CompletionStatus, PreferredUnits } from '~/api/generated'
+import { PreferredUnits } from '~/api/generated'
 import { renderInBothThemes } from '~/modules/common/test-utils/render-in-both-themes'
 import { toUtcMidnight } from './plan-display.helpers'
-import { buildPlanFixture } from './plan-display.fixture'
+import { buildPlanFixture, buildWorkoutLog as log, PLAN_START_DATE } from './plan-display.fixture'
 import { TheWeek, type TheWeekProps } from './the-week.component'
 
-const PLAN_START_DATE = '2026-04-19' // Sunday — week 1 spans 04-19..04-25.
-
-const log = (occurredOn: string, distanceMeters = 6000): WorkoutLogDto => ({
-  workoutLogId: `log-${occurredOn}`,
-  occurredOn,
-  distanceMeters,
-  durationSeconds: 1800,
-  completionStatus: CompletionStatus.Complete,
-})
+// PLAN_START_DATE is Sunday 2026-04-19 — week 1 spans 04-19..04-25.
 
 const weekOneTemplate = () => buildPlanFixture().mesoWeeks[0] // weeklyTargetKm: 30
 
@@ -71,7 +63,7 @@ describe('TheWeek', () => {
     expect(wednesday?.dataset.state).toBe('done')
   })
 
-  it('styles each day label state-dependently — today semibold clay-text; rest/done/planned share the muted treatment (builder decision, FIX 3: a rest-day label is essential calendar text, not decoration, so it does not get the decorative --alp-faint dim the mock specifies)', () => {
+  it('styles each day label state-dependently — today semibold clay-text; rest/done/planned share the muted treatment', () => {
     render(<TheWeek {...baseProps({ logs: [log('2026-04-20')] })} />)
     const cells = screen.getAllByTestId('the-week-day-cell')
     const byDay = Object.fromEntries(cells.map((cell) => [cell.dataset.dayOfWeek, cell]))
@@ -130,7 +122,7 @@ describe('TheWeek', () => {
     // week's real Monday run, so `/history`'s page-1 fetch (20 entries,
     // newest-first) never includes it — Home passes TheWeek only what it
     // fetched. TheWeek has no way to compensate; this pins that as accepted,
-    // tested behaviour (§2.5/§9 #9), not a silent bug.
+    // tested behaviour, not a silent bug.
     const laterLogs: WorkoutLogDto[] = Array.from({ length: 20 }, (_, i) =>
       log(`2026-06-${String(i + 1).padStart(2, '0')}`, 5000),
     )
