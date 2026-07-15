@@ -10,7 +10,7 @@ export interface CoachTextTurnProps {
   time: string
   /** Appends the clay block-cursor inline at the end of the body when a live stream is still in flight. */
   streaming?: boolean
-  /** Renders the durable `LoggedRunReceipt` beneath the body when non-null; null/undefined render no receipt. */
+  /** Renders the durable `LoggedRunReceipt` beneath the body when non-null; `null` / `undefined` render no receipt. */
   loggedRun?: LoggedRunSummaryDto | null
   /** Unit-aware distance for the receipt. Defaults to Kilometers. */
   units?: PreferredUnits
