@@ -269,6 +269,7 @@ export const CoachChat = (): ReactElement => {
       {card !== null && (
         <LogConfirmationCard
           card={card}
+          units={units}
           isConfirming={isConfirming}
           onConfirm={() => {
             void handleConfirm()

@@ -1,17 +1,18 @@
 import type { ReactElement } from 'react'
 
 import { cn } from '@/lib/utils'
-import type { PreferredUnits } from '~/api/generated'
+import { PreferredUnits } from '~/api/generated'
 import type { LoggedRunSummaryDto } from '~/modules/coaching/models/conversation.model'
+import { LoggedRunReceipt } from './logged-run-receipt.component'
 
 export interface CoachTextTurnProps {
   content: string
   time: string
   /** Appends the clay block-cursor inline at the end of the body when a live stream is still in flight. */
   streaming?: boolean
-  /** Wires into the durable `LoggedRunReceipt` (spec §3 PR-D); undefined when the receipt isn't rendered. */
+  /** Renders the durable `LoggedRunReceipt` beneath the body when non-null; null/undefined render no receipt. */
   loggedRun?: LoggedRunSummaryDto | null
-  /** Unit-aware distance for the receipt (spec §3 PR-D). Defaults to Kilometers. */
+  /** Unit-aware distance for the receipt. Defaults to Kilometers. */
   units?: PreferredUnits
   className?: string
 }
@@ -23,14 +24,17 @@ export interface CoachTextTurnProps {
  * `streaming` appends an `aria-hidden` clay block-cursor inline at the end
  * of the body while a live reply is still arriving.
  *
- * `loggedRun`/`units` are declared here (not destructured) as forward
- * compatibility for the durable receipt (spec §3 PR-D), which renders
- * `<LoggedRunReceipt>` beneath the body when `loggedRun` is non-null.
+ * When `loggedRun` is non-null (the confirm-ack turn for a committed
+ * conversational log, DEC-091), renders the durable `LoggedRunReceipt`
+ * beneath the body — this is what survives reload, since it reads off the
+ * persisted timeline turn rather than any in-session card state.
  */
 export const CoachTextTurn = ({
   content,
   time,
   streaming,
+  loggedRun,
+  units = PreferredUnits.Kilometers,
   className,
 }: CoachTextTurnProps): ReactElement => (
   <div data-testid="coach-text-turn" className={cn('flex flex-col gap-1', className)}>
@@ -47,5 +51,6 @@ export const CoachTextTurn = ({
         />
       )}
     </p>
+    {loggedRun != null && <LoggedRunReceipt summary={loggedRun} units={units} className="mt-2" />}
   </div>
 )

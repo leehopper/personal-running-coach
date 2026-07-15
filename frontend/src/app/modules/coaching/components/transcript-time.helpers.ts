@@ -4,8 +4,13 @@
 // every getter here is a local (`getHours`/`getDay`/`getMonth`/`getDate`)
 // read — never a `getUTC*` one.
 //
-// `formatDurationSeconds` (§4.3) is the receipt formatter's home file per
-// the spec.
+// `formatDurationSeconds`/`formatReceiptDate` (§4.3) are the receipt
+// formatter's home in this file. `formatReceiptDate` is the one exception to
+// the local-wall-clock rule above: `occurredOn` is a pure calendar date
+// (`YYYY-MM-DD`, no time-of-day component), so it is parsed UTC-safe via the
+// shared plan-calendar primitives rather than a local `Date` read.
+
+import { formatShortDateUtc, parseIsoDateUtc } from '~/modules/plan/components/plan-display.helpers'
 
 const WEEKDAY_ABBR = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const
 
@@ -106,4 +111,15 @@ export function formatDurationSeconds(s: number): string {
   const m = Math.floor((total % 3600) / 60)
   const sec = total % 60
   return h >= 1 ? `${h}:${pad2(m)}:${pad2(sec)}` : `${m}:${pad2(sec)}`
+}
+
+/**
+ * Formats a receipt's pure `YYYY-MM-DD` calendar date (e.g. a logged run's
+ * `occurredOn`) as `"JUL 8"`. `null` when `occurredOn` is unparseable, so
+ * callers omit the date fragment entirely rather than ever constructing
+ * `new Date(null)` (the Unix epoch, `JAN 1`) from a bad guard.
+ */
+export function formatReceiptDate(occurredOn: string): string | null {
+  const epoch = parseIsoDateUtc(occurredOn)
+  return epoch === null ? null : formatShortDateUtc(new Date(epoch))
 }

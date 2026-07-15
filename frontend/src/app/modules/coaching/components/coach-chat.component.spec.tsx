@@ -571,6 +571,64 @@ describe('CoachChat', () => {
     expect(send).toHaveBeenCalledExactlyOnceWith('how was my run?')
   })
 
+  it('renders the durable receipt on a persisted confirm-ack coach turn carrying loggedRun', () => {
+    setTimeline([
+      userTurn('logged my run'),
+      {
+        kind: 1,
+        turnId: 'ack-1',
+        createdAt: '2026-06-29T10:00:01Z',
+        interactive: {
+          content: "Logged your run. Your plan's updated — take a look.",
+          isErrored: false,
+          loggedRun: {
+            workoutLogId: 'wl-1',
+            distanceKm: 9.2,
+            durationSeconds: 41 * 60,
+            occurredOn: '2026-07-08',
+            completionStatus: 0,
+          },
+        },
+        proactive: null,
+      },
+    ])
+    streamMock.mockReturnValue(idleStream())
+
+    renderChat()
+
+    // The receipt renders wherever the ack turn sits in the timeline — it is
+    // sourced from the persisted `loggedRun` field, not any in-session card
+    // state, so it survives a fresh GET /timeline (reload) by construction.
+    expect(screen.getByTestId('logged-run-receipt')).toHaveTextContent(
+      'LOGGED — 9.2 km · 41:00 · JUL 8',
+    )
+    expect(screen.getByTestId('logged-run-receipt-logbook')).toHaveAttribute('href', '/history')
+  })
+
+  it('threads the unit preference into the confirmation card so the on-plan target renders mile-based', () => {
+    preferredUnitsMock.mockReturnValue(PreferredUnits.Miles)
+    setTimeline([])
+    streamMock.mockReturnValue(
+      idleStream({
+        card: {
+          ...sampleCard,
+          prescription: {
+            workoutType: 'Easy',
+            distanceMeters: 8000,
+            durationSeconds: 2400,
+            paceFastSecPerKm: 300,
+            paceEasySecPerKm: 360,
+          },
+        },
+      }),
+    )
+
+    renderChat()
+
+    // 8 km / 1.609344 = 4.9709... -> 5.0 mi
+    expect(screen.getByTestId('log-confirmation-card')).toHaveTextContent('TARGET 5.0 mi')
+  })
+
   it('confirms a card through the mutation and dismisses it on success', async () => {
     const user = userEvent.setup()
     const dismissCard = vi.fn()
