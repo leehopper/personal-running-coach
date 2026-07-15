@@ -92,6 +92,37 @@ const coachTurn = (content: string): ConversationTimelineTurnDto => ({
   proactive: null,
 })
 
+const erroredCoachTurn = (): ConversationTimelineTurnDto => ({
+  kind: 1,
+  turnId: 'ce1',
+  createdAt: '2026-06-29T10:00:01Z',
+  interactive: { content: '', isErrored: true, loggedRun: null },
+  proactive: null,
+})
+
+/**
+ * A raw interactive (user/coach) timeline turn with a caller-controlled
+ * `turnId`/`createdAt` — used by the date-divider test, which needs several
+ * turns spanning two distinct local calendar days without colliding on the
+ * fixed `turnId`s the `userTurn`/`coachTurn` helpers above hardcode.
+ * `createdAt` is round-tripped through `new Date(y, m, d, h).toISOString()`
+ * by callers so the local-day grouping under test is TZ-invariant — the
+ * ISO string always re-parses back to the SAME local calendar day under
+ * whatever timezone the test process itself runs in.
+ */
+const turnAt = (
+  kind: 0 | 1,
+  turnId: string,
+  createdAt: string,
+  content: string,
+): ConversationTimelineTurnDto => ({
+  kind,
+  turnId,
+  createdAt,
+  interactive: { content, isErrored: false, loggedRun: null },
+  proactive: null,
+})
+
 const restructureTurn = (
   diff: PlanAdaptationDiffDto = { workoutChanges: [], weeklyTargetChanges: [] },
 ): ConversationTimelineTurnDto => ({
@@ -183,8 +214,10 @@ describe('CoachChat', () => {
 
     renderChat()
 
-    expect(screen.getByText('how was my run?')).toBeInTheDocument()
-    expect(screen.getByText('You ran well.')).toBeInTheDocument()
+    expect(within(screen.getByTestId('user-turn')).getByText('how was my run?')).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('coach-text-turn')).getByText('You ran well.'),
+    ).toBeInTheDocument()
     expect(
       within(screen.getByTestId('restructure-turn')).getByText('I cut this week to recover.'),
     ).toBeInTheDocument()
@@ -236,6 +269,81 @@ describe('CoachChat', () => {
 
     expect(screen.getByText('tell me about tempo runs')).toBeInTheDocument()
     expect(screen.getByText('A tempo run is')).toBeInTheDocument()
+  })
+
+  it('captures one shared client-side HH:MM for the live pending user turn and streaming coach turn', () => {
+    setTimeline([])
+    streamMock.mockReturnValue(idleStream())
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+
+    // Transition pendingUserMessage null -> non-null across a rerender —
+    // this is what actually drives the live-time capture in the component
+    // (a fresh mount that is ALREADY mid-exchange never exercises the
+    // transition at all).
+    streamMock.mockReturnValue(
+      idleStream({
+        pendingUserMessage: 'tell me about tempo runs',
+        streamingText: 'A tempo run is',
+        isStreaming: true,
+      }),
+    )
+    rerender(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+
+    const timePattern = /\d{2}:\d{2}/
+    const userTime = screen.getByTestId('turn-meta').textContent?.match(timePattern)?.[0]
+    const coachTime = screen.getByTestId('coach-text-turn').textContent?.match(timePattern)?.[0]
+    // The exact clock value is non-deterministic (a live `new Date()` read) —
+    // only that both live rows share the SAME captured value is asserted.
+    expect(userTime).toBeDefined()
+    expect(coachTime).toBeDefined()
+    expect(userTime).toBe(coachTime)
+  })
+
+  it('renders a date divider before each new local-calendar-day group of persisted turns', () => {
+    const dayOneIso = new Date(2026, 5, 28, 9, 0).toISOString()
+    const dayTwoIso = new Date(2026, 5, 29, 9, 0).toISOString()
+    setTimeline([
+      turnAt(0, 'u1', dayOneIso, 'day one message'),
+      turnAt(1, 'c1', dayOneIso, 'day one reply'),
+      turnAt(0, 'u2', dayTwoIso, 'day two message'),
+    ])
+    streamMock.mockReturnValue(idleStream())
+
+    renderChat()
+
+    const dividers = screen.getAllByTestId('date-divider')
+    expect(dividers).toHaveLength(2)
+    expect(dividers[0]).toHaveTextContent('JUN 28')
+    expect(dividers[1]).toHaveTextContent('JUN 29')
+  })
+
+  it('renders no date divider for an empty timeline', () => {
+    setTimeline([])
+    streamMock.mockReturnValue(idleStream())
+
+    renderChat()
+
+    expect(screen.queryByTestId('date-divider')).not.toBeInTheDocument()
+  })
+
+  it('renders a persisted errored coach turn with its copy and no RETRY control', () => {
+    setTimeline([userTurn('how was my run?'), erroredCoachTurn()])
+    streamMock.mockReturnValue(idleStream())
+
+    renderChat()
+
+    const erroredNote = screen.getByTestId('coach-errored-turn')
+    expect(within(erroredNote).getByText("That reply didn't go through.")).toBeInTheDocument()
+    expect(within(erroredNote).queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('wires the composer send to the stream', async () => {
@@ -320,9 +428,24 @@ describe('CoachChat', () => {
 
     renderChat()
     expect(screen.getByText('My end broke.')).toBeInTheDocument()
+    expect(screen.getByTestId('coach-error')).toHaveClass('border-l-destructive')
     await user.click(screen.getByRole('button', { name: /retry/i }))
 
     expect(retry).toHaveBeenCalledOnce()
+  })
+
+  it('hides the RETRY control on the live error surface when the error is not retryable', () => {
+    setTimeline([])
+    streamMock.mockReturnValue(
+      idleStream({
+        error: { message: 'Cannot retry this one.', retryable: false, retryAfterSeconds: 0 },
+      }),
+    )
+
+    renderChat()
+
+    expect(screen.getByTestId('coach-error')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
   })
 
   it('renders the deterministic safety notice during an exchange', () => {

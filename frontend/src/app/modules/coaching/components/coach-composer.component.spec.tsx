@@ -5,6 +5,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { CoachComposer } from './coach-composer.component'
 
 describe('CoachComposer', () => {
+  it('shows the design placeholder copy and a 48px clay-square send control with an aria-label', () => {
+    render(<CoachComposer onSend={vi.fn()} isStreaming={false} />)
+
+    expect(screen.getByPlaceholderText('Ask, or describe a run to log…')).toBeInTheDocument()
+    expect(screen.getByLabelText(/message your coach/i)).toHaveClass('min-h-12')
+    const send = screen.getByRole('button', { name: 'Send message' })
+    expect(send).toHaveClass('size-12')
+  })
+
   it('disables the send control until a non-blank message is typed', async () => {
     const user = userEvent.setup()
     render(<CoachComposer onSend={vi.fn()} isStreaming={false} />)

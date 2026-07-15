@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
+import { ArrowUp } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -69,21 +70,27 @@ export const CoachComposer = ({
         event.preventDefault()
         submit()
       }}
-      className="flex items-end gap-2"
+      className="flex items-end gap-[10px]"
       data-testid="coach-composer"
     >
       <Textarea
         ref={textareaRef}
         aria-label="Message your coach"
-        placeholder="Ask a question or describe a run to log…"
+        placeholder="Ask, or describe a run to log…"
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={handleKeyDown}
         rows={2}
-        className="flex-1 resize-none"
+        className="flex-1 resize-none min-h-12"
       />
-      <Button type="submit" disabled={!canSend}>
-        Send
+      <Button
+        type="submit"
+        size="icon"
+        aria-label="Send message"
+        disabled={!canSend}
+        className="size-12 rounded-md"
+      >
+        <ArrowUp aria-hidden className="size-5" />
       </Button>
     </form>
   )
