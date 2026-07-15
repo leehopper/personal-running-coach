@@ -1896,7 +1896,8 @@
       "InteractiveTurnDto": {
         "required": [
           "content",
-          "isErrored"
+          "isErrored",
+          "loggedRun"
         ],
         "type": "object",
         "properties": {
@@ -1905,6 +1906,41 @@
           },
           "isErrored": {
             "type": "boolean"
+          },
+          "loggedRun": {
+            "$ref": "#/components/schemas/LoggedRunSummaryDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoggedRunSummaryDto": {
+        "required": [
+          "completionStatus",
+          "distanceKm",
+          "durationSeconds",
+          "occurredOn",
+          "workoutLogId"
+        ],
+        "type": "object",
+        "properties": {
+          "workoutLogId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "distanceKm": {
+            "type": "number",
+            "format": "double"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "occurredOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "completionStatus": {
+            "$ref": "#/components/schemas/CompletionStatus"
           }
         },
         "additionalProperties": false

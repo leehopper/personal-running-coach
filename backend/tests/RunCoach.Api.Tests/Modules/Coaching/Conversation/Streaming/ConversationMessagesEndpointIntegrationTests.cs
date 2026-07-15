@@ -87,8 +87,9 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         view!.Turns.Should().HaveCount(2);
         view.Turns.Should().ContainSingle(t => t.Participant == ConversationParticipant.User)
             .Which.TurnId.Should().Be(clientMessageId);
-        view.Turns.Should().ContainSingle(t => t.Participant == ConversationParticipant.Coach)
-            .Which.Content.Should().Be("Run it easy. Keep the effort relaxed.");
+        var coachTurn = view.Turns.Should().ContainSingle(t => t.Participant == ConversationParticipant.Coach).Subject;
+        coachTurn.Content.Should().Be("Run it easy. Keep the effort relaxed.");
+        coachTurn.LoggedRun.Should().BeNull(because: "a streamed reply is never a log commit — only the confirm-ack turn carries LoggedRun");
     }
 
     [Fact]
@@ -686,7 +687,7 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
                 {
                     await bus.InvokeForTenantAsync<ConversationTurnPostedResponse>(
                         userId.ToString(),
-                        new PostCoachConversationTurn(userId, Guid.NewGuid(), $"turn-{i:D2}", IsErrored: false),
+                        new PostCoachConversationTurn(userId, Guid.NewGuid(), $"turn-{i:D2}", IsErrored: false, LoggedRun: null),
                         ct);
                 }
             }
@@ -694,7 +695,7 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
             // An errored coach marker (the projection forces its content empty) ...
             await bus.InvokeForTenantAsync<ConversationTurnPostedResponse>(
                 userId.ToString(),
-                new PostCoachConversationTurn(userId, Guid.NewGuid(), erroredContent, IsErrored: true),
+                new PostCoachConversationTurn(userId, Guid.NewGuid(), erroredContent, IsErrored: true, LoggedRun: null),
                 ct);
 
             // ... and the current user turn, keyed by the clientMessageId the loader is asked about.

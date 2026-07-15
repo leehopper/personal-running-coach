@@ -325,9 +325,18 @@ export type ConversationTurnsResponseDto = {
   turns: ConversationTurnDto[]
 }
 export type ConversationTimelineTurnKind = 0 | 1 | 2 | 3
+export type CompletionStatus = 0 | 1 | 2
+export type LoggedRunSummaryDto = {
+  workoutLogId: string
+  distanceKm: number
+  durationSeconds: number
+  occurredOn: string
+  completionStatus: CompletionStatus
+}
 export type InteractiveTurnDto = {
   content: string
   isErrored: boolean
+  loggedRun: LoggedRunSummaryDto
 }
 export type ConversationTimelineTurnDto = {
   kind: ConversationTimelineTurnKind
@@ -356,7 +365,6 @@ export type ConfirmConversationalLogResponseDto = {
   adaptation: AdaptationResponseDto
 }
 export type RunnerDistanceUnit = 0 | 1 | 2
-export type CompletionStatus = 0 | 1 | 2
 export type StructuredLogDraft = {
   /** The calendar date the workout occurred on, as an ISO-8601 date (YYYY-MM-DD), resolved against today's date for relative references like "this morning" or "yesterday". */
   occurredOn: string

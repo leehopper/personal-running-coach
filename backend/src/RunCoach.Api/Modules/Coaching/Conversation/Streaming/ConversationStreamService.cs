@@ -266,7 +266,7 @@ public sealed partial class ConversationStreamService(
     {
         var response = await bus.InvokeForTenantAsync<ConversationTurnPostedResponse>(
                 userId.ToString(),
-                new PostCoachConversationTurn(userId, clientMessageId, content, isErrored),
+                new PostCoachConversationTurn(userId, clientMessageId, content, isErrored, LoggedRun: null),
                 ct)
             .ConfigureAwait(false);
         return response.TurnId;

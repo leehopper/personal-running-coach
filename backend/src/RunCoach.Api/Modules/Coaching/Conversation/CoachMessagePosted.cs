@@ -27,8 +27,15 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 /// <see langword="true"/> for an errored-turn marker (the stream failed mid-flight);
 /// <see langword="false"/> for a normal, complete reply.
 /// </param>
+/// <param name="LoggedRun">
+/// The structured actuals of a confirmed conversational log (Slice 3, DEC-091), set only
+/// on the confirm-ack turn; <see langword="null"/> for every other coach turn (a streamed
+/// reply, a scripted safety referral, or an errored marker). Additive-nullable: existing
+/// persisted events hydrate <see langword="null"/> on replay, no upcaster.
+/// </param>
 public sealed record CoachMessagePosted(
     Guid UserId,
     Guid TurnId,
     string Content,
-    bool IsErrored);
+    bool IsErrored,
+    LoggedRunSummary? LoggedRun);

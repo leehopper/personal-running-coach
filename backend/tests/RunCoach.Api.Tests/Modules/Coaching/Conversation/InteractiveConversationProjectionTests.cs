@@ -2,6 +2,7 @@ using FluentAssertions;
 using JasperFx.Events;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Conversation;
+using RunCoach.Api.Modules.Training.Workouts;
 
 namespace RunCoach.Api.Tests.Modules.Coaching.Conversation;
 
@@ -120,6 +121,40 @@ public sealed class InteractiveConversationProjectionTests
     }
 
     [Fact]
+    public void Apply_CoachWithLoggedRun_ProjectsLoggedRunOntoTheView()
+    {
+        // Arrange — a confirm-ack coach turn carries a structured LoggedRun (Slice 3, DEC-091).
+        var view = InteractiveConversationProjection.Create(UserEvent(Guid.NewGuid(), "Did my 5k this morning", version: 1));
+        var loggedRun = new LoggedRunSummary(
+            WorkoutLogId: Guid.NewGuid(),
+            DistanceKm: 5.0,
+            DurationSeconds: 1500d,
+            OccurredOn: new DateOnly(2026, 6, 24),
+            CompletionStatus: CompletionStatus.Complete);
+        var coachTurnId = Guid.NewGuid();
+
+        // Act
+        InteractiveConversationProjection.Apply(
+            CoachEvent(coachTurnId, "Logged your run.", isErrored: false, version: 2, loggedRun),
+            view);
+
+        // Assert
+        var coachTurn = view.Turns.Single(t => t.Participant == ConversationParticipant.Coach);
+        coachTurn.LoggedRun.Should().Be(loggedRun);
+    }
+
+    [Fact]
+    public void Create_FromUserMessage_ProjectsLoggedRunAsNull()
+    {
+        // Arrange / Act — a user turn never carries a LoggedRun; only a confirm-ack coach turn can.
+        var view = InteractiveConversationProjection.Create(UserEvent(Guid.NewGuid(), "How's my week look?", version: 1));
+
+        // Assert
+        var turn = view.Turns.Should().ContainSingle().Subject;
+        turn.LoggedRun.Should().BeNull();
+    }
+
+    [Fact]
     public void RegisteredEventTypes_IncludesInteractiveConversationEvents()
     {
         // The composition guard (MartenStoreOptionsCompositionTests) tags every
@@ -137,8 +172,9 @@ public sealed class InteractiveConversationProjectionTests
             Timestamp = CreatedAt,
         };
 
-    private static Event<CoachMessagePosted> CoachEvent(Guid turnId, string content, bool isErrored, long version) =>
-        new(new CoachMessagePosted(UserId, turnId, content, isErrored))
+    private static Event<CoachMessagePosted> CoachEvent(
+        Guid turnId, string content, bool isErrored, long version, LoggedRunSummary? loggedRun = null) =>
+        new(new CoachMessagePosted(UserId, turnId, content, isErrored, loggedRun))
         {
             Id = Guid.NewGuid(),
             Version = version,

@@ -42,9 +42,20 @@ public sealed partial class ConfirmConversationalLogService(
         var workoutLogId = await workoutLogService.CreateAsync(userId, createRequest, ct).ConfigureAwait(false);
         var adaptation = await adaptationDispatcher.EvaluateAsync(workoutLogId, userId, ct).ConfigureAwait(false);
 
+        // The structured receipt (Slice 3, DEC-091) — built from the same committed draft +
+        // WorkoutLogId, using the deterministic unit converters (never the LLM). Stamped onto
+        // the ack turn below so the durable timeline carries the confirmed actuals verbatim.
+        var loggedRun = new LoggedRunSummary(
+            WorkoutLogId: workoutLogId,
+            DistanceKm: WorkoutDraftUnitConverter.DistanceToMeters(request.Draft.DistanceValue, request.Draft.DistanceUnit) / 1000d,
+            DurationSeconds: WorkoutDraftUnitConverter.DurationToSeconds(
+                request.Draft.DurationHours, request.Draft.DurationMinutes, request.Draft.DurationSeconds),
+            OccurredOn: request.Draft.OccurredOn,
+            CompletionStatus: request.Draft.CompletionStatus);
+
         // (3) Persist the ack AFTER the adaptation has committed its proactive turns (incl. any
         //     Amber referral, DEC-081), so it never preempts or contradicts a safety referral.
-        await PersistAckAsync(userId, request, adaptation, ct).ConfigureAwait(false);
+        await PersistAckAsync(userId, request, adaptation, loggedRun, ct).ConfigureAwait(false);
 
         return new ConfirmConversationalLogResponseDto(workoutLogId, adaptation);
     }
@@ -68,6 +79,7 @@ public sealed partial class ConfirmConversationalLogService(
         Guid userId,
         ConfirmConversationalLogRequestDto request,
         AdaptationResponseDto adaptation,
+        LoggedRunSummary loggedRun,
         CancellationToken ct)
     {
         // The log committed and the adaptation already ran; the ack is best-effort. Neither a
@@ -94,7 +106,7 @@ public sealed partial class ConfirmConversationalLogService(
             // a re-confirm re-derives the same id and the append short-circuits.
             await bus.InvokeForTenantAsync<ConversationTurnPostedResponse>(
                     userId.ToString(),
-                    new PostCoachConversationTurn(userId, request.ClientMessageId, ackContent, IsErrored: false),
+                    new PostCoachConversationTurn(userId, request.ClientMessageId, ackContent, IsErrored: false, LoggedRun: loggedRun),
                     ct)
                 .ConfigureAwait(false);
         }

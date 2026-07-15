@@ -16,8 +16,14 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 /// </param>
 /// <param name="Content">The coach's complete reply text. Ignored (forced empty) when <see cref="IsErrored"/> is true.</param>
 /// <param name="IsErrored">True to persist an errored-turn marker (the stream failed mid-flight); false for a complete reply.</param>
+/// <param name="LoggedRun">
+/// The structured actuals of a confirmed conversational log (Slice 3, DEC-091), supplied only
+/// by the confirm-then-commit flow; <see langword="null"/> for a streamed reply or a scripted
+/// safety turn — neither is a log commit. No default: every call site must choose explicitly.
+/// </param>
 public sealed record PostCoachConversationTurn(
     Guid UserId,
     Guid ClientMessageId,
     string Content,
-    bool IsErrored);
+    bool IsErrored,
+    LoggedRunSummary? LoggedRun);

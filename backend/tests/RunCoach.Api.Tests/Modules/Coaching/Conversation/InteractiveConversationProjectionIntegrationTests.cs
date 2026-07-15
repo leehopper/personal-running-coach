@@ -30,7 +30,7 @@ public class InteractiveConversationProjectionIntegrationTests(RunCoachAppFactor
 
         // Act — durable-first user turn creates the stream; the coach turn appends.
         await StartConversationAsync(userId, new UserMessagePosted(userId, userTurnId, "Did my 5 easy, knee felt tight."));
-        await AppendConversationAsync(userId, new CoachMessagePosted(userId, coachTurnId, "Noted. Ice it; we'll watch Thursday.", false));
+        await AppendConversationAsync(userId, new CoachMessagePosted(userId, coachTurnId, "Noted. Ice it; we'll watch Thursday.", false, LoggedRun: null));
 
         // Assert — the view is keyed by user id and holds the two turns in order.
         var view = await LoadConversationAsync(userId);
@@ -61,8 +61,8 @@ public class InteractiveConversationProjectionIntegrationTests(RunCoachAppFactor
         await StartConversationAsync(userId, new UserMessagePosted(userId, Guid.NewGuid(), "ping"));
 
         // Act
-        await AppendConversationAsync(userId, new CoachMessagePosted(userId, coachTurnId, "first", false));
-        await AppendConversationAsync(userId, new CoachMessagePosted(userId, coachTurnId, "second", false));
+        await AppendConversationAsync(userId, new CoachMessagePosted(userId, coachTurnId, "first", false, LoggedRun: null));
+        await AppendConversationAsync(userId, new CoachMessagePosted(userId, coachTurnId, "second", false, LoggedRun: null));
 
         // Assert — one user + one coach turn; the coach turn carries the latest payload.
         var view = await LoadConversationAsync(userId);
@@ -82,7 +82,7 @@ public class InteractiveConversationProjectionIntegrationTests(RunCoachAppFactor
         // Act — a mid-flight failure persists an errored marker carrying no usable text.
         await AppendConversationAsync(
             userId,
-            new CoachMessagePosted(userId, Guid.NewGuid(), "partial advice cut off mid-sentence", true));
+            new CoachMessagePosted(userId, Guid.NewGuid(), "partial advice cut off mid-sentence", true, LoggedRun: null));
 
         // Assert
         var view = await LoadConversationAsync(userId);
@@ -100,7 +100,7 @@ public class InteractiveConversationProjectionIntegrationTests(RunCoachAppFactor
         // Arrange — one user + one coach turn on the stream.
         var userId = Guid.NewGuid();
         await StartConversationAsync(userId, new UserMessagePosted(userId, Guid.NewGuid(), "morning"));
-        await AppendConversationAsync(userId, new CoachMessagePosted(userId, Guid.NewGuid(), "morning — easy day today", false));
+        await AppendConversationAsync(userId, new CoachMessagePosted(userId, Guid.NewGuid(), "morning — easy day today", false, LoggedRun: null));
 
         var inline = await LoadConversationAsync(userId);
         inline!.Turns.Should().HaveCount(2);

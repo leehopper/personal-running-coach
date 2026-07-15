@@ -10,6 +10,11 @@ namespace RunCoach.Api.Modules.Coaching.Conversation;
 /// </summary>
 /// <param name="Content">The turn text. Empty for an errored coach turn.</param>
 /// <param name="IsErrored">True when this coach turn is an errored marker (the stream died mid-flight); always false for a user turn.</param>
+/// <param name="LoggedRun">
+/// The structured actuals of a confirmed conversational log (Slice 3, DEC-091), present only
+/// on the confirm-ack coach turn; <see langword="null"/> otherwise.
+/// </param>
 public sealed record InteractiveTurnDto(
     string Content,
-    bool IsErrored);
+    bool IsErrored,
+    LoggedRunSummaryDto? LoggedRun);

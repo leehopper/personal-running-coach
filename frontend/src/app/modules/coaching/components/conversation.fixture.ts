@@ -3,6 +3,7 @@ import {
   CONVERSATION_ROLE,
   CONVERSATION_TIMELINE_TURN_KIND,
   type ConversationTimelineTurnDto,
+  type LoggedRunSummaryDto,
   type PlanAdaptationDiffDto,
 } from '~/modules/coaching/models/conversation.model'
 import type { MicroWorkoutCardDto } from '~/modules/plan/models/plan.model'
@@ -73,7 +74,7 @@ export const buildUserTimelineTurn = (
   kind: CONVERSATION_TIMELINE_TURN_KIND.user,
   turnId,
   createdAt: '2026-06-29T10:00:00Z',
-  interactive: { content, isErrored: false },
+  interactive: { content, isErrored: false, loggedRun: null },
   proactive: null,
 })
 
@@ -83,14 +84,24 @@ export const buildUserTimelineTurn = (
  * the wire contract (`InteractiveTurnDto`'s own doc comment).
  */
 export const buildCoachTimelineTurn = (
-  params: { content?: string; isErrored?: boolean; turnId?: string } = {},
+  params: {
+    content?: string
+    isErrored?: boolean
+    turnId?: string
+    loggedRun?: LoggedRunSummaryDto | null
+  } = {},
 ): ConversationTimelineTurnDto => {
-  const { content = 'You ran well.', isErrored = false, turnId = 'coach-1' } = params
+  const {
+    content = 'You ran well.',
+    isErrored = false,
+    turnId = 'coach-1',
+    loggedRun = null,
+  } = params
   return {
     kind: CONVERSATION_TIMELINE_TURN_KIND.coach,
     turnId,
     createdAt: '2026-06-29T10:00:01Z',
-    interactive: { content: isErrored ? '' : content, isErrored },
+    interactive: { content: isErrored ? '' : content, isErrored, loggedRun },
     proactive: null,
   }
 }

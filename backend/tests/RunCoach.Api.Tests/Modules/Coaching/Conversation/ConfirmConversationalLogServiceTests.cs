@@ -85,7 +85,11 @@ public sealed class ConfirmConversationalLogServiceTests
         await deps.Bus.Received(1).InvokeForTenantAsync<ConversationTurnPostedResponse>(
             UserId.ToString(),
             new PostCoachConversationTurn(
-                UserId, ClientMessageId, "Logged your 5K. Eased the next day or two — check your plan.", false),
+                UserId,
+                ClientMessageId,
+                "Logged your 5K. Eased the next day or two — check your plan.",
+                false,
+                LoggedRun: new LoggedRunSummary(WorkoutLogId, 5.0, 1500d, new DateOnly(2026, 6, 24), CompletionStatus.Complete)),
             Arg.Any<CancellationToken>(),
             Arg.Any<TimeSpan?>());
     }
@@ -111,7 +115,12 @@ public sealed class ConfirmConversationalLogServiceTests
         await deps.Llm.DidNotReceive().GenerateAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await deps.Bus.Received(1).InvokeForTenantAsync<ConversationTurnPostedResponse>(
             UserId.ToString(),
-            new PostCoachConversationTurn(UserId, ClientMessageId, ConversationAckScripts.SavedReviewRetrying, false),
+            new PostCoachConversationTurn(
+                UserId,
+                ClientMessageId,
+                ConversationAckScripts.SavedReviewRetrying,
+                false,
+                LoggedRun: new LoggedRunSummary(WorkoutLogId, 5.0, 1500d, new DateOnly(2026, 6, 24), CompletionStatus.Complete)),
             Arg.Any<CancellationToken>(),
             Arg.Any<TimeSpan?>());
     }
@@ -135,7 +144,12 @@ public sealed class ConfirmConversationalLogServiceTests
         response.Adaptation.Kind.Should().Be(AdaptationResponseKind.Adapted);
         await deps.Bus.Received(1).InvokeForTenantAsync<ConversationTurnPostedResponse>(
             UserId.ToString(),
-            new PostCoachConversationTurn(UserId, ClientMessageId, ConversationAckScripts.AckUnavailable, false),
+            new PostCoachConversationTurn(
+                UserId,
+                ClientMessageId,
+                ConversationAckScripts.AckUnavailable,
+                false,
+                LoggedRun: new LoggedRunSummary(WorkoutLogId, 5.0, 1500d, new DateOnly(2026, 6, 24), CompletionStatus.Complete)),
             Arg.Any<CancellationToken>(),
             Arg.Any<TimeSpan?>());
     }
@@ -192,12 +206,64 @@ public sealed class ConfirmConversationalLogServiceTests
         response.Adaptation.Should().Be(expectedEnvelope);
     }
 
-    private static ConfirmConversationalLogRequestDto Request() => new(
+    [Fact]
+    public async Task ConfirmAsync_StampsLoggedRunSummaryOnAckTurn()
+    {
+        // Arrange
+        var (sut, deps) = CreateSut();
+
+        // Act
+        await sut.ConfirmAsync(UserId, Request(), TestContext.Current.CancellationToken);
+
+        // Assert — the dispatched ack turn carries the confirmed draft's actuals, km-converted
+        // and second-converted, keyed to the committed WorkoutLogId. Record value equality (the
+        // default CreateSut() ack content is the fixed "ack" LLM stub response) matches the same
+        // pattern the sibling ack-content tests already use.
+        await deps.Bus.Received(1).InvokeForTenantAsync<ConversationTurnPostedResponse>(
+            UserId.ToString(),
+            new PostCoachConversationTurn(
+                UserId,
+                ClientMessageId,
+                "ack",
+                false,
+                LoggedRun: new LoggedRunSummary(WorkoutLogId, 5.0, 1500d, new DateOnly(2026, 6, 24), CompletionStatus.Complete)),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<TimeSpan?>());
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_LoggedRunDistance_ConvertsMilesDraftToKm()
+    {
+        // Arrange — a miles draft guards the /1000d + unit-conversion path, not a pass-through.
+        var (sut, deps) = CreateSut();
+        var milesRequest = Request(distanceValue: 3.0, distanceUnit: RunnerDistanceUnit.Miles);
+        const double expectedKm = 3.0 * WorkoutDraftUnitConverter.MetersPerMile / 1000d;
+
+        // Act
+        await sut.ConfirmAsync(UserId, milesRequest, TestContext.Current.CancellationToken);
+
+        // Assert — same DurationSeconds/OccurredOn/CompletionStatus as the km draft; only the
+        // unit-converted DistanceKm differs, guarding the /1000d + Miles conversion specifically.
+        await deps.Bus.Received(1).InvokeForTenantAsync<ConversationTurnPostedResponse>(
+            UserId.ToString(),
+            new PostCoachConversationTurn(
+                UserId,
+                ClientMessageId,
+                "ack",
+                false,
+                LoggedRun: new LoggedRunSummary(WorkoutLogId, expectedKm, 1500d, new DateOnly(2026, 6, 24), CompletionStatus.Complete)),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<TimeSpan?>());
+    }
+
+    private static ConfirmConversationalLogRequestDto Request(
+        double distanceValue = 5,
+        RunnerDistanceUnit distanceUnit = RunnerDistanceUnit.Kilometers) => new(
         new StructuredLogDraft
         {
             OccurredOn = new DateOnly(2026, 6, 24),
-            DistanceValue = 5,
-            DistanceUnit = RunnerDistanceUnit.Kilometers,
+            DistanceValue = distanceValue,
+            DistanceUnit = distanceUnit,
             DurationHours = 0,
             DurationMinutes = 25,
             DurationSeconds = 0,
