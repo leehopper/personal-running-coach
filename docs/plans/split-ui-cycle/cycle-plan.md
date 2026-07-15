@@ -5,7 +5,7 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** Slice 3 (Coach), in progress — PR-A (backend) shipped 2026-07-15 as PR #288. Slice 2 (Today) shipped 2026-07-14.
+- **Active Slice:** Slice 3 (Coach), in progress — PR-A (backend) shipped 2026-07-15 as PR #288; PR-B (frontend turn kinds/timestamps/dividers/composer) shipped 2026-07-15 as PR #290. Slice 2 (Today) shipped 2026-07-14.
 - **Slice ledger:**
   | # | Slice | Completed | PR |
   |---|---|---|---|
@@ -13,8 +13,8 @@
   | 1 | Shell & Navigation | 2026-07-08 | #277 |
   | 2 | Today | 2026-07-14 | #285 |
 - **Active Slice Spec:** Slice 3 (Coach) spec is **written and adversarially verified** at `docs/specs/slice-3-coach/spec.md` (gitignored working-tree, planned 2026-07-14). Build it as-is; do not re-derive.
-- **Slice 3 PR progress:** **PR-A shipped** (2026-07-15, PR #288) — structured `LoggedRunSummary` persisted on the confirm-ack turn (DEC-091) + codegen; deep-review + full CodeRabbit addressment landed before merge (two follow-up comments after the first push, both addressed). **Next: PR-B** — user/coach text turns + timestamps + date dividers + composer + streaming cursor + retry (spec § 3 PR-B). Then PR-C (adaptation + safety turns), PR-D (log-draft card states + the durable receipt PR-A now persists; only D depends on A).
-- **Next Step:** **Build Slice 3 PR-B** in a fresh session from `docs/specs/slice-3-coach/spec.md` § 3 (read this plan + `slice-3-coach.md` first). **Note:** DEC-091 adds one deliberate backend/wire delta to Slice 3 (see the 2026-07-14 capture row) — Slice 3 is no longer strictly frontend-only; that delta is now merged. Slices 3/4 are independent after Slice 1; numbered order is the default.
+- **Slice 3 PR progress:** **PR-A shipped** (2026-07-15, PR #288) — structured `LoggedRunSummary` persisted on the confirm-ack turn (DEC-091) + codegen; deep-review + full CodeRabbit addressment landed before merge (two follow-up comments after the first push, both addressed). **PR-B shipped** (2026-07-15, PR #290) — `UserTurn`/`CoachTextTurn`/`DateDivider` turn-kind dispatch, local-day grouping, shared live-exchange timestamp, composer restyle (48px clay send square, no-markdown body); 888/888 vitest at merge. Post-push review (1 CodeRabbit comment-hygiene finding + 8 deep-review findings, the latter posted as inline review comments) addressed before merge: a real bug fix (stale `liveTime` on an identical-text RETRY — now keyed off `isStreaming`'s transition, not message-text equality), `rows={1}` composer fix, a dead-code Fragment-key simplification, and comment-hygiene trims (dropped PR-sequencing/slice-forward-reference narrative per `REVIEW.md` § Code comments). **Next: PR-C** — adaptation + safety turns (spec § 3 PR-C). Then PR-D (log-draft card states + the durable receipt PR-A now persists; only D depends on A).
+- **Next Step:** **Build Slice 3 PR-C** in a fresh session from `docs/specs/slice-3-coach/spec.md` § 3 (read this plan + `slice-3-coach.md` first). **Note:** PR-B deferred the `bg-danger-surface` failure-surface token to PR-C (spec/PR-B ordering conflict, resolved low-risk with `bg-secondary` + `border-l-destructive` in the interim — see PR-B's description) — PR-C should land that token and can then revisit the interim retry-surface styling. Slices 3/4 are independent after Slice 1; numbered order is the default.
 - **Blockers:** None.
 - **Parallel workstream:** Rolling Plan Horizon (backend-only, DEC-090; plan `docs/plans/plan-horizon/rolling-horizon-plan.md`) is running alongside this cycle — no file overlap, no wire/codegen churn with any SPLIT slice. See § Captured During Cycle, 2026-07-13 row.
 
