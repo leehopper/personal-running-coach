@@ -5,14 +5,15 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** Slice 2 (Today) — spec written, implementation starting.
+- **Active Slice:** None — Slice 2 (Today) shipped 2026-07-14. Slice 3 (Coach) is next.
 - **Slice ledger:**
   | # | Slice | Completed | PR |
   |---|---|---|---|
   | 0 | Alpine Foundation | 2026-07-08 | #275 |
   | 1 | Shell & Navigation | 2026-07-08 | #277 |
-- **Active Slice Spec:** Written for Slice 2 (Today) under `docs/specs/` (gitignored), per the Per-Slice Hygiene Rule inherited from the MVP-0 cycle plan.
-- **Next Step:** Build Slice 2 (Today) — spec is written, read this plan + `slice-2-today.md` first.
+  | 2 | Today | 2026-07-14 | #285 |
+- **Active Slice Spec:** None. Specs are written fresh per-slice under `docs/specs/` (gitignored) at build time, per the Per-Slice Hygiene Rule inherited from the MVP-0 cycle plan.
+- **Next Step:** Spec + build Slice 3 (Coach) in a fresh session — read this plan + `slice-3-coach.md` first. Slices 3/4 are independent of each other after Slice 1; numbered order is the default.
 - **Blockers:** None.
 - **Parallel workstream:** Rolling Plan Horizon (backend-only, DEC-090; plan `docs/plans/plan-horizon/rolling-horizon-plan.md`) is running alongside this cycle — no file overlap, no wire/codegen churn with any SPLIT slice. See § Captured During Cycle, 2026-07-13 row.
 
@@ -81,7 +82,7 @@ Each slice ships top-to-bottom (any backend delta + codegen + frontend + tests) 
 |---|---|---|---|
 | 0 | Alpine Foundation ✅ (2026-07-08, PR #275) | [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) | — (R-086 cleared) |
 | 1 | Shell & Navigation ✅ (2026-07-08, PR #277) | [`./slice-1-shell-navigation.md`](./slice-1-shell-navigation.md) | 0 |
-| 2 | Today | [`./slice-2-today.md`](./slice-2-today.md) | 1 |
+| 2 | Today ✅ (2026-07-14, PR #285) | [`./slice-2-today.md`](./slice-2-today.md) | 1 |
 | 3 | Coach | [`./slice-3-coach.md`](./slice-3-coach.md) | 1 |
 | 4 | Log & Log Book | [`./slice-4-log-logbook.md`](./slice-4-log-logbook.md) | 1 |
 | 5 | Onboarding | [`./slice-5-onboarding.md`](./slice-5-onboarding.md) | 0 |
@@ -125,16 +126,18 @@ Slices 2/3/4 are independent of each other after Slice 1; Slice 5 needs only Sli
 
 **Key risks.** Fixed bar changes every page's scroll region and bottom padding. Pinned composer + fixed tab bar + mobile-Safari keyboard/viewport interplay is the one genuinely fiddly area — flagged in the PR as needing a real-device eyeball check before merge; not independently re-verified as part of this close-out.
 
-### Slice 2 — Today
+### Slice 2 — Today ✅ Complete (2026-07-14, PR #285)
 
 **Requirements:** [`./slice-2-today.md`](./slice-2-today.md)
 
 **Acceptance — "I can…"**
 
-- [ ] …see the Today header (wordmark + `WEEK N OF M — PHASE`), the workout hero with eyebrow/title/summary/stat-band and LOG RUN + DETAILS, and the rest-day variant on rest days.
-- [ ] …see THE WEEK: logged-vs-target km and 7 day cells reflecting done/today/planned/rest from meso slots joined with this week's logs.
-- [ ] …see FROM YOUR COACH as a clamped latest-exchange digest (or a one-line PLAN ADJUSTED headline when the latest turn is an adaptation), tap through to `/coach`, and have the fake composer focus the real one.
-- [ ] …see UP NEXT rows and THE BLOCK (12 phase cells, phase labels, goal chip from the plan's target event, upcoming week rows with DELOAD tags).
+- [x] …see the Today header (wordmark + `WEEK N OF M — PHASE`), the workout hero with eyebrow/title/summary/stat-band and LOG RUN + DETAILS, and the rest-day variant on rest days.
+- [x] …see THE WEEK: logged-vs-target km and 7 day cells reflecting done/today/planned/rest from meso slots joined with this week's logs.
+- [x] …see FROM YOUR COACH as a clamped latest-exchange digest (or a one-line PLAN ADJUSTED headline when the latest turn is an adaptation), tap through to `/coach`, and have the fake composer focus the real one.
+- [x] …see UP NEXT rows and THE BLOCK (12 phase cells, phase labels, goal chip from the plan's target event, upcoming week rows with DELOAD tags).
+
+**Shipped:** Home recomposed as **Today** — six sections in the design's locked order (header → workout hero → THE WEEK → FROM YOUR COACH → UP NEXT → THE BLOCK), deleting the old `TodayCard` / `MacroPhaseStrip` / `MesoWeekBlock` / `UpcomingList` furniture. Four atomic commits: **PR-A** target-event fields on the plan projection + codegen; **PR-B** header + workout hero + THE WEEK + shared date/week derivations; **PR-C** coach digest + adaptation-diff helper + `/coach` composer prefill/focus receiver + UP NEXT; **PR-D** THE BLOCK + furniture deletion + e2e realignment. **Backend delta:** `PlanGenerated` / `PlanProjectionDto` gained three **nullable** target-event fields (name, distance, date) sourced from the onboarding `TargetEvent` at the generation site — old-shape events hydrate all-null on replay (verified empirically), no upcaster needed; general-fitness plans render no goal chip (DEC-089 D4). **Two build-time decisions the design didn't cover:** the hero and THE WEEK now derive from a single `isDateLogged` predicate so one run can't read as done-and-not-done on the same screen; essential text (`KILOMETERS`, rest-day labels, `BASE 1–4` phase spans) migrated off the decorative-only `--alp-faint` (AA-exempt, check-contrast-invisible) onto AA-gated `--muted-foreground`, a documented deviation from the mock. **Bugs caught pre-merge:** a wrong hero date in every non-UTC timezone (mixed local `getDay()` + UTC formatter — now one notion of "today" flows through the screen); the digest's PLAN ADJUSTED headline could silently grow. Whole-diff review + full CodeRabbit addressment landed before CI green.
 
 **Scope.** Full home recomposition replacing `TodayCard`/`MacroPhaseStrip`/`MesoWeekBlock` furniture; client-side week/phase derivations; week-grid log join; digest with client-composed deterministic adaptation summary from the typed diff (DEC-089 D3), including the **shared adaptation-diff presentation helper** (headline compose + week/day→calendar-date locus math) that Slice 3 reuses, and the **`/coach` composer prefill/focus receiver contract** the digest's chips and fake composer target (Slice 3's restyle preserves it); **backend:** target-event fields on the plan projection (DEC-089 D4) + codegen.
 
