@@ -1,4 +1,4 @@
-import { useCallback, type ReactElement } from 'react'
+import { Fragment, useCallback, useState, type ReactElement } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -23,17 +23,21 @@ import {
 import { usePreferredUnits } from '~/modules/settings/hooks/use-preferred-units.hooks'
 import { AdaptationTurn } from './adaptation-turn.component'
 import { CoachComposer } from './coach-composer.component'
+import { CoachTextTurn } from './coach-text-turn.component'
+import { DateDivider } from './date-divider.component'
 import { LogConfirmationCard } from './log-confirmation-card.component'
-import { MessageBubble, type MessageRole } from './message-bubble.component'
 import { SafetyTurn } from './safety-turn.component'
+import { formatTurnTime, groupTurnsByLocalDay } from './transcript-time.helpers'
 import { TranscriptScroller } from './transcript-scroller.component'
+import { UserTurn } from './user-turn.component'
 
-// The interactive streaming-conversation panel. It unions the composed timeline
-// (interactive chat bubbles + the proactive adaptation/safety turns, reusing the
-// existing components) with the live in-flight exchange from `useCoachStream`,
-// the confirmation card, and the composer. The streamed coach reply renders as
-// plain text via the shared `MessageBubble` (`whitespace-pre-wrap`) — no
-// markdown, no raw HTML.
+// The interactive streaming-conversation panel. It unions the composed
+// timeline (turn-kind components + the proactive adaptation/safety turns,
+// reusing the existing components) with the live in-flight exchange from
+// `useCoachStream`, the confirmation card, and the composer. Persisted
+// user/coach turns render via `UserTurn`/`CoachTextTurn` (Slice 3 PR-B) —
+// both are plain-text (`whitespace-pre-wrap`), never markdown, never raw
+// HTML.
 
 const NO_TURNS: readonly ConversationTimelineTurnDto[] = []
 
@@ -60,22 +64,19 @@ const isCoachChatLocationState = (value: unknown): value is CoachChatLocationSta
   (!('focusComposer' in value) ||
     typeof (value as { focusComposer?: unknown }).focusComposer === 'boolean')
 
-interface ChatBubbleProps {
-  role: MessageRole
-  text: string
-  pending?: boolean
-}
-
-const ChatBubble = ({ role, text, pending }: ChatBubbleProps): ReactElement => (
-  <div className="flex w-full">
-    <MessageBubble role={role} content={[{ type: 'text', text }]} pending={pending} />
-  </div>
-)
-
+// A persisted historical errored turn has no live `retry()` to call — RETRY
+// belongs only to the live-stream `RetryAffordance` below. Restyled as a
+// `CoachTextTurn`-shaped block (mono `COACH` label, plain body) so it reads
+// as part of the transcript rather than a bare disconnected line.
 const ErroredCoachNote = (): ReactElement => (
-  <p data-testid="coach-errored-turn" className="px-1 text-sm text-muted-foreground">
-    That reply didn&apos;t go through.
-  </p>
+  <div data-testid="coach-errored-turn" className="flex flex-col gap-1">
+    <span className="font-mono text-[10px] font-semibold tracking-[0.1em] text-clay-text">
+      COACH
+    </span>
+    <p className="font-body text-[14.5px] leading-[1.55] text-muted-foreground">
+      That reply didn&apos;t go through.
+    </p>
+  </div>
 )
 
 const SafetyNotice = ({ notice }: { notice: CoachSafetyNotice }): ReactElement => (
@@ -99,11 +100,18 @@ const RetryAffordance = ({ error, onRetry }: RetryAffordanceProps): ReactElement
   <div
     role="alert"
     data-testid="coach-error"
-    className="flex items-center justify-between gap-3 rounded-md border border-border bg-secondary px-3 py-2 text-sm"
+    // Failure-surface token bg-danger-surface lands in PR-C (spec §3 PR-C); using bg-secondary here until then.
+    className="flex items-center justify-between gap-3 rounded-md border-l-[3px] border-l-destructive bg-secondary px-3 py-2"
   >
-    <span className="text-destructive">{error.message}</span>
+    <span className="font-mono text-[12px] text-foreground">{error.message}</span>
     {error.retryable && (
-      <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onRetry}
+        className="font-condensed text-[11px] font-semibold tracking-[0.08em] uppercase"
+      >
         Retry
       </Button>
     )}
@@ -120,9 +128,18 @@ const TimelineRow = ({
   // Narrow on the payload null-ness — exactly one of interactive/proactive is set.
   if (turn.interactive !== null) {
     if (turn.interactive.isErrored) return <ErroredCoachNote />
-    const role: MessageRole =
-      turn.kind === CONVERSATION_TIMELINE_TURN_KIND.user ? 'user' : 'assistant'
-    return <ChatBubble role={role} text={turn.interactive.content} />
+    const time = formatTurnTime(turn.createdAt)
+    if (turn.kind === CONVERSATION_TIMELINE_TURN_KIND.user) {
+      return <UserTurn content={turn.interactive.content} time={time} />
+    }
+    return (
+      <CoachTextTurn
+        content={turn.interactive.content}
+        time={time}
+        loggedRun={turn.interactive.loggedRun}
+        units={units}
+      />
+    )
   }
   return turn.proactive.role === CONVERSATION_ROLE.systemSafety ? (
     <SafetyTurn turn={turn.proactive} />
@@ -150,6 +167,27 @@ export const CoachChat = (): ReactElement => {
   } = useCoachStream()
   const [confirmLog, { isLoading: isConfirming }] = useConfirmConversationalLogMutation()
   const navigate = useNavigate()
+
+  // Both live rows (the optimistic user bubble, the streaming coach block)
+  // share one client-captured `HH:MM` so the pair doesn't visibly disagree
+  // as tokens arrive. Captured once per exchange via React's blessed
+  // "adjust state during render" pattern (comparing against a snapshot of
+  // the previous render's `isStreaming`, tracked in state rather than a ref
+  // — `react-hooks/refs` forbids reading `ref.current` during render): on
+  // EVERY false -> true transition of `isStreaming`, `liveTime` gets a fresh
+  // `new Date()` capture. `isStreaming` flips on every `start` action — a
+  // fresh send, a new message sent right after a prior error, and a RETRY
+  // that re-sends the identical text all trigger it, so (unlike keying off
+  // `pendingUserMessage`'s string value) an identical-text retry still gets
+  // a fresh timestamp instead of inheriting the original failed attempt's.
+  // This `new Date()` read is the ONE sanctioned live wall-clock read —
+  // every persisted turn always uses its server `createdAt` instead.
+  const [prevIsStreaming, setPrevIsStreaming] = useState(isStreaming)
+  const [liveTime, setLiveTime] = useState('')
+  if (isStreaming !== prevIsStreaming) {
+    setPrevIsStreaming(isStreaming)
+    if (isStreaming) setLiveTime(formatTurnTime(new Date().toISOString()))
+  }
 
   const handleConfirm = useCallback(async (): Promise<void> => {
     if (card === null) return
@@ -182,6 +220,11 @@ export const CoachChat = (): ReactElement => {
   // streaming text length in keeps the live partial pinned to the bottom.
   const scrollKey = timeline.length + (pendingUserMessage !== null ? 1 : 0) + streamingText.length
 
+  // Date dividers are computed over the persisted timeline turns only — the
+  // live pending/streaming exchange belongs to "today" and renders after
+  // the last group with no live-introduced divider (§4.1/§6).
+  const dayGroups = groupTurnsByLocalDay(timeline)
+
   return (
     <section
       aria-labelledby="coach-chat-heading"
@@ -195,11 +238,18 @@ export const CoachChat = (): ReactElement => {
         turnCount={scrollKey}
         className="min-h-0 flex-1 rounded-md border border-border bg-card p-4"
       >
-        {timeline.map((turn) => (
-          <TimelineRow key={turn.turnId} turn={turn} units={units} />
+        {dayGroups.map((group) => (
+          <Fragment key={`day-${group.turns[0].turnId}`}>
+            <DateDivider label={group.label} />
+            {group.turns.map((turn) => (
+              <TimelineRow key={turn.turnId} turn={turn} units={units} />
+            ))}
+          </Fragment>
         ))}
-        {pendingUserMessage !== null && <ChatBubble role="user" text={pendingUserMessage} />}
-        {streamingText.length > 0 && <ChatBubble role="assistant" text={streamingText} pending />}
+        {pendingUserMessage !== null && <UserTurn content={pendingUserMessage} time={liveTime} />}
+        {streamingText.length > 0 && (
+          <CoachTextTurn content={streamingText} time={liveTime} streaming />
+        )}
         {safety !== null && <SafetyNotice notice={safety} />}
       </TranscriptScroller>
       {error !== null && (
