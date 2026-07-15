@@ -149,7 +149,7 @@ public class ConversationTimelineControllerIntegrationTests(RunCoachAppFactory f
     public async Task GetTimeline_EchoesLoggedRunOnConfirmAckTurn()
     {
         // Arrange — a confirmed conversational log: the durable-first user turn, then the
-        // confirm-ack coach turn carrying a structured LoggedRun (Slice 3, DEC-091). This is the
+        // confirm-ack coach turn carrying a structured `LoggedRun` (Slice 3, DEC-091). This is the
         // ONLY test exercising the actual wire bytes the frontend's hand-typed TS interface trusts.
         var userId = await SeedUserAsync();
         await SeedUserProfileAsync(userId, currentPlanId: null);
@@ -164,12 +164,13 @@ public class ConversationTimelineControllerIntegrationTests(RunCoachAppFactory f
         using var client = CreateBearerClient(Factory, MintBearerToken(userId));
 
         // Act — read the raw JSON so the actual wire shape (camelCase property names, the
-        // DateOnly ISO YYYY-MM-DD serialization) is verified directly, not just the deserialized
+        // `DateOnly` ISO YYYY-MM-DD serialization) is verified directly, not just the deserialized
         // C# DTO every other test (and the frontend's hand-typed TS interface) merely trusts.
         var response = await client.GetAsync("/api/v1/conversation/timeline", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var actualJson = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
+        // Assert
         using var actualDocument = JsonDocument.Parse(actualJson);
         var actualTurns = actualDocument.RootElement.GetProperty("turns");
         actualTurns.GetArrayLength().Should().Be(2);
@@ -329,7 +330,7 @@ public class ConversationTimelineControllerIntegrationTests(RunCoachAppFactory f
         var store = scope.ServiceProvider.GetRequiredService<IDocumentStore>();
 
         // Durable-first user turn (creates the stream), then the confirm-ack coach turn carrying
-        // the structured LoggedRun — separate transactions, mirroring the real two-write flow.
+        // the structured `LoggedRun` — separate transactions, mirroring the real two-write flow.
         await using (var session = store.LightweightSession(userId.ToString()))
         {
             session.Events.StartStream<ConversationView>(
