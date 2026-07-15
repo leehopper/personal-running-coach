@@ -3,7 +3,11 @@
 
 import { PreferredUnits } from '~/api/generated'
 import { formatDistanceKm } from '~/modules/common/utils/unit-format.helpers'
-import { DAY_OF_WEEK_LABELS } from '~/modules/plan/components/plan-display.helpers'
+import {
+  DAY_OF_WEEK_LABELS,
+  formatShortDateUtc,
+  resolveCalendarDateUtc,
+} from '~/modules/plan/components/plan-display.helpers'
 import type { PlanAdaptationDiffDto } from '~/modules/coaching/models/conversation.model'
 
 /**
@@ -66,4 +70,22 @@ export function composeAdaptationHeadline(params: {
   }
 
   return sentences.slice(0, 2).join(' ')
+}
+
+/**
+ * Resolves the calendar-date locus for one adaptation-diff row — e.g.
+ * `"JUN 28"` — anchored against the plan's `planStartDate` (spec §3 PR-C,
+ * §4.2). `null` when `planStartDate` is unparseable, so callers degrade to
+ * the week-index locus rather than rendering an epoch or crashing. UTC, not
+ * local wall-clock: a plan slot is a fixed calendar date independent of the
+ * reader's timezone (distinct from `transcript-time.helpers`' local-day
+ * pipeline).
+ */
+export function formatChangeLocusDate(params: {
+  planStartDate: string
+  weekNumber: number
+  dayOfWeek: number
+}): string | null {
+  const date = resolveCalendarDateUtc(params.planStartDate, params.weekNumber, params.dayOfWeek)
+  return date === null ? null : formatShortDateUtc(date)
 }

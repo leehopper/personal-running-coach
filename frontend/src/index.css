@@ -104,7 +104,24 @@
    * semantic-tier `--surface-dim` comment below for the full derivation and
    * the `.light` value's arithmetic). */
   --alp-surface-dim: #141911;
+  /* Danger-surface fill for the red safety-turn card and the live retry
+   * affordance (spec §3 PR-C) — an exact match to the mock's #1C1614. No
+   * existing primitive matched it. See the `.light` block below for the
+   * derived light value's arithmetic. */
+  --alp-danger-surface: #1c1614;
   --alp-bone: #ede8db;
+  /* Text-safe red for the safety-turn heading rendered ON --alp-danger-surface
+   * (spec §3 PR-C / §9 #3) — plain --alp-danger measures only 4.05:1 against
+   * this near-black fill (fails AA), so this is a lightened variant tuned to
+   * clear 4.5:1: --alp-danger (#c4554d) lightened 15% toward white —
+   * R: 196+0.15*(255-196)=204.85→205 (0xCD); G: 85+0.15*(255-85)=110.5→111
+   * (0x6F); B: 77+0.15*(255-77)=103.7→104 (0x68) = #CD6F68 (~5.17:1). */
+  --alp-danger-text: #cd6f68;
+  /* Text-safe amber for the amber safety-turn heading rendered ON --alp-surface
+   * (the amber tier's card fill). Plain --alp-amber clears AA on this dark card
+   * (~7.5:1), so dark keeps the accent value unchanged; the .light block below
+   * darkens it, where raw --alp-amber measures only ~1.8:1 on the light card. */
+  --alp-warning-text: #d9a441;
   --alp-muted: #a9a594;
   --alp-faint: #6f6d5e;
   --alp-clay: #d06a3b;
@@ -177,6 +194,15 @@
    * 238.5→239; G: (240+229)/2=234.5→235; B: (231+215)/2=223 →
    * rgb(239,235,223) = #efebdf. */
   --alp-surface-dim: #efebdf;
+  /* Derived, not guessed: a FAINT danger wash over light --alp-bg — a 15%
+   * component-wise blend of light --alp-bg (#f3f0e7) toward light --alp-danger
+   * (#c4554d), mirroring --alp-surface-dim's component-wise-midpoint method
+   * above but weighted toward bg (a literal 50/50 midpoint measured too
+   * saturated/pink to read as "faint" and pushed the AA-passing heading
+   * color into a near-maroon). R: 243+0.15*(196-243)=235.95→236 (0xEC);
+   * G: 240+0.15*(85-240)=216.75→217 (0xD9); B: 231+0.15*(77-231)=207.9→208
+   * (0xD0) = #ECD9D0. */
+  --alp-danger-surface: #ecd9d0;
   --alp-bone: #1c2418;
   --alp-muted: #5b5c4e;
   --alp-faint: #8b897a;
@@ -191,6 +217,18 @@
   --alp-btn-border: #c9c3b1;
   --alp-clay-marker: #c05a2e;
   --alp-clay-pressed: #c56438;
+  /* Text-safe red for the safety-turn heading on light --alp-danger-surface —
+   * plain --alp-danger measures only 3.24:1 against the light wash above
+   * (fails AA). Darkened 22% from --alp-danger (#c4554d) toward black:
+   * R: 196*0.78=152.88→153 (0x99); G: 85*0.78=66.3→66 (0x42);
+   * B: 77*0.78=60.06→60 (0x3C) = #99423C (~4.81:1). */
+  --alp-danger-text: #99423c;
+  /* Text-safe amber for the amber safety-turn heading on the light card
+   * (--alp-surface #eae5d7) — raw --alp-amber (#d9a441) measures only ~1.8:1
+   * there (fails AA). Darkened 45% from --alp-amber toward black:
+   * R: 217*0.55=119.35→119 (0x77); G: 164*0.55=90.2→90 (0x5A);
+   * B: 65*0.55=35.75→36 (0x24) = #775A24 (~5.1:1). */
+  --alp-warning-text: #775a24;
 }
 
 /* ── Semantic tier — shadcn slots (+ project slots) mapped to the primitive
@@ -245,6 +283,10 @@
    * exempt) — the turn's severity is always conveyed by its content and
    * structure, never by this colour alone. Never use it for text. */
   --warning: var(--alp-amber);
+  /* The amber safety-turn heading's text-safe amber on --card. Unlike
+   * --warning (a non-text border accent, exempt), this IS a text token and is
+   * gated against --card (see check-contrast.ts). */
+  --warning-text: var(--alp-warning-text);
 
   /* --border is a decorative divider (WCAG 1.4.11 exempt). --input is a
    * form-control boundary held to the 3:1 UI-component rule: it is the only
@@ -289,6 +331,15 @@
    * layered over a cell), so it carries the same contrast exemption as
    * `--border`/`--clay-marker`. */
   --surface-dim: var(--alp-surface-dim);
+  /* The failure-surface fill behind a red safety turn / the live retry
+   * affordance (spec §3 PR-C) — a text-on-fill pair (both --foreground body
+   * copy and the --danger-text heading render directly on it), so unlike
+   * --surface-dim it IS gated (see check-contrast.ts). */
+  --danger-surface: var(--alp-danger-surface);
+  /* The safety-turn heading's text-safe red on --danger-surface — plain
+   * --clay-text/--destructive are both tuned for OTHER backgrounds; this is
+   * its own gated text-on-fill pair (see check-contrast.ts). */
+  --danger-text: var(--alp-danger-text);
 
   /* Alpine accent ramp for charts — non-text, decorative. */
   --chart-1: var(--alp-clay);
@@ -333,6 +384,10 @@
   --destructive-foreground: var(--alp-on-danger);
 
   --warning: var(--alp-amber);
+  /* The amber safety-turn heading's text-safe amber on --card. Unlike
+   * --warning (a non-text border accent, exempt), this IS a text token and is
+   * gated against --card (see check-contrast.ts). */
+  --warning-text: var(--alp-warning-text);
 
   --border: var(--alp-hairline);
   --input: var(--alp-input-border);
@@ -345,6 +400,8 @@
   --input-fill: var(--alp-input);
   --clay-marker: var(--alp-clay-marker);
   --surface-dim: var(--alp-surface-dim);
+  --danger-surface: var(--alp-danger-surface);
+  --danger-text: var(--alp-danger-text);
 
   --chart-1: var(--alp-clay);
   --chart-2: var(--alp-moss);
@@ -404,6 +461,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-warning: var(--warning);
+  --color-warning-text: var(--warning-text);
   --color-border: var(--border);
   --color-input: var(--input);
   /* Exposes the sunken input-fill semantic slot (distinct from the --input
@@ -419,6 +477,8 @@
   --color-clay-pressed: var(--clay-pressed);
   --color-clay-marker: var(--clay-marker);
   --color-surface-dim: var(--surface-dim);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-text: var(--danger-text);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
