@@ -64,7 +64,7 @@ public sealed partial class PostCoachConversationTurnHandler
         // The user turn is durable-first, so the stream already exists — append.
         session.Events.Append(
             cmd.UserId,
-            new CoachMessagePosted(cmd.UserId, coachTurnId, content, cmd.IsErrored));
+            new CoachMessagePosted(cmd.UserId, coachTurnId, content, cmd.IsErrored, cmd.LoggedRun));
 
         var response = new ConversationTurnPostedResponse(coachTurnId);
         idempotency.Record(coachTurnId, response);

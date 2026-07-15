@@ -34,6 +34,13 @@ public sealed record InteractiveTurnView
     /// </summary>
     public required long EventVersion { get; init; }
 
+    /// <summary>
+    /// Gets the structured actuals of a confirmed conversational log (Slice 3, DEC-091),
+    /// set only on the confirm-ack coach turn; <see langword="null"/> for every user turn
+    /// and every other coach turn.
+    /// </summary>
+    public LoggedRunSummary? LoggedRun { get; init; }
+
     /// <summary>Builds a runner-authored turn from a <see cref="UserMessagePosted"/> event and its Marten metadata.</summary>
     /// <param name="event">The user-message event with Marten metadata.</param>
     /// <returns>The projected user turn.</returns>
@@ -49,6 +56,7 @@ public sealed record InteractiveTurnView
             IsErrored = false,
             CreatedAt = @event.Timestamp,
             EventVersion = @event.Version,
+            LoggedRun = null,
         };
     }
 
@@ -70,6 +78,7 @@ public sealed record InteractiveTurnView
             IsErrored = @event.Data.IsErrored,
             CreatedAt = @event.Timestamp,
             EventVersion = @event.Version,
+            LoggedRun = @event.Data.LoggedRun,
         };
     }
 }

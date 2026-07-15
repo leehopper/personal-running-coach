@@ -208,6 +208,13 @@ export const GetApiV1ConversationTimelineResponse = zod.strictObject({
       interactive: zod.strictObject({
         content: zod.string(),
         isErrored: zod.boolean(),
+        loggedRun: zod.strictObject({
+          workoutLogId: zod.uuid(),
+          distanceKm: zod.number(),
+          durationSeconds: zod.number(),
+          occurredOn: zod.iso.date(),
+          completionStatus: zod.union([zod.literal(0), zod.literal(1), zod.literal(2)]),
+        }),
       }),
       proactive: zod.strictObject({
         triggeringPlanEventId: zod.uuid(),

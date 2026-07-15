@@ -192,7 +192,7 @@ const interactiveTurn = (
   kind,
   turnId,
   createdAt: new Date().toISOString(),
-  interactive: { content, isErrored: false },
+  interactive: { content, isErrored: false, loggedRun: null },
   proactive: null,
 })
 

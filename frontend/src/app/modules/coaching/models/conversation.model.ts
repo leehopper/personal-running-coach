@@ -22,6 +22,7 @@
 // root `CLAUDE.md`, every user-facing string this module renders must use
 // "Daniels-Gilbert zones" / "pace-zone index" terminology.
 
+import type { CompletionStatus } from '~/api/generated'
 import type { MicroWorkoutCardDto } from '~/modules/plan/models/plan.model'
 
 /**
@@ -197,14 +198,31 @@ export const CONVERSATION_TIMELINE_TURN_KIND = {
 } as const satisfies Record<string, ConversationTimelineTurnKind>
 
 /**
+ * The confirmed-log actuals carried on a coach turn that closed out a
+ * conversational log confirmation (DEC-091). Mirrors
+ * `RunCoach.Api.Modules.Coaching.Conversation.LoggedRunSummaryDto`. Null on
+ * every turn that isn't a log-confirm ack — a streamed reply or a safety
+ * turn never carries one.
+ */
+export interface LoggedRunSummaryDto {
+  workoutLogId: string
+  distanceKm: number
+  durationSeconds: number
+  occurredOn: string
+  completionStatus: CompletionStatus
+}
+
+/**
  * An interactive chat turn — the runner's message or the coach's streamed
  * reply. Mirrors `RunCoach...InteractiveTurnDto`. `content` is empty and
  * `isErrored` is true when a coach stream died mid-flight; `isErrored` is always
- * false for a user turn.
+ * false for a user turn. `loggedRun` is non-null only on the coach turn that
+ * acked a confirmed conversational log (DEC-091).
  */
 export interface InteractiveTurnDto {
   content: string
   isErrored: boolean
+  loggedRun: LoggedRunSummaryDto | null
 }
 
 /**

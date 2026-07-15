@@ -335,8 +335,18 @@ public sealed partial class ConversationController(
                     : ConversationTimelineTurnKind.Coach,
                 turn.TurnId,
                 turn.CreatedAt,
-                new InteractiveTurnDto(turn.Content, turn.IsErrored),
+                new InteractiveTurnDto(turn.Content, turn.IsErrored, MapLoggedRun(turn.LoggedRun)),
                 Proactive: null));
+
+    private static LoggedRunSummaryDto? MapLoggedRun(LoggedRunSummary? loggedRun) =>
+        loggedRun is null
+            ? null
+            : new LoggedRunSummaryDto(
+                loggedRun.WorkoutLogId,
+                loggedRun.DistanceKm,
+                loggedRun.DurationSeconds,
+                loggedRun.OccurredOn,
+                loggedRun.CompletionStatus);
 
     private static (long EventVersion, ConversationTimelineTurnDto Dto)
         MapProactiveTurn(ConversationTurnView turn) =>

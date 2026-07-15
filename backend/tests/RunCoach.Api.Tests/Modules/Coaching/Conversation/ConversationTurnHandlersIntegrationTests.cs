@@ -129,7 +129,7 @@ public class ConversationTurnHandlersIntegrationTests(RunCoachAppFactory factory
         return await bus
             .InvokeForTenantAsync<ConversationTurnPostedResponse>(
                 userId.ToString(),
-                new PostCoachConversationTurn(userId, clientMessageId, content, isErrored),
+                new PostCoachConversationTurn(userId, clientMessageId, content, isErrored, LoggedRun: null),
                 TestContext.Current.CancellationToken)
             .ConfigureAwait(false);
     }

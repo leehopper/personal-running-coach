@@ -80,7 +80,7 @@ const userTurn = (content: string): ConversationTimelineTurnDto => ({
   kind: 0,
   turnId: 'u1',
   createdAt: '2026-06-29T10:00:00Z',
-  interactive: { content, isErrored: false },
+  interactive: { content, isErrored: false, loggedRun: null },
   proactive: null,
 })
 
@@ -88,7 +88,7 @@ const coachTurn = (content: string): ConversationTimelineTurnDto => ({
   kind: 1,
   turnId: 'c1',
   createdAt: '2026-06-29T10:00:01Z',
-  interactive: { content, isErrored: false },
+  interactive: { content, isErrored: false, loggedRun: null },
   proactive: null,
 })
 

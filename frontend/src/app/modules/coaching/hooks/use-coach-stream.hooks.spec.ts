@@ -473,14 +473,14 @@ describe('useCoachStream', () => {
         kind: 0,
         turnId: 'u1',
         createdAt: '2026-06-30T00:00:00Z',
-        interactive: { content: 'how was my run?', isErrored: false },
+        interactive: { content: 'how was my run?', isErrored: false, loggedRun: null },
         proactive: null,
       },
       {
         kind: 1,
         turnId: 'coach-1',
         createdAt: '2026-06-30T00:00:01Z',
-        interactive: { content: 'You ran well.', isErrored: false },
+        interactive: { content: 'You ran well.', isErrored: false, loggedRun: null },
         proactive: null,
       },
     ]

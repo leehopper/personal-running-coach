@@ -60,7 +60,7 @@ public sealed partial class PostScriptedSafetyTurnHandler
         // scripted referral is never an errored marker (the content is always complete).
         session.Events.Append(
             cmd.UserId,
-            new CoachMessagePosted(cmd.UserId, cmd.TurnId, cmd.Content, IsErrored: false));
+            new CoachMessagePosted(cmd.UserId, cmd.TurnId, cmd.Content, IsErrored: false, LoggedRun: null));
 
         var response = new ConversationTurnPostedResponse(cmd.TurnId);
         idempotency.Record(cmd.TurnId, response);
