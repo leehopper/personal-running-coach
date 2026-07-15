@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { PreferredUnits } from '~/api/generated'
 import type { PlanAdaptationDiffDto } from '~/modules/coaching/models/conversation.model'
 import { buildDiffWorkout } from './conversation.fixture'
-import { composeAdaptationHeadline } from './adaptation-digest.helpers'
+import { composeAdaptationHeadline, formatChangeLocusDate } from './adaptation-digest.helpers'
 
 const emptyDiff: PlanAdaptationDiffDto = { workoutChanges: [], weeklyTargetChanges: [] }
 
@@ -166,5 +166,31 @@ describe('composeAdaptationHeadline', () => {
     expect(composeAdaptationHeadline({ diff, currentWeek: 3, units: PreferredUnits.Miles })).toBe(
       'This week 18.6 mi → 16.2 mi.',
     )
+  })
+})
+
+describe('formatChangeLocusDate', () => {
+  it('resolves the week-1 Sunday anchor', () => {
+    expect(
+      formatChangeLocusDate({ planStartDate: '2026-06-28', weekNumber: 1, dayOfWeek: 0 }),
+    ).toBe('JUN 28')
+  })
+
+  it('resolves the week-1 Saturday', () => {
+    expect(
+      formatChangeLocusDate({ planStartDate: '2026-06-28', weekNumber: 1, dayOfWeek: 6 }),
+    ).toBe('JUL 4')
+  })
+
+  it('resolves the week-2 Sunday anchor', () => {
+    expect(
+      formatChangeLocusDate({ planStartDate: '2026-06-28', weekNumber: 2, dayOfWeek: 0 }),
+    ).toBe('JUL 5')
+  })
+
+  it('returns null for an unparseable planStartDate', () => {
+    expect(
+      formatChangeLocusDate({ planStartDate: 'not-a-date', weekNumber: 1, dayOfWeek: 0 }),
+    ).toBeNull()
   })
 })

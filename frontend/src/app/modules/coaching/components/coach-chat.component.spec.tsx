@@ -10,6 +10,7 @@ import type {
   ConversationTimelineTurnDto,
   PlanAdaptationDiffDto,
 } from '~/modules/coaching/models/conversation.model'
+import { formatTurnTime } from '~/modules/coaching/components/transcript-time.helpers'
 
 interface MockLocation {
   state: unknown
@@ -26,6 +27,7 @@ const {
   toastErrorMock,
   reportClientErrorMock,
   preferredUnitsMock,
+  usePlanMock,
 } = vi.hoisted(() => ({
   timelineMock: vi.fn(),
   streamMock: vi.fn(),
@@ -36,6 +38,7 @@ const {
   toastErrorMock: vi.fn(),
   reportClientErrorMock: vi.fn(),
   preferredUnitsMock: vi.fn<() => PreferredUnits>(),
+  usePlanMock: vi.fn(),
 }))
 
 vi.mock('~/api/conversation.api', () => ({
@@ -59,6 +62,12 @@ vi.mock('~/error-boundary/report-client-error', () => ({
 // through a mockable ref (see `preferredUnitsMock` above).
 vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
   usePreferredUnits: () => preferredUnitsMock(),
+}))
+// `CoachChat` reads the plan's `planStartDate` via this hook to join into
+// `AdaptationTurn`'s calendar-date loci (spec §3 PR-C); stub it the same way
+// as the unit-preference hook above.
+vi.mock('~/modules/plan/hooks/use-plan.hooks', () => ({
+  usePlan: () => usePlanMock(),
 }))
 
 import { CoachChat } from './coach-chat.component'
@@ -123,12 +132,20 @@ const turnAt = (
   proactive: null,
 })
 
+// The wrapper `createdAt` and the proactive `createdAt` are deliberately
+// DISTINCT (4h30m apart, so the local HH:MM differs in minutes under any TZ)
+// so the timestamp-wiring test below actually pins that the PLAN ADJUSTED
+// card reads `formatTurnTime(proactive.createdAt)` — not the wrapper's — and a
+// field-swap regression fails instead of being masked by equal values.
+const RESTRUCTURE_WRAPPER_CREATED_AT = '2026-06-29T10:00:02Z'
+const RESTRUCTURE_PROACTIVE_CREATED_AT = '2026-06-29T14:30:02Z'
+
 const restructureTurn = (
   diff: PlanAdaptationDiffDto = { workoutChanges: [], weeklyTargetChanges: [] },
 ): ConversationTimelineTurnDto => ({
   kind: 2,
   turnId: 'a1',
-  createdAt: '2026-06-29T10:00:02Z',
+  createdAt: RESTRUCTURE_WRAPPER_CREATED_AT,
   interactive: null,
   proactive: {
     triggeringPlanEventId: 'a1',
@@ -140,7 +157,7 @@ const restructureTurn = (
     adaptationKind: 2,
     diff,
     triggeringWorkoutLogId: 'w1',
-    createdAt: '2026-06-29T10:00:02Z',
+    createdAt: RESTRUCTURE_PROACTIVE_CREATED_AT,
   },
 })
 
@@ -197,6 +214,9 @@ describe('CoachChat', () => {
     // Plain `TabBar` navigation carries no `state` — the default for every
     // test that doesn't care about the composer receiver contract.
     locationMock.mockReturnValue({ state: null, key: 'default' })
+    // No plan warm by default — the locus join degrades to the week-index
+    // form; the dedicated locus test below supplies a real planStartDate.
+    usePlanMock.mockReturnValue({ plan: undefined })
   })
 
   afterEach(() => {
@@ -241,7 +261,58 @@ describe('CoachChat', () => {
     await user.click(within(screen.getByTestId('restructure-turn')).getByTestId('diff-toggle'))
 
     // 36 km / 1.609344 = 22.37... -> 22.4 mi ; 28 km -> 17.4 mi
-    expect(screen.getByText('22.4 mi → 17.4 mi')).toBeInTheDocument()
+    const weeklyTargetRow = screen.getByTestId('diff-weekly-target-change')
+    expect(weeklyTargetRow).toHaveTextContent('22.4 mi')
+    expect(weeklyTargetRow).toHaveTextContent('17.4 mi')
+  })
+
+  it('joins the plan into the restructure diff so its rows show calendar-date loci', async () => {
+    const user = userEvent.setup()
+    usePlanMock.mockReturnValue({ plan: { planStartDate: '2026-06-28' } })
+    setTimeline([
+      restructureTurn({
+        workoutChanges: [],
+        weeklyTargetChanges: [{ weekNumber: 1, beforeWeeklyTargetKm: 36, afterWeeklyTargetKm: 28 }],
+      }),
+    ])
+    streamMock.mockReturnValue(idleStream())
+
+    renderChat()
+    await user.click(within(screen.getByTestId('restructure-turn')).getByTestId('diff-toggle'))
+
+    // Week-1 volume change: the Sunday week-anchor = 2026-06-28.
+    expect(screen.getByText('WK JUN 28 · VOLUME')).toBeInTheDocument()
+  })
+
+  it('renders the PLAN ADJUSTED timestamp from the proactive createdAt, not the wrapper createdAt', () => {
+    setTimeline([restructureTurn()])
+    streamMock.mockReturnValue(idleStream())
+
+    renderChat()
+
+    const card = screen.getByTestId('restructure-turn')
+    // The card must render the proactive turn's own local HH:MM. Computing the
+    // expected value the same way the component does keeps this TZ-invariant;
+    // asserting the wrapper's time is ABSENT is what actually catches a
+    // field-swap (the two fixture times differ in minutes under any TZ).
+    expect(card).toHaveTextContent(formatTurnTime(RESTRUCTURE_PROACTIVE_CREATED_AT))
+    expect(card).not.toHaveTextContent(formatTurnTime(RESTRUCTURE_WRAPPER_CREATED_AT))
+  })
+
+  it('degrades the restructure diff locus to the week-index form when no plan is warm', async () => {
+    const user = userEvent.setup()
+    setTimeline([
+      restructureTurn({
+        workoutChanges: [],
+        weeklyTargetChanges: [{ weekNumber: 1, beforeWeeklyTargetKm: 36, afterWeeklyTargetKm: 28 }],
+      }),
+    ])
+    streamMock.mockReturnValue(idleStream())
+
+    renderChat()
+    await user.click(within(screen.getByTestId('restructure-turn')).getByTestId('diff-toggle'))
+
+    expect(screen.getByText('WK 1 · VOLUME')).toBeInTheDocument()
   })
 
   it('renders streamed coach prose as plain text using approved pace-zone wording', () => {
@@ -570,6 +641,7 @@ describe('CoachChat', () => {
     renderChat()
     expect(screen.getByText('My end broke.')).toBeInTheDocument()
     expect(screen.getByTestId('coach-error')).toHaveClass('border-l-destructive')
+    expect(screen.getByTestId('coach-error')).toHaveClass('bg-danger-surface')
     await user.click(screen.getByRole('button', { name: /retry/i }))
 
     expect(retry).toHaveBeenCalledOnce()
@@ -589,16 +661,16 @@ describe('CoachChat', () => {
     expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
   })
 
-  it('renders the deterministic safety notice during an exchange', () => {
+  it('renders the deterministic safety notice during an exchange with role="alert"', () => {
     setTimeline([])
     streamMock.mockReturnValue(
       idleStream({ safety: { content: 'Call 988 now.', tier: 2, category: 1 } }),
     )
 
     renderChat()
-    expect(
-      within(screen.getByTestId('coach-safety-notice')).getByText(/call 988 now/i),
-    ).toBeInTheDocument()
+    const notice = screen.getByTestId('coach-safety-notice')
+    expect(within(notice).getByText(/call 988 now/i)).toBeInTheDocument()
+    expect(notice).toHaveAttribute('role', 'alert')
   })
 
   describe('composer prefill/focus receiver', () => {

@@ -67,3 +67,48 @@ export const describeWeeklyTargetChange = (
   `${formatDistanceKm(change.beforeWeeklyTargetKm, units) ?? '—'} → ${
     formatDistanceKm(change.afterWeeklyTargetKm, units) ?? '—'
   }`
+
+/**
+ * A change-row's value-line copy, split so the `→` glyph can be rendered in
+ * clay by the component (spec §3 PR-C) while `describeWorkoutChange`/
+ * `describeWeeklyTargetChange` above stay intact for backward compat. An
+ * `arrow` row has a real before/after pair to join with a clay `→`; a
+ * `text` row (an added/removed workout) has no before/after split — its
+ * whole copy renders as one plain run.
+ */
+export type ChangeDescriptionParts =
+  { kind: 'arrow'; before: string; after: string } | { kind: 'text'; text: string }
+
+/**
+ * `workoutChangeLocus`'s value-line counterpart, arrow-split. Returns `null`
+ * for the same meaningless both-null case `describeWorkoutChange` guards.
+ */
+export const describeWorkoutChangeParts = (
+  change: WorkoutChangeDto,
+  units: PreferredUnits = PreferredUnits.Kilometers,
+): ChangeDescriptionParts | null => {
+  if (change.before !== null && change.after !== null) {
+    return {
+      kind: 'arrow',
+      before: describeWorkout(change.before, units),
+      after: describeWorkout(change.after, units),
+    }
+  }
+  if (change.after !== null) {
+    return { kind: 'text', text: `Added ${describeWorkout(change.after, units)}` }
+  }
+  if (change.before !== null) {
+    return { kind: 'text', text: `Removed ${describeWorkout(change.before, units)}` }
+  }
+  return null
+}
+
+/** `weeklyTargetChangeLocus`'s value-line counterpart, arrow-split — always an `arrow` row. */
+export const describeWeeklyTargetChangeParts = (
+  change: WeeklyTargetChangeDto,
+  units: PreferredUnits = PreferredUnits.Kilometers,
+): ChangeDescriptionParts => ({
+  kind: 'arrow',
+  before: formatDistanceKm(change.beforeWeeklyTargetKm, units) ?? '—',
+  after: formatDistanceKm(change.afterWeeklyTargetKm, units) ?? '—',
+})

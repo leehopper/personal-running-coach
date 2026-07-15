@@ -174,6 +174,25 @@ export const PAIRS: readonly Pair[] = [
     bg: 'input-fill',
     threshold: 4.5,
   },
+  // Failure surface (spec §3 PR-C) — the red safety-turn card / live retry
+  // affordance's fill. Both the body copy (--foreground) and the 12px
+  // semibold red heading render directly on it. Plain --destructive
+  // measures only ~4.05:1 (dark) / ~3.24:1 (light) against --danger-surface
+  // — short of AA — so the heading uses the dedicated --danger-text variant
+  // instead (§9 #3 option (a): an AA-passing on-danger foreground, not an
+  // exemption), which this pair asserts.
+  {
+    label: '--foreground on --danger-surface',
+    fg: 'foreground',
+    bg: 'danger-surface',
+    threshold: 4.5,
+  },
+  {
+    label: '--danger-text on --danger-surface',
+    fg: 'danger-text',
+    bg: 'danger-surface',
+    threshold: 4.5,
+  },
   // Non-text UI pairs — WCAG SC 1.4.11, 3:1. --ring and --input are checked
   // against --background, the surface they border. --input is the resting
   // boundary of an empty form field (see the header comment) and must stay

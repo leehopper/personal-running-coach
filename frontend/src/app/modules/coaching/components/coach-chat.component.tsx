@@ -11,15 +11,14 @@ import {
 import { reportClientError } from '~/error-boundary/report-client-error'
 import {
   useCoachStream,
-  type CoachSafetyNotice,
   type CoachStreamError,
 } from '~/modules/coaching/hooks/use-coach-stream.hooks'
 import {
   CONVERSATION_ROLE,
   CONVERSATION_TIMELINE_TURN_KIND,
-  SAFETY_TIER,
   type ConversationTimelineTurnDto,
 } from '~/modules/coaching/models/conversation.model'
+import { usePlan } from '~/modules/plan/hooks/use-plan.hooks'
 import { usePreferredUnits } from '~/modules/settings/hooks/use-preferred-units.hooks'
 import { AdaptationTurn } from './adaptation-turn.component'
 import { CoachComposer } from './coach-composer.component'
@@ -79,18 +78,6 @@ const ErroredCoachNote = (): ReactElement => (
   </div>
 )
 
-const SafetyNotice = ({ notice }: { notice: CoachSafetyNotice }): ReactElement => (
-  <div
-    role="alert"
-    data-testid="coach-safety-notice"
-    className={`rounded-md border border-l-2 bg-card p-4 text-sm whitespace-pre-wrap text-card-foreground ${
-      notice.tier === SAFETY_TIER.red ? 'border-l-destructive' : 'border-l-warning'
-    }`}
-  >
-    {notice.content}
-  </div>
-)
-
 interface RetryAffordanceProps {
   error: CoachStreamError
   onRetry: () => void
@@ -100,8 +87,7 @@ const RetryAffordance = ({ error, onRetry }: RetryAffordanceProps): ReactElement
   <div
     role="alert"
     data-testid="coach-error"
-    // Failure-surface token bg-danger-surface lands in PR-C (spec §3 PR-C); using bg-secondary here until then.
-    className="flex items-center justify-between gap-3 rounded-md border-l-[3px] border-l-destructive bg-secondary px-3 py-2"
+    className="flex items-center justify-between gap-3 rounded-md border-l-[3px] border-l-destructive bg-danger-surface px-3 py-2"
   >
     <span className="font-mono text-[12px] text-foreground">{error.message}</span>
     {error.retryable && (
@@ -121,9 +107,11 @@ const RetryAffordance = ({ error, onRetry }: RetryAffordanceProps): ReactElement
 const TimelineRow = ({
   turn,
   units,
+  planStartDate,
 }: {
   turn: ConversationTimelineTurnDto
   units: PreferredUnits
+  planStartDate: string | undefined
 }): ReactElement | null => {
   // Narrow on the payload null-ness — exactly one of interactive/proactive is set.
   if (turn.interactive !== null) {
@@ -142,9 +130,14 @@ const TimelineRow = ({
     )
   }
   return turn.proactive.role === CONVERSATION_ROLE.systemSafety ? (
-    <SafetyTurn turn={turn.proactive} />
+    <SafetyTurn tier={turn.proactive.safetyTier} content={turn.proactive.content} />
   ) : (
-    <AdaptationTurn turn={turn.proactive} units={units} />
+    <AdaptationTurn
+      turn={turn.proactive}
+      units={units}
+      planStartDate={planStartDate}
+      time={formatTurnTime(turn.proactive.createdAt)}
+    />
   )
 }
 
@@ -152,6 +145,7 @@ export const CoachChat = (): ReactElement => {
   const { data } = useGetConversationTimelineQuery(undefined)
   const timeline = data?.turns ?? NO_TURNS
   const units = usePreferredUnits()
+  const { plan } = usePlan()
   const location = useLocation()
   const locationState = isCoachChatLocationState(location.state) ? location.state : null
   const {
@@ -242,7 +236,12 @@ export const CoachChat = (): ReactElement => {
           <Fragment key={`day-${group.turns[0].turnId}`}>
             <DateDivider label={group.label} />
             {group.turns.map((turn) => (
-              <TimelineRow key={turn.turnId} turn={turn} units={units} />
+              <TimelineRow
+                key={turn.turnId}
+                turn={turn}
+                units={units}
+                planStartDate={plan?.planStartDate}
+              />
             ))}
           </Fragment>
         ))}
@@ -250,7 +249,14 @@ export const CoachChat = (): ReactElement => {
         {streamingText.length > 0 && (
           <CoachTextTurn content={streamingText} time={liveTime} streaming />
         )}
-        {safety !== null && <SafetyNotice notice={safety} />}
+        {safety !== null && (
+          <SafetyTurn
+            tier={safety.tier}
+            content={safety.content}
+            role="alert"
+            testId="coach-safety-notice"
+          />
+        )}
       </TranscriptScroller>
       {error !== null && (
         <RetryAffordance

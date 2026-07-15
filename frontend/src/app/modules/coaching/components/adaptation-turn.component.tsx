@@ -15,6 +15,14 @@ export interface AdaptationTurnProps {
    * tests) render the km form unchanged.
    */
   units?: PreferredUnits
+  /**
+   * The owning plan's calendar anchor, threaded through to `BeforeAfterDiff`
+   * (spec §3 PR-C). `undefined` degrades every diff row's locus to the
+   * week-index form.
+   */
+  planStartDate?: string
+  /** The turn's local wall-clock `HH:MM`, supplied by the caller (`formatTurnTime(turn.createdAt)`). */
+  time: string
 }
 
 /**
@@ -24,15 +32,17 @@ export interface AdaptationTurnProps {
  *   - absorb — never persisted as a turn; rendered as nothing defensively
  *     should one ever arrive.
  *   - nudge — a quiet inline one-liner, no block chrome, no diff.
- *   - restructure — an expandable block carrying the coach's rationale
+ *   - restructure — a `PLAN ADJUSTED` card carrying the coach's rationale
  *     (validate → what I saw → what I changed → path back, authored
- *     server-side) with the collapsible before/after diff and a subtle
- *     left-edge amber accent. No loud badges — the `--warning` accent is a
- *     supplementary indicator; severity is conveyed by the copy itself.
+ *     server-side) with the collapsible before/after diff and a 2px clay
+ *     left-edge marker (`--clay-marker`, border/fill-only — no loud badges;
+ *     severity is conveyed by the copy itself, not the accent).
  */
 export const AdaptationTurn = ({
   turn,
   units = PreferredUnits.Kilometers,
+  planStartDate,
+  time,
 }: AdaptationTurnProps): ReactElement | null => {
   if (turn.adaptationKind === ADAPTATION_KIND.absorb) {
     return null
@@ -40,7 +50,7 @@ export const AdaptationTurn = ({
 
   if (turn.adaptationKind === ADAPTATION_KIND.nudge) {
     return (
-      <p data-testid="nudge-turn" className="px-1 text-sm text-foreground">
+      <p data-testid="nudge-turn" className="font-body text-[14px] text-foreground">
         {turn.content}
       </p>
     )
@@ -49,10 +59,18 @@ export const AdaptationTurn = ({
   return (
     <article
       data-testid="restructure-turn"
-      className="flex flex-col gap-2 rounded-md border border-l-2 border-l-warning bg-card p-4"
+      className="rounded-lg border border-border border-l-2 border-l-clay-marker bg-card p-[14px]"
     >
-      <p className="text-sm whitespace-pre-wrap text-card-foreground">{turn.content}</p>
-      <BeforeAfterDiff diff={turn.diff} units={units} />
+      <div className="flex items-baseline justify-between">
+        <span className="font-condensed text-[12px] font-semibold tracking-[0.16em] text-clay-text uppercase">
+          PLAN ADJUSTED
+        </span>
+        <span className="font-mono text-[10px] text-[var(--alp-faint)]">{time}</span>
+      </div>
+      <p className="mt-2 font-body text-[14px] leading-[1.55] whitespace-pre-wrap text-foreground">
+        {turn.content}
+      </p>
+      <BeforeAfterDiff diff={turn.diff} units={units} planStartDate={planStartDate} />
     </article>
   )
 }

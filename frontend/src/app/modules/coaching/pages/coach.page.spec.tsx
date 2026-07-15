@@ -5,10 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferredUnits } from '~/api/generated'
 import type { UseCoachStreamReturn } from '~/modules/coaching/hooks/use-coach-stream.hooks'
 
-const { timelineMock, streamMock, preferredUnitsMock } = vi.hoisted(() => ({
+const { timelineMock, streamMock, preferredUnitsMock, usePlanMock } = vi.hoisted(() => ({
   timelineMock: vi.fn(),
   streamMock: vi.fn(),
   preferredUnitsMock: vi.fn<() => PreferredUnits>(),
+  usePlanMock: vi.fn(),
 }))
 
 vi.mock('~/api/conversation.api', () => ({
@@ -20,6 +21,9 @@ vi.mock('~/modules/coaching/hooks/use-coach-stream.hooks', () => ({
 }))
 vi.mock('~/modules/settings/hooks/use-preferred-units.hooks', () => ({
   usePreferredUnits: () => preferredUnitsMock(),
+}))
+vi.mock('~/modules/plan/hooks/use-plan.hooks', () => ({
+  usePlan: () => usePlanMock(),
 }))
 
 import { CoachPage } from './coach.page'
@@ -48,6 +52,7 @@ describe('CoachPage', () => {
     timelineMock.mockReturnValue({ data: { turns: [] }, isLoading: false, isError: false })
     streamMock.mockReturnValue(idleStream())
     preferredUnitsMock.mockReturnValue(PreferredUnits.Kilometers)
+    usePlanMock.mockReturnValue({ plan: undefined })
   })
 
   it('mounts under the coach-page testid', () => {
