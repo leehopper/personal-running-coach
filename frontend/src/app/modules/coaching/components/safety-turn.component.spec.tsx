@@ -15,7 +15,8 @@ describe('SafetyTurn', () => {
     // regression to the old width fails, not just the colour.
     expect(article).toHaveClass('border-l-[3px]')
     expect(article).toHaveClass('bg-card')
-    expect(screen.getByText('WORTH A PROFESSIONAL LOOK')).toHaveClass('text-warning')
+    // Source copy is sentence case; the uppercase display is CSS (.t-section-label).
+    expect(screen.getByText('Worth a professional look')).toHaveClass('text-warning-text')
     expect(screen.getByText('See a physio about that knee.')).toBeInTheDocument()
   })
 
@@ -28,7 +29,7 @@ describe('SafetyTurn', () => {
     // DU-5: 3px edge this PR (was border-l-4) — pin the width against a regression.
     expect(article).toHaveClass('border-l-[3px]')
     expect(article).toHaveClass('bg-danger-surface')
-    expect(screen.getByText('STOP — GET SEEN')).toHaveClass('text-danger-text')
+    expect(screen.getByText('Stop — get seen')).toHaveClass('text-danger-text')
   })
 
   it('renders the defensive green tier with a neutral edge and no heading', () => {
@@ -37,8 +38,8 @@ describe('SafetyTurn', () => {
     const article = screen.getByTestId('safety-turn')
     expect(article).toHaveAttribute('data-tier', 'green')
     expect(article).toHaveClass('border-l-border')
-    expect(screen.queryByText('WORTH A PROFESSIONAL LOOK')).not.toBeInTheDocument()
-    expect(screen.queryByText('STOP — GET SEEN')).not.toBeInTheDocument()
+    expect(screen.queryByText('Worth a professional look')).not.toBeInTheDocument()
+    expect(screen.queryByText('Stop — get seen')).not.toBeInTheDocument()
   })
 
   // AX-01 — the acceptance bar: a pathological-length scripted message

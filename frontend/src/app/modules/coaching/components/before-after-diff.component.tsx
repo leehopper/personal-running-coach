@@ -47,9 +47,9 @@ const ChangeValueLine = ({ parts }: { parts: ChangeDescriptionParts }): ReactEle
  * `PlanAdaptationDiff` payload — per-workout micro-week swaps and per-week
  * meso volume-target edits — as a definition list, never parsed prose. An
  * empty diff renders nothing (no dangling toggle). Row loci are calendar-
- * date-anchored against `planStartDate` (§4.2 UTC plan-calendar math) rather
- * than the legacy week-index `workoutChangeLocus`/`weeklyTargetChangeLocus`
- * helpers, which stay exported for backward compat only.
+ * date-anchored against `planStartDate` (§4.2 UTC plan-calendar math), and
+ * degrade to a week-index locus when `planStartDate` is absent/unparseable or
+ * the `dayOfWeek` is out of range.
  */
 export const BeforeAfterDiff = ({
   diff,
@@ -64,16 +64,23 @@ export const BeforeAfterDiff = ({
 
   // The week-label side of both loci: the calendar date when `planStartDate`
   // resolves, else the raw week index. Shared so the two locus builders can't
-  // drift apart.
-  const resolveWeekLabel = (weekNumber: number, dayOfWeek: number): string =>
-    planStartDate === undefined
-      ? String(weekNumber)
-      : (formatChangeLocusDate({ planStartDate, weekNumber, dayOfWeek }) ?? String(weekNumber))
+  // drift apart. An out-of-range `dayOfWeek` (a malformed payload's 7/-1) has
+  // no calendar meaning — `resolveCalendarDateUtc` does raw epoch math with no
+  // bounds check and would roll it into an adjacent week, rendering a
+  // plausible-but-wrong date — so it degrades to the raw week index too.
+  // `weeklyTargetLocus` always passes `dayOfWeek` 0 (in range), so only a
+  // malformed workout day degrades here.
+  const resolveWeekLabel = (weekNumber: number, dayOfWeek: number): string => {
+    const dayInRange = DAY_OF_WEEK_LABELS[dayOfWeek] !== undefined
+    if (planStartDate === undefined || !dayInRange) {
+      return String(weekNumber)
+    }
+    return formatChangeLocusDate({ planStartDate, weekNumber, dayOfWeek }) ?? String(weekNumber)
+  }
 
   // `DAY_OF_WEEK_LABELS[dayOfWeek]` is `undefined` for an out-of-range index
   // (a malformed payload's 7/-1); the `?? Day N` guard keeps `.toUpperCase()`
-  // from throwing and crashing the whole card, mirroring the legacy
-  // `workoutChangeLocus` helper it replaced.
+  // from throwing and crashing the whole card.
   const weekdayLabel = (dayOfWeek: number): string =>
     (DAY_OF_WEEK_LABELS[dayOfWeek] ?? `Day ${dayOfWeek}`).toUpperCase()
 

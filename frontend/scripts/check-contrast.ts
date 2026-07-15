@@ -25,7 +25,9 @@
  * EXEMPT (never asserted, by design — WCAG 1.4.11 decorative / non-text):
  *   --border      — a pure divider between rows/sections.
  *   --warning     — a supplementary severity accent (the severity is always
- *     also conveyed by content and structure, never by colour alone).
+ *     also conveyed by content and structure, never by colour alone). The
+ *     text variant --warning-text (amber heading copy) is a separate token and
+ *     IS asserted below.
  *   --alp-faint   — a decorative-only label tint that fails AA by design and
  *     must never carry essential text; documented, not machine-checked.
  *   --clay-marker — the "current" marker: border/fill only, never text (THE
@@ -193,6 +195,11 @@ export const PAIRS: readonly Pair[] = [
     bg: 'danger-surface',
     threshold: 4.5,
   },
+  // Amber safety-turn heading (spec §3 PR-C). The amber tier's card fill is
+  // plain --card, and the heading renders in the dedicated --warning-text
+  // token, NOT the border-accent --warning — raw --warning (--alp-amber)
+  // measures only ~1.8:1 on the light card. This asserts the gated text token.
+  { label: '--warning-text on --card', fg: 'warning-text', bg: 'card', threshold: 4.5 },
   // Non-text UI pairs — WCAG SC 1.4.11, 3:1. --ring and --input are checked
   // against --background, the surface they border. --input is the resting
   // boundary of an empty form field (see the header comment) and must stay

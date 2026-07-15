@@ -117,6 +117,11 @@
    * R: 196+0.15*(255-196)=204.85→205 (0xCD); G: 85+0.15*(255-85)=110.5→111
    * (0x6F); B: 77+0.15*(255-77)=103.7→104 (0x68) = #CD6F68 (~5.17:1). */
   --alp-danger-text: #cd6f68;
+  /* Text-safe amber for the amber safety-turn heading rendered ON --alp-surface
+   * (the amber tier's card fill). Plain --alp-amber clears AA on this dark card
+   * (~7.5:1), so dark keeps the accent value unchanged; the .light block below
+   * darkens it, where raw --alp-amber measures only ~1.8:1 on the light card. */
+  --alp-warning-text: #d9a441;
   --alp-muted: #a9a594;
   --alp-faint: #6f6d5e;
   --alp-clay: #d06a3b;
@@ -218,6 +223,12 @@
    * R: 196*0.78=152.88→153 (0x99); G: 85*0.78=66.3→66 (0x42);
    * B: 77*0.78=60.06→60 (0x3C) = #99423C (~4.81:1). */
   --alp-danger-text: #99423c;
+  /* Text-safe amber for the amber safety-turn heading on the light card
+   * (--alp-surface #eae5d7) — raw --alp-amber (#d9a441) measures only ~1.8:1
+   * there (fails AA). Darkened 45% from --alp-amber toward black:
+   * R: 217*0.55=119.35→119 (0x77); G: 164*0.55=90.2→90 (0x5A);
+   * B: 65*0.55=35.75→36 (0x24) = #775A24 (~5.1:1). */
+  --alp-warning-text: #775a24;
 }
 
 /* ── Semantic tier — shadcn slots (+ project slots) mapped to the primitive
@@ -272,6 +283,10 @@
    * exempt) — the turn's severity is always conveyed by its content and
    * structure, never by this colour alone. Never use it for text. */
   --warning: var(--alp-amber);
+  /* The amber safety-turn heading's text-safe amber on --card. Unlike
+   * --warning (a non-text border accent, exempt), this IS a text token and is
+   * gated against --card (see check-contrast.ts). */
+  --warning-text: var(--alp-warning-text);
 
   /* --border is a decorative divider (WCAG 1.4.11 exempt). --input is a
    * form-control boundary held to the 3:1 UI-component rule: it is the only
@@ -318,7 +333,7 @@
   --surface-dim: var(--alp-surface-dim);
   /* The failure-surface fill behind a red safety turn / the live retry
    * affordance (spec §3 PR-C) — a text-on-fill pair (both --foreground body
-   * copy and the --destructive heading render directly on it), so unlike
+   * copy and the --danger-text heading render directly on it), so unlike
    * --surface-dim it IS gated (see check-contrast.ts). */
   --danger-surface: var(--alp-danger-surface);
   /* The safety-turn heading's text-safe red on --danger-surface — plain
@@ -369,6 +384,10 @@
   --destructive-foreground: var(--alp-on-danger);
 
   --warning: var(--alp-amber);
+  /* The amber safety-turn heading's text-safe amber on --card. Unlike
+   * --warning (a non-text border accent, exempt), this IS a text token and is
+   * gated against --card (see check-contrast.ts). */
+  --warning-text: var(--alp-warning-text);
 
   --border: var(--alp-hairline);
   --input: var(--alp-input-border);
@@ -442,6 +461,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-warning: var(--warning);
+  --color-warning-text: var(--warning-text);
   --color-border: var(--border);
   --color-input: var(--input);
   /* Exposes the sunken input-fill semantic slot (distinct from the --input

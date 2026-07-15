@@ -20,11 +20,15 @@ const TIER_NAMES: Record<SafetyTier, string> = {
   [SAFETY_TIER.red]: 'red',
 }
 
-/** Client-derived heading copy per tier (spec §3 PR-C table) — never on the wire. */
+/**
+ * Client-derived heading copy per tier (spec §3 PR-C table) — never on the
+ * wire. Stored sentence case; the uppercase display is a CSS concern applied
+ * by `.t-section-label` at the render site.
+ */
 const TIER_HEADINGS: Record<SafetyTier, string> = {
   [SAFETY_TIER.green]: '',
-  [SAFETY_TIER.amber]: 'WORTH A PROFESSIONAL LOOK',
-  [SAFETY_TIER.red]: 'STOP — GET SEEN',
+  [SAFETY_TIER.amber]: 'Worth a professional look',
+  [SAFETY_TIER.red]: 'Stop — get seen',
 }
 
 /** The left-edge accent per tier — supplementary; the heading + content carry the severity. */
@@ -42,15 +46,18 @@ const TIER_SURFACE: Record<SafetyTier, string> = {
 }
 
 /**
- * The heading's text color per tier. Red uses the dedicated `--danger-text`
- * token, NOT `--destructive` — plain `--destructive` measures only ~4.05:1
- * (dark) / ~3.24:1 (light) against `--danger-surface`, short of the 4.5:1 AA
- * text threshold (spec §9 #3 option (a): an AA-passing on-danger foreground
- * variant, chosen over exempting the heading).
+ * The heading's text color per tier — each a gated text-on-surface token, NOT
+ * the border-accent `--warning`/`--destructive`. Amber uses `--warning-text`
+ * on `--card` and red uses `--danger-text` on `--danger-surface`: the plain
+ * accent variants render bright amber (`--warning` ~1.8:1 on the light card)
+ * or red (`--destructive` ~4.05:1 dark / ~3.24:1 light on the danger wash)
+ * that fall short of the 4.5:1 AA text threshold, so each tier gets its own
+ * AA-passing foreground (spec §9 #3 option (a): a gated on-surface variant,
+ * chosen over exempting the heading).
  */
 const TIER_HEADING_COLOR: Record<SafetyTier, string> = {
   [SAFETY_TIER.green]: 'text-muted-foreground',
-  [SAFETY_TIER.amber]: 'text-warning',
+  [SAFETY_TIER.amber]: 'text-warning-text',
   [SAFETY_TIER.red]: 'text-danger-text',
 }
 
@@ -85,18 +92,9 @@ export const SafetyTurn = ({
       )}
     >
       {heading !== '' && (
-        <span
-          className={cn(
-            'font-condensed text-[12px] font-semibold tracking-[0.16em] uppercase',
-            TIER_HEADING_COLOR[tier],
-          )}
-        >
-          {heading}
-        </span>
+        <h3 className={cn('t-section-label', TIER_HEADING_COLOR[tier])}>{heading}</h3>
       )}
-      <p className="font-body text-[14px] leading-[1.55] whitespace-pre-wrap text-foreground">
-        {content}
-      </p>
+      <p className="t-body whitespace-pre-wrap text-foreground">{content}</p>
     </article>
   )
 }

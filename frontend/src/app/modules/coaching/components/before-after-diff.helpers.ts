@@ -1,6 +1,5 @@
 import { PreferredUnits } from '~/api/generated'
 import { formatDistanceKm } from '~/modules/common/utils/unit-format.helpers'
-import { DAY_OF_WEEK_LABELS } from '~/modules/plan/components/plan-display.helpers'
 import type {
   WeeklyTargetChangeDto,
   WorkoutChangeDto,
@@ -19,69 +18,20 @@ const describeWorkout = (workout: MicroWorkoutCardDto, units: PreferredUnits): s
   `${workout.title} (${formatDistanceKm(workout.targetDistanceKm, units) ?? '—'})`
 
 /**
- * Where a workout change applies: `Week 2 · Tuesday`. Falls back to the raw
- * index for an out-of-range `dayOfWeek` so a malformed payload still renders
- * a defined locus instead of throwing.
- */
-export const workoutChangeLocus = (change: WorkoutChangeDto): string => {
-  const day = DAY_OF_WEEK_LABELS[change.dayOfWeek] ?? `Day ${change.dayOfWeek}`
-  return `Week ${change.weekNumber} · ${day}`
-}
-
-/**
- * The before → after copy for one workout change. A null `before` denotes an
- * added workout, a null `after` a removed one; both-null is meaningless and
- * yields `null` so the caller skips the line. Defaults to Kilometers so
- * callers that predate the unit preference (and isolated tests) render the
- * km form unchanged.
- */
-export const describeWorkoutChange = (
-  change: WorkoutChangeDto,
-  units: PreferredUnits = PreferredUnits.Kilometers,
-): string | null => {
-  if (change.before !== null && change.after !== null) {
-    return `${describeWorkout(change.before, units)} → ${describeWorkout(change.after, units)}`
-  }
-  if (change.after !== null) {
-    return `Added ${describeWorkout(change.after, units)}`
-  }
-  if (change.before !== null) {
-    return `Removed ${describeWorkout(change.before, units)}`
-  }
-  return null
-}
-
-/** Where a weekly-target change applies: `Week 3 volume`. */
-export const weeklyTargetChangeLocus = (change: WeeklyTargetChangeDto): string =>
-  `Week ${change.weekNumber} volume`
-
-/**
- * The before → after copy for one weekly volume-target change. Defaults to
- * Kilometers so callers that predate the unit preference (and isolated
- * tests) render the km form unchanged.
- */
-export const describeWeeklyTargetChange = (
-  change: WeeklyTargetChangeDto,
-  units: PreferredUnits = PreferredUnits.Kilometers,
-): string =>
-  `${formatDistanceKm(change.beforeWeeklyTargetKm, units) ?? '—'} → ${
-    formatDistanceKm(change.afterWeeklyTargetKm, units) ?? '—'
-  }`
-
-/**
  * A change-row's value-line copy, split so the `→` glyph can be rendered in
- * clay by the component (spec §3 PR-C) while `describeWorkoutChange`/
- * `describeWeeklyTargetChange` above stay intact for backward compat. An
- * `arrow` row has a real before/after pair to join with a clay `→`; a
- * `text` row (an added/removed workout) has no before/after split — its
- * whole copy renders as one plain run.
+ * clay by the component (spec §3 PR-C). An `arrow` row has a real before/after
+ * pair to join with a clay `→`; a `text` row (an added/removed workout) has no
+ * before/after split — its whole copy renders as one plain run.
  */
 export type ChangeDescriptionParts =
   { kind: 'arrow'; before: string; after: string } | { kind: 'text'; text: string }
 
 /**
- * `workoutChangeLocus`'s value-line counterpart, arrow-split. Returns `null`
- * for the same meaningless both-null case `describeWorkoutChange` guards.
+ * The before → after copy for one workout change, arrow-split. A null `before`
+ * denotes an added workout, a null `after` a removed one; both-null is
+ * meaningless and yields `null` so the caller skips the line. Defaults to
+ * Kilometers so callers that predate the unit preference (and isolated tests)
+ * render the km form unchanged.
  */
 export const describeWorkoutChangeParts = (
   change: WorkoutChangeDto,
@@ -103,7 +53,7 @@ export const describeWorkoutChangeParts = (
   return null
 }
 
-/** `weeklyTargetChangeLocus`'s value-line counterpart, arrow-split — always an `arrow` row. */
+/** The before → after copy for one weekly volume-target change — always an `arrow` row. */
 export const describeWeeklyTargetChangeParts = (
   change: WeeklyTargetChangeDto,
   units: PreferredUnits = PreferredUnits.Kilometers,

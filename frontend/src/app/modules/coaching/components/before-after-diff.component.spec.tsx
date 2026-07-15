@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { PreferredUnits } from '~/api/generated'
 import { buildDiff, buildDiffWorkout } from './conversation.fixture'
-import { describeWeeklyTargetChange, describeWorkoutChange } from './before-after-diff.helpers'
+import {
+  describeWeeklyTargetChangeParts,
+  describeWorkoutChangeParts,
+} from './before-after-diff.helpers'
 import { BeforeAfterDiff } from './before-after-diff.component'
 
 describe('BeforeAfterDiff', () => {
@@ -125,6 +128,25 @@ describe('BeforeAfterDiff', () => {
     expect(screen.getByText('WK 1 · DAY 7')).toBeInTheDocument()
   })
 
+  it('degrades an out-of-range dayOfWeek to the week index even when planStartDate resolves', async () => {
+    const user = userEvent.setup()
+    const diff = buildDiff({
+      workoutChanges: [
+        { weekNumber: 1, dayOfWeek: 7, before: buildDiffWorkout(), after: buildDiffWorkout() },
+      ],
+      weeklyTargetChanges: [],
+    })
+    // `resolveCalendarDateUtc` does unbounded epoch math, so dayOfWeek=7 would
+    // roll into the next week's Sunday and render a plausible-but-wrong date
+    // (e.g. `WK JUL 5 · DAY 7`). The out-of-range guard degrades the week label
+    // to the raw index instead, so the malformed day is never dressed as a real
+    // calendar date.
+    render(<BeforeAfterDiff diff={diff} planStartDate="2026-06-28" />)
+
+    await user.click(screen.getByTestId('diff-toggle'))
+    expect(screen.getByText('WK 1 · DAY 7')).toBeInTheDocument()
+  })
+
   it('renders nothing for an empty diff (no dangling toggle)', () => {
     const { container } = render(
       <BeforeAfterDiff diff={{ workoutChanges: [], weeklyTargetChanges: [] }} />,
@@ -135,7 +157,7 @@ describe('BeforeAfterDiff', () => {
 
   it('skips a meaningless both-null workout change', () => {
     expect(
-      describeWorkoutChange({ weekNumber: 1, dayOfWeek: 1, before: null, after: null }),
+      describeWorkoutChangeParts({ weekNumber: 1, dayOfWeek: 1, before: null, after: null }),
     ).toBeNull()
   })
 
@@ -144,22 +166,22 @@ describe('BeforeAfterDiff', () => {
     // formatter; the helper substitutes an em-dash rather than a misleading
     // `0.0 km`/`0.0 mi`.
     expect(
-      describeWorkoutChange({
+      describeWorkoutChangeParts({
         weekNumber: 1,
         dayOfWeek: 1,
         before: null,
         after: buildDiffWorkout({ title: 'Cross-Train', targetDistanceKm: 0 }),
       }),
-    ).toBe('Added Cross-Train (—)')
+    ).toEqual({ kind: 'text', text: 'Added Cross-Train (—)' })
   })
 
   it('renders an em-dash placeholder for a non-positive weekly volume target', () => {
     expect(
-      describeWeeklyTargetChange({
+      describeWeeklyTargetChangeParts({
         weekNumber: 3,
         beforeWeeklyTargetKm: 0,
         afterWeeklyTargetKm: 28,
       }),
-    ).toBe('— → 28.0 km')
+    ).toEqual({ kind: 'arrow', before: '—', after: '28.0 km' })
   })
 })
