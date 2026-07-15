@@ -47,7 +47,7 @@ describe('LogConfirmationCard', () => {
     expect(screen.getByText('LOG THIS RUN?')).toBeInTheDocument()
     expect(screen.getByText(/5 km/i)).toBeInTheDocument()
     expect(screen.getByText('25:00')).toBeInTheDocument()
-    // 2026-06-29 humanized via formatReceiptDate, not the raw ISO string.
+    // `2026-06-29` humanized via `formatReceiptDate`, not the raw ISO string.
     expect(screen.getByText('JUN 29')).toBeInTheDocument()
     expect(screen.queryByText('2026-06-29')).not.toBeInTheDocument()
   })
@@ -126,7 +126,7 @@ describe('LogConfirmationCard', () => {
       },
     })
 
-    // 8 km / 1.609344 = 4.9709... -> 5.0 mi
+    // `8 km / 1.609344 = 4.9709…` → `5.0 mi`
     expect(screen.getByText(/TARGET 5\.0 mi/i)).toBeInTheDocument()
   })
 
@@ -180,7 +180,7 @@ describe('LogConfirmationCard', () => {
     })
   })
 
-  // The assertions live inside the shared expectDualThemeParity helper —
+  // The assertions live inside the shared `expectDualThemeParity` helper —
   // sonarjs's static check can't see through the function call.
   // eslint-disable-next-line sonarjs/assertions-in-tests
   it('holds dual-theme structural parity with no raw hex colour literals', () => {

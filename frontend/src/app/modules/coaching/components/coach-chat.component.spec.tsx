@@ -598,7 +598,7 @@ describe('CoachChat', () => {
 
     // The receipt renders wherever the ack turn sits in the timeline — it is
     // sourced from the persisted `loggedRun` field, not any in-session card
-    // state, so it survives a fresh GET /timeline (reload) by construction.
+    // state, so it survives a fresh `GET /timeline` (reload) by construction.
     expect(screen.getByTestId('logged-run-receipt')).toHaveTextContent(
       'LOGGED — 9.2 km · 41:00 · JUL 8',
     )
@@ -625,7 +625,7 @@ describe('CoachChat', () => {
 
     renderChat()
 
-    // 8 km / 1.609344 = 4.9709... -> 5.0 mi
+    // `8 km / 1.609344 = 4.9709…` → `5.0 mi`
     expect(screen.getByTestId('log-confirmation-card')).toHaveTextContent('TARGET 5.0 mi')
   })
 
