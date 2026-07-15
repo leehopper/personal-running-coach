@@ -153,14 +153,14 @@ public class ConversationTimelineControllerIntegrationTests(RunCoachAppFactory f
         // ONLY test exercising the actual wire bytes the frontend's hand-typed TS interface trusts.
         var userId = await SeedUserAsync();
         await SeedUserProfileAsync(userId, currentPlanId: null);
-        var workoutLogId = Guid.NewGuid();
-        var loggedRun = new LoggedRunSummary(
-            WorkoutLogId: workoutLogId,
+        var expectedWorkoutLogId = Guid.NewGuid();
+        var expectedLoggedRun = new LoggedRunSummary(
+            WorkoutLogId: expectedWorkoutLogId,
             DistanceKm: 9.2,
             DurationSeconds: 2460d,
             OccurredOn: new DateOnly(2026, 7, 8),
             CompletionStatus: CompletionStatus.Complete);
-        await SeedConfirmAckTurnAsync(userId, "Logged your run. Nice work.", loggedRun);
+        await SeedConfirmAckTurnAsync(userId, "Logged your run. Nice work.", expectedLoggedRun);
         using var client = CreateBearerClient(Factory, MintBearerToken(userId));
 
         // Act — read the raw JSON so the actual wire shape (camelCase property names, the
@@ -168,26 +168,26 @@ public class ConversationTimelineControllerIntegrationTests(RunCoachAppFactory f
         // C# DTO every other test (and the frontend's hand-typed TS interface) merely trusts.
         var response = await client.GetAsync("/api/v1/conversation/timeline", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var actualJson = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
-        using var document = JsonDocument.Parse(json);
-        var turns = document.RootElement.GetProperty("turns");
-        turns.GetArrayLength().Should().Be(2);
-        var ackTurnJson = turns[1];
-        ackTurnJson.GetProperty("kind").GetInt32().Should().Be((int)ConversationTimelineTurnKind.Coach);
+        using var actualDocument = JsonDocument.Parse(actualJson);
+        var actualTurns = actualDocument.RootElement.GetProperty("turns");
+        actualTurns.GetArrayLength().Should().Be(2);
+        var actualAckTurnJson = actualTurns[1];
+        actualAckTurnJson.GetProperty("kind").GetInt32().Should().Be((int)ConversationTimelineTurnKind.Coach);
 
-        var loggedRunJson = ackTurnJson.GetProperty("interactive").GetProperty("loggedRun");
-        loggedRunJson.GetProperty("workoutLogId").GetGuid().Should().Be(workoutLogId);
-        loggedRunJson.GetProperty("distanceKm").GetDouble().Should().Be(9.2);
-        loggedRunJson.GetProperty("durationSeconds").GetDouble().Should().Be(2460d);
-        loggedRunJson.GetProperty("occurredOn").GetString().Should().Be(
+        var actualLoggedRunJson = actualAckTurnJson.GetProperty("interactive").GetProperty("loggedRun");
+        actualLoggedRunJson.GetProperty("workoutLogId").GetGuid().Should().Be(expectedWorkoutLogId);
+        actualLoggedRunJson.GetProperty("distanceKm").GetDouble().Should().Be(9.2);
+        actualLoggedRunJson.GetProperty("durationSeconds").GetDouble().Should().Be(2460d);
+        actualLoggedRunJson.GetProperty("occurredOn").GetString().Should().Be(
             "2026-07-08", because: "DateOnly serializes as an ISO YYYY-MM-DD string on the wire");
-        loggedRunJson.GetProperty("completionStatus").GetInt32().Should().Be((int)CompletionStatus.Complete);
+        actualLoggedRunJson.GetProperty("completionStatus").GetInt32().Should().Be((int)CompletionStatus.Complete);
 
         // Cross-check the deserialized DTO — the shape the frontend's hand-typed TS interface trusts.
-        var body = JsonSerializer.Deserialize<ConversationTimelineDto>(json, WebOptions);
-        body!.Turns[1].Interactive!.LoggedRun.Should().BeEquivalentTo(
-            new LoggedRunSummaryDto(workoutLogId, 9.2, 2460d, new DateOnly(2026, 7, 8), CompletionStatus.Complete));
+        var actualBody = JsonSerializer.Deserialize<ConversationTimelineDto>(actualJson, WebOptions);
+        actualBody!.Turns[1].Interactive!.LoggedRun.Should().BeEquivalentTo(
+            new LoggedRunSummaryDto(expectedWorkoutLogId, 9.2, 2460d, new DateOnly(2026, 7, 8), CompletionStatus.Complete));
     }
 
     [Fact]

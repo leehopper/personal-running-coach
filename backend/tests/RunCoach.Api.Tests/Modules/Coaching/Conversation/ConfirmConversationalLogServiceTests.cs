@@ -256,9 +256,35 @@ public sealed class ConfirmConversationalLogServiceTests
             Arg.Any<TimeSpan?>());
     }
 
+    [Fact]
+    public async Task ConfirmAsync_LoggedRunCompletionStatus_PassesThroughNonDefaultValue()
+    {
+        // Arrange — Partial guards the passthrough against a regression that hardcoded Complete
+        // (== 0 == default(CompletionStatus)), which every other test's Complete draft can't catch.
+        var (sut, deps) = CreateSut();
+        var partialRequest = Request(completionStatus: CompletionStatus.Partial);
+
+        // Act
+        await sut.ConfirmAsync(UserId, partialRequest, TestContext.Current.CancellationToken);
+
+        // Assert — same distance/duration/date as the default draft; only CompletionStatus differs,
+        // guarding the passthrough specifically.
+        await deps.Bus.Received(1).InvokeForTenantAsync<ConversationTurnPostedResponse>(
+            UserId.ToString(),
+            new PostCoachConversationTurn(
+                UserId,
+                ClientMessageId,
+                "ack",
+                false,
+                LoggedRun: new LoggedRunSummary(WorkoutLogId, 5.0, 1500d, new DateOnly(2026, 6, 24), CompletionStatus.Partial)),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<TimeSpan?>());
+    }
+
     private static ConfirmConversationalLogRequestDto Request(
         double distanceValue = 5,
-        RunnerDistanceUnit distanceUnit = RunnerDistanceUnit.Kilometers) => new(
+        RunnerDistanceUnit distanceUnit = RunnerDistanceUnit.Kilometers,
+        CompletionStatus completionStatus = CompletionStatus.Complete) => new(
         new StructuredLogDraft
         {
             OccurredOn = new DateOnly(2026, 6, 24),
@@ -267,7 +293,7 @@ public sealed class ConfirmConversationalLogServiceTests
             DurationHours = 0,
             DurationMinutes = 25,
             DurationSeconds = 0,
-            CompletionStatus = CompletionStatus.Complete,
+            CompletionStatus = completionStatus,
             Notes = "legs were heavy",
         },
         ClientMessageId);

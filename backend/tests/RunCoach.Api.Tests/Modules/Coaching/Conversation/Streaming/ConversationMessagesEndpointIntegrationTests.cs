@@ -87,9 +87,10 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         view!.Turns.Should().HaveCount(2);
         view.Turns.Should().ContainSingle(t => t.Participant == ConversationParticipant.User)
             .Which.TurnId.Should().Be(clientMessageId);
-        var coachTurn = view.Turns.Should().ContainSingle(t => t.Participant == ConversationParticipant.Coach).Subject;
-        coachTurn.Content.Should().Be("Run it easy. Keep the effort relaxed.");
-        coachTurn.LoggedRun.Should().BeNull(because: "a streamed reply is never a log commit — only the confirm-ack turn carries LoggedRun");
+        var actualCoachTurn = view.Turns.Should().ContainSingle(t => t.Participant == ConversationParticipant.Coach).Subject;
+        var expectedContent = "Run it easy. Keep the effort relaxed.";
+        actualCoachTurn.Content.Should().Be(expectedContent);
+        actualCoachTurn.LoggedRun.Should().BeNull(because: "a streamed reply is never a log commit — only the confirm-ack turn carries LoggedRun");
     }
 
     [Fact]
