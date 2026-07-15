@@ -5,7 +5,7 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** None — Slice 2 (Today) shipped 2026-07-14. Slice 3 (Coach) is next.
+- **Active Slice:** Slice 3 (Coach), in progress — PR-A (backend) shipped 2026-07-15 as PR #288. Slice 2 (Today) shipped 2026-07-14.
 - **Slice ledger:**
   | # | Slice | Completed | PR |
   |---|---|---|---|
@@ -13,7 +13,8 @@
   | 1 | Shell & Navigation | 2026-07-08 | #277 |
   | 2 | Today | 2026-07-14 | #285 |
 - **Active Slice Spec:** Slice 3 (Coach) spec is **written and adversarially verified** at `docs/specs/slice-3-coach/spec.md` (gitignored working-tree, planned 2026-07-14). Build it as-is; do not re-derive.
-- **Next Step:** **Build Slice 3 (Coach)** in a fresh session from `docs/specs/slice-3-coach/spec.md` (read this plan + `slice-3-coach.md` first). Ship PR-A → then B/C/D (only D depends on A). **Note:** DEC-091 adds one deliberate backend/wire delta to Slice 3 (see the 2026-07-14 capture row) — Slice 3 is no longer strictly frontend-only. Slices 3/4 are independent after Slice 1; numbered order is the default.
+- **Slice 3 PR progress:** **PR-A shipped** (2026-07-15, PR #288) — structured `LoggedRunSummary` persisted on the confirm-ack turn (DEC-091) + codegen; deep-review + full CodeRabbit addressment landed before merge (two follow-up comments after the first push, both addressed). **Next: PR-B** — user/coach text turns + timestamps + date dividers + composer + streaming cursor + retry (spec § 3 PR-B). Then PR-C (adaptation + safety turns), PR-D (log-draft card states + the durable receipt PR-A now persists; only D depends on A).
+- **Next Step:** **Build Slice 3 PR-B** in a fresh session from `docs/specs/slice-3-coach/spec.md` § 3 (read this plan + `slice-3-coach.md` first). **Note:** DEC-091 adds one deliberate backend/wire delta to Slice 3 (see the 2026-07-14 capture row) — Slice 3 is no longer strictly frontend-only; that delta is now merged. Slices 3/4 are independent after Slice 1; numbered order is the default.
 - **Blockers:** None.
 - **Parallel workstream:** Rolling Plan Horizon (backend-only, DEC-090; plan `docs/plans/plan-horizon/rolling-horizon-plan.md`) is running alongside this cycle — no file overlap, no wire/codegen churn with any SPLIT slice. See § Captured During Cycle, 2026-07-13 row.
 
@@ -146,16 +147,18 @@ Slices 2/3/4 are independent of each other after Slice 1; Slice 5 needs only Sli
 
 ### Slice 3 — Coach
 
-**Requirements:** [`./slice-3-coach.md`](./slice-3-coach.md)
+**Requirements:** [`./slice-3-coach.md`](./slice-3-coach.md) (design doc, predates DEC-091 — the build source of truth is `docs/specs/slice-3-coach/spec.md`)
+
+**Status:** In progress. **PR-A shipped** 2026-07-15 (PR #288) — see § Status above and the 2026-07-14 capture row for DEC-091.
 
 **Acceptance — "I can…"**
 
 - [ ] …see the five turn kinds render per design 3b: user bubble with mono meta, label-style coach turns with streaming block-cursor, nudge-vs-restructure adaptation rendering with a collapsed WHAT CHANGED expander over typed diff rows, amber/red safety turns in full, and the rebuilt log-draft card.
-- [ ] …watch a confirmed log collapse into a persistent one-line receipt with LOG BOOK →.
+- [ ] …watch a confirmed log collapse into a persistent one-line receipt with LOG BOOK → (durability now backed by PR-A's persisted `loggedRun`; PR-D wires the render).
 - [ ] …see mono date dividers (and TODAY — prefix) between calendar days.
 - [ ] …recover a dead stream via "That reply didn't go through." + RETRY.
 
-**Scope.** Frontend-only. Turn-kind restyles + net-new behaviors: timestamp meta rendering, date-divider grouping, diff-row locus dates derived from `PlanStartDate`, draft-card saving/receipt/failure states, composer restyle. Preserves `TranscriptScroller`, confirm/idempotency, Edit→`/log` draft handoff.
+**Scope.** Originally scoped frontend-only; DEC-091 (2026-07-14) added one backend/wire delta — PR-A's additive-nullable `LoggedRunSummary` on the confirm-ack turn, now merged. Remaining scope (PR-B/C/D) is frontend: turn-kind restyles + net-new behaviors — timestamp meta rendering, date-divider grouping, diff-row locus dates derived from `PlanStartDate`, draft-card saving/receipt/failure states, composer restyle. Preserves `TranscriptScroller`, confirm/idempotency, Edit→`/log` draft handoff.
 
 **Key risks.** Diff locus (`WK JUN 29 · SATURDAY`) needs the plan anchor joined client-side from `GET /plan/current`. Receipt persistence across remounts must come from the timeline's committed representation, not ephemeral state.
 
