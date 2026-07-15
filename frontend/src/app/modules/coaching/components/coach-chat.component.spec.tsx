@@ -201,6 +201,7 @@ describe('CoachChat', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    vi.useRealTimers()
   })
 
   it('renders interactive turns as chat bubbles and proactive turns via the existing components', () => {
@@ -306,6 +307,146 @@ describe('CoachChat', () => {
     expect(userTime).toBeDefined()
     expect(coachTime).toBeDefined()
     expect(userTime).toBe(coachTime)
+  })
+
+  it('refreshes liveTime on a retry that resends identical text, not just on a message-text change', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 5, 29, 10, 0))
+    setTimeline([])
+    streamMock.mockReturnValue(idleStream())
+
+    // Mount idle, THEN transition into streaming — a fresh mount that is
+    // already mid-exchange never exercises the false -> true transition.
+    const { rerender } = render(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+    streamMock.mockReturnValue(
+      idleStream({ pendingUserMessage: 'flaky message', isStreaming: true }),
+    )
+    rerender(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('turn-meta')).toHaveTextContent('10:00')
+
+    // The `error` reducer branch leaves `pendingUserMessage` unchanged — the
+    // bubble stays beside the retry affordance — while `isStreaming` flips
+    // to false.
+    streamMock.mockReturnValue(
+      idleStream({
+        pendingUserMessage: 'flaky message',
+        isStreaming: false,
+        error: { message: 'boom', retryable: true, retryAfterSeconds: null },
+      }),
+    )
+    rerender(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+
+    // RETRY re-sends `lastMessageRef.current` — the identical text — so
+    // `pendingUserMessage` goes X -> X while `isStreaming` flips back to
+    // true. A fix keyed on message-text equality would miss this transition
+    // and leave the original attempt's stale 10:00 timestamp.
+    vi.setSystemTime(new Date(2026, 5, 29, 10, 5))
+    streamMock.mockReturnValue(
+      idleStream({ pendingUserMessage: 'flaky message', isStreaming: true }),
+    )
+    rerender(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByTestId('turn-meta')).toHaveTextContent('10:05')
+    vi.useRealTimers()
+  })
+
+  it('refreshes liveTime on a direct non-null -> different-non-null pendingUserMessage transition', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 5, 29, 10, 0))
+    setTimeline([])
+    streamMock.mockReturnValue(idleStream())
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+    streamMock.mockReturnValue(
+      idleStream({ pendingUserMessage: 'first message', isStreaming: true }),
+    )
+    rerender(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('turn-meta')).toHaveTextContent('10:00')
+
+    streamMock.mockReturnValue(
+      idleStream({
+        pendingUserMessage: 'first message',
+        isStreaming: false,
+        error: { message: 'boom', retryable: true, retryAfterSeconds: null },
+      }),
+    )
+    rerender(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+
+    // A NEW message, sent right after the prior error without going through
+    // null.
+    vi.setSystemTime(new Date(2026, 5, 29, 10, 5))
+    streamMock.mockReturnValue(
+      idleStream({ pendingUserMessage: 'a different message', isStreaming: true }),
+    )
+    rerender(
+      <MemoryRouter>
+        <CoachChat />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByTestId('turn-meta')).toHaveTextContent('10:05')
+    vi.useRealTimers()
+  })
+
+  it('groups a proactive turn into the same local-day bucket as neighbouring interactive turns across a day boundary', () => {
+    const dayOneIso = new Date(2026, 5, 28, 9, 0).toISOString()
+    const dayTwoIso = new Date(2026, 5, 29, 9, 0).toISOString()
+    setTimeline([
+      turnAt(0, 'u1', dayOneIso, 'day one message'),
+      { ...restructureTurn(), turnId: 'a1', createdAt: dayTwoIso },
+      turnAt(0, 'u2', dayTwoIso, 'day two message'),
+    ])
+    streamMock.mockReturnValue(idleStream())
+
+    renderChat()
+
+    const dividers = screen.getAllByTestId('date-divider')
+    expect(dividers).toHaveLength(2)
+    expect(dividers[0]).toHaveTextContent('JUN 28')
+    expect(dividers[1]).toHaveTextContent('JUN 29')
+
+    // `Fragment` renders no wrapping DOM node, so bucketing is verified by
+    // DOM order rather than a parent-container query: the proactive turn
+    // must sit AFTER the second (JUN 29) divider, not the first — i.e. it
+    // buckets alongside `turnAt`'s day-two interactive turn, not day one.
+    const orderedTestIds = within(screen.getByTestId('transcript-scroller'))
+      .getAllByTestId(/^(date-divider|restructure-turn|user-turn)$/)
+      .map((el) => el.getAttribute('data-testid'))
+    expect(orderedTestIds).toEqual([
+      'date-divider',
+      'user-turn',
+      'date-divider',
+      'restructure-turn',
+      'user-turn',
+    ])
   })
 
   it('renders a date divider before each new local-calendar-day group of persisted turns', () => {

@@ -9,9 +9,9 @@ export interface CoachTextTurnProps {
   time: string
   /** Appends the clay block-cursor inline at the end of the body when a live stream is still in flight. */
   streaming?: boolean
-  /** PR-D wires this into a durable `LoggedRunReceipt`; left undefined by every PR-B call site. */
+  /** Wires into the durable `LoggedRunReceipt` (spec §3 PR-D); undefined when the receipt isn't rendered. */
   loggedRun?: LoggedRunSummaryDto | null
-  /** PR-D uses this for the receipt's unit-aware distance. Defaults to Kilometers. */
+  /** Unit-aware distance for the receipt (spec §3 PR-D). Defaults to Kilometers. */
   units?: PreferredUnits
   className?: string
 }
@@ -24,9 +24,8 @@ export interface CoachTextTurnProps {
  * of the body while a live reply is still arriving.
  *
  * `loggedRun`/`units` are declared here (not destructured) as forward
- * compatibility for PR-D, which renders `<LoggedRunReceipt>` beneath the
- * body when `loggedRun` is non-null:
- * // PR-D: render <LoggedRunReceipt summary={loggedRun} units={units}> beneath the body.
+ * compatibility for the durable receipt (spec §3 PR-D), which renders
+ * `<LoggedRunReceipt>` beneath the body when `loggedRun` is non-null.
  */
 export const CoachTextTurn = ({
   content,

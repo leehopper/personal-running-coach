@@ -1,15 +1,11 @@
 // Transcript timestamp + local-day-grouping helpers (spec §4.1) — LOCAL
-// wall-clock, deliberately distinct from `plan-display.helpers`' UTC
-// plan-calendar pipeline (§4.2). A message shows the time it was sent in
+// wall-clock. A message shows the time it was sent in
 // the READER's timezone, not the server's or the plan's anchor timezone, so
 // every getter here is a local (`getHours`/`getDay`/`getMonth`/`getDate`)
 // read — never a `getUTC*` one.
 //
-// `formatDurationSeconds` (§4.3) lives here too: it is the receipt
-// formatter's home file per the spec, even though the receipt itself
-// (`LoggedRunReceipt`) is PR-D scope — shipping the helper (and its unit
-// test) alongside `formatTurnTime`/`formatDividerLabel`/
-// `groupTurnsByLocalDay` avoids a same-file split across two PRs.
+// `formatDurationSeconds` (§4.3) is the receipt formatter's home file per
+// the spec.
 
 const WEEKDAY_ABBR = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const
 
@@ -102,8 +98,7 @@ export function groupTurnsByLocalDay<T extends { createdAt: string }>(
  * Formats a duration in seconds as `m:ss`, or `h:mm:ss` once the total
  * reaches an hour. `s` is the wire's `durationSeconds` (a `double`) — a
  * fractional part is not expected in practice, but `Math.round` guards
- * defensively. Local `pad2` reuse only — `log-confirmation-card.
- * component.tsx`'s own `pad` is module-private, not imported here.
+ * defensively. Local `pad2` reuse only.
  */
 export function formatDurationSeconds(s: number): string {
   const total = Math.round(s)

@@ -172,21 +172,21 @@ export const CoachChat = (): ReactElement => {
   // share one client-captured `HH:MM` so the pair doesn't visibly disagree
   // as tokens arrive. Captured once per exchange via React's blessed
   // "adjust state during render" pattern (comparing against a snapshot of
-  // the previous render's `pendingUserMessage`, tracked in state rather
-  // than a ref — `react-hooks/refs` forbids reading `ref.current` during
-  // render): on ANY transition of `pendingUserMessage` to a new value,
-  // `liveTime` is recomputed — non-null yields a fresh `new Date()` capture,
-  // null clears it. This covers not just null -> non-null but also a direct
-  // non-null -> different-non-null transition (e.g. sending a new message
-  // after a prior exchange errored without going through null), which would
-  // otherwise leave a stale timestamp on the new optimistic bubble. This
-  // `new Date()` read is the ONE sanctioned live wall-clock read — every
-  // persisted turn always uses its server `createdAt` instead.
-  const [prevPendingUserMessage, setPrevPendingUserMessage] = useState(pendingUserMessage)
+  // the previous render's `isStreaming`, tracked in state rather than a ref
+  // — `react-hooks/refs` forbids reading `ref.current` during render): on
+  // EVERY false -> true transition of `isStreaming`, `liveTime` gets a fresh
+  // `new Date()` capture. `isStreaming` flips on every `start` action — a
+  // fresh send, a new message sent right after a prior error, and a RETRY
+  // that re-sends the identical text all trigger it, so (unlike keying off
+  // `pendingUserMessage`'s string value) an identical-text retry still gets
+  // a fresh timestamp instead of inheriting the original failed attempt's.
+  // This `new Date()` read is the ONE sanctioned live wall-clock read —
+  // every persisted turn always uses its server `createdAt` instead.
+  const [prevIsStreaming, setPrevIsStreaming] = useState(isStreaming)
   const [liveTime, setLiveTime] = useState('')
-  if (pendingUserMessage !== prevPendingUserMessage) {
-    setPrevPendingUserMessage(pendingUserMessage)
-    setLiveTime(pendingUserMessage !== null ? formatTurnTime(new Date().toISOString()) : '')
+  if (isStreaming !== prevIsStreaming) {
+    setPrevIsStreaming(isStreaming)
+    if (isStreaming) setLiveTime(formatTurnTime(new Date().toISOString()))
   }
 
   const handleConfirm = useCallback(async (): Promise<void> => {
@@ -239,7 +239,7 @@ export const CoachChat = (): ReactElement => {
         className="min-h-0 flex-1 rounded-md border border-border bg-card p-4"
       >
         {dayGroups.map((group) => (
-          <Fragment key={`day-${group.turns[0]?.turnId ?? group.label}`}>
+          <Fragment key={`day-${group.turns[0].turnId}`}>
             <DateDivider label={group.label} />
             {group.turns.map((turn) => (
               <TimelineRow key={turn.turnId} turn={turn} units={units} />

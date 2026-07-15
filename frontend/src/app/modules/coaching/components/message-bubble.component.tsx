@@ -1,15 +1,13 @@
 import type { ReactElement } from 'react'
 
-// Retained, unmounted-by-transcript as of Slice 3 PR-B: `coach-chat.
-// component.tsx`'s transcript now renders `UserTurn`/`CoachTextTurn`
-// instead of `MessageBubble`/`ChatBubble`. This component (and its
-// content-block filter) stays because it is the documented Slice-4
-// tool-use content-block contract — kept intentionally, not dead code.
+// Retained intentionally, not dead code. This component (and its
+// content-block filter) represents the documented tool-use
+// content-block contract.
 
 // Anthropic content-block discriminator. The chat surface only renders
-// `text` blocks in Slice 1; `thinking`, `tool_use`, `tool_result`, and
+// `text` blocks today; `thinking`, `tool_use`, `tool_result`, and
 // `signature` blocks pass through opaquely (never rendered as text) so the
-// component contract stays stable when Slice 4 turns on tool use.
+// component contract stays stable once tool use turns on.
 export type MessageContentBlock =
   | { type: 'text'; text: string }
   | { type: 'thinking'; thinking: string }

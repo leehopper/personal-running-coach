@@ -80,7 +80,7 @@ export const CoachComposer = ({
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={handleKeyDown}
-        rows={2}
+        rows={1}
         className="flex-1 resize-none min-h-12"
       />
       <Button
