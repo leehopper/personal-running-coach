@@ -1,8 +1,11 @@
 import type { ReactElement } from 'react'
 
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import type { CompletionStatus, RunnerDistanceUnit } from '~/api/generated'
+import type { CompletionStatus, PreferredUnits, RunnerDistanceUnit } from '~/api/generated'
+import { formatDistanceKm } from '~/modules/common/utils/unit-format.helpers'
 import type { CoachCard } from '~/modules/coaching/hooks/use-coach-stream.hooks'
+import { formatReceiptDate } from './transcript-time.helpers'
 
 // The confirmation card renders a parsed workout-log draft for an explicit
 // Confirm / Edit / Cancel. The plan-mutating commit fires only on Confirm — the
@@ -23,17 +26,23 @@ const formatDuration = (hours: number, minutes: number, seconds: number): string
 interface FieldProps {
   label: string
   value: string
+  valueClassName?: string
 }
 
-const Field = ({ label, value }: FieldProps): ReactElement => (
-  <div className="flex flex-col">
-    <dt className="text-xs text-muted-foreground">{label}</dt>
-    <dd className="text-foreground">{value}</dd>
+const Field = ({ label, value, valueClassName }: FieldProps): ReactElement => (
+  <div className="flex flex-col gap-0.5">
+    <dt className="font-mono text-[9.5px] font-medium tracking-[0.1em] text-muted-foreground">
+      {label}
+    </dt>
+    <dd className={cn('font-condensed text-[22px] font-bold text-foreground', valueClassName)}>
+      {value}
+    </dd>
   </div>
 )
 
 export interface LogConfirmationCardProps {
   card: CoachCard
+  units: PreferredUnits
   onConfirm: () => void
   onEdit: () => void
   onCancel: () => void
@@ -42,6 +51,7 @@ export interface LogConfirmationCardProps {
 
 export const LogConfirmationCard = ({
   card,
+  units,
   onConfirm,
   onEdit,
   onCancel,
@@ -49,40 +59,64 @@ export const LogConfirmationCard = ({
 }: LogConfirmationCardProps): ReactElement => {
   const { draft, prescription } = card
   const hasNote = draft.notes !== null && draft.notes.length > 0
+  const dateLabel = formatReceiptDate(draft.occurredOn) ?? draft.occurredOn
+  const targetLabel =
+    prescription === null
+      ? null
+      : (formatDistanceKm(prescription.distanceMeters / 1000, units) ?? '—')
 
   return (
     <section
       data-testid="log-confirmation-card"
       aria-label="Confirm workout log"
-      className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-sm text-card-foreground"
+      className={cn(
+        'flex flex-col gap-3 rounded-lg border border-border bg-card p-[14px] text-sm text-card-foreground',
+        isConfirming && 'opacity-75',
+      )}
     >
-      <h3 className="font-semibold text-foreground">Log this run?</h3>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+      <h3 className="font-condensed text-[13px] font-semibold tracking-[0.16em] text-foreground uppercase">
+        LOG THIS RUN?
+      </h3>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-[10px]">
         <Field
-          label="Distance"
+          label="DISTANCE"
           value={`${draft.distanceValue} ${DISTANCE_UNIT_LABEL[draft.distanceUnit]}`}
         />
         <Field
-          label="Time"
+          label="TIME"
           value={formatDuration(draft.durationHours, draft.durationMinutes, draft.durationSeconds)}
         />
-        <Field label="Date" value={draft.occurredOn} />
-        <Field label="Status" value={COMPLETION_LABEL[draft.completionStatus]} />
+        <Field label="DATE" value={dateLabel} />
+        <Field
+          label="STATUS"
+          value={COMPLETION_LABEL[draft.completionStatus]}
+          valueClassName="text-positive"
+        />
       </dl>
-      {hasNote && <p className="text-muted-foreground">{draft.notes}</p>}
+      {hasNote && <p className="font-body text-[13px] text-muted-foreground">{draft.notes}</p>}
       {prescription !== null && (
-        <p className="text-muted-foreground">On-plan: {prescription.workoutType} run</p>
+        <p className="font-mono text-[10px] tracking-[0.08em] text-muted-foreground">
+          ON-PLAN — {prescription.workoutType.toUpperCase()} · TARGET {targetLabel}
+        </p>
       )}
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={onConfirm} disabled={isConfirming}>
-          Confirm
+      <div className="flex items-center gap-[10px]">
+        <Button type="button" data-testid="log-confirm" onClick={onConfirm} disabled={isConfirming}>
+          {isConfirming ? 'Saving…' : 'Confirm'}
         </Button>
-        <Button type="button" variant="secondary" onClick={onEdit} disabled={isConfirming}>
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="log-edit"
+          onClick={onEdit}
+          disabled={isConfirming}
+        >
           Edit
         </Button>
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={isConfirming}>
-          Cancel
-        </Button>
+        {!isConfirming && (
+          <Button type="button" variant="ghost" data-testid="log-cancel" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
       </div>
     </section>
   )

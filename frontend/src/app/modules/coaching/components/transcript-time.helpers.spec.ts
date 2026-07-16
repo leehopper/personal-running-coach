@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   formatDividerLabel,
   formatDurationSeconds,
+  formatReceiptDate,
   formatTurnTime,
   groupTurnsByLocalDay,
 } from './transcript-time.helpers'
@@ -150,5 +151,19 @@ describe('formatDurationSeconds', () => {
 
   it('formats exactly zero seconds', () => {
     expect(formatDurationSeconds(0)).toBe('0:00')
+  })
+})
+
+describe('formatReceiptDate', () => {
+  it('formats a pure YYYY-MM-DD calendar date as MONTH DAY, UTC-safe', () => {
+    expect(formatReceiptDate('2026-07-08')).toBe('JUL 8')
+  })
+
+  it('returns null for an unparseable occurredOn instead of crashing or rendering the epoch', () => {
+    expect(formatReceiptDate('not-a-date')).toBeNull()
+  })
+
+  it('returns null for an invalid calendar date (e.g. Feb 30)', () => {
+    expect(formatReceiptDate('2026-02-30')).toBeNull()
   })
 })

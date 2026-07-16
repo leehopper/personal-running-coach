@@ -104,7 +104,17 @@ const ackTurn = {
   kind: 1,
   turnId: 'ack-1',
   createdAt: '2026-06-29T10:05:00Z',
-  interactive: { content: 'Logged — solid work.', isErrored: false },
+  interactive: {
+    content: 'Logged — solid work.',
+    isErrored: false,
+    loggedRun: {
+      workoutLogId: '11111111-1111-4111-8111-111111111111',
+      distanceKm: 5,
+      durationSeconds: 1500,
+      occurredOn: '2026-06-29',
+      completionStatus: 0,
+    },
+  },
   proactive: null,
 }
 
@@ -240,10 +250,21 @@ test('register → ask a question → describe a workout → confirm the parsed 
   await expect(card.getByText(/5 km/i)).toBeVisible()
   await expect(card.getByText('25:00')).toBeVisible()
 
-  // 3. Confirm → the card dismisses and the coach ack turn appears (timeline refetch).
+  // 3. Confirm → the card dismisses and the coach ack turn appears (timeline refetch),
+  //    carrying the durable receipt (DEC-091) sourced from the persisted `loggedRun`.
   await card.getByRole('button', { name: /^confirm$/i }).click()
   await expect(card).toBeHidden()
   await expect(page.getByText('Logged — solid work.')).toBeVisible()
+  const receipt = page.getByTestId('logged-run-receipt')
+  await expect(receipt).toBeVisible()
+  await expect(receipt).toContainText('LOGGED — 5.0 km · 25:00 · JUN 29')
+  await expect(page.getByTestId('logged-run-receipt-logbook')).toHaveAttribute('href', '/history')
+
+  // 4. Reload — the receipt is a persisted turn field, not ephemeral card
+  //    state, so it must still be present after a fresh `GET /timeline`.
+  await page.reload()
+  await expect(page.getByTestId('coach-chat')).toBeVisible()
+  await expect(page.getByTestId('logged-run-receipt')).toBeVisible()
 
   // Trademark guard — no "VDOT" anywhere in the rendered DOM.
   const bodyHtml = await page.locator('body').innerHTML()
