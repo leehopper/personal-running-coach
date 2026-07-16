@@ -69,7 +69,7 @@
     <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="2.2.2" />
     <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry" Version="2.2.2" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" Version="2.2.2" />
-    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="NSubstitute" Version="6.0.0" />
     <PackageVersion Include="Respawn" Version="7.0.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <!-- xunit.v3 meta-package brings xunit.v3.core.mtp-v1 (built against
