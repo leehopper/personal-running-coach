@@ -66,6 +66,13 @@ export type {
   WorkoutLogSplitDto,
 } from './rtk/api'
 
+// SPLIT/Alpine Slice 4 PR-A — the prescribed-workout summary `GET
+// /workouts/logs/prescribed` (D1) resolves for the log form's banner.
+// Re-exported type-only (same reasoning as the workout-log DTOs above) so the
+// wire shape stays generated, not hand-mirrored; a backend rename ripples
+// here via `codegen:check` + `tsc`.
+export type { PrescribedWorkoutDto } from './rtk/api'
+
 // Conversation read DTOs (slice-3 Unit 2, PR3). The read-only "Explain-the-change"
 // panel (PR7) consumes the response envelope + turn shape, the adaptation/safety
 // enums (numeric on the wire — no JsonStringEnumConverter, matching CompletionStatus),

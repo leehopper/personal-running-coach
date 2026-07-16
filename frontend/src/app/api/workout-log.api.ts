@@ -2,6 +2,7 @@ import { apiSlice } from '~/api/api-slice'
 import type {
   CreateWorkoutLogRequest,
   CreateWorkoutLogResponseDto,
+  PrescribedWorkoutDto,
   QueryWorkoutLogsRequestDto,
   QueryWorkoutLogsResponseDto,
 } from '~/api/generated'
@@ -72,8 +73,31 @@ export const workoutLogApi = apiSlice.injectEndpoints({
       }),
       providesTags: ['WorkoutLog'],
     }),
+    // The log form's prescribed-workout banner (Slice 4 D1): resolves the
+    // active plan's prescription for a given date via the same
+    // server-authoritative path the create flow uses. A read, so no
+    // antiforgery token. The endpoint returns 200 with a literal `null` body
+    // when the date resolves to no prescription (off-plan, rest day, no
+    // active plan, or a malformed stored prescription) — the response type
+    // allows `null` to carry that contract through to callers, rather than
+    // treating absence as an error state. Tagged `Plan`, not a new tag: the
+    // prescribed slot is plan-derived data, and both `createWorkoutLog` and
+    // `regeneratePlan` already invalidate `Plan`, so the banner stays fresh
+    // after either.
+    getPrescribedWorkout: builder.query<PrescribedWorkoutDto | null, string>({
+      query: (date) => ({
+        url: '/v1/workouts/logs/prescribed',
+        method: 'GET',
+        params: { date },
+      }),
+      providesTags: ['Plan'],
+    }),
   }),
 })
 
 /** Auto-generated RTK Query hooks for the workout-log endpoints. */
-export const { useCreateWorkoutLogMutation, useGetWorkoutLogHistoryInfiniteQuery } = workoutLogApi
+export const {
+  useCreateWorkoutLogMutation,
+  useGetWorkoutLogHistoryInfiniteQuery,
+  useGetPrescribedWorkoutQuery,
+} = workoutLogApi

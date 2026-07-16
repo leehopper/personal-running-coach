@@ -64,7 +64,21 @@ export const PostApiV1WorkoutsLogsQueryResponse = zod.strictObject({
           }),
         )
         .nullish(),
+      isOnPlan: zod.boolean(),
+      prescribedWorkoutType: zod.string().nullish(),
     }),
   ),
   nextCursor: zod.string().nullish(),
+})
+
+export const GetApiV1WorkoutsLogsPrescribedQueryParams = zod.strictObject({
+  date: zod.iso.date(),
+})
+
+export const GetApiV1WorkoutsLogsPrescribedResponse = zod.strictObject({
+  workoutType: zod.string(),
+  distanceMeters: zod.number(),
+  durationSeconds: zod.number(),
+  paceFastSecPerKm: zod.number(),
+  paceEasySecPerKm: zod.number(),
 })
