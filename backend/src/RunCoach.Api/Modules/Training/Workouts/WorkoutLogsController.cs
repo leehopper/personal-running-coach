@@ -183,9 +183,9 @@ public sealed partial class WorkoutLogsController(
 
     /// <summary>
     /// GET /api/v1/workouts/logs/prescribed — the prescription the runner's active
-    /// plan schedules for a given date (Slice 4 D1), resolved via the same
-    /// server-authoritative path the create flow uses. A read: authenticated but no
-    /// antiforgery token, mirroring <see cref="QueryLogs"/>.
+    /// plan schedules for a given date, resolved via the same server-authoritative
+    /// path the create flow uses. A read: authenticated but no antiforgery token,
+    /// mirroring <see cref="QueryLogs"/>.
     /// </summary>
     /// <param name="date">The date to resolve a prescription for.</param>
     /// <param name="ct">Cancellation token.</param>

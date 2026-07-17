@@ -18,14 +18,13 @@ using RunCoach.Api.Tests.Infrastructure;
 namespace RunCoach.Api.Tests.Modules.Training.Workouts;
 
 /// <summary>
-/// Integration tests for <c>GET /api/v1/workouts/logs/prescribed</c> (Slice 4 D1 /
-/// PR-A). Drives the live HTTP + auth stack against the Testcontainers Postgres +
-/// Marten fixture and asserts the full null-branch matrix
-/// <see cref="WorkoutLogService"/>'s private prescription resolver collapses to a
-/// uniform 200 response for: on-plan (the required wire test), rest day, before
-/// plan start, after plan end, no active plan, and an in-range week absent from
-/// <see cref="PlanProjectionDto.MicroWorkoutsByWeek"/> (DEC-090 rolling-horizon —
-/// only week 1 ever gets micro workouts in production today).
+/// Integration tests for <c>GET /api/v1/workouts/logs/prescribed</c>. Drives the
+/// live HTTP + auth stack against the Testcontainers Postgres + Marten fixture
+/// and asserts the full null-branch matrix the prescription resolver collapses
+/// to a uniform 200 response for: on-plan (the required wire test), rest day,
+/// before plan start, after plan end, no active plan, and an in-range week
+/// absent from <see cref="PlanProjectionDto.MicroWorkoutsByWeek"/> (DEC-090
+/// rolling-horizon — only week 1 ever gets micro workouts in production today).
 /// </summary>
 [Collection("Integration")]
 [Trait("Category", "Integration")]
@@ -166,7 +165,7 @@ public class WorkoutLogsControllerPrescribedIntegrationTests(RunCoachAppFactory 
         // in production today. Seed a plan whose MicroWorkoutsByWeek carries only
         // week 1, then query a week-3 date: in-range per the plan's 16-week Macro
         // (ResolveSlot succeeds), but the dictionary has no entry for week 3 — the
-        // sixth null branch (WorkoutLogService.cs:192-194's TryGetValue miss),
+        // sixth null branch (the resolver's MicroWorkoutsByWeek TryGetValue miss),
         // distinct from both the "no active plan" and "day has no workout" branches.
         var ct = TestContext.Current.CancellationToken;
         var (client, userId) = await RegisterAndLoginAsync();
@@ -375,7 +374,7 @@ public class WorkoutLogsControllerPrescribedIntegrationTests(RunCoachAppFactory 
         var token = await PrimeAntiforgeryAsync(client, container);
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/register", token);
         request.Content = JsonContent.Create(new RegisterRequestDto(email, password));
-        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(
             HttpStatusCode.Created, because: $"register helper must succeed — got {(int)response.StatusCode}");
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
@@ -390,7 +389,7 @@ public class WorkoutLogsControllerPrescribedIntegrationTests(RunCoachAppFactory 
         var token = await PrimeAntiforgeryAsync(client, container);
         using var request = BuildRequest(HttpMethod.Post, "/api/v1/auth/login", token);
         request.Content = JsonContent.Create(new LoginRequestDto(email, password));
-        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(
             HttpStatusCode.OK, because: $"login helper must succeed — got {(int)response.StatusCode}");
     }

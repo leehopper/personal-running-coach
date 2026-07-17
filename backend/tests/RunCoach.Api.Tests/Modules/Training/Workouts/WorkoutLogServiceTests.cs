@@ -134,7 +134,7 @@ public class WorkoutLogServiceTests
         var repository = Substitute.For<IWorkoutLogRepository>();
         repository
             .GetByUserAsync(Arg.Any<Guid>(), Arg.Any<WorkoutLogCursor?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(logs ?? (IReadOnlyList<WorkoutLog>)new List<WorkoutLog>()));
+            .Returns(Task.FromResult<IReadOnlyList<WorkoutLog>>(logs ?? []));
 
         // QueryAsync touches only the repository; the DbContext, Marten store, and
         // TimeProvider serve CreateAsync's prescription resolution and are unused here.

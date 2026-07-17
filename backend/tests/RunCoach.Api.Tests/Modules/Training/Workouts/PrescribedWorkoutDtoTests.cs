@@ -6,13 +6,11 @@ using RunCoach.Api.Modules.Training.Workouts;
 namespace RunCoach.Api.Tests.Modules.Training.Workouts;
 
 /// <summary>
-/// Unit coverage for <see cref="PrescribedWorkoutDto.FromSnapshot"/> (Slice 4 D1 /
-/// PR-A) — the server-authoritative projection of a resolved
+/// Unit coverage for <see cref="PrescribedWorkoutDto.FromSnapshot"/> — the
+/// server-authoritative projection of a resolved
 /// <see cref="WorkoutPrescriptionSnapshot"/> onto the <c>/log</c> prescribed-banner
-/// wire summary. Mirrors <c>CandidatePrescriptionDtoTests</c> (the Coaching-module
-/// sibling this DTO deliberately duplicates): guards the field mapping (notably
-/// that the fast/easy pace bounds are not transposed) and the off-plan
-/// <c>null</c> branch.
+/// wire summary. Guards the field mapping (notably that the fast/easy pace
+/// bounds are not transposed) and the off-plan <c>null</c> branch.
 /// </summary>
 public class PrescribedWorkoutDtoTests
 {
