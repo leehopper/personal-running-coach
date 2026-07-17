@@ -211,3 +211,63 @@ describe('createWorkoutLog cache invalidation (spec 17 § Unit 7)', () => {
     expect(callsTo('/api/v1/conversation/timeline')).toBe(1)
   })
 })
+
+describe('workoutLogApi.getPrescribedWorkout query factory', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('Request', PatchedRequest)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('issues a GET to /api/v1/workouts/logs/prescribed with the date as a query param', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        workoutType: 'Tempo',
+        distanceMeters: 10_000,
+        durationSeconds: 3_000,
+        paceFastSecPerKm: 280,
+        paceEasySecPerKm: 330,
+      }),
+    )
+    const store = makeStore()
+
+    const result = await store.dispatch(
+      workoutLogApi.endpoints.getPrescribedWorkout.initiate('2026-06-18'),
+    )
+
+    expect(result.data).toEqual({
+      workoutType: 'Tempo',
+      distanceMeters: 10_000,
+      durationSeconds: 3_000,
+      paceFastSecPerKm: 280,
+      paceEasySecPerKm: 330,
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = fetchMock.mock.calls[0][0] as Request
+    expect(request.method).toBe('GET')
+    expect(request.url).toContain('/api/v1/workouts/logs/prescribed')
+    expect(request.url).toContain('date=2026-06-18')
+  })
+
+  it('resolves to null when the endpoint returns a literal 200+null body (no prescription)', async () => {
+    // Mirrors the backend's absence contract: off-plan, rest day, no active
+    // plan, or a malformed stored prescription all collapse to 200 + a bare
+    // JSON `null`, never a 404.
+    fetchMock.mockResolvedValue(
+      new Response('null', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    )
+    const store = makeStore()
+
+    const result = await store.dispatch(
+      workoutLogApi.endpoints.getPrescribedWorkout.initiate('2026-06-15'),
+    )
+
+    expect(result.data).toBeNull()
+  })
+})
