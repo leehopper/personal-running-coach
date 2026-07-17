@@ -5,7 +5,7 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** Slice 4 (Log & Log Book) — **spec written 2026-07-15, ready to build; no PR yet.** Slice 3 (Coach) shipped complete 2026-07-15 (PRs #288 / #290 / #292 / #294, DEC-091). Slice 2 (Today) shipped 2026-07-14.
+- **Active Slice:** Slice 4 (Log & Log Book) — **PR-A (backend) shipped 2026-07-17 (#302); PR-B (`/log` banner) next.** Slice 3 (Coach) shipped complete 2026-07-15 (PRs #288 / #290 / #292 / #294, DEC-091). Slice 2 (Today) shipped 2026-07-14.
 - **Slice ledger:**
   | # | Slice | Completed | PR |
   |---|---|---|---|
@@ -14,7 +14,7 @@
   | 2 | Today | 2026-07-14 | #285 |
   | 3 | Coach | 2026-07-15 | #288 / #290 / #292 / #294 |
 - **Active Slice Spec:** **`docs/specs/slice-4-log-logbook/spec.md`** (+ `pr-strategy.md`) — written 2026-07-15 from `docs/plans/split-ui-cycle/slice-4-log-logbook.md`, grounded against the live codebase (6-agent recon + first-party file reads). Implementer's contract: 4 PRs (A backend / B `/log` / C `/history` ledger / D `/history` splits), locked interfaces + BDD DUs. Specs are gitignored working-tree artifacts; Slice 3's spec remains at `docs/specs/slice-3-coach/spec.md` for reference.
-- **Next Step:** **Build Slice 4 PR-A** (backend) in a fresh session — read `docs/specs/slice-4-log-logbook/spec.md` §§1–3 + `pr-strategy.md` first. **Ratify the § Builder review checkpoints** (esp. the §1 prescribed-title source decision → append the one-line DEC-089 note) before opening PR-A. PR-A = `GET /api/v1/workouts/logs/prescribed` (thin wrapper over the existing `IWorkoutLogService.ResolveCandidatePrescriptionAsync`, 200+null body) + `IsOnPlan`/`PrescribedWorkoutType` on `WorkoutLogDto` + codegen. Then PR-B (`/log`) → PR-C (`/history` ledger) → PR-D (`/history` splits). Slices 3/4 were independent after Slice 1 and 3 is done; numbered order is the default.
+- **Next Step:** **Build Slice 4 PR-B (`/log` banner)** in a fresh session — read `docs/specs/slice-4-log-logbook/spec.md` §4 (PR-B) + `pr-strategy.md` first. PR-A (#302) landed the backend wire deltas — `GET /api/v1/workouts/logs/prescribed` (200+null body), `IsOnPlan`/`PrescribedWorkoutType` on `WorkoutLogDto`, codegen (incl. `useGetPrescribedWorkoutQuery`) — nothing consumed them yet. PR-B wires the `/log` page's prescribed-workout banner to the new query. Then PR-C (`/history` ledger) → PR-D (`/history` splits). Slices 3/4 were independent after Slice 1 and 3 is done; numbered order is the default.
 - **Blockers:** None.
 - **Parallel workstream:** Rolling Plan Horizon (backend-only, DEC-090; plan `docs/plans/plan-horizon/rolling-horizon-plan.md`) is running alongside this cycle — no file overlap, no wire/codegen churn with any SPLIT slice. See § Captured During Cycle, 2026-07-13 row.
 
