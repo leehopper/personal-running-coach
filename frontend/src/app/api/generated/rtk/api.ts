@@ -143,6 +143,17 @@ const injectedRtkApi = api.injectEndpoints({
         body: queryArg.queryWorkoutLogsRequestDto,
       }),
     }),
+    getApiV1WorkoutsLogsPrescribed: build.query<
+      GetApiV1WorkoutsLogsPrescribedApiResponse,
+      GetApiV1WorkoutsLogsPrescribedApiArg
+    >({
+      query: (queryArg) => ({
+        url: `/api/v1/workouts/logs/prescribed`,
+        params: {
+          date: queryArg.date,
+        },
+      }),
+    }),
   }),
   overrideExisting: false,
 })
@@ -203,6 +214,10 @@ export type PostApiV1WorkoutsLogsApiArg = {
 export type PostApiV1WorkoutsLogsQueryApiResponse = /** status 200 OK */ QueryWorkoutLogsResponseDto
 export type PostApiV1WorkoutsLogsQueryApiArg = {
   queryWorkoutLogsRequestDto: QueryWorkoutLogsRequestDto
+}
+export type GetApiV1WorkoutsLogsPrescribedApiResponse = /** status 200 OK */ PrescribedWorkoutDto
+export type GetApiV1WorkoutsLogsPrescribedApiArg = {
+  date: string
 }
 export type AuthResponseDto = {
   userId: string
@@ -648,6 +663,8 @@ export type WorkoutLogDto = {
     [key: string]: any
   } | null
   splits?: WorkoutLogSplitDto[] | null
+  isOnPlan: boolean
+  prescribedWorkoutType?: string | null
 }
 export type QueryWorkoutLogsResponseDto = {
   logs: WorkoutLogDto[]
@@ -656,6 +673,13 @@ export type QueryWorkoutLogsResponseDto = {
 export type QueryWorkoutLogsRequestDto = {
   limit?: number | null
   cursor?: string | null
+}
+export type PrescribedWorkoutDto = {
+  workoutType: string
+  distanceMeters: number
+  durationSeconds: number
+  paceFastSecPerKm: number
+  paceEasySecPerKm: number
 }
 export const {
   useGetApiV1AuthXsrfQuery,
@@ -676,4 +700,5 @@ export const {
   usePutApiV1SettingsUnitsMutation,
   usePostApiV1WorkoutsLogsMutation,
   usePostApiV1WorkoutsLogsQueryMutation,
+  useGetApiV1WorkoutsLogsPrescribedQuery,
 } = injectedRtkApi
