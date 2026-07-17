@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.IdentityModel.JsonWebTokens;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Adaptation;
@@ -180,6 +181,46 @@ public sealed partial class WorkoutLogsController(
         return Ok(page);
     }
 
+    /// <summary>
+    /// GET /api/v1/workouts/logs/prescribed — the prescription the runner's active
+    /// plan schedules for a given date, resolved via the same server-authoritative
+    /// path the create flow uses. A read: authenticated but no antiforgery token,
+    /// mirroring <see cref="QueryLogs"/>.
+    /// </summary>
+    /// <param name="date">The date to resolve a prescription for.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// 200 with the prescribed workout, or 200 with a <c>null</c> body when the date
+    /// resolves to no prescription (off-plan, rest day, no active plan, or a
+    /// malformed stored prescription) — the same absence-as-200 convention
+    /// <c>ConversationController.GetTurns</c> uses, never a 404; 400 when
+    /// <paramref name="date"/> is omitted or malformed ([ApiController]'s automatic
+    /// model-state validation, triggered by <see cref="BindRequiredAttribute"/>);
+    /// 401 when unauthenticated.
+    /// </returns>
+    [HttpGet("prescribed")]
+    [ProducesResponseType(typeof(PrescribedWorkoutDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetPrescribed([FromQuery][BindRequired] DateOnly date, CancellationToken ct)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            LogGetPrescribedRejectedMissingUser(logger);
+            return MissingUserClaim();
+        }
+
+        var snapshot = await service.ResolveCandidatePrescriptionAsync(userId, date, ct);
+
+        // JsonResult, not Ok(...): ObjectResult's content-negotiation path selects
+        // the framework-registered HttpNoContentOutputFormatter for a null Value,
+        // which silently rewrites this into a 204 with an empty body instead of
+        // the documented 200-with-literal-null contract. JsonResult serializes
+        // Value directly, bypassing that formatter-selection step entirely, so a
+        // null snapshot still round-trips as a literal JSON `null` at 200.
+        return new JsonResult(PrescribedWorkoutDto.FromSnapshot(snapshot));
+    }
+
     [LoggerMessage(
         Level = LogLevel.Warning,
         Message = "Workout log create rejected: authenticated user id claim was missing or malformed.")]
@@ -205,6 +246,11 @@ public sealed partial class WorkoutLogsController(
         Level = LogLevel.Information,
         Message = "Workout log query rejected for user {UserId}: the supplied cursor was malformed.")]
     private static partial void LogQueryRejectedInvalidCursor(ILogger logger, Guid userId);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Prescribed-workout lookup rejected: authenticated user id claim was missing or malformed.")]
+    private static partial void LogGetPrescribedRejectedMissingUser(ILogger logger);
 
     private bool TryGetUserId(out Guid userId)
     {

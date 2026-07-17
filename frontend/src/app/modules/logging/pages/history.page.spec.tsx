@@ -30,6 +30,7 @@ const log = (occurredOn: string): WorkoutLogDto => ({
   distanceMeters: 5000,
   durationSeconds: 1800,
   completionStatus: CompletionStatus.Complete,
+  isOnPlan: false,
 })
 
 const page = (

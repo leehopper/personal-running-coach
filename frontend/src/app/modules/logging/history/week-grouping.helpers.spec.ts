@@ -10,6 +10,7 @@ const log = (occurredOn: string, workoutLogId = occurredOn): WorkoutLogDto => ({
   distanceMeters: 5000,
   durationSeconds: 1800,
   completionStatus: CompletionStatus.Complete,
+  isOnPlan: false,
 })
 
 describe('parseIsoDateOnly', () => {

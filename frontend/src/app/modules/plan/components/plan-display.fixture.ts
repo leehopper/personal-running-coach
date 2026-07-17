@@ -210,6 +210,7 @@ export const buildWorkoutLog = (occurredOn: string, distanceMeters = 6000): Work
   distanceMeters,
   durationSeconds: 1800,
   completionStatus: CompletionStatus.Complete,
+  isOnPlan: false,
 })
 
 /**
