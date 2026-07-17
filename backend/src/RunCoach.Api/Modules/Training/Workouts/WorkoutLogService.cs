@@ -116,7 +116,9 @@ public sealed partial class WorkoutLogService(
             CompletionStatus: log.CompletionStatus,
             Notes: log.Notes,
             Metrics: DeserializeMetrics(log.Metrics),
-            Splits: MapSplitsToDto(log.Splits));
+            Splits: MapSplitsToDto(log.Splits),
+            IsOnPlan: log.Prescription is not null,
+            PrescribedWorkoutType: log.Prescription?.WorkoutType.ToString());
 
     private static Dictionary<string, JsonElement>? DeserializeMetrics(string? metrics) =>
         string.IsNullOrEmpty(metrics)
