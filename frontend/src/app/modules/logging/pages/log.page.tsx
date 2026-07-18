@@ -85,7 +85,13 @@ const WorkoutLogFormView = ({ units, editDraft }: WorkoutLogFormViewProps) => {
     const request = toCreateWorkoutLogRequest(values, idempotencyKey, units)
     try {
       await createWorkoutLog(request).unwrap()
-      toast.success(`RUN LOGGED — ${formatDistanceMeters(request.distanceMeters, units) ?? '…'}`)
+      // Source copy stays sentence case; `className: 'uppercase'` sets the
+      // toast's outer classname (sonner applies it to the wrapping <li>), which
+      // cascades `text-transform: uppercase` onto the title text — the toast
+      // renders capitalized without baking that casing into the stored string.
+      toast.success(`Run logged — ${formatDistanceMeters(request.distanceMeters, units) ?? '…'}`, {
+        className: 'uppercase',
+      })
       navigate('/', { replace: true })
     } catch (error) {
       // The awaited `.unwrap()` rejection is a *handled* rejection, so neither
@@ -199,7 +205,7 @@ const LogPage = () => {
       data-testid="log-page"
     >
       <header className="flex flex-col gap-1">
-        <h1 className="t-screen-title text-foreground">LOG RUN</h1>
+        <h1 className="t-screen-title text-foreground">Log run</h1>
         <p className="text-sm text-muted-foreground">
           Record what you actually ran — the plan adapts to the truth, not the intention.
         </p>

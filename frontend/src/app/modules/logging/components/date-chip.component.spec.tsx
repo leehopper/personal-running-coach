@@ -9,16 +9,18 @@ import {
 import { DateChip } from './date-chip.component'
 
 describe('DateChip', () => {
-  it('renders the formatted date-chip label for the given ISO value', () => {
+  it('renders the formatted date-chip label (sentence-case source text, uppercased via CSS) for the given ISO value', () => {
     render(<DateChip value="2026-07-08" onChange={vi.fn()} />)
 
-    expect(screen.getByTestId('log-date-chip')).toHaveTextContent('WED, JUL 8')
+    const label = screen.getByText('Wed, Jul 8')
+    expect(screen.getByTestId('log-date-chip')).toContainElement(label)
+    expect(label).toHaveClass('uppercase')
   })
 
-  it('renders the "SELECT DATE" placeholder instead of a garbage label when value is cleared', () => {
+  it('renders the "Select date" placeholder instead of a garbage label when value is cleared', () => {
     render(<DateChip value="" onChange={vi.fn()} />)
 
-    expect(screen.getByTestId('log-date-chip')).toHaveTextContent('SELECT DATE')
+    expect(screen.getByTestId('log-date-chip')).toHaveTextContent('Select date')
   })
 
   it('forwards a ref and injected FormControl props (id, aria-describedby, aria-invalid) onto the native input', () => {

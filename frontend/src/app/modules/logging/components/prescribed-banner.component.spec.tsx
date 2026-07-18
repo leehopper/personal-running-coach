@@ -36,50 +36,59 @@ describe('PrescribedBanner', () => {
   })
 
   it('threads the date through to the query hook', () => {
-    bannerMock.mockReturnValue({ data: null, isLoading: false, isError: false })
+    bannerMock.mockReturnValue({ currentData: null, isLoading: false, isError: false })
     renderBanner(PreferredUnits.Kilometers, '2026-07-20')
 
     expect(bannerMock).toHaveBeenCalledExactlyOnceWith('2026-07-20')
   })
 
-  it('renders the PRESCRIBED line for a present prescription (km)', () => {
-    bannerMock.mockReturnValue({ data: buildPrescribedWorkout(), isLoading: false, isError: false })
+  it('renders the Prescribed line for a present prescription (km)', () => {
+    bannerMock.mockReturnValue({
+      currentData: buildPrescribedWorkout(),
+      isLoading: false,
+      isError: false,
+    })
     renderBanner()
 
-    // The workoutType label and pace range are uppercased in JS
-    // (`.toUpperCase()`); the distance fragment relies solely on the span's
-    // CSS `uppercase` class for its visual case, so jsdom's raw textContent
-    // (which never applies CSS text-transform) still carries a lowercase
-    // "km" here even though the design reads all-caps on screen.
+    // Source copy stays sentence case (WORKOUT_TYPE_LABELS' "Threshold run",
+    // the lowercase-suffixed pace/distance formatters, and the static
+    // "Prescribed" literal) — the span's CSS `uppercase` class is solely
+    // responsible for the all-caps look on screen; jsdom's raw textContent
+    // never applies CSS text-transform, so it carries the sentence-case
+    // source string.
     expect(screen.getByTestId('prescribed-banner')).toHaveTextContent(
-      'PRESCRIBED — THRESHOLD RUN · 9.0 km · 04:00–04:30/KM',
+      'Prescribed — Threshold run · 9.0 km · 04:00–04:30/km',
     )
   })
 
   it('renders mile-based distance and pace when units is Miles', () => {
-    bannerMock.mockReturnValue({ data: buildPrescribedWorkout(), isLoading: false, isError: false })
+    bannerMock.mockReturnValue({
+      currentData: buildPrescribedWorkout(),
+      isLoading: false,
+      isError: false,
+    })
     renderBanner(PreferredUnits.Miles)
 
     expect(screen.getByTestId('prescribed-banner')).toHaveTextContent(
-      'PRESCRIBED — THRESHOLD RUN · 5.6 mi · 06:26–07:15/MI',
+      'Prescribed — Threshold run · 5.6 mi · 06:26–07:15/mi',
     )
   })
 
   it('falls back to the raw workoutType when it has no mapped label, without throwing', () => {
     bannerMock.mockReturnValue({
-      data: buildPrescribedWorkout({ workoutType: 'Fartlek' }),
+      currentData: buildPrescribedWorkout({ workoutType: 'Fartlek' }),
       isLoading: false,
       isError: false,
     })
 
     expect(() => renderBanner()).not.toThrow()
     expect(screen.getByTestId('prescribed-banner')).toHaveTextContent(
-      'PRESCRIBED — FARTLEK · 9.0 km · 04:00–04:30/KM',
+      'Prescribed — Fartlek · 9.0 km · 04:00–04:30/km',
     )
   })
 
-  it('renders nothing when the date has no prescription (data === null)', () => {
-    bannerMock.mockReturnValue({ data: null, isLoading: false, isError: false })
+  it('renders nothing when the date has no prescription (currentData === null)', () => {
+    bannerMock.mockReturnValue({ currentData: null, isLoading: false, isError: false })
     const { container } = renderBanner()
 
     expect(container).toBeEmptyDOMElement()
@@ -87,17 +96,42 @@ describe('PrescribedBanner', () => {
   })
 
   it('renders nothing while the query is loading (no skeleton)', () => {
-    bannerMock.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+    bannerMock.mockReturnValue({ currentData: undefined, isLoading: true, isError: false })
     const { container } = renderBanner()
 
     expect(container).toBeEmptyDOMElement()
   })
 
   it('renders nothing when the query errors', () => {
-    bannerMock.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    bannerMock.mockReturnValue({ currentData: undefined, isLoading: false, isError: true })
     const { container } = renderBanner()
 
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('does not flash the previous date’s prescription while a new date is still resolving', () => {
+    // RTK Query keeps `data` pinned to the last successful result across an
+    // arg change; `currentData` is `undefined` for the duration of the new
+    // arg's in-flight request. Simulate that by keying the mock off the
+    // requested date: the first date resolves immediately, the second is
+    // still mid-flight when the component rerenders with it.
+    bannerMock.mockImplementation((requestedDate: string) =>
+      requestedDate === '2026-07-20'
+        ? { currentData: buildPrescribedWorkout(), isLoading: false, isError: false }
+        : { currentData: undefined, isLoading: false, isError: false },
+    )
+
+    const { rerender, container } = render(
+      <PrescribedBanner date="2026-07-20" units={PreferredUnits.Kilometers} />,
+    )
+    expect(screen.getByTestId('prescribed-banner')).toHaveTextContent(
+      'Prescribed — Threshold run · 9.0 km · 04:00–04:30/km',
+    )
+
+    rerender(<PrescribedBanner date="2026-07-21" units={PreferredUnits.Kilometers} />)
+
+    expect(container).toBeEmptyDOMElement()
+    expect(screen.queryByTestId('prescribed-banner')).not.toBeInTheDocument()
   })
 
   describe('dual-theme parity', () => {
@@ -106,7 +140,7 @@ describe('PrescribedBanner', () => {
     // eslint-disable-next-line sonarjs/assertions-in-tests
     it('renders identically in both themes with zero raw colour literals', () => {
       bannerMock.mockReturnValue({
-        data: buildPrescribedWorkout(),
+        currentData: buildPrescribedWorkout(),
         isLoading: false,
         isError: false,
       })

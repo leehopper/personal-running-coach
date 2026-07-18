@@ -37,6 +37,11 @@ const Harness = ({ formRef }: HarnessProps = {}) => {
     if (formRef) {
       formRef.current = form
     }
+    return () => {
+      if (formRef) {
+        formRef.current = null
+      }
+    }
   }, [form, formRef])
 
   return (

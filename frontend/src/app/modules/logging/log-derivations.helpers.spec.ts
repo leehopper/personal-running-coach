@@ -57,29 +57,31 @@ describe('deriveDisplayPace', () => {
 })
 
 describe('formatDateChipLabel', () => {
-  it('formats an ISO date-only string as an uppercase "WEEKDAY, MON DAY" label', () => {
+  it('formats an ISO date-only string as a title-case "Weekday, Mon Day" label', () => {
     // 2026-07-08 is a Wednesday.
-    expect(formatDateChipLabel('2026-07-08')).toBe('WED, JUL 8')
+    expect(formatDateChipLabel('2026-07-08')).toBe('Wed, Jul 8')
   })
 
   it('formats a single-digit day with no leading zero', () => {
     // 2026-06-01 is a Monday.
-    expect(formatDateChipLabel('2026-06-01')).toBe('MON, JUN 1')
+    expect(formatDateChipLabel('2026-06-01')).toBe('Mon, Jun 1')
   })
 
   it('formats a double-digit day', () => {
     // 2026-06-18 is a Thursday.
-    expect(formatDateChipLabel('2026-06-18')).toBe('THU, JUN 18')
+    expect(formatDateChipLabel('2026-06-18')).toBe('Thu, Jun 18')
   })
 
   it.each([
     { occurredOn: '', label: 'empty string' },
     { occurredOn: 'not-a-date', label: 'non-numeric garbage' },
     { occurredOn: '2026-13-40', label: 'out-of-range month/day' },
+    { occurredOn: '2026-07-08-09', label: 'an extra trailing segment' },
+    { occurredOn: '2026-7-8', label: 'non-padded month/day' },
   ])(
-    'returns the "SELECT DATE" placeholder for $label (never throws, never a garbage label)',
+    'returns the "Select date" placeholder for $label (never throws, never a garbage label)',
     ({ occurredOn }) => {
-      expect(formatDateChipLabel(occurredOn)).toBe('SELECT DATE')
+      expect(formatDateChipLabel(occurredOn)).toBe('Select date')
       expect(() => formatDateChipLabel(occurredOn)).not.toThrow()
     },
   )
@@ -105,14 +107,14 @@ describe('formatDateChipLabel', () => {
       // this date BACKWARD a day under a negative UTC offset — this function
       // must not do that; it parses the Y/M/D fields directly as local.
       process.env.TZ = 'America/Los_Angeles' // UTC-8 (winter) / UTC-7 (summer)
-      expect(formatDateChipLabel('2026-07-08')).toBe('WED, JUL 8')
+      expect(formatDateChipLabel('2026-07-08')).toBe('Wed, Jul 8')
     })
 
     it('reflects the LOCAL calendar day under a positive-offset process timezone', () => {
       // Same bug, opposite direction: a UTC-parse read back locally would
       // roll this date FORWARD a day under a positive UTC offset.
       process.env.TZ = 'Pacific/Kiritimati' // UTC+14
-      expect(formatDateChipLabel('2026-07-08')).toBe('WED, JUL 8')
+      expect(formatDateChipLabel('2026-07-08')).toBe('Wed, Jul 8')
     })
   })
 })

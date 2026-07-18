@@ -1,4 +1,4 @@
-// Pure display-derivation helpers for the /log form restyle (Slice 4 PR-B).
+// Pure display-derivation helpers for the /log form.
 //
 // These are display-only computations that sit in front of the log form's
 // React Hook Form state and the prescribed-workout banner — none of them
@@ -6,9 +6,9 @@
 // `deriveDisplayPace` reuses the history surface's `formatLogPace` so the
 // form's live pace preview and the history list's rendered pace agree
 // byte-for-byte, and `formatPaceRange` reuses `unit-format.helpers`'s
-// `formatPaceSecPerKm` for the same reason. Per the root `CLAUDE.md`
-// trademark rule, nothing here references zone names — only neutral
-// distance/duration/pace strings.
+// `formatPaceSecPerKm` for the same reason. Nothing here references zone
+// names — only neutral distance/duration/pace strings, keeping this module
+// clear of trademark-sensitive vocabulary.
 
 import type { PreferredUnits } from '~/api/generated'
 import {
@@ -30,26 +30,34 @@ const EN_DASH = '–'
  * Placeholder rendered by {@link formatDateChipLabel} when `occurredOn`
  * doesn't parse to a valid calendar date — e.g. the native date input was
  * cleared via the browser's clear control, leaving RHF's field value `''`.
- * Uppercase to match the module's other baked-caps abbreviations; the
- * `DateChip` applies no CSS `uppercase` of its own.
+ * Sentence case, matching the module's weekday/month source strings below —
+ * source copy stays sentence case; any visible uppercasing is a CSS
+ * presentation concern applied by the caller (e.g. `DateChip`'s label span),
+ * never baked into the stored string.
  */
-const DATE_CHIP_PLACEHOLDER = 'SELECT DATE'
+const DATE_CHIP_PLACEHOLDER = 'Select date'
 
-const WEEKDAY_ABBR = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const
+/** Exact `YYYY-MM-DD` shape — four digits, a dash, two digits, a dash, two
+ * digits, and nothing else. Anchored so extra/missing segments (e.g.
+ * `"2026-07-08-09"`) or non-padded fields (e.g. `"2026-7-8"`) are rejected
+ * before ever reaching `Number`/`Date` parsing. */
+const ISO_DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+const WEEKDAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
 const MONTH_ABBR = [
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ] as const
 
 /**
@@ -79,26 +87,29 @@ export const deriveDisplayPace = (
 }
 
 /**
- * Formats an ISO `YYYY-MM-DD` date-only string as an uppercase date-chip
- * label (e.g. `"WED, JUL 8"`). Parsed as a LOCAL calendar date (DEC-076:
- * training dates are local, never UTC) — this is a log-module-local
- * formatter, distinct from `history-format.helpers`'s mixed-case
+ * Formats an ISO `YYYY-MM-DD` date-only string as a title-case date-chip
+ * label (e.g. `"Wed, Jul 8"`) — sentence-case source copy; a caller that
+ * wants it to render uppercase applies that via CSS. Parsed as a LOCAL
+ * calendar date (DEC-076: training dates are local, never UTC) — this is a
+ * log-module-local formatter, distinct from `history-format.helpers`'s
  * `formatLogDate` (`"Sun, Jun 7"`), which this module deliberately does not
  * reuse.
  *
- * Never throws and never surfaces a garbage label: if `occurredOn` doesn't
- * split into three finite Y/M/D numbers, or the constructed `Date` doesn't
- * round-trip back to those same Y/M/D values (`Date`'s constructor silently
- * ROLLS OVER an out-of-range month/day — e.g. `2026-13-40` — rather than
- * producing an `Invalid Date`, so a bare `Number.isNaN(date.getTime())`
- * check alone would miss it), this returns {@link DATE_CHIP_PLACEHOLDER}.
+ * Never throws and never surfaces a garbage label: `occurredOn` must match
+ * {@link ISO_DATE_ONLY_PATTERN} exactly (rejecting extra/missing segments
+ * like `"2026-07-08-09"` or non-padded fields like `"2026-7-8"`) before it's
+ * split into Y/M/D numbers, and the constructed `Date` must round-trip back
+ * to those same Y/M/D values (`Date`'s constructor silently ROLLS OVER an
+ * out-of-range month/day — e.g. `2026-13-40` — rather than producing an
+ * `Invalid Date`, so a bare `Number.isNaN(date.getTime())` check alone would
+ * miss it). Either failure returns {@link DATE_CHIP_PLACEHOLDER}.
  */
 export const formatDateChipLabel = (occurredOn: string): string => {
-  const [year, month, day] = occurredOn.split('-').map(Number)
-  if (![year, month, day].every(Number.isFinite)) {
+  if (!ISO_DATE_ONLY_PATTERN.test(occurredOn)) {
     return DATE_CHIP_PLACEHOLDER
   }
 
+  const [year, month, day] = occurredOn.split('-').map(Number)
   const date = new Date(year, month - 1, day)
   const isValidCalendarDate =
     date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day

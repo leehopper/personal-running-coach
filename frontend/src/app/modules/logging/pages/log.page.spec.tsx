@@ -140,7 +140,9 @@ describe('LogPage', () => {
   it('pins the /log chrome copy verbatim: header, sub-copy, notes helper, placeholder, submit label (DU-7)', () => {
     renderPage()
 
-    expect(screen.getByRole('heading', { level: 1, name: 'LOG RUN' })).toBeInTheDocument()
+    // Accessible name is the sentence-case textContent — `.t-screen-title`
+    // applies the visual caps via CSS, which doesn't change the DOM text.
+    expect(screen.getByRole('heading', { level: 1, name: 'Log run' })).toBeInTheDocument()
     // EM DASH (U+2014).
     expect(
       screen.getByText(
@@ -159,7 +161,8 @@ describe('LogPage', () => {
         'Cut to 3 reps, moved to the treadmill, calf felt tight on the last k…',
       ),
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'SAVE RUN' })).toBeInTheDocument()
+    // The Button primitive CSS-uppercases its label; source stays sentence case.
+    expect(screen.getByRole('button', { name: 'Save run' })).toBeInTheDocument()
   })
 
   it('shows the live pace preview once distance and duration are filled (5 km / 30 min -> 06:00/km)', async () => {
@@ -207,8 +210,10 @@ describe('LogPage', () => {
       completionStatus: 0,
     })
     // Exact glyph-pinned copy (DU-7): EM DASH (U+2014) + "5.0 km" under the
-    // default km preference and a 5000m submit.
-    expect(await screen.findByText('RUN LOGGED — 5.0 km')).toBeInTheDocument()
+    // default km preference and a 5000m submit. Source is sentence case; the
+    // toast's `className: 'uppercase'` renders it capitalized via CSS, which
+    // does not change the DOM text this query matches against.
+    expect(await screen.findByText('Run logged — 5.0 km')).toBeInTheDocument()
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/', { replace: true }))
   })
 

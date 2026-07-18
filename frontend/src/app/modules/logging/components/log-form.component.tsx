@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -125,10 +126,10 @@ export const LogForm = ({
           render={({ field }) => (
             <FormItem>
               <FormLabel>How did it go?</FormLabel>
-              <p className="font-mono text-[11px] text-muted-foreground">
+              <FormDescription className="font-mono text-[11px] text-muted-foreground">
                 What actually happened — especially where it differed from the plan. The coach
                 adapts to what you write here.
-              </p>
+              </FormDescription>
               <FormControl>
                 <Textarea
                   rows={3}
@@ -149,7 +150,7 @@ export const LogForm = ({
           className="min-h-[54px] w-full"
           data-testid="log-form-submit"
         >
-          {isLoading ? 'SAVING…' : 'SAVE RUN'}
+          {isLoading ? 'Saving…' : 'Save run'}
         </Button>
       </form>
     </Form>
