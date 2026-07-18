@@ -51,6 +51,10 @@ const unitsResolution = (
 
 vi.mock('~/api/workout-log.api', () => ({
   useCreateWorkoutLogMutation: () => [createWorkoutLogTrigger, mutationStateRef],
+  // The form now mounts `PrescribedBanner` (via `LogForm`), which calls this
+  // hook directly. `data: null` keeps the banner hidden across these tests —
+  // its own behavior is covered by `prescribed-banner.component.spec.tsx`.
+  useGetPrescribedWorkoutQuery: () => ({ data: null, isLoading: false, isError: false }),
 }))
 
 vi.mock('~/error-boundary/report-client-error', () => ({
@@ -133,6 +137,52 @@ describe('LogPage', () => {
     expect(dateInput.value).toBe(toIsoDateOnly(new Date()))
   })
 
+  it('pins the /log chrome copy verbatim: header, sub-copy, notes helper, placeholder, submit label (DU-7)', () => {
+    renderPage()
+
+    expect(screen.getByRole('heading', { level: 1, name: 'LOG RUN' })).toBeInTheDocument()
+    // EM DASH (U+2014).
+    expect(
+      screen.getByText(
+        'Record what you actually ran — the plan adapts to the truth, not the intention.',
+      ),
+    ).toBeInTheDocument()
+    // EM DASH (U+2014).
+    expect(
+      screen.getByText(
+        'What actually happened — especially where it differed from the plan. The coach adapts to what you write here.',
+      ),
+    ).toBeInTheDocument()
+    // Ellipsis (U+2026), not three periods.
+    expect(
+      screen.getByPlaceholderText(
+        'Cut to 3 reps, moved to the treadmill, calf felt tight on the last k…',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'SAVE RUN' })).toBeInTheDocument()
+  })
+
+  it('shows the live pace preview once distance and duration are filled (5 km / 30 min -> 06:00/km)', async () => {
+    const { user } = renderPage()
+    await fillCoreFields(user)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('log-derived-pace')).toHaveTextContent('06:00/km'),
+    )
+  })
+
+  it('hides the pace preview for blank distance, both before typing and after clearing (never NaN/00:00)', async () => {
+    const { user } = renderPage()
+    // Distance/duration are both blank on mount — no preview yet.
+    expect(screen.queryByTestId('log-derived-pace')).toBeNull()
+
+    await fillCoreFields(user)
+    await waitFor(() => expect(screen.getByTestId('log-derived-pace')).toBeInTheDocument())
+
+    await user.clear(screen.getByLabelText('Distance (km)'))
+    await waitFor(() => expect(screen.queryByTestId('log-derived-pace')).toBeNull())
+  })
+
   it('shows an inline role=alert error for a missing distance and does not submit', async () => {
     renderPage()
     const form = document.querySelector('form') as HTMLFormElement
@@ -156,7 +206,9 @@ describe('LogPage', () => {
       durationSeconds: 1800,
       completionStatus: 0,
     })
-    expect(await screen.findByText('Workout logged')).toBeInTheDocument()
+    // Exact glyph-pinned copy (DU-7): EM DASH (U+2014) + "5.0 km" under the
+    // default km preference and a 5000m submit.
+    expect(await screen.findByText('RUN LOGGED — 5.0 km')).toBeInTheDocument()
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/', { replace: true }))
   })
 
@@ -193,7 +245,10 @@ describe('LogPage', () => {
     await fillCoreFields(user)
     await clickSave(user)
 
-    expect(await screen.findByTestId('log-form-alert')).toHaveTextContent(/could not save/i)
+    // Exact glyph-pinned copy (DU-7): curly apostrophe (U+2019).
+    expect(await screen.findByTestId('log-form-alert')).toHaveTextContent(
+      'Couldn’t save. Nothing lost.',
+    )
     expect(navigateMock).not.toHaveBeenCalled()
     // The handled rejection is invisible to the global reporter + error boundary,
     // so the submit handler forwards it explicitly (keeps backend failures observable).
