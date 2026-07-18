@@ -85,7 +85,13 @@ export const LogForm = ({
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <DateChip value={field.value} onChange={field.onChange} />
+                <DateChip
+                  ref={field.ref}
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

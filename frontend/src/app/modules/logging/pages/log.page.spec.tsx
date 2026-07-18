@@ -5,7 +5,11 @@ import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Toaster } from '@/components/ui/sonner'
-import type { CreateWorkoutLogRequest, StructuredLogDraft } from '~/api/generated'
+import type {
+  CreateWorkoutLogRequest,
+  PrescribedWorkoutDto,
+  StructuredLogDraft,
+} from '~/api/generated'
 import { PreferredUnits } from '~/api/generated'
 import { METERS_PER_MILE } from '~/modules/common/utils/unit-format.helpers'
 import type { UsePreferredUnitsResolutionReturn } from '~/modules/settings/hooks/use-preferred-units.hooks'
@@ -20,6 +24,7 @@ const {
   reportClientErrorMock,
   preferredUnitsResolutionMock,
   refetchUnitsMock,
+  useGetPrescribedWorkoutQueryMock,
 } = vi.hoisted(() => {
   const createWorkoutLogUnwrap = vi.fn()
   return {
@@ -34,6 +39,9 @@ const {
     reportClientErrorMock: vi.fn(),
     preferredUnitsResolutionMock: vi.fn<() => UsePreferredUnitsResolutionReturn>(),
     refetchUnitsMock: vi.fn(),
+    // Mockable per-test so we can verify LogForm's wiring of the banner (date/units
+    // threading) in addition to the default hidden-banner case most tests want.
+    useGetPrescribedWorkoutQueryMock: vi.fn(),
   }
 })
 
@@ -52,9 +60,11 @@ const unitsResolution = (
 vi.mock('~/api/workout-log.api', () => ({
   useCreateWorkoutLogMutation: () => [createWorkoutLogTrigger, mutationStateRef],
   // The form now mounts `PrescribedBanner` (via `LogForm`), which calls this
-  // hook directly. `data: null` keeps the banner hidden across these tests —
-  // its own behavior is covered by `prescribed-banner.component.spec.tsx`.
-  useGetPrescribedWorkoutQuery: () => ({ data: null, isLoading: false, isError: false }),
+  // hook directly. Defaults to a hidden banner (see beforeEach) — most tests
+  // don't care about it; its own rendering behavior is covered by
+  // `prescribed-banner.component.spec.tsx`. The wiring itself (that `LogForm`
+  // threads the watched date/units into it) is covered below.
+  useGetPrescribedWorkoutQuery: (date: string) => useGetPrescribedWorkoutQueryMock(date),
 }))
 
 vi.mock('~/error-boundary/report-client-error', () => ({
@@ -112,6 +122,13 @@ describe('LogPage', () => {
     // Default: preference resolved to Kilometers (the common case). Individual
     // tests override for Miles / still-loading / errored.
     preferredUnitsResolutionMock.mockReturnValue(unitsResolution())
+    // Default: no prescription for the target date, keeping the banner hidden
+    // across tests that don't exercise it. Overridden below for the banner-wiring test.
+    useGetPrescribedWorkoutQueryMock.mockReturnValue({
+      currentData: null,
+      isLoading: false,
+      isError: false,
+    })
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-00000000abcd')
   })
 
@@ -184,6 +201,32 @@ describe('LogPage', () => {
 
     await user.clear(screen.getByLabelText('Distance (km)'))
     await waitFor(() => expect(screen.queryByTestId('log-derived-pace')).toBeNull())
+  })
+
+  it('renders PrescribedBanner inside the real form wired to the watched date/units, and re-queries on date change', async () => {
+    const prescribed: PrescribedWorkoutDto = {
+      workoutType: 'Tempo',
+      distanceMeters: 9000,
+      durationSeconds: 2400,
+      paceFastSecPerKm: 240,
+      paceEasySecPerKm: 270,
+    }
+    useGetPrescribedWorkoutQueryMock.mockReturnValue({
+      currentData: prescribed,
+      isLoading: false,
+      isError: false,
+    })
+    renderPage()
+
+    const today = toIsoDateOnly(new Date())
+    expect(useGetPrescribedWorkoutQueryMock).toHaveBeenCalledWith(today)
+    expect(screen.getByTestId('prescribed-banner')).toHaveTextContent(
+      'Prescribed — Threshold run · 9.0 km · 04:00–04:30/km',
+    )
+
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-06-20' } })
+
+    await waitFor(() => expect(useGetPrescribedWorkoutQueryMock).toHaveBeenCalledWith('2026-06-20'))
   })
 
   it('shows an inline role=alert error for a missing distance and does not submit', async () => {
