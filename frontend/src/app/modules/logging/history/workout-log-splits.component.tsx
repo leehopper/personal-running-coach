@@ -5,7 +5,7 @@ import { ChevronDownIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { PreferredUnits, type WorkoutLogSplitDto } from '~/api/generated'
-import { formatPaceSecPerKm } from '~/modules/common/utils/unit-format.helpers'
+import { distanceUnitLabel, formatPaceSecPerKm } from '~/modules/common/utils/unit-format.helpers'
 import { formatHistoryDistanceKm, formatDuration } from './history-format.helpers'
 
 export interface WorkoutLogSplitsProps {
@@ -19,9 +19,15 @@ export interface WorkoutLogSplitsProps {
   units?: PreferredUnits
 }
 
-const headerCellClass =
-  'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'
-const dataCellClass = 'px-3 py-2 text-foreground'
+// Header cells: `.t-data-label` (mono 500 10px, tracking .08em, uppercase via
+// CSS) — the shared eyebrow/label typography, not an ad-hoc font utility.
+const headerCellClass = 'px-3 py-2 text-left t-data-label text-muted-foreground'
+// Data cells: `.t-data-value` (mono 500 11px, tabular-nums). Column colour
+// varies per the design (index/time/pace/HR = muted, distance = foreground),
+// so callers compose this base with their own text-* tone.
+const dataCellClassBase = 'px-3 py-2 t-data-value'
+const mutedDataCellClass = `${dataCellClassBase} text-muted-foreground`
+const distanceDataCellClass = `${dataCellClassBase} text-foreground`
 
 /**
  * Display-only splits for a logged workout: a one-line `"N splits"` summary that
@@ -53,13 +59,13 @@ export const WorkoutLogSplits = ({
           type="button"
           variant="ghost"
           size="sm"
-          className="w-full justify-between px-3 text-muted-foreground"
+          className="h-auto w-auto items-center gap-[5px] self-start px-0 py-0 font-mono text-[10px] font-semibold tracking-[0.06em] text-clay-text hover:bg-transparent hover:text-clay-text has-[>svg]:px-0 before:inset-[-16px]"
           data-testid="workout-history-splits-trigger"
         >
           {summary}
           <ChevronDownIcon
             aria-hidden="true"
-            className={`size-4 transition-transform duration-200 ease-out motion-reduce:transition-none ${
+            className={`size-3 transition-transform duration-200 ease-out motion-reduce:transition-none ${
               open ? 'rotate-180' : ''
             }`}
           />
@@ -76,13 +82,13 @@ export const WorkoutLogSplits = ({
                 #
               </th>
               <th scope="col" className={headerCellClass}>
-                Distance
+                {distanceUnitLabel(units)}
               </th>
               <th scope="col" className={headerCellClass}>
                 Time
               </th>
               <th scope="col" className={headerCellClass}>
-                Pace
+                {`/${distanceUnitLabel(units)}`}
               </th>
               {showHeartRate ? (
                 <th scope="col" className={headerCellClass}>
@@ -94,16 +100,18 @@ export const WorkoutLogSplits = ({
           <tbody>
             {splits.map((split) => (
               <tr key={split.index} className="border-b border-border last:border-0">
-                <td className={dataCellClass}>{split.index + 1}</td>
-                <td className={dataCellClass}>
+                <td className={mutedDataCellClass}>{split.index + 1}</td>
+                <td className={distanceDataCellClass}>
                   {formatHistoryDistanceKm(split.distanceMeters, units) ?? '—'}
                 </td>
-                <td className={dataCellClass}>{formatDuration(split.durationSeconds) ?? '—'}</td>
-                <td className={dataCellClass}>
+                <td className={mutedDataCellClass}>
+                  {formatDuration(split.durationSeconds) ?? '—'}
+                </td>
+                <td className={mutedDataCellClass}>
                   {formatPaceSecPerKm(split.paceSecPerKm, units) ?? pacePlaceholder}
                 </td>
                 {showHeartRate ? (
-                  <td className={dataCellClass}>{split.averageHeartRate ?? '—'}</td>
+                  <td className={mutedDataCellClass}>{split.averageHeartRate ?? '—'}</td>
                 ) : null}
               </tr>
             ))}

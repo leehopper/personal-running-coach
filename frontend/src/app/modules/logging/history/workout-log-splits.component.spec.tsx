@@ -39,6 +39,30 @@ describe('WorkoutLogSplits', () => {
     expect(screen.getAllByRole('row')).toHaveLength(4)
   })
 
+  it('renders unit-aware km column headers by default', async () => {
+    const user = userEvent.setup()
+    render(<WorkoutLogSplits splits={threeSplits} />)
+
+    await user.click(screen.getByRole('button', { name: /3 splits/i }))
+
+    // Exact-name matches so the "km" distance header and the "/km" pace
+    // header (both containing "km") don't collide.
+    expect(screen.getByRole('columnheader', { name: '#' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'km' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Time' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: '/km' })).toBeInTheDocument()
+  })
+
+  it('renders unit-aware mi column headers when units=Miles', async () => {
+    const user = userEvent.setup()
+    render(<WorkoutLogSplits splits={threeSplits} units={PreferredUnits.Miles} />)
+
+    await user.click(screen.getByRole('button', { name: /3 splits/i }))
+
+    expect(screen.getByRole('columnheader', { name: 'mi' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: '/mi' })).toBeInTheDocument()
+  })
+
   it('singularises the summary for a single split', () => {
     render(<WorkoutLogSplits splits={[split(0)]} />)
     expect(screen.getByRole('button', { name: /^1 split$/i })).toBeInTheDocument()
