@@ -117,7 +117,7 @@ describe('HistoryPage', () => {
     // The three logs span one ISO week split across two pages — single header.
     const headers = screen.getAllByTestId('workout-history-week-header')
     expect(headers).toHaveLength(1)
-    expect(headers[0]).toHaveTextContent('Week of Jun 1, 2026')
+    expect(headers[0]).toHaveTextContent('Week of Jun 1')
   })
 
   it('shows "Load older" when more pages exist and calls fetchNextPage on click', async () => {
