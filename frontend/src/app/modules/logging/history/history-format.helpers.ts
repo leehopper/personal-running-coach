@@ -106,6 +106,29 @@ export const formatLogDate = (occurredOn: string): string => {
 /** Shared month-label lookup for the `Week of …` header (week-grouping). */
 export const monthLabel = (monthIndex: number): string => MONTH_LABELS[monthIndex]
 
+/** The day-numeral + weekday parts a ledger row's first column renders. */
+export interface LedgerDayParts {
+  /** Zero-padded day-of-month, e.g. `"08"`. */
+  dayNum: string
+  /** Three-letter weekday, title-case, e.g. `"Wed"` — CSS uppercases at render. */
+  weekday: string
+}
+
+/**
+ * Splits an ISO `YYYY-MM-DD` date-only string into the ledger row's day-numeral
+ * + weekday parts. Parsed as a local-calendar date (never UTC) so the
+ * displayed day never shifts under timezone conversion (DEC-076), matching
+ * {@link formatLogDate}'s parse.
+ */
+export const formatLedgerDayParts = (occurredOn: string): LedgerDayParts => {
+  const [year, month, day] = occurredOn.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return {
+    dayNum: pad2(date.getDate()),
+    weekday: WEEKDAY_LABELS[date.getDay()],
+  }
+}
+
 /** User-facing labels for each `CompletionStatus`. */
 export const COMPLETION_STATUS_LABELS: Record<CompletionStatus, string> = {
   [CompletionStatus.Complete]: 'Completed',
