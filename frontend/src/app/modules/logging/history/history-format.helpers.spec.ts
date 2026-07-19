@@ -91,7 +91,7 @@ describe('formatLedgerDayParts', () => {
       // literal string "undefined" (env vars are always strings), leaking a
       // bogus TZ into later tests in the same worker. Delete the key instead
       // to restore the true "unset" state. Mirrors formatDateChipLabel's
-      // (log-derivations.helpers.spec.ts) established TZ-forcing pattern.
+      // established TZ-forcing pattern.
       if (originalTz === undefined) {
         delete process.env.TZ
       } else {

@@ -90,11 +90,7 @@ export const groupLogsByIsoWeek = (logs: readonly WorkoutLogDto[]): WorkoutHisto
   }
 
   // `Map` preserves insertion order; sorted desc ⇒ groups + members are
-  // newest-first. The aggregate is derived from each group's final `logs`
-  // list, so it is computed in this second pass rather than incrementally
-  // above (incremental accumulation would work too, but a pure derive-from-
-  // `logs` step keeps `aggregate` unmistakably a function of `logs`, not
-  // separately-mutated state that could drift).
+  // newest-first. Aggregates are derived from each group's final `logs` list.
   return [...groups.values()].map((group) => ({
     ...group,
     aggregate: computeWeekAggregate(group.logs),

@@ -107,16 +107,15 @@ const buildLedgerStats = (log: WorkoutLogDto, units: PreferredUnits): LedgerStat
 }
 
 /**
- * One logged workout as a hairline-separated ledger row (spec § 3 PR-C,
- * DEC-089 D5): a day numeral + faint weekday in column 1, the resolved
- * workout title + status tag + optional note snippet in column 2, and up to
- * three right-aligned derived stats (distance/duration/pace) in column 3 —
+ * One logged workout as a hairline-separated ledger row (spec § 3, DEC-089
+ * D5): a day numeral + weekday in column 1, the resolved workout title +
+ * status tag + optional note snippet in column 2, and up to three
+ * right-aligned derived stats (distance/duration/pace) in column 3 —
  * collapsing to a single "—" placeholder when a skipped/zero-actuals log
  * leaves all three null. The optional-metrics `<dl>` and the display-only
- * splits collapsible mount below the grid exactly as they did on the
- * card-shaped `WorkoutLogEntry` this component replaces — unchanged props,
- * unchanged components, so their own coverage and (PR-D's) splits mount
- * point both carry over untouched.
+ * splits collapsible mount below the grid with unchanged props and
+ * components, so their own coverage and splits mount point carry over
+ * untouched.
  */
 export const LedgerRow = ({
   log,
@@ -153,7 +152,7 @@ export const LedgerRow = ({
         >
           {dayNum}
         </span>
-        <span className="t-data-label uppercase text-[var(--alp-faint)]">{weekday}</span>
+        <span className="t-data-label uppercase text-muted-foreground">{weekday}</span>
       </div>
 
       <div className="flex flex-col gap-[3px]">

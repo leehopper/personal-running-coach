@@ -90,4 +90,12 @@ describe('formatWeekAggregate', () => {
     )
     expect(formatted).toBe('3.1 mi · 1 RUN')
   })
+
+  it('falls back to the "0.0 mi" placeholder for a zero-distance aggregate under a Miles preference', () => {
+    const formatted = formatWeekAggregate(
+      { distanceMeters: 0, runCount: 0, skipCount: 2 },
+      PreferredUnits.Miles,
+    )
+    expect(formatted).toBe('0.0 mi · 0 RUNS · 2 SKIP')
+  })
 })

@@ -1,9 +1,9 @@
-// Per-week ledger summary for the LOG BOOK history surface (Slice 4 PR-C,
-// spec § 4.2). Computed over a week group's logs (see week-grouping.helpers)
-// and rendered as a single right-aligned line beside the "Week of …" header.
+// Per-week ledger summary for the LOG BOOK history surface (spec § 4.2).
+// Computed over a week group's logs and rendered as a single right-aligned
+// line beside the "Week of …" header.
 
 import { CompletionStatus, PreferredUnits, type WorkoutLogDto } from '~/api/generated'
-import { formatDistanceMeters } from '~/modules/common/utils/unit-format.helpers'
+import { distanceUnitLabel, formatDistanceMeters } from '~/modules/common/utils/unit-format.helpers'
 
 /** The distance + run/skip counts for one ISO-week bucket of logs. */
 export interface WeekAggregate {
@@ -47,7 +47,8 @@ export const computeWeekAggregate = (logs: readonly WorkoutLogDto[]): WeekAggreg
  * (spec § 9 #2); a week with no skips renders just the distance + run count.
  */
 export const formatWeekAggregate = (agg: WeekAggregate, units: PreferredUnits): string => {
-  const km = formatDistanceMeters(agg.distanceMeters, units) ?? '0.0 km'
-  const base = `${km} · ${agg.runCount} RUN${agg.runCount === 1 ? '' : 'S'}`
+  const distance =
+    formatDistanceMeters(agg.distanceMeters, units) ?? `0.0 ${distanceUnitLabel(units)}`
+  const base = `${distance} · ${agg.runCount} RUN${agg.runCount === 1 ? '' : 'S'}`
   return agg.skipCount > 0 ? `${base} · ${agg.skipCount} SKIP` : base
 }
