@@ -5,7 +5,7 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** Slice 4 (Log & Log Book) — **PR-A (backend) shipped 2026-07-17 (#302); PR-B (`/log` banner) next.** Slice 3 (Coach) shipped complete 2026-07-15 (PRs #288 / #290 / #292 / #294, DEC-091). Slice 2 (Today) shipped 2026-07-14.
+- **Active Slice:** Slice 5 (Onboarding) — next to build; no PR yet. Slice 4 (Log & Log Book) shipped complete 2026-07-19 (PRs #302 / #304 / #306 / #308, DEC-089 D5). Slice 3 (Coach) shipped 2026-07-15 (PRs #288 / #290 / #292 / #294, DEC-091).
 - **Slice ledger:**
   | # | Slice | Completed | PR |
   |---|---|---|---|
@@ -13,8 +13,9 @@
   | 1 | Shell & Navigation | 2026-07-08 | #277 |
   | 2 | Today | 2026-07-14 | #285 |
   | 3 | Coach | 2026-07-15 | #288 / #290 / #292 / #294 |
-- **Active Slice Spec:** **`docs/specs/slice-4-log-logbook/spec.md`** (+ `pr-strategy.md`) — written 2026-07-15 from `docs/plans/split-ui-cycle/slice-4-log-logbook.md`, grounded against the live codebase (6-agent recon + first-party file reads). Implementer's contract: 4 PRs (A backend / B `/log` / C `/history` ledger / D `/history` splits), locked interfaces + BDD DUs. Specs are gitignored working-tree artifacts; Slice 3's spec remains at `docs/specs/slice-3-coach/spec.md` for reference.
-- **Next Step:** **Build Slice 4 PR-B (`/log` banner)** in a fresh session — read `docs/specs/slice-4-log-logbook/spec.md` §4 (PR-B) + `pr-strategy.md` first. PR-A (#302) landed the backend wire deltas — `GET /api/v1/workouts/logs/prescribed` (200+null body), `IsOnPlan`/`PrescribedWorkoutType` on `WorkoutLogDto`, codegen (incl. `useGetPrescribedWorkoutQuery`) — nothing consumed them yet. PR-B wires the `/log` page's prescribed-workout banner to the new query. Then PR-C (`/history` ledger) → PR-D (`/history` splits). Slices 3/4 were independent after Slice 1 and 3 is done; numbered order is the default.
+  | 4 | Log & Log Book | 2026-07-19 | #302 / #304 / #306 / #308 |
+- **Active Slice Spec:** Slice 5 (Onboarding) has **no spec yet** — write it first from `docs/plans/split-ui-cycle/slice-5-onboarding.md` (specs are gitignored working-tree artifacts, planned per-slice at build time). Slice 4's spec remains at `docs/specs/slice-4-log-logbook/spec.md` for reference; its narrative is captured in the Slice 4 completion section below and the `ROADMAP.md` Cycle History row.
+- **Next Step:** **Begin Slice 5 (Onboarding)** in a fresh session — write the slice spec from `docs/plans/split-ui-cycle/slice-5-onboarding.md`, then build: one backend PR (a narrative free-text field through the answers DTO → canonical record → `OnboardingView` → `AnswerCaptured` → `ContextAssembler` prompt injection; DEC-074 hash-manifest regen + a targeted plan-gen fixture re-record against a funded key; codegen — the only LLM-touching change in the cycle, isolate it in its own PR to contain the re-record blast radius) and the frontend recomposition PR(s) (full intake redesign, adopts the Slice 0 plan-building surface on submit). Read this plan's Status + `slice-5-onboarding.md` first. Slice 5 needs only Slice 0 (onboarding renders outside the shell) — it doesn't depend on Slice 4.
 - **Blockers:** None.
 - **Parallel workstream:** Rolling Plan Horizon (backend-only, DEC-090; plan `docs/plans/plan-horizon/rolling-horizon-plan.md`) is running alongside this cycle — no file overlap, no wire/codegen churn with any SPLIT slice. See § Captured During Cycle, 2026-07-13 row.
 
@@ -163,20 +164,22 @@ Slices 2/3/4 are independent of each other after Slice 1; Slice 5 needs only Sli
 
 **Key risks (retired).** Diff locus (`WK JUN 29 · SATURDAY`) needed the plan anchor joined client-side from `GET /plan/current` (done in PR-C). Receipt persistence across remounts had to come from the timeline's committed representation, not ephemeral state (satisfied by DEC-091's persisted `loggedRun`, PR-A + PR-D).
 
-### Slice 4 — Log & Log Book
+### Slice 4 — Log & Log Book ✅ Complete (2026-07-19, PRs #302/#304/#306/#308)
 
-**Requirements:** [`./slice-4-log-logbook.md`](./slice-4-log-logbook.md)
+**Requirements:** [`./slice-4-log-logbook.md`](./slice-4-log-logbook.md) (design doc — the build source of truth was `docs/specs/slice-4-log-logbook/spec.md`)
 
 **Acceptance — "I can…"**
 
-- [ ] …see the prescribed banner on `/log` for the selected date (including back-dates), and no banner when nothing is prescribed.
-- [ ] …log with the two large numeric cells, see derived pace once both parse, pick completion via segmented control, and expand MORE DETAILS for metrics.
-- [ ] …read `/history` as week-grouped ledger rows with client-side aggregates, status tags, ON-PLAN markers, prescribed titles, right-column stats, and dimmed skipped rows.
-- [ ] …expand N SPLITS inline (restyled, lazy, conditional HR column) and LOAD OLDER.
+- [x] …see the prescribed banner on `/log` for the selected date (including back-dates), and no banner when nothing is prescribed.
+- [x] …log with the two large numeric cells, see derived pace once both parse, pick completion via segmented control, and expand MORE DETAILS for metrics.
+- [x] …read `/history` as week-grouped ledger rows with client-side aggregates, status tags, ON-PLAN markers, prescribed titles, right-column stats, and dimmed skipped rows.
+- [x] …expand N SPLITS inline (restyled, lazy, conditional HR column) and LOAD OLDER.
+
+**Shipped:** `/log` and `/history` (Log Book) recomposed onto the Alpine system over one backend PR shipping both of D5's pre-decided wire deltas. **PR-A** (backend, #302) — `GET /api/v1/workouts/logs/prescribed?date=` (thin read-only wrapper over the existing `ResolveCandidatePrescriptionAsync`, 200 + a literal `null` body when nothing resolves) and `WorkoutLogDto.IsOnPlan` / nullable `PrescribedWorkoutType` (computed from the already-loaded `Prescription` complex property, zero extra I/O) + codegen; DEC-089 gained a one-line note ratifying the title source as the frozen `WorkoutType` enum name (not the LLM-authored, adaptation-drifting `WorkoutOutput.Title`). **PR-B** (`/log` restyle, #304) — `PrescribedBanner` consuming PR-A's query, a `DateChip` over the unchanged native date input, a display-only derived-pace row, the `SegmentedControl` primitive's first app use; create-contract/idempotency/unit-gate/a11y-name wiring pinned unchanged. **PR-C** (`/history` ledger, #306) — the card `WorkoutLogEntry` replaced by a hairline `LedgerRow`, client-side week aggregates, `WEEK OF {MON} {D}` (no year), on-plan titles from `prescribedWorkoutType`; two a11y findings beyond the spec's assumptions (`--destructive`/`--warning`-as-text both fail AA → gated `text-positive`/`text-warning-text`/`text-danger-text` status-tag variants; skipped-day numeral moved off the AA-failing decorative `--alp-faint` onto `text-muted-foreground`). **PR-D** (`/history` splits + LOAD OLDER, #308) — the splits trigger restyled to an inline mono clay `{N} SPLITS` + rotating chevron at PR-C's mount point (all testids unchanged), the splits table onto mono/hairline/`tabular-nums` with unit-aware headers, the page header recomposed to `LOG BOOK` + `EVERY SPLIT ON RECORD`, `LOAD OLDER` restyled over the unchanged keyset-pagination hook. Every PR ran deep-review + full CodeRabbit addressment before CI green; 1022/1022 vitest and check-contrast 50/50 pairs at PR-D merge.
 
 **Scope.** **Backend (one PR):** `GET` prescribed-slot-for-date reusing `PlanCalendar.ResolveSlot` + the existing prescription resolver; `IsOnPlan` + nullable prescribed-title on the history-row DTO (DEC-089 D5) + codegen. **Frontend:** `/log` restyle (DEC-075 string-backed fields and unit gating unchanged), `/history` ledger recomposition + client aggregates + derived pace.
 
-**Key risks.** The on-plan/title exposure narrowly amends the deliberate MVP-0 snapshot-withholding — display-scoped fields only, snapshot stays private (DEC-089 D5). Unit-preference conversion must keep applying at every new render site.
+**Key risks (retired).** The on-plan/title exposure narrowly amends the deliberate MVP-0 snapshot-withholding — display-scoped fields only, snapshot stays private (DEC-089 D5). Unit-preference conversion kept applying at every new render site, verified in PR-B/C/D.
 
 ### Slice 5 — Onboarding
 

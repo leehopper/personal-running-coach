@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import type { PreferredUnits, WorkoutLogDto } from '~/api/generated'
 import { useGetWorkoutLogHistoryInfiniteQuery } from '~/api/workout-log.api'
+import { MonoLabel } from '~/modules/common/components/mono-label/mono-label.component'
 import { WorkoutHistoryList } from '~/modules/logging/history/workout-history-list.component'
 import { usePreferredUnits } from '~/modules/settings/hooks/use-preferred-units.hooks'
 
@@ -80,7 +81,7 @@ const HistoryBody = ({
           data-testid="workout-history-load-older"
           disabled={isFetchingNextPage}
           onClick={loadOlder}
-          className="self-center"
+          className="h-[46px] w-full text-[14px] font-semibold tracking-[0.12em] text-muted-foreground"
         >
           {isFetchingNextPage ? 'Loading…' : 'Load older'}
         </Button>
@@ -108,8 +109,14 @@ export const HistoryPage = (): ReactElement => {
       data-testid="workout-history-page"
       className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 bg-background px-4 py-8"
     >
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-foreground">Workout history</h1>
+      <header className="flex flex-col gap-2.5">
+        <div className="flex items-baseline justify-between">
+          <h1 className="t-screen-title text-foreground">Log book</h1>
+          <MonoLabel>Every split on record</MonoLabel>
+        </div>
+        {/* The header's own 2px rule — a plain sibling div, matching the
+         * pattern `TodayHeader` established for a screen-title + rule pair. */}
+        <div className="h-0.5 bg-rule" />
       </header>
 
       <HistoryBody
