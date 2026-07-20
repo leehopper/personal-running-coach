@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { CompletionStatus, PreferredUnits } from '~/api/generated'
 import {
   COMPLETION_STATUS_LABELS,
   formatHistoryDistanceKm,
   formatDuration,
+  formatLedgerDayParts,
   formatLogDate,
   formatLogPace,
 } from './history-format.helpers'
@@ -66,6 +67,54 @@ describe('formatLogDate', () => {
     // 2026-06-07 is a Sunday (local-calendar parse, never UTC-shifted).
     expect(formatLogDate('2026-06-07')).toBe('Sun, Jun 7')
     expect(formatLogDate('2026-06-01')).toBe('Mon, Jun 1')
+  })
+})
+
+describe('formatLedgerDayParts', () => {
+  it('splits an ISO date-only string into a zero-padded day + weekday (local-calendar parse)', () => {
+    // 2026-07-08 is a Wednesday. Parsed via local Y/M/D construction (never
+    // UTC) — see the "non-UTC timezone safety" suite below for the assertion
+    // that actually forces a non-UTC process timezone.
+    expect(formatLedgerDayParts('2026-07-08')).toEqual({ dayNum: '08', weekday: 'Wed' })
+  })
+
+  it('pads single-digit days', () => {
+    expect(formatLedgerDayParts('2026-06-01')).toEqual({ dayNum: '01', weekday: 'Mon' })
+  })
+
+  describe('non-UTC timezone safety (DEC-076 local training dates)', () => {
+    const originalTz = process.env.TZ
+
+    afterEach(() => {
+      // `originalTz` is `undefined` when TZ was unset before this suite ran —
+      // assigning `undefined` back to `process.env.TZ` would coerce it to the
+      // literal string "undefined" (env vars are always strings), leaking a
+      // bogus TZ into later tests in the same worker. Delete the key instead
+      // to restore the true "unset" state. Mirrors formatDateChipLabel's
+      // established TZ-forcing pattern.
+      if (originalTz === undefined) {
+        delete process.env.TZ
+      } else {
+        process.env.TZ = originalTz
+      }
+    })
+
+    it('reflects the LOCAL calendar day under a negative-offset process timezone', () => {
+      // A UTC-parse (`new Date(occurredOn)`) read back with local getters
+      // would roll this date BACKWARD a day under a negative UTC offset —
+      // this function must not do that; it parses the Y/M/D fields directly
+      // as local, so a regression to the UTC-ISO-parse form would fail here
+      // even though it'd pass on a UTC CI runner.
+      process.env.TZ = 'America/Los_Angeles' // UTC-8 (winter) / UTC-7 (summer)
+      expect(formatLedgerDayParts('2026-07-08')).toEqual({ dayNum: '08', weekday: 'Wed' })
+    })
+
+    it('reflects the LOCAL calendar day under a positive-offset process timezone', () => {
+      // Same bug, opposite direction: a UTC-parse read back locally would
+      // roll this date FORWARD a day under a positive UTC offset.
+      process.env.TZ = 'Pacific/Kiritimati' // UTC+14
+      expect(formatLedgerDayParts('2026-07-08')).toEqual({ dayNum: '08', weekday: 'Wed' })
+    })
   })
 })
 

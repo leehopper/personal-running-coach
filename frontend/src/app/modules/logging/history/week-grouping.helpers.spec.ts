@@ -4,13 +4,18 @@ import type { WorkoutLogDto } from '~/api/generated'
 import { CompletionStatus } from '~/api/generated'
 import { getIsoWeekStart, groupLogsByIsoWeek, parseIsoDateOnly } from './week-grouping.helpers'
 
-const log = (occurredOn: string, workoutLogId = occurredOn): WorkoutLogDto => ({
+const log = (
+  occurredOn: string,
+  workoutLogId = occurredOn,
+  overrides: Partial<WorkoutLogDto> = {},
+): WorkoutLogDto => ({
   workoutLogId,
   occurredOn,
   distanceMeters: 5000,
   durationSeconds: 1800,
   completionStatus: CompletionStatus.Complete,
   isOnPlan: false,
+  ...overrides,
 })
 
 describe('parseIsoDateOnly', () => {
@@ -37,7 +42,7 @@ describe('groupLogsByIsoWeek', () => {
   it('buckets logs of one ISO week (Mon–Sun) under a single group', () => {
     const groups = groupLogsByIsoWeek([log('2026-06-07'), log('2026-06-03'), log('2026-06-01')])
     expect(groups).toHaveLength(1)
-    expect(groups[0].label).toBe('Week of Jun 1, 2026')
+    expect(groups[0].label).toBe('Week of Jun 1')
     expect(groups[0].logs.map((l) => l.occurredOn)).toEqual([
       '2026-06-07',
       '2026-06-03',
@@ -47,11 +52,7 @@ describe('groupLogsByIsoWeek', () => {
 
   it('returns week groups newest-first with newest-first logs within each', () => {
     const groups = groupLogsByIsoWeek([log('2026-06-08'), log('2026-06-07'), log('2026-05-31')])
-    expect(groups.map((g) => g.label)).toEqual([
-      'Week of Jun 8, 2026',
-      'Week of Jun 1, 2026',
-      'Week of May 25, 2026',
-    ])
+    expect(groups.map((g) => g.label)).toEqual(['Week of Jun 8', 'Week of Jun 1', 'Week of May 25'])
   })
 
   it('merges logs of the same ISO week split across two fetched pages into one group', () => {
@@ -61,7 +62,7 @@ describe('groupLogsByIsoWeek', () => {
     const page2 = [log('2026-06-01'), log('2026-05-31')]
     const groups = groupLogsByIsoWeek([...page1, ...page2])
 
-    expect(groups.map((g) => g.label)).toEqual(['Week of Jun 1, 2026', 'Week of May 25, 2026'])
+    expect(groups.map((g) => g.label)).toEqual(['Week of Jun 1', 'Week of May 25'])
     expect(groups[0].logs).toHaveLength(3) // 06-07, 06-03, 06-01 — single header
     expect(groups[1].logs).toHaveLength(1) // 05-31
   })
@@ -98,5 +99,22 @@ describe('groupLogsByIsoWeek', () => {
     const groups = groupLogsByIsoWeek([first, second])
     expect(groups).toHaveLength(1)
     expect(groups[0].logs.map((l) => l.distanceMeters)).toEqual([1000, 2000])
+  })
+
+  it("carries each group's own run/skip/distance aggregate (spec § 4.2)", () => {
+    const groups = groupLogsByIsoWeek([
+      log('2026-06-07', '2026-06-07', { distanceMeters: 5000 }),
+      log('2026-06-03', '2026-06-03', {
+        distanceMeters: 0,
+        completionStatus: CompletionStatus.Skipped,
+      }),
+      log('2026-05-31', '2026-05-31', { distanceMeters: 8000 }),
+    ])
+
+    expect(groups).toHaveLength(2)
+    // Week of Jun 1: one run (5000 m) + one skip.
+    expect(groups[0].aggregate).toEqual({ distanceMeters: 5000, runCount: 1, skipCount: 1 })
+    // Week of May 25: one run (8000 m), no skips.
+    expect(groups[1].aggregate).toEqual({ distanceMeters: 8000, runCount: 1, skipCount: 0 })
   })
 })
