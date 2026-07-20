@@ -32,10 +32,28 @@
     <!-- Persistence — Marten + Wolverine (event-sourcing + outbox) -->
     <PackageVersion Include="Marten" Version="9.15.4" />
     <PackageVersion Include="Marten.EntityFrameworkCore" Version="9.15.4" />
-    <PackageVersion Include="WolverineFx" Version="6.19.0" />
-    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.19.0" />
-    <PackageVersion Include="WolverineFx.Marten" Version="6.19.0" />
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.19.0" />
+    <!-- WolverineFx pinned at 6.17.0 (NOT the Dependabot-proposed 6.19.0 / this
+         group's 6.18.0): both 6.18.0 and 6.19.0 regress Wolverine's Marten
+         transactional middleware for a synchronously-dispatched command
+         (bus.InvokeForTenantAsync) — the handler runs to completion and
+         returns its response normally, but the bracketing IDocumentSession is
+         never committed (no SaveChangesAsync SQL is ever issued), so every
+         event append / document Store / idempotency marker Insert the handler
+         staged is silently dropped. Confirmed by bisection: pinning only
+         Marten at 9.15.4 while stepping WolverineFx 6.17.0 -> 6.18.0 flips
+         AdaptationOrchestrationIntegrationTests from 18/18 passing to 17/18
+         failing, with zero other package changes. Source diff between
+         V6.17.3 and V6.18.0 is small (naming-only HandlerChain/HandlerGraph
+         fix for GH-3399, an opt-in managed-distribution daemon validator for
+         GH-3388, and the GH-3408 envelope-header-spoof fix), none of which
+         obviously explain a dropped commit — needs an upstream issue filed
+         against JasperFx/wolverine before taking either bump. Re-evaluate
+         this pin whenever WolverineFx ships a release past 6.19.0 that
+         addresses it. -->
+    <PackageVersion Include="WolverineFx" Version="6.17.0" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.17.0" />
+    <PackageVersion Include="WolverineFx.Marten" Version="6.17.0" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.17.0" />
     <!-- Observability — OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
