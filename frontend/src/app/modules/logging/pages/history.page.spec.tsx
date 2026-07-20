@@ -88,6 +88,16 @@ describe('HistoryPage', () => {
     vi.clearAllMocks()
   })
 
+  it('renders the LOG BOOK header and mono sub-label', () => {
+    setQueryState({ data: dataOf(page([])) })
+    renderPage()
+
+    // Uppercase is CSS-only (`.t-screen-title` / `.t-data-label`); textContent
+    // reflects the sentence-case source strings.
+    expect(screen.getByRole('heading', { level: 1, name: 'Log book' })).toBeInTheDocument()
+    expect(screen.getByText('Every split on record')).toBeInTheDocument()
+  })
+
   it('shows a loading state while the first page is in flight', () => {
     setQueryState({ isLoading: true })
     renderPage()
@@ -117,7 +127,7 @@ describe('HistoryPage', () => {
     // The three logs span one ISO week split across two pages — single header.
     const headers = screen.getAllByTestId('workout-history-week-header')
     expect(headers).toHaveLength(1)
-    expect(headers[0]).toHaveTextContent('Week of Jun 1, 2026')
+    expect(headers[0]).toHaveTextContent('Week of Jun 1')
   })
 
   it('shows "Load older" when more pages exist and calls fetchNextPage on click', async () => {

@@ -200,6 +200,21 @@ export const PAIRS: readonly Pair[] = [
   // token, NOT the border-accent --warning — raw --warning (--alp-amber)
   // measures only ~1.8:1 on the light card. This asserts the gated text token.
   { label: '--warning-text on --card', fg: 'warning-text', bg: 'card', threshold: 4.5 },
+  // LOG BOOK ledger-row status-tag colours: Completed/Partial/Skipped tags
+  // render directly on the page `--background` (not a card fill), in
+  // `--positive`/`--warning-text`/`--danger-text` respectively — asserted
+  // distinctly from the card-backed `--warning-text` pair above. Plain
+  // `--warning` and `--destructive` are deliberately not substituted: they
+  // fail AA on `--background` (`--warning` ~1.97 light; `--destructive`
+  // ~4.21 dark / ~3.88 light).
+  { label: '--positive on --background', fg: 'positive', bg: 'background', threshold: 4.5 },
+  {
+    label: '--warning-text on --background',
+    fg: 'warning-text',
+    bg: 'background',
+    threshold: 4.5,
+  },
+  { label: '--danger-text on --background', fg: 'danger-text', bg: 'background', threshold: 4.5 },
   // Non-text UI pairs — WCAG SC 1.4.11, 3:1. --ring and --input are checked
   // against --background, the surface they border. --input is the resting
   // boundary of an empty form field (see the header comment) and must stay

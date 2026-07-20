@@ -13,15 +13,18 @@
 
 import type { WorkoutLogDto } from '~/api/generated'
 import { monthLabel } from './history-format.helpers'
+import { computeWeekAggregate, type WeekAggregate } from './week-aggregate.helpers'
 
 /** A single ISO-week bucket of logs for the history surface. */
 export interface WorkoutHistoryWeekGroup {
   /** ISO `YYYY-MM-DD` of the week's Monday — stable React key + bucket id. */
   weekStartIso: string
-  /** Display header, e.g. `"Week of Jun 1, 2026"`. */
+  /** Display header, e.g. `"Week of Jun 1"`. */
   label: string
   /** Logs in this week, newest-first. */
   logs: WorkoutLogDto[]
+  /** The week's distance + run/skip summary (spec § 4.2). */
+  aggregate: WeekAggregate
 }
 
 /** Parses an ISO `YYYY-MM-DD` string as a local-calendar date (never UTC). */
@@ -45,8 +48,12 @@ export const getIsoWeekStart = (date: Date): Date => {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() - mondayOffset)
 }
 
+// Source stays title-case (e.g. "Week of Jun 1") — the caller's `uppercase`
+// CSS class is what renders the all-caps "WEEK OF …" presentation. The year
+// is dropped: the ledger is always browsing recent history, where the month
+// + day already disambiguate (spec § 4.2 / DEC-089 D5).
 const formatWeekOfLabel = (weekStart: Date): string =>
-  `Week of ${monthLabel(weekStart.getMonth())} ${weekStart.getDate()}, ${weekStart.getFullYear()}`
+  `Week of ${monthLabel(weekStart.getMonth())} ${weekStart.getDate()}`
 
 /**
  * Groups a flat log list into ISO-week buckets, newest week first, with
@@ -75,6 +82,7 @@ export const groupLogsByIsoWeek = (logs: readonly WorkoutLogDto[]): WorkoutHisto
         weekStartIso,
         label: formatWeekOfLabel(weekStart),
         logs: [entry],
+        aggregate: { distanceMeters: 0, runCount: 0, skipCount: 0 },
       })
     } else {
       existing.logs.push(entry)
@@ -82,6 +90,9 @@ export const groupLogsByIsoWeek = (logs: readonly WorkoutLogDto[]): WorkoutHisto
   }
 
   // `Map` preserves insertion order; sorted desc ⇒ groups + members are
-  // newest-first.
-  return [...groups.values()]
+  // newest-first. Aggregates are derived from each group's final `logs` list.
+  return [...groups.values()].map((group) => ({
+    ...group,
+    aggregate: computeWeekAggregate(group.logs),
+  }))
 }

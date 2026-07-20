@@ -19,7 +19,7 @@ describe('WorkoutHistoryList', () => {
     render(<WorkoutHistoryList logs={[log('2026-06-08'), log('2026-06-07'), log('2026-05-31')]} />)
 
     const headers = screen.getAllByTestId('workout-history-week-header').map((h) => h.textContent)
-    expect(headers).toEqual(['Week of Jun 8, 2026', 'Week of Jun 1, 2026', 'Week of May 25, 2026'])
+    expect(headers).toEqual(['Week of Jun 8', 'Week of Jun 1', 'Week of May 25'])
     expect(screen.getAllByTestId('workout-history-entry')).toHaveLength(3)
   })
 
@@ -31,10 +31,18 @@ describe('WorkoutHistoryList', () => {
     render(<WorkoutHistoryList logs={[...page1, ...page2]} />)
 
     const headers = screen.getAllByTestId('workout-history-week-header').map((h) => h.textContent)
-    expect(headers).toEqual(['Week of Jun 1, 2026', 'Week of May 25, 2026'])
+    expect(headers).toEqual(['Week of Jun 1', 'Week of May 25'])
 
-    const firstWeek = screen.getByRole('region', { name: 'Week of Jun 1, 2026' })
+    const firstWeek = screen.getByRole('region', { name: 'Week of Jun 1' })
     expect(within(firstWeek).getAllByTestId('workout-history-entry')).toHaveLength(3)
+  })
+
+  it('renders the week aggregate summary alongside the header', () => {
+    render(<WorkoutHistoryList logs={[log('2026-06-07'), log('2026-06-03')]} />)
+
+    const aggregate = screen.getByTestId('workout-history-week-aggregate')
+    // Both fixtures are Complete, 5000 m each -> 10.0 km, 2 runs, no skips.
+    expect(aggregate).toHaveTextContent('10.0 km · 2 RUNS')
   })
 
   it('renders nothing visible for an empty log list', () => {

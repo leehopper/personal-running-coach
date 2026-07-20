@@ -5,7 +5,11 @@ import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Toaster } from '@/components/ui/sonner'
-import type { CreateWorkoutLogRequest, StructuredLogDraft } from '~/api/generated'
+import type {
+  CreateWorkoutLogRequest,
+  PrescribedWorkoutDto,
+  StructuredLogDraft,
+} from '~/api/generated'
 import { PreferredUnits } from '~/api/generated'
 import { METERS_PER_MILE } from '~/modules/common/utils/unit-format.helpers'
 import type { UsePreferredUnitsResolutionReturn } from '~/modules/settings/hooks/use-preferred-units.hooks'
@@ -20,6 +24,7 @@ const {
   reportClientErrorMock,
   preferredUnitsResolutionMock,
   refetchUnitsMock,
+  useGetPrescribedWorkoutQueryMock,
 } = vi.hoisted(() => {
   const createWorkoutLogUnwrap = vi.fn()
   return {
@@ -34,6 +39,9 @@ const {
     reportClientErrorMock: vi.fn(),
     preferredUnitsResolutionMock: vi.fn<() => UsePreferredUnitsResolutionReturn>(),
     refetchUnitsMock: vi.fn(),
+    // Mockable per-test so we can verify LogForm's wiring of the banner (date/units
+    // threading) in addition to the default hidden-banner case most tests want.
+    useGetPrescribedWorkoutQueryMock: vi.fn(),
   }
 })
 
@@ -51,6 +59,12 @@ const unitsResolution = (
 
 vi.mock('~/api/workout-log.api', () => ({
   useCreateWorkoutLogMutation: () => [createWorkoutLogTrigger, mutationStateRef],
+  // The form now mounts `PrescribedBanner` (via `LogForm`), which calls this
+  // hook directly. Defaults to a hidden banner (see beforeEach) — most tests
+  // don't care about it; its own rendering behavior is covered by
+  // `prescribed-banner.component.spec.tsx`. The wiring itself (that `LogForm`
+  // threads the watched date/units into it) is covered below.
+  useGetPrescribedWorkoutQuery: (date: string) => useGetPrescribedWorkoutQueryMock(date),
 }))
 
 vi.mock('~/error-boundary/report-client-error', () => ({
@@ -108,6 +122,13 @@ describe('LogPage', () => {
     // Default: preference resolved to Kilometers (the common case). Individual
     // tests override for Miles / still-loading / errored.
     preferredUnitsResolutionMock.mockReturnValue(unitsResolution())
+    // Default: no prescription for the target date, keeping the banner hidden
+    // across tests that don't exercise it. Overridden below for the banner-wiring test.
+    useGetPrescribedWorkoutQueryMock.mockReturnValue({
+      currentData: null,
+      isLoading: false,
+      isError: false,
+    })
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-00000000abcd')
   })
 
@@ -133,6 +154,81 @@ describe('LogPage', () => {
     expect(dateInput.value).toBe(toIsoDateOnly(new Date()))
   })
 
+  it('pins the /log chrome copy verbatim: header, sub-copy, notes helper, placeholder, submit label (DU-7)', () => {
+    renderPage()
+
+    // Accessible name is the sentence-case textContent — `.t-screen-title`
+    // applies the visual caps via CSS, which doesn't change the DOM text.
+    expect(screen.getByRole('heading', { level: 1, name: 'Log run' })).toBeInTheDocument()
+    // EM DASH (U+2014).
+    expect(
+      screen.getByText(
+        'Record what you actually ran — the plan adapts to the truth, not the intention.',
+      ),
+    ).toBeInTheDocument()
+    // EM DASH (U+2014).
+    expect(
+      screen.getByText(
+        'What actually happened — especially where it differed from the plan. The coach adapts to what you write here.',
+      ),
+    ).toBeInTheDocument()
+    // Ellipsis (U+2026), not three periods.
+    expect(
+      screen.getByPlaceholderText(
+        'Cut to 3 reps, moved to the treadmill, calf felt tight on the last k…',
+      ),
+    ).toBeInTheDocument()
+    // The Button primitive CSS-uppercases its label; source stays sentence case.
+    expect(screen.getByRole('button', { name: 'Save run' })).toBeInTheDocument()
+  })
+
+  it('shows the live pace preview once distance and duration are filled (5 km / 30 min -> 06:00/km)', async () => {
+    const { user } = renderPage()
+    await fillCoreFields(user)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('log-derived-pace')).toHaveTextContent('06:00/km'),
+    )
+  })
+
+  it('hides the pace preview for blank distance, both before typing and after clearing (never NaN/00:00)', async () => {
+    const { user } = renderPage()
+    // Distance/duration are both blank on mount — no preview yet.
+    expect(screen.queryByTestId('log-derived-pace')).toBeNull()
+
+    await fillCoreFields(user)
+    await waitFor(() => expect(screen.getByTestId('log-derived-pace')).toBeInTheDocument())
+
+    await user.clear(screen.getByLabelText('Distance (km)'))
+    await waitFor(() => expect(screen.queryByTestId('log-derived-pace')).toBeNull())
+  })
+
+  it('renders PrescribedBanner inside the real form wired to the watched date/units, and re-queries on date change', async () => {
+    const prescribed: PrescribedWorkoutDto = {
+      workoutType: 'Tempo',
+      distanceMeters: 9000,
+      durationSeconds: 2400,
+      paceFastSecPerKm: 240,
+      paceEasySecPerKm: 270,
+    }
+    useGetPrescribedWorkoutQueryMock.mockReturnValue({
+      currentData: prescribed,
+      isLoading: false,
+      isError: false,
+    })
+    renderPage()
+
+    const today = toIsoDateOnly(new Date())
+    expect(useGetPrescribedWorkoutQueryMock).toHaveBeenCalledWith(today)
+    expect(screen.getByTestId('prescribed-banner')).toHaveTextContent(
+      'Prescribed — Threshold run · 9.0 km · 04:00–04:30/km',
+    )
+
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-06-20' } })
+
+    await waitFor(() => expect(useGetPrescribedWorkoutQueryMock).toHaveBeenCalledWith('2026-06-20'))
+  })
+
   it('shows an inline role=alert error for a missing distance and does not submit', async () => {
     renderPage()
     const form = document.querySelector('form') as HTMLFormElement
@@ -156,7 +252,11 @@ describe('LogPage', () => {
       durationSeconds: 1800,
       completionStatus: 0,
     })
-    expect(await screen.findByText('Workout logged')).toBeInTheDocument()
+    // Exact glyph-pinned copy (DU-7): EM DASH (U+2014) + "5.0 km" under the
+    // default km preference and a 5000m submit. Source is sentence case; the
+    // toast's `className: 'uppercase'` renders it capitalized via CSS, which
+    // does not change the DOM text this query matches against.
+    expect(await screen.findByText('Run logged — 5.0 km')).toBeInTheDocument()
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/', { replace: true }))
   })
 
@@ -193,7 +293,10 @@ describe('LogPage', () => {
     await fillCoreFields(user)
     await clickSave(user)
 
-    expect(await screen.findByTestId('log-form-alert')).toHaveTextContent(/could not save/i)
+    // Exact glyph-pinned copy (DU-7): curly apostrophe (U+2019).
+    expect(await screen.findByTestId('log-form-alert')).toHaveTextContent(
+      'Couldn’t save. Nothing lost.',
+    )
     expect(navigateMock).not.toHaveBeenCalled()
     // The handled rejection is invisible to the global reporter + error boundary,
     // so the submit handler forwards it explicitly (keeps backend failures observable).

@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react'
 
 import { PreferredUnits, type WorkoutLogDto } from '~/api/generated'
-import { WorkoutLogEntry } from './workout-log-entry.component'
+import { LedgerRow } from './ledger-row.component'
+import { formatWeekAggregate } from './week-aggregate.helpers'
 import { groupLogsByIsoWeek } from './week-grouping.helpers'
 
 export interface WorkoutHistoryListProps {
@@ -31,17 +32,25 @@ export const WorkoutHistoryList = ({
   return (
     <div data-testid="workout-history-list" className="flex flex-col gap-8">
       {weeks.map((week) => (
-        <section key={week.weekStartIso} aria-label={week.label} className="flex flex-col gap-3">
-          <h2
-            data-testid="workout-history-week-header"
-            className="text-sm font-semibold uppercase tracking-wide text-muted-foreground"
-          >
-            {week.label}
-          </h2>
-          <ul className="flex flex-col gap-3">
+        <section key={week.weekStartIso} aria-label={week.label} className="flex flex-col gap-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2
+              data-testid="workout-history-week-header"
+              className="t-section-label uppercase text-muted-foreground"
+            >
+              {week.label}
+            </h2>
+            <span
+              data-testid="workout-history-week-aggregate"
+              className="t-data-label uppercase text-muted-foreground"
+            >
+              {formatWeekAggregate(week.aggregate, units)}
+            </span>
+          </div>
+          <ul className="flex flex-col">
             {week.logs.map((log) => (
               <li key={log.workoutLogId}>
-                <WorkoutLogEntry log={log} units={units} />
+                <LedgerRow log={log} units={units} />
               </li>
             ))}
           </ul>

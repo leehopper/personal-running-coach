@@ -453,9 +453,9 @@ describe('runChecks (against the committed index.css)', () => {
     }
   })
 
-  it('reports 44 results (22 pairs × 2 modes), all passing', () => {
+  it('reports 50 results (25 pairs × 2 modes), all passing', () => {
     const results = runChecks(readFileSync(realIndexCssPath, 'utf8'))
-    expect(results).toHaveLength(44)
+    expect(results).toHaveLength(50)
     for (const result of results) {
       expect(result.passed).toBe(true)
     }
@@ -491,7 +491,7 @@ describe('check-contrast script (integration)', () => {
   it('exits 0 and reports all pairs passing against the committed tokens', () => {
     const { status, stdout } = runGate()
     expect(status).toBe(0)
-    expect(stdout).toContain('all 44 pairs pass WCAG thresholds')
+    expect(stdout).toContain('all 50 pairs pass WCAG thresholds')
   }, 30000)
 
   it('exits non-zero and names the failing pair + ratio on stderr when a token regresses', () => {

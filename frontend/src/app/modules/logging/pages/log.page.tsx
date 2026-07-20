@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { PreferredUnits, type StructuredLogDraft } from '~/api/generated'
 import { useCreateWorkoutLogMutation } from '~/api/workout-log.api'
 import { reportClientError } from '~/error-boundary/report-client-error'
-import { distanceUnitLabel } from '~/modules/common/utils/unit-format.helpers'
+import { distanceUnitLabel, formatDistanceMeters } from '~/modules/common/utils/unit-format.helpers'
 import { LogForm } from '~/modules/logging/components/log-form.component'
 import { draftToWorkoutLogFormFields } from '~/modules/logging/draft-to-form.helpers'
 import {
@@ -79,9 +79,19 @@ const WorkoutLogFormView = ({ units, editDraft }: WorkoutLogFormViewProps) => {
 
   const onSubmit = async (values: WorkoutLogFormValues): Promise<void> => {
     setFormAlert(null)
+    // Built once so the success toast's distance readout is derived from the
+    // EXACT payload that shipped (not re-derived from form state, which could
+    // in principle drift from the sent request).
+    const request = toCreateWorkoutLogRequest(values, idempotencyKey, units)
     try {
-      await createWorkoutLog(toCreateWorkoutLogRequest(values, idempotencyKey, units)).unwrap()
-      toast.success('Workout logged')
+      await createWorkoutLog(request).unwrap()
+      // Source copy stays sentence case; `className: 'uppercase'` sets the
+      // toast's outer classname (sonner applies it to the wrapping <li>), which
+      // cascades `text-transform: uppercase` onto the title text — the toast
+      // renders capitalized without baking that casing into the stored string.
+      toast.success(`Run logged — ${formatDistanceMeters(request.distanceMeters, units) ?? '…'}`, {
+        className: 'uppercase',
+      })
       navigate('/', { replace: true })
     } catch (error) {
       // The awaited `.unwrap()` rejection is a *handled* rejection, so neither
@@ -93,7 +103,7 @@ const WorkoutLogFormView = ({ units, editDraft }: WorkoutLogFormViewProps) => {
         kind: 'unhandled-rejection',
         error: error instanceof Error ? error : new Error(String(error)),
       })
-      setFormAlert('We could not save your workout. Please try again in a moment.')
+      setFormAlert('Couldn’t save. Nothing lost.')
     }
   }
 
@@ -104,6 +114,7 @@ const WorkoutLogFormView = ({ units, editDraft }: WorkoutLogFormViewProps) => {
       isLoading={isLoading}
       formAlert={formAlert}
       distanceLabel={`Distance (${distanceUnitLabel(units)})`}
+      units={units}
     />
   )
 }
@@ -194,8 +205,10 @@ const LogPage = () => {
       data-testid="log-page"
     >
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-foreground">Log a workout</h1>
-        <p className="text-sm text-muted-foreground">Record what you actually ran.</p>
+        <h1 className="t-screen-title text-foreground">Log run</h1>
+        <p className="text-sm text-muted-foreground">
+          Record what you actually ran — the plan adapts to the truth, not the intention.
+        </p>
       </header>
       <LogPageContent
         units={units}
