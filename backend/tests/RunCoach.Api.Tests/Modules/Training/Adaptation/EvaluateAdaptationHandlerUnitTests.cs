@@ -107,7 +107,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         harness.Session.DidNotReceiveWithAnyArgs().Store(Arg.Any<AdaptationSignalStateDocument>());
         harness.Idempotency.Received(1).Record(
             cmd.WorkoutLogId,
-            Arg.Is<AdaptationResponseDto>(r => r.Kind == AdaptationResponseKind.Adapted));
+            Arg.Is<AdaptationResponseDto>(r => r != null && r.Kind == AdaptationResponseKind.Adapted));
     }
 
     [Fact]
@@ -193,7 +193,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
 
         // ...but the signal-state document still advances, keyed by the plan.
         harness.Session.Received(1).Store(Arg.Is<AdaptationSignalStateDocument>(d =>
-            d.PlanId == PlanId && d.ToState() == expectedNextState));
+            d != null && d.PlanId == PlanId && d.ToState() == expectedNextState));
         harness.Idempotency.Received(1).Record(cmd.WorkoutLogId, Arg.Any<AdaptationResponseDto>());
     }
 
@@ -482,7 +482,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
 
         // The absorb's signal-state advance and marker choreography are unchanged.
         harness.Session.Received(1).Store(Arg.Is<AdaptationSignalStateDocument>(d =>
-            d.PlanId == PlanId && d.ToState() == nextState));
+            d != null && d.PlanId == PlanId && d.ToState() == nextState));
         harness.Idempotency.Received(1).Record(cmd.WorkoutLogId, Arg.Any<AdaptationResponseDto>());
     }
 
@@ -903,7 +903,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
             Arg.Any<CacheControl?>(),
             Arg.Any<CancellationToken>());
         harness.Session.Received(1).Store(Arg.Is<AdaptationSignalStateDocument>(d =>
-            d.PlanId == PlanId && d.ToState() == nextState));
+            d != null && d.PlanId == PlanId && d.ToState() == nextState));
         harness.Idempotency.Received(1).Record(cmd.WorkoutLogId, Arg.Any<AdaptationResponseDto>());
     }
 
@@ -945,7 +945,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         var expectedState = AdaptationSignalState.Create(
             PlanState.NeedsAdjustment, 2.0, 1, deviation.OccurredOn);
         harness.Session.Received(1).Store(Arg.Is<AdaptationSignalStateDocument>(d =>
-            d.PlanId == PlanId && d.ToState() == expectedState));
+            d != null && d.PlanId == PlanId && d.ToState() == expectedState));
     }
 
     [Fact]
@@ -1415,7 +1415,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
                 .When(events => events.Append(Arg.Any<Guid>(), Arg.Any<object[]>()))
                 .Do(callInfo =>
                 {
-                    foreach (var evt in callInfo.Arg<object[]>())
+                    foreach (var evt in callInfo.Arg<object[]>() ?? [])
                     {
                         Appended.Add((callInfo.Arg<Guid>(), evt));
                     }

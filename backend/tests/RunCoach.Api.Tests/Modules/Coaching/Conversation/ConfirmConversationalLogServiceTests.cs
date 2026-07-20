@@ -60,7 +60,8 @@ public sealed class ConfirmConversationalLogServiceTests
         await deps.WorkoutLogService.Received(1).CreateAsync(
             UserId,
             Arg.Is<CreateWorkoutLogRequestDto>(r =>
-                r.IdempotencyKey == expectedKey
+                r != null
+                && r.IdempotencyKey == expectedKey
                 && Math.Abs(r.DistanceMeters - 5000) < 0.0001
                 && Math.Abs(r.DurationSeconds - 1500) < 0.0001),
             Arg.Any<CancellationToken>());
