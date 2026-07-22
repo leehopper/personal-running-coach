@@ -67,6 +67,20 @@ public sealed record CoachingLlmSettings
     public int MicroValidationMaxRetries { get; init; } = 1;
 
     /// <summary>
+    /// Gets the maximum number of times the horizon-extension meso tier
+    /// (<c>PlanGenerationService.GenerateWeekAsync</c>) is re-invoked when its deterministic output
+    /// validator (<c>MesoWeekOutputValidator</c>) rejects the generated week template — a wrong
+    /// <c>WeekNumber</c> or a week with no run day (DEC-090). <c>MesoValidationMaxRetries = N</c>
+    /// means up to <c>N + 1</c> meso attempts before the extension call is terminally rejected —
+    /// mirroring <see cref="MacroValidationMaxRetries"/>'s own semantics. Governs only the new
+    /// rolling-horizon extension path; the bootstrap meso loop in
+    /// <c>PlanGenerationService.GeneratePlanAsync</c> has no validator and is unaffected. Defaults to
+    /// 1 (2 attempts); raise it to trade worst-case extension latency for resilience against
+    /// back-to-back stochastic rejections without a redeploy.
+    /// </summary>
+    public int MesoValidationMaxRetries { get; init; } = 1;
+
+    /// <summary>
     /// Gets the SDK per-attempt request timeout in seconds. Defaults to 120 seconds (2 minutes):
     /// this single setting governs every coaching call, and the plan-generation structured-output
     /// responses routinely need far longer than the ~30s DEC-073 sketched for the adaptation call
