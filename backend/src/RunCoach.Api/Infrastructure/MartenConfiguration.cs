@@ -70,6 +70,7 @@ public static class MartenConfiguration
         typeof(PlanGenerated),
         typeof(MesoCycleCreated),
         typeof(FirstMicroCycleCreated),
+        typeof(MicroCycleCreated),
         typeof(PlanAdaptedFromLog),
         typeof(SafetySignalRaised),
         typeof(ClientErrorReported),

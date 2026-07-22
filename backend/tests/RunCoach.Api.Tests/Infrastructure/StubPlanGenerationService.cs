@@ -53,6 +53,23 @@ public sealed class StubPlanGenerationService : IPlanGenerationService
             previousPlanId));
     }
 
+    public Task<WeekGenerationResult> GenerateWeekAsync(
+        OnboardingView profileSnapshot,
+        Guid userId,
+        Guid planId,
+        MacroPlanOutput macro,
+        DateOnly planStartDate,
+        DateOnly? targetEventDate,
+        int targetWeekIndex,
+        MesoWeekOutput? existingMesoWeek,
+        CancellationToken ct)
+    {
+        throw new NotSupportedException(
+            "GenerateWeekAsync (the rolling-horizon extension seam, DEC-090) is not driven through " +
+            "the Wolverine bus until PR2; this stub covers only the bootstrap/regenerate flows " +
+            "exercised via GeneratePlanAsync.");
+    }
+
     /// <summary>
     /// Returns the canonical Slice 1 plan-event sequence
     /// <c>[PlanGenerated, MesoCycleCreated x4, FirstMicroCycleCreated]</c>

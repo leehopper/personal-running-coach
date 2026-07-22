@@ -329,6 +329,101 @@ public sealed class PlanProjectionTests
     }
 
     [Fact]
+    public void Apply_MicroCycleCreated_PopulatesArbitraryWeekSlot()
+    {
+        // Arrange — the rolling-horizon generalization of Apply(FirstMicroCycleCreated,...):
+        // an arbitrary target week (5), not just week 1.
+        var actualDto = PlanProjection.Create(BuildPlanGenerated());
+        var expectedMicro = BuildMicro();
+        var expectedWeekKey = 5;
+
+        // Act
+        PlanProjection.Apply(new MicroCycleCreated(expectedWeekKey, expectedMicro), actualDto);
+
+        // Assert
+        actualDto.MicroWorkoutsByWeek.Should().ContainKey(expectedWeekKey);
+        actualDto.MicroWorkoutsByWeek[expectedWeekKey].Should().BeSameAs(expectedMicro);
+    }
+
+    [Fact]
+    public void Apply_MicroCycleCreated_ReApply_ReplacesExistingEntry()
+    {
+        // Arrange — a re-projection that re-applies the same week index keeps the slot count
+        // stable and uses the latest payload, mirroring FirstMicroCycleCreated's idempotent-replay
+        // semantics.
+        var actualDto = PlanProjection.Create(BuildPlanGenerated());
+        var expectedWeekKey = 5;
+        var expectedSlotCount = 1;
+        var expectedReplacementMicro = BuildMicro();
+        PlanProjection.Apply(new MicroCycleCreated(expectedWeekKey, BuildMicro()), actualDto);
+
+        // Act
+        PlanProjection.Apply(new MicroCycleCreated(expectedWeekKey, expectedReplacementMicro), actualDto);
+
+        // Assert
+        actualDto.MicroWorkoutsByWeek.Should().HaveCount(expectedSlotCount);
+        actualDto.MicroWorkoutsByWeek[expectedWeekKey].Should().BeSameAs(expectedReplacementMicro);
+    }
+
+    [Fact]
+    public void Apply_MicroCycleCreated_DoesNotMutateOtherKeys()
+    {
+        // Arrange — pre-seed a different week; applying a new week must not clobber it.
+        var actualDto = PlanProjection.Create(BuildPlanGenerated());
+        var expectedRetainedWeekKey = 2;
+        var expectedRetainedMicro = BuildMicro();
+        var expectedNewlyPopulatedWeekKey = 5;
+        actualDto.MicroWorkoutsByWeek = new Dictionary<int, MicroWorkoutListOutput>
+        {
+            [expectedRetainedWeekKey] = expectedRetainedMicro,
+        };
+
+        // Act
+        PlanProjection.Apply(new MicroCycleCreated(expectedNewlyPopulatedWeekKey, BuildMicro()), actualDto);
+
+        // Assert
+        actualDto.MicroWorkoutsByWeek.Should().ContainKeys(expectedNewlyPopulatedWeekKey, expectedRetainedWeekKey);
+        actualDto.MicroWorkoutsByWeek[expectedRetainedWeekKey].Should().BeSameAs(expectedRetainedMicro);
+    }
+
+    [Fact]
+    public void Apply_MicroCycleCreated_CoexistsWithFirstMicroWeek1()
+    {
+        // Arrange — week 1 arrives via the original FirstMicroCycleCreated event (which stays
+        // forever, per DEC-090); week 2 arrives via the new generalized event. Both must land.
+        var actualDto = PlanProjection.Create(BuildPlanGenerated());
+        var expectedWeek1Micro = BuildMicro();
+        var expectedWeek2Micro = BuildMicro();
+
+        // Act
+        PlanProjection.Apply(new FirstMicroCycleCreated(expectedWeek1Micro), actualDto);
+        PlanProjection.Apply(new MicroCycleCreated(2, expectedWeek2Micro), actualDto);
+
+        // Assert
+        actualDto.MicroWorkoutsByWeek.Should().ContainKeys(1, 2);
+        actualDto.MicroWorkoutsByWeek[1].Should().BeSameAs(expectedWeek1Micro);
+        actualDto.MicroWorkoutsByWeek[2].Should().BeSameAs(expectedWeek2Micro);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Apply_MicroCycleCreated_WeekIndexLessThanOne_Throws(int invalidWeekIndex)
+    {
+        // Arrange — guard against malformed events; week indices are 1-based by spec.
+        var actualDto = PlanProjection.Create(BuildPlanGenerated());
+        var micro = BuildMicro();
+
+        // Act
+        var act = () => PlanProjection.Apply(new MicroCycleCreated(invalidWeekIndex, micro), actualDto);
+
+        // Assert
+        act.Should()
+            .Throw<ArgumentOutOfRangeException>()
+            .WithMessage("*event.WeekIndex must be 1-based*");
+    }
+
+    [Fact]
     public void FullSequence_PlanGeneratedFourMesoFirstMicro_LandsCanonicalShape()
     {
         // Arrange — the canonical Slice 1 plan event order:

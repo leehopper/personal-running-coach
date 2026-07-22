@@ -44,4 +44,21 @@ public sealed class RejectOnceThenSucceedPlanGenerationService(
 
         return _success.GeneratePlanAsync(profileSnapshot, userId, planId, intent, previousPlanId, ct);
     }
+
+    public Task<WeekGenerationResult> GenerateWeekAsync(
+        OnboardingView profileSnapshot,
+        Guid userId,
+        Guid planId,
+        MacroPlanOutput macro,
+        DateOnly planStartDate,
+        DateOnly? targetEventDate,
+        int targetWeekIndex,
+        MesoWeekOutput? existingMesoWeek,
+        CancellationToken ct)
+    {
+        throw new NotSupportedException(
+            "GenerateWeekAsync (the rolling-horizon extension seam, DEC-090) is not driven through " +
+            "the Wolverine bus until PR2; this stub covers only the bootstrap/regenerate flows " +
+            "exercised via GeneratePlanAsync.");
+    }
 }
