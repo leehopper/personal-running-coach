@@ -30,8 +30,8 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <!-- Persistence — Marten + Wolverine (event-sourcing + outbox) -->
-    <PackageVersion Include="Marten" Version="9.15.4" />
-    <PackageVersion Include="Marten.EntityFrameworkCore" Version="9.15.4" />
+    <PackageVersion Include="Marten" Version="9.18.0" />
+    <PackageVersion Include="Marten.EntityFrameworkCore" Version="9.18.0" />
     <!-- WolverineFx pinned at 6.17.0 (NOT the Dependabot-proposed 6.19.0 / this
          group's 6.18.0): both 6.18.0 and 6.19.0 regress Wolverine's Marten
          transactional middleware for a synchronously-dispatched command
@@ -50,18 +50,18 @@
          against JasperFx/wolverine before taking either bump. Re-evaluate
          this pin whenever WolverineFx ships a release past 6.19.0 that
          addresses it. -->
-    <PackageVersion Include="WolverineFx" Version="6.17.0" />
-    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.17.0" />
-    <PackageVersion Include="WolverineFx.Marten" Version="6.17.0" />
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.17.0" />
+    <PackageVersion Include="WolverineFx" Version="6.21.0" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.21.0" />
+    <PackageVersion Include="WolverineFx.Marten" Version="6.21.0" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.21.0" />
     <!-- Observability — OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
     <!-- LLM / Prompt -->
-    <PackageVersion Include="Anthropic" Version="12.35.1" />
+    <PackageVersion Include="Anthropic" Version="12.37.0" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
     <!-- Configuration (eval tests) -->
     <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.10" />
@@ -100,6 +100,6 @@
     <PackageVersion Include="xunit.v3.core.mtp-v2" Version="3.2.2" />
     <!-- Analyzers -->
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
-    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.29.0.143774" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.30.0.144632" />
   </ItemGroup>
 </Project>
