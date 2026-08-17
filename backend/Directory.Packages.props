@@ -89,6 +89,13 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" Version="2.2.2" />
     <PackageVersion Include="NSubstitute" Version="6.0.0" />
     <PackageVersion Include="Respawn" Version="7.0.0" />
+    <!-- Transitive-only pin (applied via CentralPackageTransitivePinningEnabled):
+         Testcontainers.PostgreSql pulls SSH.NET 2025.1.0, which carries the
+         high-severity advisory GHSA-q939-rpr3-3284 that NuGetAudit escalates
+         to a restore-fatal NU1903 under TreatWarningsAsErrors. 2026.0.0 is the
+         first patched release. Drop this pin once Testcontainers ships against
+         a patched SSH.NET. -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <!-- xunit.v3 meta-package brings xunit.v3.core.mtp-v1 (built against
          MTP 1.x). Use the mtp-v2 core package directly so the MicrosoftTestingPlatform
