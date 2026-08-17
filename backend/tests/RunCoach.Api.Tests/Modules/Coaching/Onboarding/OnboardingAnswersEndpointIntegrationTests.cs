@@ -123,19 +123,19 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
             expectedState,
             options => options.Excluding(x => x.CurrentPlanId),
             because: "the full response contract must match the submitted answers and the deterministic gate verdict");
-        state!.CurrentPlanId.Should().NotBeNull().And.NotBe(Guid.Empty);
+        state.CurrentPlanId.Should().NotBeNull().And.NotBe(Guid.Empty);
 
         // Assert — RunnerOnboardingProfile (EF projection) materialized identically (DEC-060).
         var profile = await LoadProfileAsync(Factory, userId, ct);
         profile.Should().NotBeNull();
-        profile!.PrimaryGoal.Should().Be(PrimaryGoal.RaceTraining);
+        profile.PrimaryGoal.Should().Be(PrimaryGoal.RaceTraining);
         profile.TargetEvent!.EventName.Should().Be("Berlin Marathon");
         profile.WeeklySchedule!.MaxRunDaysPerWeek.Should().Be(5);
         profile.CurrentPlanId.Should().Be(state.CurrentPlanId);
         profile.OnboardingCompletedAt.Should().NotBeNull();
 
         // Assert — a plan stream was actually created at the linked id.
-        (await PlanStreamExistsAsync(Factory, userId, state.CurrentPlanId!.Value, ct))
+        (await PlanStreamExistsAsync(Factory, userId, state.CurrentPlanId.Value, ct))
             .Should().BeTrue(because: "the terminal branch starts a plan stream at the linked plan id");
     }
 
@@ -207,7 +207,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
             expectedState,
             options => options.Excluding(x => x.CurrentPlanId),
             because: "the full response contract must match the submitted answers and the deterministic gate verdict");
-        state!.CurrentPlanId.Should().NotBeNull(because: "general fitness satisfies the gate without a TargetEvent slot");
+        state.CurrentPlanId.Should().NotBeNull(because: "general fitness satisfies the gate without a TargetEvent slot");
     }
 
     [Fact]
@@ -443,7 +443,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         // rejection path (F-LIVE-2, DEC-088); the controller's second catch must map it to the
         // same handled 422 as a macro rejection, with the transaction rolled back.
         await AssertPlanRejectionReturns422ThenResubmitSucceedsAsync(
-            new MesoMicroConsistencyRejectedException(MesoMicroConsistencyViolation.RunDayCountMismatch),
+            new MesoMicroConsistencyRejectedException(MesoMicroConsistencyViolation.RunDayCountMismatch, weekIndex: 1),
             TestContext.Current.CancellationToken);
     }
 
@@ -629,7 +629,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var dto = await response.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
         dto.Should().NotBeNull();
-        return dto!;
+        return dto;
     }
 
     private static HttpRequestMessage BuildRequest(HttpMethod method, string path, string antiforgeryToken)
@@ -646,7 +646,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         var requestCookie = GetCookie(container, AntiforgeryRequestCookieName);
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
         GetCookie(container, AntiforgeryCookieName).Should().NotBeNull("the framework antiforgery cookie must also be set");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(HttpClient client, CookieContainer container, string email)
@@ -658,7 +658,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         response.StatusCode.Should().Be(HttpStatusCode.Created, because: $"register helper must succeed — got {(int)response.StatusCode}");
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!.UserId;
+        return body.UserId;
     }
 
     private static async Task LoginAsync(HttpClient client, CookieContainer container, string email)

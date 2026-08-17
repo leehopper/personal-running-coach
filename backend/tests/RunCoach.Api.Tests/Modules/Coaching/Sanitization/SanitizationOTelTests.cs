@@ -69,7 +69,7 @@ public sealed class SanitizationOTelTests : IDisposable
         var span = SpanForCurrentTest(parent);
 
         span.Should().NotBeNull("the sanitizer emits a child span per call");
-        span!.GetTagItem("runcoach.sanitization.section")?.ToString()
+        span.GetTagItem("runcoach.sanitization.section")?.ToString()
             .Should().Be(PromptSection.UserProfileInjuryNote.ToString());
 
         var tags = span.TagObjects.ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -120,7 +120,7 @@ public sealed class SanitizationOTelTests : IDisposable
         var span = SpanForCurrentTest(parent);
         span.Should().NotBeNull();
 
-        var findingsTag = span!.GetTagItem("runcoach.sanitization.findings") as string;
+        var findingsTag = span.GetTagItem("runcoach.sanitization.findings") as string;
         findingsTag.Should().NotBeNullOrEmpty();
         findingsTag.Should().StartWith("[");
         findingsTag.Should().EndWith("]");

@@ -382,7 +382,7 @@ public static class TestProfiles
                 "Tempo",
                 8m,
                 (int)(8m * (decimal)paces.ThresholdPace!.Value.ToTimeSpan().TotalMinutes),
-                paces.ThresholdPace!.Value.ToTimeSpan(),
+                paces.ThresholdPace.Value.ToTimeSpan(),
                 "2km warm-up, 4km at tempo, 2km cool-down"));
 
             // Friday: easy run 6km
@@ -445,7 +445,7 @@ public static class TestProfiles
                 "Tempo",
                 12m,
                 (int)(12m * (decimal)paces.ThresholdPace!.Value.ToTimeSpan().TotalMinutes),
-                paces.ThresholdPace!.Value.ToTimeSpan(),
+                paces.ThresholdPace.Value.ToTimeSpan(),
                 "2km warm-up, 8km at tempo, 2km cool-down"));
 
             // Friday: easy recovery 6km
@@ -472,7 +472,7 @@ public static class TestProfiles
                 weekStart.AddDays(6),
                 "LongRun",
                 longRunKm,
-                (int)(longRunKm * (decimal)paces.EasyPaceRange!.Slow.ToTimeSpan().TotalMinutes),
+                (int)(longRunKm * (decimal)paces.EasyPaceRange.Slow.ToTimeSpan().TotalMinutes),
                 paces.EasyPaceRange.Slow.ToTimeSpan(),
                 null));
         }
@@ -557,7 +557,7 @@ public static class TestProfiles
                 "Tempo",
                 12m,
                 (int)(12m * (decimal)paces.ThresholdPace!.Value.ToTimeSpan().TotalMinutes),
-                paces.ThresholdPace!.Value.ToTimeSpan(),
+                paces.ThresholdPace.Value.ToTimeSpan(),
                 "3km warm-up, 6km at tempo, 3km cool-down"));
 
             // Saturday: intervals or marathon pace 14km (alternating weeks)

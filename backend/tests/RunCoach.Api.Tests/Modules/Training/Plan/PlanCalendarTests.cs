@@ -60,7 +60,7 @@ public sealed class PlanCalendarTests
 
         // Assert
         actualSlot.Should().NotBeNull();
-        actualSlot!.Value.WeekNumber.Should().Be(expectedWeek);
+        actualSlot.Value.WeekNumber.Should().Be(expectedWeek);
         actualSlot.Value.DayOfWeek.Should().Be(expectedDay);
     }
 

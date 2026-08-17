@@ -86,7 +86,7 @@ public class StructuredOutputTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.EnumerateDays().Should().HaveCount(7);
+        actual.EnumerateDays().Should().HaveCount(7);
         actual.Should().BeEquivalentTo(expected);
     }
 

@@ -1036,7 +1036,7 @@ public class ContextAssemblerTests
 
         // Layer 2 format uses "Week of YYYY-MM-DD:" prefix (weekly summary format),
         // while Layer 1 uses per-workout detail "YYYY-MM-DD | WorkoutType |..."
-        historySection!.Content.Should().Contain(
+        historySection.Content.Should().Contain(
             "Week of",
             because: "Step 1 reduces to Layer 2 weekly summaries");
     }
@@ -1267,7 +1267,7 @@ public class ContextAssemblerTests
         // Layer 1 per-workout detail contains pipe-separated fields like "Easy | 7 km"
         // Layer 2 weekly summary contains "Week of" prefix
         // When no cascade, recent workouts should be in Layer 1 format
-        historySection!.Content.Should().Contain(
+        historySection.Content.Should().Contain(
             " | ",
             because: "without overflow cascade, recent training history uses Layer 1 per-workout detail");
     }

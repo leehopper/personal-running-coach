@@ -60,7 +60,7 @@ public sealed class ClaudeCoachingLlmModelBindingTests
 
         // Assert
         captured.Value.Should().NotBeNull();
-        captured.Value!.Model.ToString().Should().Contain("claude-haiku-4-5");
+        captured.Value.Model.ToString().Should().Contain("claude-haiku-4-5");
         captured.Value.Model.ToString().Should().NotContain("sonnet");
     }
 
@@ -82,7 +82,7 @@ public sealed class ClaudeCoachingLlmModelBindingTests
 
         // Assert
         captured.Value.Should().NotBeNull();
-        captured.Value!.Model.ToString().Should().Contain(DefaultSettings.ModelId);
+        captured.Value.Model.ToString().Should().Contain(DefaultSettings.ModelId);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class ClaudeCoachingLlmModelBindingTests
 
         // Assert
         captured.Value.Should().NotBeNull();
-        captured.Value!.Model.ToString().Should().Contain(DefaultSettings.ModelId);
+        captured.Value.Model.ToString().Should().Contain(DefaultSettings.ModelId);
     }
 
     private static Message BuildTextResponse(string text)

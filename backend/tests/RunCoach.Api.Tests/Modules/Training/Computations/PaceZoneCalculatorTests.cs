@@ -69,7 +69,7 @@ public class PaceZoneCalculatorTests
         var result = _sut.CalculatePaces(50m);
 
         result.EasyPaceRange.Should().NotBeNull();
-        result.EasyPaceRange!.Fast.IsFasterThan(result.EasyPaceRange.Slow).Should().BeTrue(
+        result.EasyPaceRange.Fast.IsFasterThan(result.EasyPaceRange.Slow).Should().BeTrue(
             because: "the Fast bound must always be faster (lower sec/km) than the Slow bound");
     }
 
@@ -89,10 +89,10 @@ public class PaceZoneCalculatorTests
         result.ThresholdPace.Should().NotBeNull();
         result.IntervalPace.Should().NotBeNull();
 
-        var easySlow = result.EasyPaceRange!.Slow;
+        var easySlow = result.EasyPaceRange.Slow;
         var easyFast = result.EasyPaceRange.Fast;
-        var threshold = result.ThresholdPace!.Value;
-        var interval = result.IntervalPace!.Value;
+        var threshold = result.ThresholdPace.Value;
+        var interval = result.IntervalPace.Value;
 
         easySlow.IsSlowerThan(easyFast).Should().BeTrue(
             because: $"Easy.Slow must be slower than Easy.Fast at index {index}");

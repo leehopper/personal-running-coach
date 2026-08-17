@@ -185,7 +185,7 @@ public class ClientErrorsControllerIntegrationTests(RunCoachAppFactory factory)
         var actualProblem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
             cancellationToken: TestContext.Current.CancellationToken);
         actualProblem.Should().NotBeNull();
-        actualProblem!.Type.Should().Be(
+        actualProblem.Type.Should().Be(
             "https://runcoach.app/problems/invalid-client-error-kind",
             because: "the controller's Enum.IsDefined gate must surface the canonical problem type URI");
     }
@@ -214,7 +214,7 @@ public class ClientErrorsControllerIntegrationTests(RunCoachAppFactory factory)
         var actualProblem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
             cancellationToken: TestContext.Current.CancellationToken);
         actualProblem.Should().NotBeNull();
-        actualProblem!.Type.Should().Be(
+        actualProblem.Type.Should().Be(
             "https://runcoach.app/problems/missing-user-claim",
             because: "the controller's TryGetUserId branch must surface the canonical missing-user-claim URI");
     }
@@ -388,7 +388,7 @@ public class ClientErrorsControllerIntegrationTests(RunCoachAppFactory factory)
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
         GetCookie(container, AntiforgeryCookieName).Should().NotBeNull(
             "the framework antiforgery cookie must also be set");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(
@@ -404,7 +404,7 @@ public class ClientErrorsControllerIntegrationTests(RunCoachAppFactory factory)
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!.UserId;
+        return body.UserId;
     }
 
     private static async Task LoginAsync(

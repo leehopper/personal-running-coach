@@ -435,7 +435,7 @@ public sealed class ConfirmConversationalLogEndpointIntegrationTests : DbBackedI
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         var requestCookie = GetCookie(container, AuthCookieNames.AntiforgeryRequest);
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(

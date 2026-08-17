@@ -34,6 +34,10 @@ public sealed class PlanGenerationServiceTests
 
     private static readonly DateTimeOffset Now = new(2026, 4, 25, 12, 0, 0, TimeSpan.Zero);
 
+    // A plausible fixed plan-start anchor for the GenerateWeekAsync (DEC-090) tests — the extension
+    // seam takes the plan's real anchor as a parameter rather than deriving it from "today".
+    private static readonly DateOnly HorizonPlanStartDate = new(2026, 4, 19);
+
     // Phase-week shapes for the macro validation tests (CA1861: hoisted to static fields
     // so the repeated BuildMacroWithTotalWeeks calls do not allocate a fresh array each time).
     private static readonly int[] NineWeekPhaseWeeks = [5, 4];
@@ -272,7 +276,7 @@ public sealed class PlanGenerationServiceTests
         capturedCacheControls.Should().AllSatisfy(c =>
         {
             c.Should().NotBeNull();
-            c!.Type.Should().Be("ephemeral");
+            c.Type.Should().Be("ephemeral");
             c.Ttl.Should().Be("1h");
         });
         capturedCacheControls.Should().AllBeEquivalentTo(CacheControl.Ephemeral1h);
@@ -405,7 +409,7 @@ public sealed class PlanGenerationServiceTests
             .FirstOrDefault(a => a.OperationName == PlanGenerationService.PlanGenerationActivityName);
         parentSpan.Should().NotBeNull(
             because: $"`{PlanGenerationService.PlanGenerationActivityName}` must wrap the whole chain");
-        parentSpan!.Status.Should().Be(ActivityStatusCode.Error);
+        parentSpan.Status.Should().Be(ActivityStatusCode.Error);
         parentSpan.Events.Should().Contain(
             e => e.Name == "exception",
             because: "`Activity.AddException` records an `ActivityEvent` named `exception` per BCL");
@@ -1204,7 +1208,7 @@ public sealed class PlanGenerationServiceTests
         var micro = new MicroWorkoutListOutput { Workouts = Array.Empty<WorkoutOutput>() };
 
         // Act
-        var correction = PlanGenerationService.BuildMicroCorrection(meso, micro);
+        var correction = PlanGenerationService.BuildMicroCorrection(meso, micro, weekIndex: 1);
 
         // Assert
         correction.Should().Contain(PlanGenerationService.MicroCorrectionLabel);
@@ -1242,7 +1246,7 @@ public sealed class PlanGenerationServiceTests
         };
 
         // Act
-        var correction = PlanGenerationService.BuildMicroCorrection(meso, micro);
+        var correction = PlanGenerationService.BuildMicroCorrection(meso, micro, weekIndex: 1);
 
         // Assert
         correction.Should().Contain("You generated: Sunday: Easy, Tuesday: Tempo");
@@ -1361,11 +1365,639 @@ public sealed class PlanGenerationServiceTests
         actual.IsDeloadCandidate.Should().BeFalse();
     }
 
+    // DEC-090: rolling-horizon extension seam — GenerateWeekAsync. The seam has no handler/sweeper
+    // caller yet, so these tests are its only exercising callers.
+    [Fact]
+    public async Task GenerateWeekAsync_BothTiersMissing_GeneratesMesoAndMicroForTargetWeek()
+    {
+        // Arrange — no existing meso for the target week: both the meso and micro tiers must run,
+        // meso before micro, with zero macro calls (the macro is already generated upstream).
+        var (sut, llm, _) = CreateSut();
+        const int targetWeek = 5;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMeso(targetWeek, PhaseType.Base, isDeload: false)));
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMicro()));
+
+        // Act
+        var result = await sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: targetWeek,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Meso.Should().NotBeNull();
+        result.Meso.WeekIndex.Should().Be(targetWeek);
+        result.Micro.Should().NotBeNull();
+        result.Micro.WeekIndex.Should().Be(targetWeek);
+
+        await llm.Received(1)
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+        await llm.Received(1)
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MacroPlanOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+
+        // Per the sibling GeneratePlanAsync order test: count assertions alone don't catch a
+        // micro-before-meso regression — inspect the actual invocation sequence.
+        var llmCallTypes = llm.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(ICoachingLlm.GenerateStructuredAsync))
+            .Select(c => c.GetMethodInfo().GetGenericArguments()[0])
+            .ToArray();
+        llmCallTypes.Should().Equal(
+            new[] { typeof(MesoWeekOutput), typeof(MicroWorkoutListOutput) },
+            because: "meso must generate before micro when both tiers are missing");
+    }
+
+    [Fact]
+    public async Task GenerateWeekAsync_MicroOnlyBackfill_UsesExistingMesoAndSkipsMesoCall()
+    {
+        // Arrange — the target week's meso already exists (the micro-only backfill case, e.g. every
+        // plan live today at week 2): only the micro tier should be invoked.
+        var (sut, llm, _) = CreateSut();
+        const int targetWeek = 2;
+        var existingMeso = BuildMeso(targetWeek, PhaseType.Base, isDeload: false);
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMicro()));
+
+        // Act
+        var result = await sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: targetWeek,
+            existingMesoWeek: existingMeso,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Meso.Should().BeNull();
+        result.Micro.WeekIndex.Should().Be(targetWeek);
+
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+        await llm.Received(1)
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateWeekAsync_MesoWrongWeekThenCorrect_RetriesAndSucceeds()
+    {
+        // Arrange — the default meso-validation budget (1 retry); the first meso sample carries the
+        // wrong WeekNumber, the retry returns the correct week.
+        var (sut, llm, _) = CreateSut();
+        const int targetWeek = 5;
+        var mesoCalls = 0;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                mesoCalls++;
+                return mesoCalls == 1
+                    ? WithZeroUsage(BuildMeso(9, PhaseType.Base, isDeload: false))
+                    : WithZeroUsage(BuildMeso(targetWeek, PhaseType.Base, isDeload: false));
+            });
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMicro()));
+
+        // Act
+        var result = await sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: targetWeek,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Meso!.WeekIndex.Should().Be(targetWeek);
+        await llm.Received(2)
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateWeekAsync_MesoAlwaysWrongWeek_ThrowsRejected()
+    {
+        // Arrange — meso-validation retries disabled (budget 0); every sample carries the wrong week
+        // number, so the extension call is terminally rejected before the micro tier ever runs.
+        var (sut, llm, _) = CreateSut(mesoValidationMaxRetries: 0);
+        const int targetWeek = 5;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMeso(9, PhaseType.Base, isDeload: false)));
+
+        // Act
+        var act = () => sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: targetWeek,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        (await act.Should().ThrowAsync<MesoWeekRejectedException>())
+            .Which.Violation.Should().Be(MesoWeekOutputValidationViolation.WeekNumberMismatch);
+
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateWeekAsync_MicroInconsistentThenConsistent_RetriesAndSucceeds()
+    {
+        // Arrange — the default micro-validation budget (1 retry); the first micro sample disagrees
+        // with the meso week's run-day schedule, the retry is consistent.
+        var (sut, llm, _) = CreateSut();
+        const int targetWeek = 5;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMeso(targetWeek, PhaseType.Base, isDeload: false)));
+        var microCalls = 0;
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                microCalls++;
+                return microCalls == 1
+                    ? WithZeroUsage(BuildInconsistentMicro())
+                    : WithZeroUsage(BuildMicro());
+            });
+
+        // Act
+        var result = await sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: targetWeek,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Micro.WeekIndex.Should().Be(targetWeek);
+        await llm.Received(2)
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateWeekAsync_TargetWeekIndexZero_Throws()
+    {
+        // Arrange
+        var (sut, llm, _) = CreateSut();
+
+        // Act
+        var act = () => sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: 0,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateWeekAsync_NullProfileSnapshot_ThrowsWithoutLlmCall()
+    {
+        // Arrange
+        var (sut, llm, _) = CreateSut();
+
+        // Act
+        var act = () => sut.GenerateWeekAsync(
+            null!,
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: 5,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        (await act.Should().ThrowAsync<ArgumentNullException>()).WithParameterName("profileSnapshot");
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateWeekAsync_NullMacro_ThrowsWithoutLlmCall()
+    {
+        // Arrange
+        var (sut, llm, _) = CreateSut();
+
+        // Act
+        var act = () => sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            null!,
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: 5,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        (await act.Should().ThrowAsync<ArgumentNullException>()).WithParameterName("macro");
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0, 1)] // retry disabled → single attempt, immediate reject
+    [InlineData(1, 2)] // default budget → two attempts
+    [InlineData(100, 6)] // misconfigured budget clamps to MaxAllowedMicroValidationRetries (5) → six attempts
+    public async Task GenerateWeekAsync_MicroInconsistentOnEveryAttempt_ThrowsAfterBudgetExhausted(
+        int maxRetries,
+        int expectedMicroCalls)
+    {
+        // Arrange — every micro sample disagrees with the target week's meso run-day schedule, so
+        // the budget is exhausted and the extension call is terminally rejected. Mirrors the
+        // bootstrap chain's sibling Theory, through the horizon-extension micro loop.
+        var (sut, llm, _) = CreateSut(microValidationMaxRetries: maxRetries);
+        const int targetWeek = 5;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMeso(targetWeek, PhaseType.Base, isDeload: false)));
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildInconsistentMicro()));
+
+        // Act
+        var act = () => sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: targetWeek,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert — the terminal rejection carries the violation AND the actual target week (not
+        // week 1), with exactly expectedMicroCalls micro calls.
+        var thrown = (await act.Should().ThrowAsync<MesoMicroConsistencyRejectedException>()).Which;
+        thrown.Violation.Should().Be(MesoMicroConsistencyViolation.RunDayCountMismatch);
+        thrown.WeekIndex.Should().Be(targetWeek);
+        thrown.Message.Should().Contain(
+            "week-5",
+            because: "the rejection names the actual target week, not the bootstrap's week 1");
+        await llm.Received(expectedMicroCalls)
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(1, 2)] // default budget → two attempts
+    [InlineData(100, 6)] // misconfigured budget clamps to MaxAllowedMesoValidationRetries (5) → six attempts
+    public async Task GenerateWeekAsync_MesoWrongWeekOnEveryAttempt_ClampsRetryBudget(
+        int maxRetries,
+        int expectedMesoCalls)
+    {
+        // Arrange — every meso sample carries the wrong week number; the clamp caps a misconfigured
+        // budget the same way the bootstrap macro/micro tiers cap theirs.
+        var (sut, llm, _) = CreateSut(mesoValidationMaxRetries: maxRetries);
+        const int targetWeek = 5;
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMeso(9, PhaseType.Base, isDeload: false)));
+
+        // Act
+        var act = () => sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: targetWeek,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        await act.Should().ThrowAsync<MesoWeekRejectedException>();
+        await llm.Received(expectedMesoCalls)
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+        await llm.DidNotReceive()
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateWeekAsync_ComposedTierPrompts_CarryWeekContextAndCorrectionOnlyOnRetry()
+    {
+        // Arrange — capture every meso + micro user message. The first meso sample carries the
+        // wrong week (9), the first micro sample is inconsistent; each retry then succeeds. The
+        // attempt-0 prompts must carry the target week's context lines and no correction; each
+        // retry prompt must append the correction suffix naming the actual target week.
+        var (sut, llm, _) = CreateSut();
+        const int targetWeek = 5;
+        var mesoPrompts = new List<string>();
+        var microPrompts = new List<string>();
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                mesoPrompts.Add(call.ArgAt<string>(1));
+                return mesoPrompts.Count == 1
+                    ? WithZeroUsage(BuildMeso(9, PhaseType.Base, isDeload: false))
+                    : WithZeroUsage(BuildMeso(targetWeek, PhaseType.Base, isDeload: false));
+            });
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                microPrompts.Add(call.ArgAt<string>(1));
+                return microPrompts.Count == 1
+                    ? WithZeroUsage(BuildInconsistentMicro())
+                    : WithZeroUsage(BuildMicro());
+            });
+
+        // Act
+        await sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate: null,
+            targetWeekIndex: targetWeek,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert — meso attempt 0: week context, no correction; meso retry: correction naming the
+        // target week.
+        mesoPrompts.Should().HaveCount(2);
+        mesoPrompts[0].Should()
+            .Contain("WeekIndex: 5").And
+            .Contain("PhaseType: Base").And
+            .Contain("IsDeloadCandidate: ").And
+            .Contain("Generate the week template for week 5").And
+            .NotContain(PlanGenerationService.MesoCorrectionLabel);
+        mesoPrompts[1].Should()
+            .Contain(PlanGenerationService.MesoCorrectionLabel).And
+            .Contain("must be week 5");
+
+        // Micro attempt 0: the target meso's context lines, no correction; micro retry: the
+        // correction suffix parameterized on the target week (the week-1 hardcoding regression).
+        microPrompts.Should().HaveCount(2);
+        microPrompts[0].Should()
+            .Contain("Week 5 phase: Base").And
+            .Contain("Week 5 weekly target km: ").And
+            .Contain("Generate the detailed workouts for week 5").And
+            .NotContain(PlanGenerationService.MicroCorrectionLabel);
+        microPrompts[1].Should()
+            .Contain(PlanGenerationService.MicroCorrectionLabel).And
+            .Contain(
+                "week-5 workouts did not match the week-5 plan",
+                because: "the correction must name the actual target week, not week 1");
+    }
+
+    [Fact]
+    public async Task GenerateWeekAsync_WithTargetEventDate_ComposesDateAnchoredHorizon()
+    {
+        // Arrange — a race date at the end of plan week 12; the seam must feed the date-anchored
+        // horizon (not NoAnchor) into the prompt composition, exercising the non-null
+        // targetEventDate branch through PlanHorizonCalculator.
+        var (sut, llm, assembler) = CreateSut();
+        const int targetWeek = 5;
+        var targetEventDate = HorizonPlanStartDate.AddDays(83);
+        llm
+            .GenerateStructuredAsync<MesoWeekOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMeso(targetWeek, PhaseType.Base, isDeload: false)));
+        llm
+            .GenerateStructuredAsync<MicroWorkoutListOutput>(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyDictionary<string, JsonElement>?>(),
+                Arg.Any<CacheControl?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => WithZeroUsage(BuildMicro()));
+
+        // Act
+        await sut.GenerateWeekAsync(
+            CreateCompletedView(),
+            UserId,
+            PlanId,
+            BuildMacro(),
+            HorizonPlanStartDate,
+            targetEventDate,
+            targetWeekIndex: targetWeek,
+            existingMesoWeek: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert — race day 83 → floor(83/7)+1 = week 12, anchored.
+        await assembler.Received(1)
+            .ComposeForPlanGenerationAsync(
+                Arg.Any<OnboardingView>(),
+                null,
+                Arg.Any<DateOnly>(),
+                Arg.Is<PlanHorizon>(h =>
+                    h != null && h.IsAnchored && h.RaceDate == targetEventDate && h.TargetTotalWeeks == 12),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void BuildHorizonMesoCorrection_NamesExpectedWeek()
+    {
+        // Arrange — a candidate that emitted week 9 when week 5 was expected.
+        var candidate = BuildMeso(9, PhaseType.Base, isDeload: false);
+        const int expectedWeekIndex = 5;
+
+        // Act
+        var correction = PlanGenerationService.BuildHorizonMesoCorrection(
+            MesoWeekOutputValidationViolation.WeekNumberMismatch,
+            candidate,
+            expectedWeekIndex);
+
+        // Assert
+        correction.Should().Contain(PlanGenerationService.MesoCorrectionLabel);
+        correction.Should().Contain("week_number to 9", because: "the emitted week number is named");
+        correction.Should().Contain("must be week 5", because: "the required target week is named");
+        correction.Should().Contain("Set week_number to 5", because: "the corrective instruction names the target week again");
+    }
+
     private static (PlanGenerationService Sut, ICoachingLlm Llm, IContextAssembler Assembler) CreateSut(
         DateTimeOffset? now = null,
         DateOnly? localToday = null,
         int? macroValidationMaxRetries = null,
-        int? microValidationMaxRetries = null)
+        int? microValidationMaxRetries = null,
+        int? mesoValidationMaxRetries = null)
     {
         var assembler = Substitute.For<IContextAssembler>();
         assembler
@@ -1413,6 +2045,11 @@ public sealed class PlanGenerationServiceTests
         if (microValidationMaxRetries is int microRetries)
         {
             settingsRecord = settingsRecord with { MicroValidationMaxRetries = microRetries };
+        }
+
+        if (mesoValidationMaxRetries is int mesoRetries)
+        {
+            settingsRecord = settingsRecord with { MesoValidationMaxRetries = mesoRetries };
         }
 
         var settings = Options.Create(settingsRecord);

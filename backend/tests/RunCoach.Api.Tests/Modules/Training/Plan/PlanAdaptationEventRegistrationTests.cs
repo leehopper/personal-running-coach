@@ -54,7 +54,7 @@ public sealed class PlanAdaptationEventRegistrationTests(RunCoachAppFactory fact
         mapping.Should().NotBeNull(
             because: $"{adaptationEventType.Name} must be listed in MartenConfiguration.RegisteredEventTypes; " +
                      "a missing entry persists the event without a schema-version suffix and is silently dropped by SkipUnknownEvents");
-        mapping!.EventTypeName.Should().MatchRegex(
+        mapping.EventTypeName.Should().MatchRegex(
             @"_v\d+$",
             because: $"{adaptationEventType.Name} must carry the MapEventTypeWithSchemaVersion<T>(N) suffix (DEC-067)");
     }

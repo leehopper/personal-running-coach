@@ -242,7 +242,7 @@ public sealed class ClaudeCoachingLlmFailureTests
         actualOutput.SafetyTier.Should().Be(SafetyTier.Amber);
         actualOutput.NudgePatch.Should().BeNull();
         actualOutput.RestructurePlan.Should().NotBeNull();
-        actualOutput.RestructurePlan!.RevisedWeeklyTargets.Should().ContainSingle()
+        actualOutput.RestructurePlan.RevisedWeeklyTargets.Should().ContainSingle()
             .Which.Should().BeEquivalentTo(new WeeklyTargetEdit { WeekNumber = 2, WeeklyTargetKm = 30 });
         actualOutput.RestructurePlan.RevisedCurrentWeekWorkouts.Should().ContainSingle()
             .Which.Title.Should().Be("Easy Aerobic Run");

@@ -106,7 +106,7 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
         var body = await response.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(
             cancellationToken: ct);
         body.Should().NotBeNull();
-        body!.Adaptation.Kind.Should().Be(
+        body.Adaptation.Kind.Should().Be(
             AdaptationResponseKind.Adapted,
             because: "the create response surfaces the synchronous evaluation's envelope");
 
@@ -115,7 +115,7 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
         // WorkoutLogId-keyed marker) committed separately in the Marten transaction.
         var persisted = await GetLogByIdAsync(userId, body.WorkoutLogId, ct);
         persisted.Should().NotBeNull(because: "the EF create committed before the dispatch");
-        persisted!.Prescription.Should().NotBeNull(because: "the run's date maps to the week-1/day-0 slot");
+        persisted.Prescription.Should().NotBeNull(because: "the run's date maps to the week-1/day-0 slot");
         var marker = await LoadDocumentAsync<IdempotencyMarker>(userId, body.WorkoutLogId, ct);
         marker.Should().NotBeNull(
             because: "a committed evaluation records its WorkoutLogId-keyed marker on the Marten side");
@@ -186,7 +186,7 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
         var state = await LoadDocumentAsync<
             AdaptationSignalStateDocument>(userId, planId, ct);
         state.Should().NotBeNull(because: "the absorb path stores the advanced signal state");
-        state!.PlanState.Should().Be(PlanState.OnTrack);
+        state.PlanState.Should().Be(PlanState.OnTrack);
     }
 
     // ── Scenario 4: a reschedulable miss nudges deterministically without the LLM ──
@@ -1047,7 +1047,7 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
         GetCookie(container, AntiforgeryCookieName).Should().NotBeNull(
             "the framework antiforgery cookie must also be set");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(
@@ -1062,7 +1062,7 @@ public sealed class AdaptationOrchestrationIntegrationTests : DbBackedIntegratio
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!.UserId;
+        return body.UserId;
     }
 
     private static async Task LoginAsync(

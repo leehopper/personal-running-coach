@@ -147,7 +147,7 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
         var dto = await response.Content.ReadFromJsonAsync<OnboardingStateDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         dto.Should().NotBeNull();
-        dto!.UserId.Should().Be(userId);
+        dto.UserId.Should().Be(userId);
         dto.Status.Should().Be(OnboardingStatus.InProgress);
         dto.CompletedTopics.Should().Be(0);
         dto.TotalTopics.Should().BeGreaterThan(0);
@@ -189,7 +189,7 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
         GetCookie(container, AntiforgeryCookieName).Should().NotBeNull(
             "the framework antiforgery cookie must also be set");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(
@@ -209,7 +209,7 @@ public class OnboardingControllerIntegrationTests(RunCoachAppFactory factory)
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!.UserId;
+        return body.UserId;
     }
 
     private static async Task LoginAsync(

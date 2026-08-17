@@ -77,7 +77,7 @@ public sealed class SanitizationAuditChatClientTests : IDisposable
 
         span.Should().NotBeNull("audit client emits a rollup span around the inner call");
 
-        var tags = span!.TagObjects.ToDictionary(kv => kv.Key, kv => kv.Value);
+        var tags = span.TagObjects.ToDictionary(kv => kv.Key, kv => kv.Value);
         tags.Should().ContainKey("openinference.span.kind").WhoseValue.Should().Be("GUARDRAIL");
         tags.Should().ContainKey("runcoach.sanitization.policy_version")
             .WhoseValue.Should().Be(PatternCatalog.PolicyVersion);
@@ -122,7 +122,7 @@ public sealed class SanitizationAuditChatClientTests : IDisposable
 
         span.Should().NotBeNull("streaming path emits the same rollup span");
 
-        var tags = span!.TagObjects.ToDictionary(kv => kv.Key, kv => kv.Value);
+        var tags = span.TagObjects.ToDictionary(kv => kv.Key, kv => kv.Value);
         tags.Should().ContainKey("openinference.span.kind").WhoseValue.Should().Be("GUARDRAIL");
         tags.Should().ContainKey("runcoach.sanitization.policy_version")
             .WhoseValue.Should().Be(PatternCatalog.PolicyVersion);
@@ -193,7 +193,7 @@ public sealed class SanitizationAuditChatClientTests : IDisposable
         var span = _captured.FirstOrDefault(a =>
             a.OperationName == SanitizationAuditChatClient.AuditSpanName);
         span.Should().NotBeNull();
-        span!.GetTagItem("runcoach.sanitization.audit.message_count")
+        span.GetTagItem("runcoach.sanitization.audit.message_count")
             .Should().Be(2);
     }
 

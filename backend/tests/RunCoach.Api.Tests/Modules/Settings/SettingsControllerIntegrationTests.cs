@@ -47,7 +47,7 @@ public class SettingsControllerIntegrationTests(RunCoachAppFactory factory)
         response.StatusCode.Should().Be(HttpStatusCode.OK, because: "a row-less user reads a default, never a 404");
         var body = await response.Content.ReadFromJsonAsync<UnitPreferenceDto>(cancellationToken: ct);
         body.Should().NotBeNull();
-        body!.PreferredUnits.Should().Be(PreferredUnits.Kilometers);
+        body.PreferredUnits.Should().Be(PreferredUnits.Kilometers);
     }
 
     [Fact]
@@ -186,7 +186,7 @@ public class SettingsControllerIntegrationTests(RunCoachAppFactory factory)
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
         GetCookie(container, AntiforgeryCookieName).Should().NotBeNull(
             "the framework antiforgery cookie must also be set");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(
@@ -201,7 +201,7 @@ public class SettingsControllerIntegrationTests(RunCoachAppFactory factory)
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!.UserId;
+        return body.UserId;
     }
 
     private static async Task LoginAsync(
