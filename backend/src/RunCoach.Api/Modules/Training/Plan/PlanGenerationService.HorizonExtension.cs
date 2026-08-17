@@ -8,9 +8,9 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// <summary>
 /// Rolling-horizon extension seam (DEC-090). Adds <see cref="GenerateWeekAsync"/> — generating the
 /// meso template and/or the detailed micro workouts for one target plan week — plus its sibling
-/// prompt builders, correction builder, and loggers. This PR ships the seam only: no handler and no
-/// sweeper call it yet (PR2/PR3); it is exercised only by unit tests in this PR. Split into its own
-/// partial file (rather than growing <c>PlanGenerationService.cs</c>) so the bootstrap chain's
+/// prompt builders, correction builder, and loggers. The seam ships ahead of its DEC-090 callers:
+/// no handler or sweeper drives it yet, so unit tests are its only exercising callers. Split into
+/// its own partial file (rather than growing the main class definition) so the bootstrap chain's
 /// byte-frozen prompt builders stay visibly untouched.
 /// </summary>
 public sealed partial class PlanGenerationService
@@ -59,7 +59,7 @@ public sealed partial class PlanGenerationService
         ct.ThrowIfCancellationRequested();
 
         // Own parent span, sibling to the bootstrap chain's PlanGenerationActivityName — the
-        // caller's own activity (the eventual PR2 handler / PR3 sweeper, or a unit test) is the
+        // caller's own activity (the eventual DEC-090 handler/sweeper, or a unit test) is the
         // ambient parent.
         using var weekActivity = ActivitySource.StartActivity(HorizonWeekActivityName, ActivityKind.Internal);
         weekActivity?.SetTag(PlanGenerationTagNames.PlanId, planId.ToString());
@@ -134,8 +134,8 @@ public sealed partial class PlanGenerationService
             }
 
             // Micro tier — always generated, with the same bounded meso/micro consistency retry
-            // shape as the bootstrap micro tier (DEC-088), reusing BuildMicroCorrection unchanged —
-            // it is week-agnostic.
+            // shape as the bootstrap micro tier (DEC-088), reusing BuildMicroCorrection
+            // parameterized on the target week index.
             var maxMicroRetries = Math.Clamp(_settings.MicroValidationMaxRetries, 0, MaxAllowedMicroValidationRetries);
             MicroWorkoutListOutput micro;
             var microAttempts = 0;
@@ -161,11 +161,11 @@ public sealed partial class PlanGenerationService
                 if (microAttempts > maxMicroRetries)
                 {
                     LogHorizonMicroRejected(_logger, planId, targetWeekIndex, consistency.Violation, microAttempts);
-                    throw new MesoMicroConsistencyRejectedException(consistency.Violation);
+                    throw new MesoMicroConsistencyRejectedException(consistency.Violation, targetWeekIndex);
                 }
 
                 LogHorizonMicroRetry(_logger, planId, targetWeekIndex, consistency.Violation, microAttempts);
-                microCorrection = BuildMicroCorrection(targetMeso, candidate);
+                microCorrection = BuildMicroCorrection(targetMeso, candidate, targetWeekIndex);
             }
 
             var microEvent = new MicroCycleCreated(targetWeekIndex, micro);

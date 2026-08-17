@@ -443,7 +443,7 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         // rejection path (F-LIVE-2, DEC-088); the controller's second catch must map it to the
         // same handled 422 as a macro rejection, with the transaction rolled back.
         await AssertPlanRejectionReturns422ThenResubmitSucceedsAsync(
-            new MesoMicroConsistencyRejectedException(MesoMicroConsistencyViolation.RunDayCountMismatch),
+            new MesoMicroConsistencyRejectedException(MesoMicroConsistencyViolation.RunDayCountMismatch, weekIndex: 1),
             TestContext.Current.CancellationToken);
     }
 

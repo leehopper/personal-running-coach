@@ -10,7 +10,7 @@ namespace RunCoach.Api.Modules.Training.Plan;
 /// only the micro tier was generated (micro-only backfill).
 /// </param>
 /// <param name="Micro">
-/// The micro-tier event for the target week. Always non-null — the method is only called when at
-/// least the micro tier is missing.
+/// The micro-tier event for the target week — the method is only called when at least the micro
+/// tier is missing, so every successful result carries one.
 /// </param>
-public sealed record WeekGenerationResult(MesoCycleCreated? Meso, MicroCycleCreated? Micro);
+public sealed record WeekGenerationResult(MesoCycleCreated? Meso, MicroCycleCreated Micro);

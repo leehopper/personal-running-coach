@@ -57,8 +57,8 @@ public sealed class RejectOnceThenSucceedPlanGenerationService(
         CancellationToken ct)
     {
         throw new NotSupportedException(
-            "GenerateWeekAsync (the rolling-horizon extension seam, DEC-090) is not driven through " +
-            "the Wolverine bus until PR2; this stub covers only the bootstrap/regenerate flows " +
+            "GenerateWeekAsync (the rolling-horizon extension seam, DEC-090) has no Wolverine-bus " +
+            "caller yet; this stub covers only the bootstrap/regenerate flows " +
             "exercised via GeneratePlanAsync.");
     }
 }

@@ -97,8 +97,8 @@ public interface IPlanGenerationService
 
     /// <summary>
     /// Generates the meso template and/or the detailed micro workouts for ONE target week of an
-    /// already-generated plan — the rolling-horizon extension seam (DEC-090). This PR ships the seam
-    /// only: no handler and no sweeper call it yet (PR2/PR3). It reuses the tiered structured-output
+    /// already-generated plan — the rolling-horizon extension seam (DEC-090). The seam ships ahead
+    /// of its DEC-090 callers: no handler or sweeper drives it yet. It reuses the tiered structured-output
     /// machinery + the bounded corrective-hint retry shape that <see cref="GeneratePlanAsync"/>
     /// established for the macro and micro tiers.
     /// </summary>
