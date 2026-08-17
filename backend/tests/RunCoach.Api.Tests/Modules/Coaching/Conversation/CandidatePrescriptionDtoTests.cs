@@ -36,7 +36,7 @@ public class CandidatePrescriptionDtoTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.WorkoutType.Should().Be("Tempo");
+        actual.WorkoutType.Should().Be("Tempo");
         actual.DistanceMeters.Should().Be(10_000);
         actual.DurationSeconds.Should().Be(2_700);
         actual.PaceFastSecPerKm.Should().Be(240, because: "the fast bound maps from PrescribedPaceFast");

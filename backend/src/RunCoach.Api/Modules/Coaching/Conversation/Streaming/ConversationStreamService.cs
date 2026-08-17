@@ -135,7 +135,7 @@ public sealed partial class ConversationStreamService(
                     .ResolveCandidatePrescriptionAsync(userId, intent.WorkoutLog!.OccurredOn, ct)
                     .ConfigureAwait(false);
                 LogWorkoutCard(logger, userId, snapshot is not null);
-                yield return new CardFrame(intent.WorkoutLog!, CandidatePrescriptionDto.FromSnapshot(snapshot));
+                yield return new CardFrame(intent.WorkoutLog, CandidatePrescriptionDto.FromSnapshot(snapshot));
                 yield break;
 
             case MessageIntent.Ambiguous:

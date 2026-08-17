@@ -130,7 +130,7 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
         _sut.Apply(schema, BuildContext(typeof(MaxLengthRecord)));
 
         // Assert
-        schema.Properties!["name"].Should().BeOfType<OpenApiSchema>()
+        schema.Properties["name"].Should().BeOfType<OpenApiSchema>()
             .Which.MaxLength.Should().Be(999);
     }
 
@@ -177,7 +177,7 @@ public sealed class RecordCtorParamDataAnnotationsSchemaFilterTests
         _sut.Apply(schema, BuildContext(typeof(MaxLengthRecord)));
 
         // Assert
-        schema.Properties!["unmapped"].Should().BeOfType<OpenApiSchema>()
+        schema.Properties["unmapped"].Should().BeOfType<OpenApiSchema>()
             .Which.MaxLength.Should().BeNull();
     }
 

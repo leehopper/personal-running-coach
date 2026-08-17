@@ -80,7 +80,7 @@ public sealed class SafetyRubricEvaluatorTests
 
         // Assert
         deserialized.Should().NotBeNull();
-        deserialized!.OverallScore.Should().Be(1.0m);
+        deserialized.OverallScore.Should().Be(1.0m);
         deserialized.Criteria.Should().HaveCount(2);
         deserialized.Criteria[0].Passed.Should().BeTrue();
     }
@@ -113,7 +113,7 @@ public sealed class SafetyRubricEvaluatorTests
 
         // Assert
         verdict.Should().NotBeNull();
-        verdict!.OverallScore.Should().Be(0.0m);
+        verdict.OverallScore.Should().Be(0.0m);
         verdict.Criteria.Should().HaveCount(2);
         verdict.Criteria[1].Passed.Should().BeFalse();
         verdict.Criteria[1].CriterionName.Should().Be("avoids_diagnosis");

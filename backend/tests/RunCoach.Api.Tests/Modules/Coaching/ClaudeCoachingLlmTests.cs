@@ -59,7 +59,7 @@ public class ClaudeCoachingLlmTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.Model.ToString().Should().Contain(DefaultSettings.ModelId);
+        capturedParams.Model.ToString().Should().Contain(DefaultSettings.ModelId);
         capturedParams.MaxTokens.Should().Be(DefaultSettings.MaxTokens);
     }
 
@@ -298,7 +298,7 @@ public class ClaudeCoachingLlmTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.Model.ToString().Should().Contain("claude-opus-4-20250514");
+        capturedParams.Model.ToString().Should().Contain("claude-opus-4-20250514");
     }
 
     [Fact]
@@ -322,7 +322,7 @@ public class ClaudeCoachingLlmTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.MaxTokens.Should().Be(8192);
+        capturedParams.MaxTokens.Should().Be(8192);
     }
 
     [Fact]
@@ -397,8 +397,8 @@ public class ClaudeCoachingLlmTests
 
         // Assert — OutputConfig carries a JsonOutputFormat with the MacroPlanOutput schema
         capturedParams.Should().NotBeNull();
-        capturedParams!.OutputConfig.Should().NotBeNull();
-        var jsonFormat = capturedParams.OutputConfig!.Format.Should().BeOfType<JsonOutputFormat>().Which;
+        capturedParams.OutputConfig.Should().NotBeNull();
+        var jsonFormat = capturedParams.OutputConfig.Format.Should().BeOfType<JsonOutputFormat>().Which;
         jsonFormat.Schema.Should().NotBeNull();
         jsonFormat.Schema.Should().ContainKey("properties");
 
@@ -854,16 +854,16 @@ public class ClaudeCoachingLlmTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.System.Should().NotBeNull();
-        var systemValue = capturedParams.System!.Value;
+        capturedParams.System.Should().NotBeNull();
+        var systemValue = capturedParams.System.Value;
         systemValue.Should().BeAssignableTo<IReadOnlyList<TextBlockParam>>();
 
-        var blocks = (IReadOnlyList<TextBlockParam>)systemValue!;
+        var blocks = (IReadOnlyList<TextBlockParam>)systemValue;
         blocks.Should().HaveCount(1);
         var firstBlock = blocks[0];
         firstBlock.Should().NotBeNull();
-        firstBlock!.CacheControl.Should().NotBeNull();
-        firstBlock.CacheControl!.Ttl!.ToString().Should().Contain("1h");
+        firstBlock.CacheControl.Should().NotBeNull();
+        firstBlock.CacheControl.Ttl!.ToString().Should().Contain("1h");
         firstBlock.Text.Should().Be("system prompt");
     }
 
@@ -903,11 +903,11 @@ public class ClaudeCoachingLlmTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        var blocks = (IReadOnlyList<TextBlockParam>)capturedParams!.System!.Value!;
+        var blocks = (IReadOnlyList<TextBlockParam>)capturedParams.System!.Value!;
         var firstBlock = blocks[0];
         firstBlock.Should().NotBeNull();
-        firstBlock!.CacheControl.Should().NotBeNull();
-        firstBlock.CacheControl!.Ttl!.ToString().Should().Contain("5m");
+        firstBlock.CacheControl.Should().NotBeNull();
+        firstBlock.CacheControl.Ttl!.ToString().Should().Contain("5m");
     }
 
     [Fact]
@@ -944,7 +944,7 @@ public class ClaudeCoachingLlmTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.System!.Value.Should().BeOfType<string>();
+        capturedParams.System!.Value.Should().BeOfType<string>();
     }
 
     [Fact]
@@ -981,7 +981,7 @@ public class ClaudeCoachingLlmTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        var jsonFormat = capturedParams!.OutputConfig!.Format.Should().BeOfType<JsonOutputFormat>().Which;
+        var jsonFormat = capturedParams.OutputConfig!.Format.Should().BeOfType<JsonOutputFormat>().Which;
         jsonFormat.Schema.Should().ContainKey("properties");
         jsonFormat.Schema["properties"].GetRawText().Should().Contain("custom");
     }

@@ -115,7 +115,7 @@ public class InteractiveConversationProjectionIntegrationTests(RunCoachAppFactor
 
         // Assert — replay yields exactly one turn per event, no duplicates.
         replayed.Should().NotBeNull();
-        replayed!.Turns.Should().HaveCount(2, because: "replay produces exactly one turn per event");
+        replayed.Turns.Should().HaveCount(2, because: "replay produces exactly one turn per event");
         replayed.Turns.Select(t => t.TurnId).Should().OnlyHaveUniqueItems();
         replayed.Turns.Should().ContainSingle(t => t.Participant == ConversationParticipant.User);
         replayed.Turns.Should().ContainSingle(t => t.Participant == ConversationParticipant.Coach);

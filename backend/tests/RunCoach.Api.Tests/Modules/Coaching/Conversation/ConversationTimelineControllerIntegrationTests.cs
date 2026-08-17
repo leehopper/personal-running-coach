@@ -111,7 +111,7 @@ public class ConversationTimelineControllerIntegrationTests(RunCoachAppFactory f
         proactiveTurn.Kind.Should().Be(ConversationTimelineTurnKind.Adaptation);
         proactiveTurn.Interactive.Should().BeNull();
         proactiveTurn.Proactive.Should().NotBeNull(because: "the proactive turn reuses the existing adaptation turn shape");
-        proactiveTurn.Proactive!.Role.Should().Be(ConversationRole.AssistantAdaptation);
+        proactiveTurn.Proactive.Role.Should().Be(ConversationRole.AssistantAdaptation);
         proactiveTurn.Proactive.AdaptationKind.Should().Be(AdaptationKind.Nudge);
         proactiveTurn.Proactive.TriggeringWorkoutLogId.Should().Be(adaptationLogId);
     }
@@ -227,7 +227,7 @@ public class ConversationTimelineControllerIntegrationTests(RunCoachAppFactory f
         var body = await response.Content.ReadFromJsonAsync<ConversationTimelineDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!;
+        return body;
     }
 
     private static HttpClient CreateAnonymousClient(RunCoachAppFactory factory)

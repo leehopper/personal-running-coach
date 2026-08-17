@@ -152,6 +152,38 @@ public sealed partial class PlanProjection : SingleStreamProjection<PlanProjecti
     }
 
     /// <summary>
+    /// Records an arbitrary week's detailed workout list onto
+    /// <see cref="PlanProjectionDto.MicroWorkoutsByWeek"/> — the rolling-horizon
+    /// generalization of <see cref="Apply(FirstMicroCycleCreated, PlanProjectionDto)"/>
+    /// (DEC-090). Replaces-or-inserts the target week key additively, leaving
+    /// every other key untouched.
+    /// </summary>
+    /// <param name="event">The micro-tier event for an arbitrary plan week.</param>
+    /// <param name="dto">The projection document being mutated.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <see cref="MicroCycleCreated.WeekIndex"/> is less than 1. Week
+    /// indices are 1-based by spec; a non-positive value indicates a malformed
+    /// event that must surface as a transaction failure rather than silently
+    /// corrupting <see cref="PlanProjectionDto.MicroWorkoutsByWeek"/>.
+    /// </exception>
+    public static void Apply(MicroCycleCreated @event, PlanProjectionDto dto)
+    {
+        if (@event.WeekIndex < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(@event),
+                @event.WeekIndex,
+                $"{nameof(@event)}.{nameof(MicroCycleCreated.WeekIndex)} must be 1-based (got {@event.WeekIndex}).");
+        }
+
+        var map = new Dictionary<int, MicroWorkoutListOutput>(dto.MicroWorkoutsByWeek)
+        {
+            [@event.WeekIndex] = @event.Micro,
+        };
+        dto.MicroWorkoutsByWeek = map;
+    }
+
+    /// <summary>
     /// Applies a Slice 3 adaptation (DEC-079) to the plan read model: revises meso
     /// <see cref="MesoWeekOutput.WeeklyTargetKm"/> for upcoming weeks and swaps
     /// current-week micro workouts from the event's structured

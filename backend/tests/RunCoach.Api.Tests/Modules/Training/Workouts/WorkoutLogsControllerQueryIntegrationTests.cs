@@ -160,11 +160,11 @@ public class WorkoutLogsControllerQueryIntegrationTests(RunCoachAppFactory facto
         dto.Notes.Should().Be(notes);
 
         dto.Metrics.Should().NotBeNull();
-        dto.Metrics!["hrAvg"].GetInt32().Should().Be(142);
+        dto.Metrics["hrAvg"].GetInt32().Should().Be(142);
         dto.Metrics["rpe"].GetInt32().Should().Be(7);
 
         dto.Splits.Should().NotBeNull();
-        dto.Splits!.Should().Equal(expectedSplits);
+        dto.Splits.Should().Equal(expectedSplits);
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public class WorkoutLogsControllerQueryIntegrationTests(RunCoachAppFactory facto
             HttpStatusCode.OK, because: $"query must succeed — got {(int)response.StatusCode}");
         var body = await response.Content.ReadFromJsonAsync<QueryWorkoutLogsResponseDto>(cancellationToken: ct);
         body.Should().NotBeNull();
-        return body!;
+        return body;
     }
 
     private static async Task<HttpResponseMessage> PostQueryAsync(
@@ -327,7 +327,7 @@ public class WorkoutLogsControllerQueryIntegrationTests(RunCoachAppFactory facto
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!.UserId;
+        return body.UserId;
     }
 
     private static async Task LoginAsync(
@@ -349,7 +349,7 @@ public class WorkoutLogsControllerQueryIntegrationTests(RunCoachAppFactory facto
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
         GetCookie(container, AntiforgeryCookieName).Should().NotBeNull(
             "the framework antiforgery cookie must also be set");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static HttpRequestMessage BuildRequest(HttpMethod method, string path, string antiforgeryToken)

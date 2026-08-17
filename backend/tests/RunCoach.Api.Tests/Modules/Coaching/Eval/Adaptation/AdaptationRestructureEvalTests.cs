@@ -110,7 +110,7 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
         // weekly targets may rebuild toward the recently-held baseline freely, but
         // any growth past it is capped at +10% week-over-week.
         var constraintViolations = AdaptationConstraintEvaluator.Evaluate(
-            output.RestructurePlan!, BaselineWeeklyKm(profileName));
+            output.RestructurePlan, BaselineWeeklyKm(profileName));
         constraintViolations.Should().BeEmpty(
             because: "the restructure proposal must honor the eval-side mileage-ramp guardrail");
 
@@ -119,7 +119,7 @@ public sealed class AdaptationRestructureEvalTests : EvalTestBase
         // workout distances — the sparse revisions applied over the days left untouched.
         // Runs the production check against the scenario's existing current week.
         var consistency = RestructureConsistencyCheck.Evaluate(
-            output.RestructurePlan!, ExistingWeekProjection(profileName), currentWeekNumber: 1);
+            output.RestructurePlan, ExistingWeekProjection(profileName), currentWeekNumber: 1);
         consistency.ProposedWeeklyTargetKm.Should().NotBeNull(
             because: "this eval must exercise the current-week consistency rule itself, not the "
                 + "NotApplicable pass — the fixture must revise the current week's target");

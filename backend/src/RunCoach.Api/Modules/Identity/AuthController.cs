@@ -77,7 +77,7 @@ public sealed partial class AuthController(
             return result.ToRegistrationActionResult(this);
         }
 
-        var response = new AuthResponseDto(user.Id, user.Email!);
+        var response = new AuthResponseDto(user.Id, user.Email);
         return StatusCode(StatusCodes.Status201Created, response);
     }
 

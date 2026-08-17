@@ -61,7 +61,7 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.Status.Should().Be(expected.Status);
+        actual.Status.Should().Be(expected.Status);
         actual.Counter.Should().Be(expected.Counter);
     }
 
@@ -90,7 +90,7 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
 
         // Assert — direct document inspection proves we wrote the canonical fields.
         actual.Should().NotBeNull();
-        actual!.Key.Should().Be(key);
+        actual.Key.Should().Be(key);
         actual.UserId.Should().Be(userId, because: "Record sources UserId from the active session's TenantId");
         actual.PayloadTypeName.Should().Be(typeof(TestResponse).FullName);
         actual.RecordedAt.Should().BeAfter(beforeWrite);
@@ -131,7 +131,7 @@ public class MartenIdempotencyStoreIntegrationTests(RunCoachAppFactory factory) 
         actualOtherTenant.Should().BeNull(
             because: "Marten's conjoined tenancy must prevent cross-tenant reads of IdempotencyMarker");
         actualOwnerTenant.Should().NotBeNull();
-        actualOwnerTenant!.Counter.Should().Be(42);
+        actualOwnerTenant.Counter.Should().Be(42);
     }
 
     [Fact]

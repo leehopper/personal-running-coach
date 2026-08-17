@@ -74,7 +74,7 @@ public sealed class MartenStoreOptionsCompositionTests
         // nullable-reference metadata, so the read/write nullability assertions below
         // are what actually pin the contract.
         actualProperty.Should().NotBeNull();
-        actualProperty!.PropertyType.Should().Be<string>();
+        actualProperty.PropertyType.Should().Be<string>();
         actualProperty.CanRead.Should().BeTrue();
         actualProperty.CanWrite.Should().BeTrue();
 

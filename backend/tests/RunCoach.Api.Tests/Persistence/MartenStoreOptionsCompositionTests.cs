@@ -55,7 +55,7 @@ public sealed class MartenStoreOptionsCompositionTests(RunCoachAppFactory factor
                          "registration likely missing from MartenConfiguration.Apply or RegisteredEventTypes");
             var reason = $"event type {expectedType.Name} must have a schema-version suffix " +
                          "(MapEventTypeWithSchemaVersion<T>(N)) so mt_events.type is unambiguous (DEC-067)";
-            mapping!.EventTypeName.Should().MatchRegex(@"_v\d+$", reason);
+            mapping.EventTypeName.Should().MatchRegex(@"_v\d+$", reason);
         }
     }
 
