@@ -58,8 +58,8 @@ public sealed class YamlPromptStoreTests : IDisposable
 
         // Assert
         metadata.Should().NotBeNull();
-        metadata!.Description.Should().Be("Test prompt");
-        metadata!.Author.Should().Be("Test");
+        metadata.Description.Should().Be("Test prompt");
+        metadata.Author.Should().Be("Test");
     }
 
     [Fact]

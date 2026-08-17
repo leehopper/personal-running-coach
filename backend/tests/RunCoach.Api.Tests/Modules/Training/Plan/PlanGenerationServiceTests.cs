@@ -276,7 +276,7 @@ public sealed class PlanGenerationServiceTests
         capturedCacheControls.Should().AllSatisfy(c =>
         {
             c.Should().NotBeNull();
-            c!.Type.Should().Be("ephemeral");
+            c.Type.Should().Be("ephemeral");
             c.Ttl.Should().Be("1h");
         });
         capturedCacheControls.Should().AllBeEquivalentTo(CacheControl.Ephemeral1h);
@@ -409,7 +409,7 @@ public sealed class PlanGenerationServiceTests
             .FirstOrDefault(a => a.OperationName == PlanGenerationService.PlanGenerationActivityName);
         parentSpan.Should().NotBeNull(
             because: $"`{PlanGenerationService.PlanGenerationActivityName}` must wrap the whole chain");
-        parentSpan!.Status.Should().Be(ActivityStatusCode.Error);
+        parentSpan.Status.Should().Be(ActivityStatusCode.Error);
         parentSpan.Events.Should().Contain(
             e => e.Name == "exception",
             because: "`Activity.AddException` records an `ActivityEvent` named `exception` per BCL");
@@ -1405,7 +1405,7 @@ public sealed class PlanGenerationServiceTests
 
         // Assert
         result.Meso.Should().NotBeNull();
-        result.Meso!.WeekIndex.Should().Be(targetWeek);
+        result.Meso.WeekIndex.Should().Be(targetWeek);
         result.Micro.Should().NotBeNull();
         result.Micro.WeekIndex.Should().Be(targetWeek);
 

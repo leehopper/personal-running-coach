@@ -40,7 +40,7 @@ public sealed class DeviationEngineTests
 
         // Assert — pace is band membership (slower-than-slow) with a signed magnitude, not a scalar diff.
         actual.Should().NotBeNull();
-        actual!.PaceBand.Should().Be(PaceBandMembership.SlowerThanSlow);
+        actual.PaceBand.Should().Be(PaceBandMembership.SlowerThanSlow);
         actual.PaceDeviationSecondsPerKm.Should().BeApproximately(
             40.0, 1e-6, because: "360 sec/km is 40 sec/km slower than the 320 Slow bound");
         actual.DistanceDeviationPercent.Should().BeApproximately(0.0, 1e-6);

@@ -56,7 +56,7 @@ public sealed class PlanGenerationServiceDiResolutionTests
         // request-bound.
         descriptor.Should().NotBeNull(
             because: "AddApplicationModules must register IPlanGenerationService for the static handlers' inline invocation");
-        descriptor!.ImplementationType.Should().Be<PlanGenerationService>(
+        descriptor.ImplementationType.Should().Be<PlanGenerationService>(
             because: "the production six-call macro/meso/micro chain is the only implementation registered in the host's service graph per Slice 1 § Unit 2 R02.4-R02.6");
         descriptor.Lifetime.Should().Be(
             ServiceLifetime.Scoped,

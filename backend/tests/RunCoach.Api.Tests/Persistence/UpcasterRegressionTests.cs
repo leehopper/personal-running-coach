@@ -134,13 +134,13 @@ public sealed class UpcasterRegressionTests(RunCoachAppFactory factory)
             because: "MartenConfiguration must AddEventType<LegacyOnboardingV1.OnboardingStarted>() " +
                      "so legacy rows route to a V1 EventMapping (DEC-067)");
 
-        var readProp = v1Mapping!.GetType().GetProperty("ReadEventData");
+        var readProp = v1Mapping.GetType().GetProperty("ReadEventData");
         readProp.Should().NotBeNull(because: "Marten 8.32 EventMapping exposes ReadEventData publicly");
-        var reader = readProp!.GetValue(v1Mapping) as Delegate;
+        var reader = readProp.GetValue(v1Mapping) as Delegate;
         reader.Should().NotBeNull(because: "the deserializer delegate must be initialized at startup");
         var readerReason = "the Upcast<TOld,TNew> registration replaces ReadEventData with the " +
                            "JsonTransformation closure that drives the V1 -> current transform";
-        reader!.Method.Name.Should().Contain("JsonTransformation", readerReason);
+        reader.Method.Name.Should().Contain("JsonTransformation", readerReason);
     }
 
     [Fact]

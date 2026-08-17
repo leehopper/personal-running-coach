@@ -54,7 +54,7 @@ public class PlanProjectionIntegrationTests(RunCoachAppFactory factory) : DbBack
 
         // Assert
         projection.Should().NotBeNull();
-        projection!.PlanId.Should().Be(planId);
+        projection.PlanId.Should().Be(planId);
         projection.UserId.Should().Be(UserId);
         projection.GeneratedAt.Should().Be(PlanGeneratedAt);
         projection.PromptVersion.Should().Be("coaching-v1");
@@ -62,7 +62,7 @@ public class PlanProjectionIntegrationTests(RunCoachAppFactory factory) : DbBack
         projection.PreviousPlanId.Should().BeNull();
 
         projection.Macro.Should().NotBeNull();
-        projection.Macro!.TotalWeeks.Should().Be(16);
+        projection.Macro.TotalWeeks.Should().Be(16);
 
         projection.MesoWeeks.Should().HaveCount(4);
         projection.MesoWeeks.Select(w => w.WeekNumber).Should().Equal(1, 2, 3, 4);
@@ -102,10 +102,10 @@ public class PlanProjectionIntegrationTests(RunCoachAppFactory factory) : DbBack
         // Assert — both documents exist; only the second carries the audit
         // link to the first.
         first.Should().NotBeNull();
-        first!.PreviousPlanId.Should().BeNull();
+        first.PreviousPlanId.Should().BeNull();
 
         second.Should().NotBeNull();
-        second!.PreviousPlanId.Should().Be(firstPlanId);
+        second.PreviousPlanId.Should().Be(firstPlanId);
     }
 
     /// <summary>

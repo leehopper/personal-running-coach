@@ -57,11 +57,11 @@ public class WorkoutLogsControllerCreateIntegrationTests(RunCoachAppFactory fact
         var body = await response.Content.ReadFromJsonAsync<CreateWorkoutLogResponseDto>(
             cancellationToken: ct);
         body.Should().NotBeNull();
-        body!.WorkoutLogId.Should().NotBeEmpty();
+        body.WorkoutLogId.Should().NotBeEmpty();
 
         var persisted = await GetByIdAsync(userId, body.WorkoutLogId, ct);
         persisted.Should().NotBeNull();
-        persisted!.UserId.Should().Be(userId);
+        persisted.UserId.Should().Be(userId);
         persisted.Prescription.Should().BeNull(because: "no active plan was seeded, so the run is off-plan");
     }
 
@@ -95,18 +95,18 @@ public class WorkoutLogsControllerCreateIntegrationTests(RunCoachAppFactory fact
             cancellationToken: ct);
         body.Should().NotBeNull();
 
-        var persisted = await GetByIdAsync(userId, body!.WorkoutLogId, ct);
+        var persisted = await GetByIdAsync(userId, body.WorkoutLogId, ct);
         persisted.Should().NotBeNull();
-        persisted!.Notes.Should().Be("Negative split, felt strong on the back half.");
+        persisted.Notes.Should().Be("Negative split, felt strong on the back half.");
 
         using var metrics = JsonDocument.Parse(persisted.Metrics!);
         metrics.RootElement.GetProperty("hrAvg").GetInt32().Should().Be(148);
         metrics.RootElement.GetProperty("rpe").GetInt32().Should().Be(8);
 
         persisted.Splits.Should().NotBeNull();
-        persisted.Splits!.Should().HaveCount(2);
-        persisted.Splits![0].Should().Be(new WorkoutSplit(1, 1000.0, 300.0, 300.0, 150));
-        persisted.Splits![1].Should().Be(new WorkoutSplit(2, 1000.0, 295.0, 295.0, 155));
+        persisted.Splits.Should().HaveCount(2);
+        persisted.Splits[0].Should().Be(new WorkoutSplit(1, 1000.0, 300.0, 300.0, 150));
+        persisted.Splits[1].Should().Be(new WorkoutSplit(2, 1000.0, 295.0, 295.0, 155));
     }
 
     [Fact]
@@ -137,13 +137,13 @@ public class WorkoutLogsControllerCreateIntegrationTests(RunCoachAppFactory fact
         var body = JsonSerializer.Deserialize<CreateWorkoutLogResponseDto>(raw, WebJson);
         body.Should().NotBeNull();
 
-        var persisted = await GetByIdAsync(userId, body!.WorkoutLogId, ct);
+        var persisted = await GetByIdAsync(userId, body.WorkoutLogId, ct);
         persisted.Should().NotBeNull();
 
         // The snapshot is resolved from the plan slot, NOT echoed from the client body.
-        var prescription = persisted!.Prescription;
+        var prescription = persisted.Prescription;
         prescription.Should().NotBeNull(because: "the run's date maps to the plan's week-2/day-4 slot");
-        prescription!.SourcePlanId.Should().Be(planId);
+        prescription.SourcePlanId.Should().Be(planId);
         prescription.WeekNumber.Should().Be(2);
         prescription.DayOfWeek.Should().Be(4);
         prescription.WorkoutType.Should().Be(WorkoutType.Tempo);
@@ -220,7 +220,7 @@ public class WorkoutLogsControllerCreateIntegrationTests(RunCoachAppFactory fact
             HttpStatusCode.Created, because: "a replayed key still returns the 201 create contract, not 200");
         firstBody.Should().NotBeNull();
         secondBody.Should().NotBeNull();
-        secondBody!.WorkoutLogId.Should().Be(firstBody!.WorkoutLogId, because: "a replay returns the original id");
+        secondBody.WorkoutLogId.Should().Be(firstBody.WorkoutLogId, because: "a replay returns the original id");
         secondBody.Should().BeEquivalentTo(
             firstBody, because: "a replay returns the byte-identical response body, not just a matching id");
 
@@ -425,7 +425,7 @@ public class WorkoutLogsControllerCreateIntegrationTests(RunCoachAppFactory fact
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
         GetCookie(container, AntiforgeryCookieName).Should().NotBeNull(
             "the framework antiforgery cookie must also be set");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(
@@ -440,7 +440,7 @@ public class WorkoutLogsControllerCreateIntegrationTests(RunCoachAppFactory fact
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!.UserId;
+        return body.UserId;
     }
 
     private static async Task LoginAsync(

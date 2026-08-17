@@ -128,7 +128,7 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
         var actual = await response.Content.ReadFromJsonAsync<PlanProjectionDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         actual.Should().NotBeNull();
-        actual!.PlanId.Should().Be(planId);
+        actual.PlanId.Should().Be(planId);
         actual.UserId.Should().Be(userId);
         actual.GeneratedAt.Should().Be(PlanGeneratedAt);
         actual.PlanStartDate.Should().Be(new DateOnly(2026, 4, 19), because: "PlanGeneratedAt 2026-04-25 (Saturday) anchors to the preceding Sunday");
@@ -137,7 +137,7 @@ public class PlanRenderingControllerIntegrationTests(RunCoachAppFactory factory)
         actual.PreviousPlanId.Should().BeNull();
 
         actual.Macro.Should().NotBeNull();
-        actual.Macro!.TotalWeeks.Should().Be(16);
+        actual.Macro.TotalWeeks.Should().Be(16);
         actual.Macro.GoalDescription.Should().Be("Half Marathon");
 
         actual.MesoWeeks.Should().HaveCount(4, because: "Slice 1 always lands four meso weeks for the initial plan");

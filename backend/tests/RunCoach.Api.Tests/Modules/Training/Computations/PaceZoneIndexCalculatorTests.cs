@@ -44,7 +44,7 @@ public class PaceZoneIndexCalculatorTests
 
         // Assert
         actualIndex.Should().NotBeNull();
-        actualIndex!.Value.Should().BeApproximately(
+        actualIndex.Value.Should().BeApproximately(
             expectedIndex,
             0.5m,
             because: $"index for {distance} in {timeStr} should be ~{expectedIndex} per Daniels' tables");
@@ -62,7 +62,7 @@ public class PaceZoneIndexCalculatorTests
 
         // Assert
         actualIndex.Should().NotBeNull();
-        actualIndex!.Value.Should().BeApproximately(
+        actualIndex.Value.Should().BeApproximately(
             expectedIndex,
             0.5m,
             because: "Lee's 10K time of 48:00 should produce an index ~42");
@@ -89,7 +89,7 @@ public class PaceZoneIndexCalculatorTests
 
         // Assert
         actualIndex.Should().NotBeNull();
-        actualIndex!.Value.Should().BeApproximately(
+        actualIndex.Value.Should().BeApproximately(
             expectedIndex,
             2.0m,
             because: $"index for {distance} in {timeStr} should be near {expectedIndex} per Daniels' tables");
@@ -217,7 +217,7 @@ public class PaceZoneIndexCalculatorTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.Value.Should().BeApproximately(
+        actual.Value.Should().BeApproximately(
             50.0m,
             0.5m,
             because: "the best index from multiple races should be selected");
@@ -295,7 +295,7 @@ public class PaceZoneIndexCalculatorTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.Value.Should().BeApproximately(
+        actual.Value.Should().BeApproximately(
             expectedIndex,
             0.5m,
             because: $"equivalent {distance} performance should produce index ~{expectedIndex}");

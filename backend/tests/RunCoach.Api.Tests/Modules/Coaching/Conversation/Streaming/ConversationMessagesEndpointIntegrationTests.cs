@@ -208,7 +208,7 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         payload.Prescription.Should().NotBeNull(
             because: "the seeded active plan resolves a server-authoritative on-plan prescription for "
                 + "the week-1/day-0 run (the onboarding-event seed survives the reprojection)");
-        payload.Prescription!.WorkoutType.Should().Be(
+        payload.Prescription.WorkoutType.Should().Be(
             "Easy", because: "the seeded plan prescribes an Easy run on the week-1 Sunday");
         frames.Should().NotContain(f => f.Event == "token", because: "a workout-log card streams no answer");
 
@@ -881,7 +881,7 @@ public class ConversationMessagesEndpointIntegrationTests(RunCoachAppFactory fac
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         var requestCookie = GetCookie(container, AuthCookieNames.AntiforgeryRequest);
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(

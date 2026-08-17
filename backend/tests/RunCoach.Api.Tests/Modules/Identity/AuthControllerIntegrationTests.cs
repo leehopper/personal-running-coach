@@ -70,7 +70,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         var requestCookie = GetCookie(container, AntiforgeryRequestCookieName);
         requestCookie.Should().NotBeNull("the SPA-readable antiforgery request token must be issued by /xsrf");
-        requestCookie!.Value.Should().NotBeNullOrEmpty();
+        requestCookie.Value.Should().NotBeNullOrEmpty();
 
         // Raw Set-Cookie assertions for __Host-Xsrf-Request: the CookieContainer
         // strips attributes, so the DEC-054 contract (Secure + Path=/ + no
@@ -79,7 +79,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         // echo it into X-XSRF-TOKEN.
         var requestSetCookie = GetRawSetCookie(response, AntiforgeryRequestCookieName);
         requestSetCookie.Should().NotBeNull($"{AntiforgeryRequestCookieName} must appear in a raw Set-Cookie header");
-        var requestLowered = requestSetCookie!.ToLowerInvariant();
+        var requestLowered = requestSetCookie.ToLowerInvariant();
         requestLowered.Should().Contain("secure");
         requestLowered.Should().Contain("path=/");
         requestLowered.Should().NotContain("domain=");
@@ -105,7 +105,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        body!.Email.Should().Be(email);
+        body.Email.Should().Be(email);
         body.UserId.Should().NotBeEmpty();
     }
 
@@ -132,7 +132,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
             cancellationToken: TestContext.Current.CancellationToken);
         problem.Should().NotBeNull();
-        problem!.Status.Should().Be(StatusCodes.Status409Conflict);
+        problem.Status.Should().Be(StatusCodes.Status409Conflict);
         problem.Type.Should().Be(RegistrationConflictType);
     }
 
@@ -202,7 +202,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
             cancellationToken: TestContext.Current.CancellationToken);
         problem.Should().NotBeNull();
-        problem!.Status.Should().Be(StatusCodes.Status400BadRequest);
+        problem.Status.Should().Be(StatusCodes.Status400BadRequest);
         problem.Type.Should().Be("https://runcoach.app/problems/antiforgery-validation-failed");
     }
 
@@ -232,7 +232,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var sessionHeader = GetRawSetCookie(response, SessionCookieName);
         sessionHeader.Should().NotBeNull($"login must issue {SessionCookieName}");
-        var lowered = sessionHeader!.ToLowerInvariant();
+        var lowered = sessionHeader.ToLowerInvariant();
         lowered.Should().Contain("httponly");
         lowered.Should().Contain("secure");
         lowered.Should().Contain("samesite=lax");
@@ -250,7 +250,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         // timestamp when isPersistent=true + ExpireTimeSpan=14d are set.
         var expires = ParseExpires(sessionHeader);
         expires.Should().NotBeNull("login uses isPersistent=true so Expires must be present");
-        var days = (expires!.Value - DateTimeOffset.UtcNow).TotalDays;
+        var days = (expires.Value - DateTimeOffset.UtcNow).TotalDays;
         days.Should().BeInRange(13.5, 14.5);
     }
 
@@ -277,7 +277,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
             cancellationToken: TestContext.Current.CancellationToken);
         problem.Should().NotBeNull();
-        problem!.Type.Should().Be(InvalidCredentialsType);
+        problem.Type.Should().Be(InvalidCredentialsType);
         problem.Status.Should().Be(StatusCodes.Status401Unauthorized);
     }
 
@@ -395,7 +395,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        body!.UserId.Should().Be(registeredUserId);
+        body.UserId.Should().Be(registeredUserId);
         body.Email.Should()
             .Be(mutatedEmail, because: "Me() must read the live DB row, not claims baked into the cookie");
     }
@@ -441,7 +441,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var sessionClear = GetRawSetCookie(response, SessionCookieName);
         sessionClear.Should().NotBeNull($"logout must re-issue {SessionCookieName} to clear it");
         var isCleared =
-            sessionClear!.Contains("expires=thu, 01 jan 1970", StringComparison.OrdinalIgnoreCase) ||
+            sessionClear.Contains("expires=thu, 01 jan 1970", StringComparison.OrdinalIgnoreCase) ||
             sessionClear.Contains("max-age=0", StringComparison.OrdinalIgnoreCase);
         isCleared.Should().BeTrue(
             $"cookie-clear must use an epoch expires attribute or max-age=0, got: {sessionClear}");
@@ -476,7 +476,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        body!.UserId.Should().Be(userId);
+        body.UserId.Should().Be(userId);
         body.Email.Should().Be(email);
     }
 
@@ -643,7 +643,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var requestCookie = GetCookie(container, AntiforgeryRequestCookieName);
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
         GetCookie(container, AntiforgeryCookieName).Should().NotBeNull("the framework antiforgery cookie must also be set");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(HttpClient client, CookieContainer container, string email, string password)
@@ -657,7 +657,7 @@ public class AuthControllerIntegrationTests(RunCoachAppFactory factory) : DbBack
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!.UserId;
+        return body.UserId;
     }
 
     private static async Task LoginAsync(HttpClient client, CookieContainer container, string email, string password)

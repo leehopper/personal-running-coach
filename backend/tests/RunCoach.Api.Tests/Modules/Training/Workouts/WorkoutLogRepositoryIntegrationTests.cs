@@ -35,7 +35,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.Distance.Meters.Should().Be(5000.0);
+        actual.Distance.Meters.Should().Be(5000.0);
         actual.Duration.TotalMinutes.Should().Be(25.0);
         actual.CompletionStatus.Should().Be(CompletionStatus.Complete);
         actual.Metrics.Should().BeNull();
@@ -64,16 +64,16 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Assert — metrics jsonb round-trips by value (key order is not significant).
         actual.Should().NotBeNull();
-        using var metrics = JsonDocument.Parse(actual!.Metrics!);
+        using var metrics = JsonDocument.Parse(actual.Metrics!);
         metrics.RootElement.GetProperty("hrAvg").GetInt32().Should().Be(142);
         metrics.RootElement.GetProperty("rpe").GetInt32().Should().Be(7);
         metrics.RootElement.GetProperty("cadence").GetInt32().Should().Be(178);
 
         // Typed splits round-trip with their index/distance/duration/pace.
         actual.Splits.Should().NotBeNull();
-        actual.Splits!.Should().HaveCount(2);
-        actual.Splits![0].Should().Be(new WorkoutSplit(1, 1000.0, 300.0, 300.0, 138));
-        actual.Splits![1].Should().Be(new WorkoutSplit(2, 1000.0, 295.0, 295.0, 145));
+        actual.Splits.Should().HaveCount(2);
+        actual.Splits[0].Should().Be(new WorkoutSplit(1, 1000.0, 300.0, 300.0, 138));
+        actual.Splits[1].Should().Be(new WorkoutSplit(2, 1000.0, 295.0, 295.0, 145));
     }
 
     [Fact]
@@ -92,8 +92,8 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.Notes.Should().Be(notes);
-        actual.Notes!.Length.Should().Be(5000);
+        actual.Notes.Should().Be(notes);
+        actual.Notes.Length.Should().Be(5000);
         actual.Metrics.Should().BeNull();
         actual.Splits.Should().BeNull();
     }
@@ -112,7 +112,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.Prescription.Should().BeNull();
+        actual.Prescription.Should().BeNull();
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
         matches.Should().ContainSingle();
         var prescription = matches[0].Prescription;
         prescription.Should().NotBeNull();
-        prescription!.SourcePlanId.Should().Be(planId);
+        prescription.SourcePlanId.Should().Be(planId);
         prescription.WorkoutType.Should().Be(WorkoutType.Tempo);
         prescription.PrescribedDistance.Meters.Should().Be(10000.0);
         prescription.PrescribedDuration.TotalMinutes.Should().Be(50.0);
@@ -276,7 +276,7 @@ public class WorkoutLogRepositoryIntegrationTests(RunCoachAppFactory factory)
 
         // Assert — the non-zero enum values survive the integer column round-trip.
         actual.Should().NotBeNull();
-        actual!.CompletionStatus.Should().Be(status);
+        actual.CompletionStatus.Should().Be(status);
     }
 
     [Fact]
