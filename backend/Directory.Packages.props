@@ -103,7 +103,7 @@
          `IDataConsumer`) as the rest of the extension stack pinned above.
          Lift this back to the `xunit.v3` meta-package when xUnit ships a
          release whose default MTP adapter targets 2.x. -->
-    <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
+    <PackageVersion Include="xunit.v3.assert" Version="4.0.0" />
     <PackageVersion Include="xunit.v3.core.mtp-v2" Version="3.2.2" />
     <!-- Analyzers -->
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
