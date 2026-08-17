@@ -79,7 +79,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         actual.Should().BeTrue();
         error.Should().BeNull();
         command.Should().NotBeNull();
-        command!.UserId.Should().Be(UserId);
+        command.UserId.Should().Be(UserId);
         command.IdempotencyKey.Should().Be(Key);
         command.PrimaryGoal.Should().Be(expectedPrimaryGoal);
         command.TargetEvent.Should().Be(expectedTargetEvent);

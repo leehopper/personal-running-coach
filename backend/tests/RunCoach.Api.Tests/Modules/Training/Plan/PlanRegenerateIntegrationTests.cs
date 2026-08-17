@@ -141,7 +141,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         //     freshly-appended PlanLinkedToUser event.
         var userProfile = await LoadUserProfileAsync(userId);
         userProfile.Should().NotBeNull();
-        userProfile!.CurrentPlanId.Should().Be(newPlanId);
+        userProfile.CurrentPlanId.Should().Be(newPlanId);
     }
 
     /// <summary>
@@ -199,7 +199,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(
             cancellationToken: TestContext.Current.CancellationToken);
         problem.Should().NotBeNull();
-        problem!.Type.Should().Be(OnboardingNotCompleteType);
+        problem.Type.Should().Be(OnboardingNotCompleteType);
     }
 
     /// <summary>
@@ -307,7 +307,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(
             cancellationToken: TestContext.Current.CancellationToken);
         problem.Should().NotBeNull();
-        problem!.Type.Should().Be("https://runcoach.app/problems/antiforgery-validation-failed");
+        problem.Type.Should().Be("https://runcoach.app/problems/antiforgery-validation-failed");
     }
 
     /// <summary>
@@ -339,7 +339,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(
             cancellationToken: TestContext.Current.CancellationToken);
         problem.Should().NotBeNull();
-        problem!.Type.Should().Be("https://runcoach.app/problems/invalid-idempotency-key");
+        problem.Type.Should().Be("https://runcoach.app/problems/invalid-idempotency-key");
     }
 
     /// <summary>
@@ -392,7 +392,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
             .Cast<Cookie>()
             .FirstOrDefault(c => c.Name == AntiforgeryRequestCookieName);
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static HttpRequestMessage BuildRegenerateRequest(string antiforgeryToken, Guid idempotencyKey, string? intent)
@@ -559,7 +559,7 @@ public class PlanRegenerateIntegrationTests(RunCoachAppFactory factory) : DbBack
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var registered = await users.FindByEmailAsync(email);
         registered.Should().NotBeNull(because: "the registered user must exist after the /register call");
-        return (client, container, antiforgeryToken, registered!.Id);
+        return (client, container, antiforgeryToken, registered.Id);
     }
 
     private async Task<(HttpClient Client, CookieContainer Container, string AntiforgeryToken)>

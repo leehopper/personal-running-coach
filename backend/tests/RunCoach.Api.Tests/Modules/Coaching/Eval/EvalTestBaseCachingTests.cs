@@ -24,7 +24,7 @@ public sealed class EvalTestBaseCachingTests : EvalTestBase
         // Assert
         run.Should().NotBeNull();
         run.ChatConfiguration.Should().NotBeNull();
-        run.ChatConfiguration!.ChatClient.Should().NotBeNull();
+        run.ChatConfiguration.ChatClient.Should().NotBeNull();
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public sealed class EvalTestBaseCachingTests : EvalTestBase
         // Assert
         run.Should().NotBeNull();
         run.ChatConfiguration.Should().NotBeNull();
-        run.ChatConfiguration!.ChatClient.Should().NotBeNull();
+        run.ChatConfiguration.ChatClient.Should().NotBeNull();
     }
 
     [Fact]

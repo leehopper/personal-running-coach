@@ -63,8 +63,8 @@ public class TestProfilesTests
         // Assert
         sarah.GoalState.GoalType.Should().Be("RaceGoal");
         sarah.GoalState.TargetRace.Should().NotBeNull();
-        sarah.GoalState.TargetRace!.Distance.Should().Be("5K");
-        sarah.GoalState.TargetRace!.TargetTime.Should().BeNull(
+        sarah.GoalState.TargetRace.Distance.Should().Be("5K");
+        sarah.GoalState.TargetRace.TargetTime.Should().BeNull(
             because: "beginner has no target time, just finish");
     }
 
@@ -89,7 +89,7 @@ public class TestProfilesTests
 
         // Assert
         paces.EasyPaceRange.Should().NotBeNull();
-        paces.EasyPaceRange!.Fast.Should().Be(Pace.FromSecondsPerKm(420));
+        paces.EasyPaceRange.Fast.Should().Be(Pace.FromSecondsPerKm(420));
         paces.EasyPaceRange.Slow.Should().Be(Pace.FromSecondsPerKm(480));
         paces.MarathonPace.Should().BeNull();
         paces.ThresholdPace.Should().BeNull();
@@ -140,7 +140,7 @@ public class TestProfilesTests
             expectedIndex!.Value,
             because: "Lee's pace-zone index should be computed from his 10K race time of 48:00");
 
-        lee.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex!.Value.Should().BeApproximately(
+        lee.GoalState.CurrentFitnessEstimate.EstimatedPaceZoneIndex.Value.Should().BeApproximately(
             42.0m,
             0.5m,
             because: "10K in 48:00 corresponds to approximately pace-zone index 42");
@@ -180,8 +180,8 @@ public class TestProfilesTests
         // Assert
         lee.GoalState.GoalType.Should().Be("RaceGoal");
         lee.GoalState.TargetRace.Should().NotBeNull();
-        lee.GoalState.TargetRace!.Distance.Should().Be("Half-Marathon");
-        lee.GoalState.TargetRace!.TargetTime.Should().Be(
+        lee.GoalState.TargetRace.Distance.Should().Be("Half-Marathon");
+        lee.GoalState.TargetRace.TargetTime.Should().Be(
             TimeSpan.FromMinutes(105),
             because: "Lee's target is sub-1:45 HM");
     }
@@ -409,8 +409,8 @@ public class TestProfilesTests
         // Assert
         priya.GoalState.GoalType.Should().Be("RaceGoal");
         priya.GoalState.TargetRace.Should().NotBeNull();
-        priya.GoalState.TargetRace!.Distance.Should().Be("Marathon");
-        priya.GoalState.TargetRace!.TargetTime.Should().Be(
+        priya.GoalState.TargetRace.Distance.Should().Be("Marathon");
+        priya.GoalState.TargetRace.TargetTime.Should().Be(
             TimeSpan.FromMinutes(195),
             because: "Priya's target is sub-3:15 marathon");
     }
@@ -560,20 +560,20 @@ public class TestProfilesTests
         paces.FastRepetitionPace.Should().NotBeNull(
             $"profile '{name}' must have a fast-repetition pace (populated by PaceZoneCalculator)");
 
-        paces.EasyPaceRange!.Fast.IsFasterThan(paces.EasyPaceRange.Slow).Should().BeTrue(
+        paces.EasyPaceRange.Fast.IsFasterThan(paces.EasyPaceRange.Slow).Should().BeTrue(
             because: $"profile '{name}' easy range Fast must be faster (lower sec/km) than Slow");
 
-        paces.EasyPaceRange.Slow.IsSlowerThan(paces.MarathonPace!.Value).Should().BeTrue(
+        paces.EasyPaceRange.Slow.IsSlowerThan(paces.MarathonPace.Value).Should().BeTrue(
             $"profile '{name}' easy slow end is slower than marathon pace");
-        paces.EasyPaceRange.Fast.IsSlowerThan(paces.MarathonPace!.Value).Should().BeTrue(
+        paces.EasyPaceRange.Fast.IsSlowerThan(paces.MarathonPace.Value).Should().BeTrue(
             $"profile '{name}' easy fast end is slower than marathon pace");
-        paces.MarathonPace!.Value.IsSlowerThan(paces.ThresholdPace!.Value).Should().BeTrue(
+        paces.MarathonPace.Value.IsSlowerThan(paces.ThresholdPace.Value).Should().BeTrue(
             $"profile '{name}' marathon pace is slower than threshold");
-        paces.ThresholdPace!.Value.IsSlowerThan(paces.IntervalPace!.Value).Should().BeTrue(
+        paces.ThresholdPace.Value.IsSlowerThan(paces.IntervalPace.Value).Should().BeTrue(
             $"profile '{name}' threshold is slower than interval");
-        paces.IntervalPace!.Value.IsSlowerThan(paces.RepetitionPace!.Value).Should().BeTrue(
+        paces.IntervalPace.Value.IsSlowerThan(paces.RepetitionPace.Value).Should().BeTrue(
             $"profile '{name}' interval is slower than repetition");
-        paces.RepetitionPace!.Value.IsSlowerThan(paces.FastRepetitionPace!.Value).Should().BeTrue(
+        paces.RepetitionPace.Value.IsSlowerThan(paces.FastRepetitionPace.Value).Should().BeTrue(
             $"profile '{name}' repetition is slower than fast-repetition");
     }
 

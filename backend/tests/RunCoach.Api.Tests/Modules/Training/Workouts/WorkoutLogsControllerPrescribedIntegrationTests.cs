@@ -79,7 +79,7 @@ public class WorkoutLogsControllerPrescribedIntegrationTests(RunCoachAppFactory 
         // camelCase-policy mismatch can't hide behind a raw-string-only check.
         var typed = JsonSerializer.Deserialize<PrescribedWorkoutDto>(raw, WebJson);
         typed.Should().NotBeNull();
-        typed!.WorkoutType.Should().Be("Tempo");
+        typed.WorkoutType.Should().Be("Tempo");
         typed.DistanceMeters.Should().Be(10_000.0);
         typed.DurationSeconds.Should().Be(3_000.0);
         typed.PaceFastSecPerKm.Should().Be(280.0);
@@ -225,7 +225,7 @@ public class WorkoutLogsControllerPrescribedIntegrationTests(RunCoachAppFactory 
         response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
         var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken: ct);
         problem.Should().NotBeNull();
-        problem!.Status.Should().Be(StatusCodes.Status400BadRequest);
+        problem.Status.Should().Be(StatusCodes.Status400BadRequest);
         problem.Errors.Should().ContainKey("date");
     }
 
@@ -247,7 +247,7 @@ public class WorkoutLogsControllerPrescribedIntegrationTests(RunCoachAppFactory 
         response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
         var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken: ct);
         problem.Should().NotBeNull();
-        problem!.Status.Should().Be(StatusCodes.Status400BadRequest);
+        problem.Status.Should().Be(StatusCodes.Status400BadRequest);
         problem.Errors.Should().ContainKey("date");
     }
 
@@ -273,7 +273,7 @@ public class WorkoutLogsControllerPrescribedIntegrationTests(RunCoachAppFactory 
         response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
         var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken: ct);
         problem.Should().NotBeNull();
-        problem!.Status.Should().Be(StatusCodes.Status400BadRequest);
+        problem.Status.Should().Be(StatusCodes.Status400BadRequest);
         problem.Errors.Should().ContainKey("date");
     }
 
@@ -365,7 +365,7 @@ public class WorkoutLogsControllerPrescribedIntegrationTests(RunCoachAppFactory 
         requestCookie.Should().NotBeNull("/xsrf must issue the SPA-readable request token cookie");
         GetCookie(container, AntiforgeryCookieName).Should().NotBeNull(
             "the framework antiforgery cookie must also be set");
-        return requestCookie!.Value;
+        return requestCookie.Value;
     }
 
     private static async Task<Guid> RegisterAsync(
@@ -380,7 +380,7 @@ public class WorkoutLogsControllerPrescribedIntegrationTests(RunCoachAppFactory 
         var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(
             cancellationToken: TestContext.Current.CancellationToken);
         body.Should().NotBeNull();
-        return body!.UserId;
+        return body.UserId;
     }
 
     private static async Task LoginAsync(

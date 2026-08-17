@@ -73,13 +73,13 @@ public sealed class RegeneratePlanHandlerDiResolutionTests : IClassFixture<RunCo
         var planGenerationDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IPlanGenerationService));
         planGenerationDescriptor.Should().NotBeNull(
             because: "RegeneratePlanHandler.Handle requires IPlanGenerationService at request time");
-        planGenerationDescriptor!.ImplementationType.Should().Be<PlanGenerationService>();
+        planGenerationDescriptor.ImplementationType.Should().Be<PlanGenerationService>();
         planGenerationDescriptor.Lifetime.Should().Be(ServiceLifetime.Scoped);
 
         var idempotencyDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IIdempotencyStore));
         idempotencyDescriptor.Should().NotBeNull(
             because: "RegeneratePlanHandler.Handle requires IIdempotencyStore at request time");
-        idempotencyDescriptor!.ImplementationType.Should().Be<MartenIdempotencyStore>();
+        idempotencyDescriptor.ImplementationType.Should().Be<MartenIdempotencyStore>();
         idempotencyDescriptor.Lifetime.Should().Be(ServiceLifetime.Scoped);
     }
 

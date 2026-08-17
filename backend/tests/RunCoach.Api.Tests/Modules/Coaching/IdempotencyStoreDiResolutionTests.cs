@@ -53,7 +53,7 @@ public sealed class IdempotencyStoreDiResolutionTests
         // Marten-backed implementation, and MUST be scoped.
         descriptor.Should().NotBeNull(
             because: "AddApplicationModules must register IIdempotencyStore for Wolverine handlers to resolve at request time");
-        descriptor!.ImplementationType.Should().Be<MartenIdempotencyStore>(
+        descriptor.ImplementationType.Should().Be<MartenIdempotencyStore>(
             because: "the Marten-backed store is the only implementation that participates in the handler's transaction so the idempotency marker + events commit atomically");
         descriptor.Lifetime.Should().Be(
             ServiceLifetime.Scoped,

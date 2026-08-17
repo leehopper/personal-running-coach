@@ -163,7 +163,7 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.Model.ToString().Should().Contain("claude-opus-4-20250514");
+        capturedParams.Model.ToString().Should().Contain("claude-opus-4-20250514");
     }
 
     [Fact]
@@ -193,7 +193,7 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.Model.ToString().Should().Contain(DefaultModel);
+        capturedParams.Model.ToString().Should().Contain(DefaultModel);
     }
 
     [Fact]
@@ -224,7 +224,7 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.MaxTokens.Should().Be(8192);
+        capturedParams.MaxTokens.Should().Be(8192);
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.MaxTokens.Should().Be(DefaultMaxTokens);
+        capturedParams.MaxTokens.Should().Be(DefaultMaxTokens);
     }
 
     [Fact]
@@ -284,8 +284,8 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.OutputConfig.Should().NotBeNull();
-        capturedParams.OutputConfig!.Format.Should().BeOfType<JsonOutputFormat>();
+        capturedParams.OutputConfig.Should().NotBeNull();
+        capturedParams.OutputConfig.Format.Should().BeOfType<JsonOutputFormat>();
     }
 
     [Fact]
@@ -320,7 +320,7 @@ public sealed class AnthropicStructuredOutputClientTests
         // Assert -- system goes to System param, user goes to Messages.
         // Anthropic SDK wraps System in MessageCreateParamsSystem; use .Value for the raw string.
         capturedParams.Should().NotBeNull();
-        capturedParams!.System!.ToString().Should().Contain("You are a running coach.");
+        capturedParams.System!.ToString().Should().Contain("You are a running coach.");
         capturedParams.Messages.Should().HaveCount(1);
         capturedParams.Messages[0].Role.ToString().Should().Contain("user");
         capturedParams.Messages[0].Content.ToString().Should().Contain("Generate a plan.");
@@ -358,7 +358,7 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert -- multiple system messages are joined with double newline
         capturedParams.Should().NotBeNull();
-        capturedParams!.System!.ToString().Should().Contain("You are a running coach.").And.Contain("Be encouraging and precise.");
+        capturedParams.System!.ToString().Should().Contain("You are a running coach.").And.Contain("Be encouraging and precise.");
     }
 
     [Fact]
@@ -391,7 +391,7 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert -- no system messages means System is empty (null coalesced to empty)
         capturedParams.Should().NotBeNull();
-        capturedParams!.System!.ToString().Should().Be("\"\"");
+        capturedParams.System!.ToString().Should().Be("\"\"");
     }
 
     [Fact]
@@ -426,7 +426,7 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert -- whitespace-only system message is skipped
         capturedParams.Should().NotBeNull();
-        capturedParams!.System!.ToString().Should().Contain("Actual system prompt.");
+        capturedParams.System!.ToString().Should().Contain("Actual system prompt.");
     }
 
     [Fact]
@@ -461,7 +461,7 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert
         capturedParams.Should().NotBeNull();
-        capturedParams!.Messages.Should().HaveCount(3);
+        capturedParams.Messages.Should().HaveCount(3);
         capturedParams.Messages[0].Role.ToString().Should().Contain("user");
         capturedParams.Messages[0].Content.ToString().Should().Contain("Hello");
         capturedParams.Messages[1].Role.ToString().Should().Contain("assistant");
@@ -589,7 +589,7 @@ public sealed class AnthropicStructuredOutputClientTests
 
         // Assert
         actual.Usage.Should().NotBeNull();
-        actual.Usage!.InputTokenCount.Should().Be(100);
+        actual.Usage.InputTokenCount.Should().Be(100);
         actual.Usage.OutputTokenCount.Should().Be(50);
         actual.Usage.TotalTokenCount.Should().Be(150);
     }

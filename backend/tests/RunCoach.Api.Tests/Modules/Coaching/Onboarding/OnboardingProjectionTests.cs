@@ -111,7 +111,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         view.PrimaryGoal.Should().NotBeNull();
-        view.PrimaryGoal!.Goal.Should().Be(PrimaryGoal.RaceTraining);
+        view.PrimaryGoal.Goal.Should().Be(PrimaryGoal.RaceTraining);
         view.PrimaryGoal.Description.Should().Be("Half marathon in October.");
         view.Version.Should().Be(2);
     }
@@ -272,7 +272,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.UserId.Should().Be(UserId);
+        actual.UserId.Should().Be(UserId);
         actual.CreatedOn.Should().Be(Now);
         actual.ModifiedOn.Should().Be(Now);
         actual.OnboardingCompletedAt.Should().BeNull();
@@ -310,7 +310,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         actual.Should().BeSameAs(snapshot);
-        actual!.PrimaryGoal.Should().Be(PrimaryGoal.RaceTraining);
+        actual.PrimaryGoal.Should().Be(PrimaryGoal.RaceTraining);
         actual.ModifiedOn.Should().Be(Now.AddMinutes(2));
     }
 
@@ -343,7 +343,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         actual!.TargetEvent.Should().NotBeNull();
-        actual.TargetEvent!.EventName.Should().Be("Hartford Half Marathon");
+        actual.TargetEvent.EventName.Should().Be("Hartford Half Marathon");
         actual.TargetEvent.DistanceKm.Should().Be(21.0975);
     }
 
@@ -428,7 +428,7 @@ public sealed class OnboardingProjectionTests
         OnboardingProjection.Apply(captured, view);
 
         // Assert
-        view.PrimaryGoal!.Goal.Should().Be(PrimaryGoal.GeneralFitness);
+        view.PrimaryGoal.Goal.Should().Be(PrimaryGoal.GeneralFitness);
         view.TargetEvent.Should().BeNull(
             because: "OnboardingView mirrors the EF projection invariant: TargetEvent only persists under RaceTraining");
     }
@@ -489,7 +489,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         actual.Should().BeSameAs(snapshot);
-        actual!.ModifiedOn.Should().Be(Now);
+        actual.ModifiedOn.Should().Be(Now);
     }
 
     [Fact]
@@ -512,7 +512,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         snapshot.Should().NotBeNull();
-        snapshot!.PrimaryGoal.Should().Be(PrimaryGoal.RaceTraining);
+        snapshot.PrimaryGoal.Should().Be(PrimaryGoal.RaceTraining);
         snapshot.TargetEvent.Should().NotBeNull();
         snapshot.CurrentFitness.Should().NotBeNull();
         snapshot.WeeklySchedule.Should().NotBeNull();
@@ -553,7 +553,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.UserId.Should().Be(UserId);
+        actual.UserId.Should().Be(UserId);
         actual.TenantId.Should().Be(UserId.ToString());
         actual.CreatedOn.Should().Be(Now);
         actual.ModifiedOn.Should().Be(Now);
@@ -579,7 +579,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.UserId.Should().Be(UserId);
+        actual.UserId.Should().Be(UserId);
         actual.TenantId.Should().Be(UserId.ToString());
         actual.CreatedOn.Should().Be(Now);
         actual.ModifiedOn.Should().Be(Now);
@@ -605,7 +605,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.UserId.Should().Be(UserId);
+        actual.UserId.Should().Be(UserId);
         actual.TenantId.Should().Be(UserId.ToString());
         actual.CreatedOn.Should().Be(Now);
         actual.ModifiedOn.Should().Be(Now);
@@ -854,7 +854,7 @@ public sealed class OnboardingProjectionTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.UserId.Should().Be(expected.UserId);
+        actual.UserId.Should().Be(expected.UserId);
         actual.PlanId.Should().Be(expected.PlanId);
     }
 

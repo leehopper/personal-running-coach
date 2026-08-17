@@ -23,7 +23,7 @@ public sealed class PaceDerivationTests
 
         // Assert
         actual.Should().NotBeNull();
-        actual!.Value.SecondsPerKm.Should().BeApproximately(300.0, 1e-9);
+        actual.Value.SecondsPerKm.Should().BeApproximately(300.0, 1e-9);
     }
 
     [Fact]

@@ -49,7 +49,7 @@ public class WolverineErrorRoutingTests
         // Assert
         actualSlot.Should().NotBeNull(
             because: "Program.cs registers OnException<ExistingStreamIdCollisionException>().MoveToErrorQueue() so the global FailureRuleCollection must contain a matching rule");
-        actualSlot!.Describe().Should().Contain(
+        actualSlot.Describe().Should().Contain(
             MoveToErrorQueueDescription,
             because: "the rule's first-attempt slot must short-circuit to the dead-letter queue rather than retry");
     }
@@ -69,7 +69,7 @@ public class WolverineErrorRoutingTests
         // Assert
         actualSlot.Should().NotBeNull(
             because: "Program.cs registers OnException<ConcurrentUpdateException>().MoveToErrorQueue() so the global FailureRuleCollection must contain a matching rule");
-        actualSlot!.Describe().Should().Contain(
+        actualSlot.Describe().Should().Contain(
             MoveToErrorQueueDescription,
             because: "subsequent-turn append races must dead-letter rather than re-run the handler against a stale stream version");
     }
@@ -97,7 +97,7 @@ public class WolverineErrorRoutingTests
         // Assert
         actualSlot.Should().NotBeNull(
             because: "Program.cs registers OnException<DocumentAlreadyExistsException>().MoveToErrorQueue() so MartenIdempotencyStore.Record's Insert collision dead-letters cleanly");
-        actualSlot!.Describe().Should().Contain(
+        actualSlot.Describe().Should().Contain(
             MoveToErrorQueueDescription,
             because: "first-write-wins requires the duplicate idempotency-marker insert to short-circuit, not retry");
     }

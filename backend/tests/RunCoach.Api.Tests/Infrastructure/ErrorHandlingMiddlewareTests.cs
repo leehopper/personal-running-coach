@@ -70,7 +70,7 @@ public class ErrorHandlingMiddlewareTests
 
         // Assert
         capturedContext.Should().NotBeNull();
-        capturedContext!.Exception.Should().BeSameAs(exception);
+        capturedContext.Exception.Should().BeSameAs(exception);
         var problemDetails = capturedContext.ProblemDetails;
         problemDetails.Status.Should().Be(StatusCodes.Status500InternalServerError);
         problemDetails.Detail.Should().Contain("dev-detail-marker");
@@ -107,7 +107,7 @@ public class ErrorHandlingMiddlewareTests
 
         // Assert
         capturedContext.Should().NotBeNull();
-        var problemDetails = capturedContext!.ProblemDetails;
+        var problemDetails = capturedContext.ProblemDetails;
         problemDetails.Detail.Should().NotContain("prod-detail-marker");
         problemDetails.Detail.Should().NotContain("InvalidOperationException");
         problemDetails.Detail.Should().Be("An unexpected error occurred while processing the request.");

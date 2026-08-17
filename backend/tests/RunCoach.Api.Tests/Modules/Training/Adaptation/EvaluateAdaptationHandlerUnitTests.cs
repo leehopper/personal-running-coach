@@ -846,7 +846,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         // Assert — the raw entity text reached the sanitizer...
         var actualSanitizerInput = harness.Sanitizer.LastInput;
         actualSanitizerInput.Should().NotBeNull();
-        actualSanitizerInput!.Notes.Should().Be("raw note");
+        actualSanitizerInput.Notes.Should().Be("raw note");
         actualSanitizerInput.Metrics.Should().Contain("weather", "raw weather");
         actualSanitizerInput.Metrics.Should().Contain("rpe", "7");
 
@@ -1114,7 +1114,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
         harness.SafetyGate.Received(1).Classify(
             "SANITIZED", Arg.Any<IReadOnlyDictionary<string, string>?>());
         assemblerInput.Should().NotBeNull();
-        assemblerInput!.Notes.Should().Be("raw note");
+        assemblerInput.Notes.Should().Be("raw note");
     }
 
     [Theory]
@@ -1159,7 +1159,7 @@ public sealed class EvaluateAdaptationHandlerUnitTests
 
         // Assert
         actualMethod.Should().NotBeNull();
-        actualMethod!.ReturnType.Should().Be(typeof(void));
+        actualMethod.ReturnType.Should().Be(typeof(void));
         actualMethod.GetParameters().Should().ContainSingle()
             .Which.ParameterType.Should().Be<HandlerChain>();
     }
