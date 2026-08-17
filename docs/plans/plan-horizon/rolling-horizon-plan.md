@@ -6,7 +6,8 @@
 
 - **Cycle:** Rolling Plan Horizon (backend-only; not a SPLIT slice)
 - **Depends on:** nothing in-flight. Independent of every SPLIT slice.
-- **Next step:** spec + build PR1 in a fresh session — read this plan first.
+- **PR1 — merged 2026-08-16 (#310).** Event, projection, and validator plumbing: `MicroCycleCreated`, `PlanProjection` apply, `MesoWeekOutputValidator`, the horizon-extension prompt builders, and `GenerateWeekAsync` on `IPlanGenerationService`. Review addressment parameterized `BuildMicroCorrection` and `MesoMicroConsistencyRejectedException` on the target week index (bootstrap week-1 bytes unchanged, so no eval re-record) and made `WeekGenerationResult.Micro` non-nullable.
+- **Next step:** spec + build PR2 (the handler: `ExtendPlanHorizonCommand`/`ExtendPlanHorizonHandler`, `PlanHorizonExtensionState`, dual idempotency) in a fresh session — read this plan first.
 
 ---
 
