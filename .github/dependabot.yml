@@ -11,6 +11,11 @@ updates:
         update-types:
           - minor
           - patch
+    # WolverineFx is deliberately pinned (6.18.0+ silently drops Marten session
+    # commits on synchronous InvokeForTenantAsync); bumps are taken manually
+    # only after that regression is re-validated against the new release.
+    ignore:
+      - dependency-name: "WolverineFx*"
 
   - package-ecosystem: npm
     directory: /frontend
@@ -38,6 +43,14 @@ updates:
       interval: weekly
     commit-message:
       prefix: "ci(deps):"
+    # Group actions bumps so multi-action repos (github/codeql-action init +
+    # analyze) move in one PR — split bumps fail CodeQL's version-consistency
+    # check between init and analyze.
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: docker
     directory: /backend
