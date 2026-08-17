@@ -402,11 +402,11 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
                 if (microAttempts > maxMicroRetries)
                 {
                     LogMicroConsistencyRejected(_logger, planId, microConsistency.Violation, microAttempts);
-                    throw new MesoMicroConsistencyRejectedException(microConsistency.Violation);
+                    throw new MesoMicroConsistencyRejectedException(microConsistency.Violation, weekIndex: 1);
                 }
 
                 LogMicroConsistencyRetry(_logger, planId, microConsistency.Violation, microAttempts);
-                microCorrection = BuildMicroCorrection(weekOneMeso, candidate);
+                microCorrection = BuildMicroCorrection(weekOneMeso, candidate, weekIndex: 1);
             }
 
             var promptVersion = _promptStore.GetActiveVersion(ContextAssembler.CoachingPromptId);
@@ -544,21 +544,24 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
     }
 
     /// <summary>
-    /// Builds the deterministic per-retry correction suffix for a micro week that disagreed with the
-    /// meso week-1 template (DEC-088). It names the exact run-day schedule the meso week specifies —
-    /// one line per <see cref="DaySlotType.Run"/> slot (day of week + assigned <see cref="WorkoutType"/>)
-    /// — and the schedule the rejected micro produced, so the re-roll becomes a narrow reconciliation
-    /// task. The schedule is recomputed here from the meso + rejected micro (the validator returns only
-    /// the violation discriminator), so the validator stays pure. Rest and cross-train days are omitted
-    /// because the micro layer emits workouts for run days only.
+    /// Builds the deterministic per-retry correction suffix for a micro week that disagreed with its
+    /// meso template (DEC-088; parameterized on the target week index so the DEC-090 horizon
+    /// extension names the actual week being regenerated — week 1 on the bootstrap path emits the
+    /// same bytes as before the parameter existed). It names the exact run-day schedule the meso
+    /// week specifies — one line per <see cref="DaySlotType.Run"/> slot (day of week + assigned
+    /// <see cref="WorkoutType"/>) — and the schedule the rejected micro produced, so the re-roll
+    /// becomes a narrow reconciliation task. The schedule is recomputed here from the meso +
+    /// rejected micro (the validator returns only the violation discriminator), so the validator
+    /// stays pure. Rest and cross-train days are omitted because the micro layer emits workouts for
+    /// run days only.
     /// </summary>
-    internal static string BuildMicroCorrection(MesoWeekOutput weekOneMeso, MicroWorkoutListOutput micro)
+    internal static string BuildMicroCorrection(MesoWeekOutput meso, MicroWorkoutListOutput micro, int weekIndex)
     {
         var sb = new StringBuilder(384);
         sb.AppendLine(
             CultureInfo.InvariantCulture,
-            $"{MicroCorrectionLabel} Your previous week-1 workouts did not match the week-1 plan. The plan schedules exactly these run days (generate one workout per line, on the named day, of the named type):");
-        foreach (var (day, slot) in weekOneMeso.EnumerateDays())
+            $"{MicroCorrectionLabel} Your previous week-{weekIndex} workouts did not match the week-{weekIndex} plan. The plan schedules exactly these run days (generate one workout per line, on the named day, of the named type):");
+        foreach (var (day, slot) in meso.EnumerateDays())
         {
             if (slot.SlotType == DaySlotType.Run)
             {
@@ -569,7 +572,9 @@ public sealed partial class PlanGenerationService : IPlanGenerationService
 
         sb.Append("You generated: ");
         AppendMicroDaySummary(sb, micro);
-        sb.Append(". Regenerate the week-1 workouts to schedule exactly one workout per run day listed above, on the same day, of the same type, and no workout on any other day.");
+        sb.Append(
+            CultureInfo.InvariantCulture,
+            $". Regenerate the week-{weekIndex} workouts to schedule exactly one workout per run day listed above, on the same day, of the same type, and no workout on any other day.");
         return sb.ToString();
     }
 
