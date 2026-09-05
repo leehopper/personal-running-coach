@@ -1,0 +1,254 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "major",
+   "claim": "F11 motion coverage does not detect the original bare-content bug.",
+   "evidence": "MECHANIZED mutation changed onboarding-nuance-section.component.tsx:62 to className=\"overflow-hidden\". `TMPDIR=/tmp/codex-agent-slice5-r2-verify npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx -t \"places detail triggers only in the sections with nuance fields\"` stayed GREEN: Test Files 1 passed (1). The shared primitive already adds these classes at frontend/src/components/ui/collapsible.tsx:28-30.",
+   "fix": "Make the motion regression test target the shared primitive contract or assert the local class contract directly, then require the bare-content mutation to go RED.",
+   "mode": "MECHANIZED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "F1: Remove aria-labelledby from the goal RadioGroup.",
+   "expected_red_test": "The Alpine intake test should fail. Command: npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx -t \"renders the Alpine intake in light and dark themes\".",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F2: Move the units field below the narrative section.",
+   "expected_red_test": "The units-order test should fail. Command: npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx -t \"renders the units field first\".",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F3: Rotate the idempotency key in the complete-success branch.",
+   "expected_red_test": "showsBuildingPlanSurfaceAfterCompleteUntilRedirect should fail its same-key assertion.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F4: Set typicalWeekly to 41 in the handled-error catch path.",
+   "expected_red_test": "The all-values-after-422 test should fail on the weekly volume value.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F5: Replace the UUID initializer with one fixed valid UUID.",
+   "expected_red_test": "The independent-mount key test should fail because both keys match.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F6: Replace the missing-narrative fallback with a non-empty sentinel.",
+   "expected_red_test": "The legacy hydration test should fail for missing and null narrative.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F7: Move Wordmark below the page header.",
+   "expected_red_test": "The page identity DOM-order test should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F8: Documentation-only JSDoc change.",
+   "expected_red_test": "No executable red test applies.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "F9: Orchestrator-only evidence reconciliation.",
+   "expected_red_test": "No local behavior or red test applies.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "F10: Orchestrator-only host measurements.",
+   "expected_red_test": "No local behavior or red test applies.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "F11: Replace the local CollapsibleContent classes with bare overflow-hidden.",
+   "expected_red_test": "The detail motion assertion should fail.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "F12: Change the locked narrative helper copy.",
+   "expected_red_test": "The Alpine intake theme test should fail on the locked helper assertion.",
+   "observed": "RED"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "F1 goal radiogroup accessible name",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-goal-field.component.tsx:23-30 and onboarding-form.component.spec.tsx:128-131."
+  },
+  {
+   "item": "F2 units-first DOM order",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:344-360."
+  },
+  {
+   "item": "F3 terminal overlay and complete-success key stability",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:87-90 and onboarding-form.component.spec.tsx:536-550."
+  },
+  {
+   "item": "F4 complete 422 value preservation",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:273-342."
+  },
+  {
+   "item": "F5 fresh UUID per form mount",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:67 and onboarding-form.component.spec.tsx:423-440."
+  },
+  {
+   "item": "F6 legacy missing and null narrative hydration",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:417 and onboarding-form.schema.spec.ts:422-428."
+  },
+  {
+   "item": "F7 Wordmark-first DOM order",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:190-196 and onboarding.page.spec.tsx:150-158."
+  },
+  {
+   "item": "F8 restored JSDoc and overlay/inert documentation",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:29-52 contains the co-submit, invalidation, redirect, and overlay/inert statements."
+  },
+  {
+   "item": "F9 orchestrator reconciliation evidence",
+   "status": "SATISFIED",
+   "where": ".stage-report.md:36-38, docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-report.md:82-89, and round1/orchestrator-runs.md:19-21."
+  },
+  {
+   "item": "F10 host gate measurements",
+   "status": "SATISFIED",
+   "where": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/round1/orchestrator-runs.md:23-47 records fixed-tree build, 1037 tests, 50 contrast pairs, codegen, and Playwright results."
+  },
+  {
+   "item": "F11 MonoLabel trigger and Collapsible motion styling",
+   "status": "PARTIAL",
+   "where": "Implementation is present at frontend/src/app/modules/onboarding/components/onboarding-nuance-section.component.tsx:47-62 and assertions are at form spec:192-220, but the bare-content mutation stayed GREEN because the shared primitive supplies the same classes."
+  },
+  {
+   "item": "F12 dual-theme copy, accessibility, and semantic-color assertions",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:87-145."
+  },
+  {
+   "item": "Fresh fix-round regression pass",
+   "status": "SATISFIED",
+   "where": "Focused tests, build, ESLint, Prettier, codegen check, diff check, static scans, and final git status were clean apart from sandbox-blocked aggregate gates."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "git diff HEAD~1 --stat",
+   "result": "19 changed files; exit 0."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify npx vitest run <three onboarding specs>",
+   "result": "Test Files 3 passed (3); Tests 63 passed (63); exit 0."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify npm run build",
+   "result": "exit 0; last output line: Adjust chunk size limit for this warning via build.chunkSizeWarningLimit."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify npx eslint <six touched frontend files>",
+   "result": "exit 0; no output."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify npx prettier --check <six touched frontend files>",
+   "result": "exit 0; last output line: All matched files use Prettier code style!"
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify npm run codegen:check",
+   "result": "exit 0; generated outputs unchanged."
+  },
+  {
+   "command": "git diff HEAD~1 --check",
+   "result": "exit 0; no output."
+  },
+  {
+   "command": "rg -nP \"[^\\x00-\\x7F]\" <changed evidence files>",
+   "result": "exit 0; no output."
+  },
+  {
+   "command": "git status --short",
+   "result": "exit 0; no output after all mutation restores."
+  },
+  {
+   "command": "F1 mutation targeted Vitest",
+   "result": "RED; 1 targeted test failed with no accessible goal radiogroup name."
+  },
+  {
+   "command": "F2 mutation targeted Vitest",
+   "result": "RED; expected units index 9 to be less than narrative index 0."
+  },
+  {
+   "command": "F3 mutation targeted Vitest",
+   "result": "RED; second idempotency key differed from the first."
+  },
+  {
+   "command": "F4 mutation targeted Vitest",
+   "result": "RED; expected typicalWeekly 37, received 41."
+  },
+  {
+   "command": "F5 mutation targeted Vitest",
+   "result": "RED; fixed UUIDs were equal."
+  },
+  {
+   "command": "F6 mutation targeted Vitest",
+   "result": "RED; expected empty narrative, received legacy sentinel."
+  },
+  {
+   "command": "F7 mutation targeted Vitest",
+   "result": "RED; expected Wordmark-before-header assertion was false."
+  },
+  {
+   "command": "F11 trigger-style mutation targeted Vitest",
+   "result": "RED; required text-clay-text class was absent."
+  },
+  {
+   "command": "F11 bare-content mutation targeted Vitest",
+   "result": "GREEN; Test Files 1 passed (1), exposing the motion-oracle gap."
+  },
+  {
+   "command": "F12 copy mutation targeted Vitest",
+   "result": "RED; locked narrative helper text was not found."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify npm run test",
+   "result": "Sandbox-blocked aggregate run: Error: listen EPERM creating the tsx IPC pipe; 83 files passed, 3 files and 22 tests failed due sandbox/runtime setup."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify npm run check-contrast",
+   "result": "Sandbox error: Error: listen EPERM: operation not permitted /tmp/codex-agent-slice5-r2-verify/tsx-502/4022.pipe."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify npm run e2e",
+   "result": "Sandbox error: Error: listen EPERM: operation not permitted ::1:5173."
+  },
+  {
+   "command": "dotnet test --solution RunCoach.slnx --no-build",
+   "result": "Sandbox error: System.Net.Sockets.SocketException (13): Permission denied while creating the named pipe."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "npm run test",
+   "purpose": "Rerun the sandbox-blocked full frontend suite. Fixed-tree evidence records 1037 of 1037 tests passing at round1/orchestrator-runs.md:29-31."
+  },
+  {
+   "command": "npm run check-contrast",
+   "purpose": "Rerun the sandbox-blocked contrast gate. Fixed-tree evidence records all 50 pairs passing at round1/orchestrator-runs.md:36-37."
+  },
+  {
+   "command": "npm run e2e",
+   "purpose": "Run the stack-dependent Playwright suite. Fixed-tree evidence records 14 passed and 2 pre-existing failures at round1/orchestrator-runs.md:42-47."
+  },
+  {
+   "command": "dotnet test --solution RunCoach.slnx --no-build",
+   "purpose": "Rerun the sandbox-blocked backend test command if required. No backend files changed in this fix round."
+  }
+ ],
+ "verdict": "REJECT: F1-F7 and F12 produced RED mutations, F8-F10 are satisfied by inspection or recorded host evidence, but F11 has a major GREEN mutation for the required bare-content motion bug."
+}

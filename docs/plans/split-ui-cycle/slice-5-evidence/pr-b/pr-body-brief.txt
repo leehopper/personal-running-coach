@@ -1,0 +1,23 @@
+<task>
+Draft a pull request body for the RunCoach repo (your cwd; read AGENTS.md first; read-only except the output file). Match the house shape: read docs/plans/split-ui-cycle/slice-5-evidence/pr-body-final.md (the PR-A body, same register) for the section pattern and register, then write from the brief and the sources below only.
+</task>
+<brief>
+Draft the pull request body for Slice 5 PR-B of the SPLIT / Alpine UI redesign cycle: the frontend onboarding recomposition. Branch feat/slice-5-onboarding-frontend, stacked on feat/slice-5-onboarding-backend (PR #361, PR-A); the PR base is that branch, and the body must say the branch is rebased onto main after #361 squash-merges. Two commits of its own: the build (6b50123b) and the round-1 fix (794386f0), plus a small round-2 commit the orchestrator adds. Open with one bold sentence naming the PR's place in the slice. Then the same sections as the shape example: 'Spec' pointer (docs/specs/slice-5-onboarding/spec.md section 3 PR-B, gitignored; evidence dir docs/plans/split-ui-cycle/slice-5-evidence/pr-b/); 'What's here' (the recomposed intake: Wordmark, title and subtitle, units segmented first, 00 In your own words narrative textarea with the locked placeholder and helper, numbered SectionRule sections 01-05, radio-right goal rows with the accessible-name fix, conditional race section, 2x2 fitness grid, 7-day chips with short visible labels and unchanged aria-labels at 44px, fine-print switches, per-section Add detail collapsibles only where a nuance field exists; the BuildingPlanSurface fixed overlay with the form inert during the synchronous submit and after completion; 422 returns the form with every value and the same idempotency key; narrative in the zod schema (1000, trim, blank to undefined), request mapper (?? null), hydration (?? ''), reseed untouched; the starting-plan copy replacing the 12-week claim on both the CTA line and the surface default; the three deleted components); 'Decisions and deviations' (B2 horizon copy, B3 helper variant, B4 05 label, min-h-11 chips over the mock's 40px, sentence-case source strings with CSS uppercase, the escapes for em dash / middle dot / ellipsis); 'Review trail' (two round-1 lenses; 29 mutation probes with 4 GREEN coverage gaps that became fixes; 12-item fix round incl. the radiogroup accessible name and the trigger styling; verify round all red except one redundant local class set that the shared primitive already supplies, removed in round 2; the maintainer's code-gauntlet is the cross-family pass); 'Green' (npm run build, vitest 1037/1037, check-contrast 50/50, codegen:check 0, eslint/prettier on touched files, Playwright 14 passed with the onboarding journey green); 'Notes for review' (the two Playwright failures are pre-existing on main and captured as a cycle-plan row; npm run lint reports only pre-existing problems in untouched files; ROADMAP and cycle-plan Status pointers ride here; no backend change). Do not name a Codex model, token count, account, or cost. No footer; the orchestrator appends the generated-with line.
+</brief>
+<sources>
+- docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-report.md, build-orchestrator-runs.md
+- docs/plans/split-ui-cycle/slice-5-evidence/pr-b/round1/fix-list.txt, fix-report.md, orchestrator-runs.md, mutation.json, conformance.json
+- docs/plans/split-ui-cycle/slice-5-evidence/pr-b/round2/verify.json
+- docs/specs/slice-5-onboarding/spec.md sections 1.B, 3 PR-B, 4, 9
+- git log -3 and git diff HEAD~2 --stat in this clone
+- docs/plans/split-ui-cycle/cycle-plan.md Captured During Cycle 2026-09-05 rows, ROADMAP.md Status
+</sources>
+<grounding_rules>
+Use only the sources listed and the repo files they cite. Every claim of what changed cites a path; every number comes from a source. Where sources disagree or leave a gap, say so in the draft under the affected section; never invent a mechanism, a number, or a decision. Do not name a Codex model, token count, or account detail in a PR body. Never read .env, secrets, or ~/.codex.
+</grounding_rules>
+<style>
+Plain prose; no em dashes (use commas or periods); no filler adjectives (comprehensive, robust, seamless, powerful, elegant, crucial, key, vital, significant); one idea per sentence, 25 words maximum; bullets only for parallel items; no bolded-label bullets; end on the last real fact. ASCII only. Under 800 words.
+</style>
+<output>
+Write the draft to docs/plans/split-ui-cycle/slice-5-evidence/pr-b/pr-body-draft.md. Then print a five-line stage report: sections written, word count, sources used, gaps you could not ground, anything you left out because of the word cap.
+</output>

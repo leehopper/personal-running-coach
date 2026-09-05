@@ -59,7 +59,7 @@ export const OnboardingNuanceSection = ({
           />
         </Button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none overflow-hidden">
+      <CollapsibleContent className="overflow-hidden">
         <FormField
           control={control}
           name={name}
