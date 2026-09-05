@@ -34,6 +34,7 @@
   },
   "conformance": {
    "type": "array",
+   "minItems": 1,
    "items": {
     "type": "object",
     "additionalProperties": false,
@@ -47,6 +48,7 @@
   },
   "checks_run": {
    "type": "array",
+   "minItems": 1,
    "items": {
     "type": "object",
     "additionalProperties": false,
@@ -69,6 +71,6 @@
     }
    }
   },
-  "verdict": {"type": "string"}
+  "verdict": {"type": "string", "pattern": "\\S"}
  }
 }

@@ -18,7 +18,7 @@ file holds only what differs here. The stage recipe and every template:
   clone outside the repo; sol `max` for refactors of about 20 files or more.
 - Per-stage review: two luna `xhigh` lenses (mutation ledger, spec
   conformance), both with write access, in detached worktrees, then a luna
-  fix round in the clone, repeated until zero blocker and zero major. The
+  fix round in the clone, repeated until zero blocker and zero major. Every lens report passes `.claude/codex/check-review.py` before adjudication. The
   cross-family pass on every PR is the maintainer's own code-gauntlet run in
   another session: never run it here; address its findings when asked.
 - Spec or plan red-team, and two reviewers who disagree: one Claude opus lens

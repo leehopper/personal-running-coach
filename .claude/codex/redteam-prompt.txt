@@ -12,7 +12,7 @@ G1 scope fidelity: every requirement maps to the slice the cycle plan defines; n
 Cite path:line and a quote of at most 200 characters for every finding. No claim from memory of a framework. Never read .env, secrets, or ~/.codex. ASCII only.
 </grounding_rules>
 <completeness_contract>
-Up to 20 findings ordered by severity. For each gate report pass or fail with one sentence. A verdict: ACCEPT (no blocker or major), REVISE (majors, no blocker), REJECT (any blocker).
+Up to 20 findings ordered by severity. Report every gate G1 through G6 once, pass or fail, with one sentence each; the schema's `gates` object has one key per gate. A verdict: ACCEPT (no blocker or major), REVISE (majors, no blocker), REJECT (any blocker).
 </completeness_contract>
 <structured_output_contract>
 Return exactly the JSON schema you were given; nothing else.

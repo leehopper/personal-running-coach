@@ -8,7 +8,7 @@ Items marked ORCHESTRATOR-RAN carry the output of a command the sandbox could no
 </fixes>
 
 <environment_and_gates>
-Same as the build round: `mkdir -p .tmp-agent && export TMPDIR="$PWD/.tmp-agent"` first; from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format --verify-no-changes` on changed .cs; from frontend/ `npm run build`, `npx vitest run <each touched spec>`, `npx eslint` and `npx prettier --check` on changed files. Git is blocked; leave changes in the working tree. Backend tests that need Docker go to the orchestrator under Deviations with the exact command.
+Same as the build round: create `/tmp/codex-agent-{branch}` once and set `TMPDIR=/tmp/codex-agent-{branch}` inline on each command that needs it; from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format RunCoach.slnx --include <changed .cs> --no-restore --verify-no-changes` on changed .cs; from frontend/ `npm run build`, `npx vitest run <each touched spec>`, `npx eslint` and `npx prettier --check` on changed files. Git is blocked; leave changes in the working tree. No backend test runs in this sandbox: the test host cannot create its named pipe (SocketException 13). For every test you add or change, name the exact `dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class <FullName>` command for the orchestrator under Deviations, with that error as the reason; never claim a test result.
 Files you may touch: the build's file list plus {allowed_files}. Nothing else.
 </environment_and_gates>
 

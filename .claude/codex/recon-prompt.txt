@@ -12,7 +12,7 @@ Files to read (read them fully; cite file:line for every claim):
 {files}
 </task>
 <grounding_rules>
-Only state what you read in the files or observed from a command you ran. Quote line numbers. If something is unknown, put it in open_questions; never guess and never fill from memory of a framework's documentation. ASCII only in every output string; each string under 400 characters.
+Only state what you read in the files or observed from a command you ran. Quote line numbers. If something is unknown, put it in open_questions; never guess and never fill from memory of a framework's documentation. ASCII only in every output string. Prose strings (claims, sources, quotes, gaps, risks, config entries, the recommendation, open questions) stay under 400 characters each; `draft_artifacts[].content` is exempt and carries the complete file. The schema does not enforce these lengths; you do.
 </grounding_rules>
 <completeness_contract>
 Cover every question in the brief. Prefer many short facts over prose. config_entries must be exact names and values an implementer can paste. The recommendation must be concrete enough that an implementer acts without re-reading the sources: file paths, symbol names, line ranges, the shape of the change. draft_artifacts: when the brief asks you to design a file, put a complete first draft there (path relative to the repo root, full content).

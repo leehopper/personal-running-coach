@@ -11,15 +11,15 @@ Do not touch any other file. If an acceptance criterion forces another file, sto
 </task>
 
 <environment_and_gates>
-- Start with `mkdir -p .tmp-agent && export TMPDIR="$PWD/.tmp-agent"`.
-- Gates, run before you report: from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format RunCoach.slnx --include <changed .cs> --no-restore --verify-no-changes`; from frontend/ `npm run build`, `npx vitest run <each changed or added spec>`, `npx eslint <changed .ts/.tsx>`, `npx prettier --check <changed>`. Backend tests that need Docker cannot run here: name the exact `dotnet test` command for the orchestrator under Deviations instead of claiming them.
-- Git is blocked (leave changes in the working tree). Never delete or move a tracked file unless the file list says so. Backups go to .tmp-agent via /bin/cp -f.
+- Scratch: create `/tmp/codex-agent-{branch}` once and set `TMPDIR=/tmp/codex-agent-{branch}` inline on every command that needs it; each command runs in a fresh shell, so an export does not persist. Everything under that directory (backups, the plan in step 1) is scratch, not a deliverable, and is outside the file list.
+- Gates, run before you report: from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format RunCoach.slnx --include <changed .cs> --no-restore --verify-no-changes`; from frontend/ `npm run build`, `npx vitest run <each changed or added spec>`, `npx eslint <changed .ts/.tsx>`, `npx prettier --check <changed>`. No backend test runs in this sandbox: the test host cannot create its named pipe (SocketException 13). For every test you add or change, name the exact `dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class <FullName>` command for the orchestrator under Deviations, with that error as the reason; never claim a test result.
+- Git is blocked (leave changes in the working tree). Never delete or move a tracked file unless the file list says so. Backups go to that scratch directory via `/bin/cp -f`; the command policy rejects `rm -f`, so delete scratch with plain `rm <path>`.
 - ASCII only in new prose and comments; no em dashes. Comments never cite a plan, spec, or decision path.
 {extra_constraints}
 </environment_and_gates>
 
 <method>
-1. Read everything listed. Write .tmp-agent/plan.md with the exact edit list and the tests you will add per acceptance criterion, then implement.
+1. Read everything listed. Write `/tmp/codex-agent-{branch}/plan.md` with the exact edit list and the tests you will add per acceptance criterion, then implement.
 2. Tests first where the spec pins a behavior: each new test must fail against the bug or gap it names; note that red in the report.
 3. Keep every change inside the file list. Prefer the smallest diff that satisfies the criterion; match the surrounding code's conventions rather than introducing new patterns.
 4. Run every gate above; paste each command's last output line.

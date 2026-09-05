@@ -14,6 +14,7 @@ import sys
 
 
 def main() -> int:
+    """Render argv[1] with the JSON object in argv[2] to stdout; return the exit code."""
     if len(sys.argv) != 3:
         print(__doc__, file=sys.stderr)
         return 2

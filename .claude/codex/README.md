@@ -35,7 +35,9 @@ line (it must name the personal plan). Rerun before any fan-out.
     (cd backend && dotnet restore RunCoach.slnx)
     lefthook install
     mkdir -p docs/specs && cp -R "$R/docs/specs/<slice>" docs/specs/
-    mkdir -p "$EV"
+    mkdir -p "$EV/recon" "$EV/redteam" "$EV/round1" "$EV/round2"
+
+Later rounds create their own `$EV/round<N>` before writing into it.
 
 `node_modules` must be a real directory: the sandbox refuses writes through a
 symlink that points outside the workspace, and both `tsc` and `vite` write
@@ -123,7 +125,8 @@ lens needs a writable temp to run anything.
       --template .claude/codex/review-context.txt --schema .claude/codex/review-schema.json \
       --workers 1 --timeout 1500 --cwd "$JOBS/worktrees/$B-r1-conformance" --write
 
-Copy `$JOBS/fleets/<name>/results/*.json` into `$C/$EV/round1/`. Then the
+Copy `$JOBS/fleets/<name>/results/*.json` into `$C/$EV/round1/`. Then `python3 .claude/codex/check-review.py "$C/$EV/round1/"*.json`: a report that fails this gate is rerun, not adjudicated.
+Then the
 required step: run every `orchestrator_runs` command from the session and
 write each command with its output into `$C/$EV/round1/orchestrator-runs.md`.
 A mutation marked NOT_RUNNABLE_IN_SANDBOX stays unverified until that file
@@ -155,8 +158,11 @@ path and told to `cd` there first (no worktree isolation flag). Repeat 6 and
 
 ## 8. Ship
 
-    grep -rn '/Users/\|@' "$C/$EV" && echo "SCRUB BEFORE COMMIT"   # public repo: no home paths, no addresses
-    cd "$R" && git fetch "$C" "$B:$B" && git push -u origin "$B"
+    grep -rnE '(/Users/|/home/|[A-Za-z]:\\Users\\|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})' "$C/$EV"; rc=$?
+    [ "$rc" -eq 1 ] || { echo "SCRUB BEFORE PUSH (grep rc=$rc: 0 = matches above, 2 = grep error)"; false; }
+    [ "$rc" -eq 1 ] && cd "$R" && git fetch "$C" "$B:$B" && git push -u origin "$B"
+
+The push runs only when the scrub finds nothing (grep exit 1); a match or a grep error stops here. The pattern covers macOS, Linux, and Windows home paths and email addresses.
 
 PR body: a luna draft (`draft-prompt.txt` with `artifact_kind` "a pull
 request body", `shape_example_path` a recent PR body saved under `$EV`,
