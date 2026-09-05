@@ -42,14 +42,16 @@ them.
   `TMPDIR=/tmp/codex-agent-<task> DOTNET_CLI_HOME=/tmp/codex-agent-<task>/dotnet
   DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 MSBUILDNODEREUSE=0
   dotnet build RunCoach.slnx --no-restore -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers`
-  (measured as a bundle, not narrowed). `dotnet test` does not run here at
+  (narrowing measured: `--disable-build-servers` alone, and `-nr:false` with
+  `-p:UseSharedCompilation=false` alone, both still hang; use the whole
+  bundle). `dotnet test` does not run here at
   all, even for a container-free class: the test host cannot create its
   named pipe (SocketException 13). Every backend test is the orchestrator's.
   `npm run build`, `npx vitest run <file>`, `npx eslint`, and
   `npx prettier --check` pass with a real `node_modules`.
 - Destructive shell: the command policy rejects every `rm -f` form. Delete
-  with `find <one path> -delete`, only under your temp dir unless your brief
-  says otherwise. Take a `/bin/cp -f` backup into the temp dir before editing
+  with plain `rm <one path>` or `find <one path> -delete`, only under your
+  temp dir unless your brief says otherwise. Take a `/bin/cp -f` backup into the temp dir before editing
   a file you may need to restore; in a worktree, restore from
   `git show HEAD:<path>`.
 - Never read `.env`, `.env.*`, `appsettings.Local.json`, `secrets.json`,
