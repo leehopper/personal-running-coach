@@ -1,0 +1,1865 @@
+[
+ {
+  "id": "r1-backend-answers-plumbing",
+  "result": {
+   "id": "r1-backend-answers-plumbing",
+   "facts": [
+    {
+     "claim": "The six existing optional free-text fields are PrimaryGoal.Description, CurrentFitness.Description, WeeklySchedule.Description, Preferences.Description, InjuryHistory.ActiveInjuryDescription, and InjuryHistory.PastInjurySummary. The last is explicitly called the nuance field.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/PrimaryGoalInputDto.cs:13-17; CurrentFitnessInputDto.cs:11-21; WeeklyScheduleInputDto.cs:12-32; InjuryHistoryInputDto.cs:11-17; PreferencesInputDto.cs:16-24",
+     "quote": "Optional runner-supplied free-text nuance"
+    },
+    {
+     "claim": "TargetEvent has optional TargetFinishTimeIso, but it is an ISO duration. TargetEventAnswer has no free-text description field.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/TargetEventInputDto.cs:11-19; TargetEventAnswer.cs:43-47",
+     "quote": "Optional target finish time as an ISO-8601 duration"
+    },
+    {
+     "claim": "The canonical answer records declare non-null nuance strings with empty-string defaults. InjuryHistory has both ActiveInjuryDescription and PastInjurySummary.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/PrimaryGoalAnswer.cs:17-21; CurrentFitnessAnswer.cs:75-79; WeeklyScheduleAnswer.cs:83-87; InjuryHistoryAnswer.cs:18-29; PreferencesAnswer.cs:29-33",
+     "quote": "public string Description { get; init; } = string.Empty;"
+    },
+    {
+     "claim": "The request DTO has six nullable topic slots and no Narrative. The canonical SubmitStructuredAnswers command carries the validated answer records and also has no Narrative.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/SubmitStructuredAnswersRequestDto.cs:21-28; SubmitStructuredAnswers.cs:30-38",
+     "quote": "the already-validated canonical answer records for each submitted topic"
+    },
+    {
+     "claim": "TryMap recognizes only the six topic slots for its non-empty submission check. Narrative alone would not satisfy the current anyTopic guard.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapper.cs:53-69",
+     "quote": "At least one topic answer must be provided."
+    },
+    {
+     "claim": "Nuance mapping converts null to empty string and otherwise preserves the input value. No onboarding max-length or trim validation is present in these mapping branches.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapper.cs:137-142,211-218,237-243,256-268,278-283",
+     "quote": "Description = input.Description ?? string.Empty"
+    },
+    {
+     "claim": "Whitespace-to-null normalization exists only for optional ISO duration fields. Nonblank duration text is returned unchanged.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapper.cs:286-307",
+     "quote": "if (string.IsNullOrWhiteSpace(value))"
+    },
+    {
+     "claim": "Mapper failures return a human-readable string, not a field error code. The controller wraps it in HTTP 400 ProblemDetails with the invalid-onboarding-answers type and a fixed title.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapper.cs:38-47,111-118; OnboardingController.cs:31-35,96-105",
+     "quote": "The submitted onboarding answers are invalid."
+    },
+    {
+     "claim": "The handler serializes each canonical topic record into AnswerCaptured.NormalizedPayload and appends one AnswerCaptured event per submitted topic. The current event has Topic, payload, Confidence, and CapturedAt only.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersHandler.cs:114-167,198-206; Events/AnswerCaptured.cs:17-21",
+     "quote": "one AnswerCaptured per submitted topic"
+    },
+    {
+     "claim": "OnboardingView stores the six typed topic slots, clarifications, lifecycle fields, and plan id. It has no top-level Narrative property.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingView.cs:18-89",
+     "quote": "Gets or sets the captured PrimaryGoal answer"
+    },
+    {
+     "claim": "OnboardingProjection.Apply(AnswerCaptured, OnboardingView) deserializes the typed payload by Topic, assigns the matching view slot, clears clarification state, and increments Version. A new event-level Narrative must be applied in this method outside the topic switch.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingProjection.cs:82-139",
+     "quote": "Captures a normalized topic answer onto the view's typed slot"
+    },
+    {
+     "claim": "UserProfileFromOnboardingProjection receives AnswerCaptured and applies only topic payloads. PrimaryGoal stores only its enum; its description remains on the Marten event stream. Other answer records are assigned to the EF profile.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/UserProfileFromOnboardingProjection.cs:61-90,116-155; Entities/RunnerOnboardingProfile.cs:56-82",
+     "quote": "the free-text description lives only on the onboarding event stream"
+    },
+    {
+     "claim": "The EF configuration maps TargetEvent, CurrentFitness, WeeklySchedule, InjuryHistory, and Preferences as JSONB owned objects. PrimaryGoal is a scalar, so its Description is not persisted in the EF row.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Entities/RunnerOnboardingProfileConfiguration.cs:27-33; Entities/RunnerOnboardingProfile.cs:56-63",
+     "quote": "Five DEC-047 onboarding slot columns mapped as JSONB"
+    },
+    {
+     "claim": "GET /api/v1/onboarding/state loads OnboardingView and passes it to BuildStateDto. OnboardingStateDto currently exposes the six topic records but no Narrative.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingController.cs:37-67,157-174; Models/OnboardingStateDto.cs:23-44",
+     "quote": "return Ok(BuildStateDto(view));"
+    },
+    {
+     "claim": "The frontend GET hook returns OnboardingStateDto, and hydrateOnboardingFormFields reads the six slots from that response. The hand-written state model, request model, and hydration function currently have no Narrative.",
+     "source": "frontend/src/app/api/onboarding.api.ts:19-30; frontend/src/app/modules/onboarding/models/onboarding.model.ts:83-117; frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:394-432",
+     "quote": "hydrates the form from GET /state on resume"
+    },
+    {
+     "claim": "SubmitStructuredAnswersResult contains only the terminal plan decision and topic count. The controller reloads authoritative state after dispatch, so Narrative should not be added to this result.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersResult.cs:3-17; OnboardingController.cs:141-154",
+     "quote": "the controller reads the authoritative onboarding state from a post-commit projection reload"
+    },
+    {
+     "claim": "The completion gate checks required topic slots, race target conditionality, and outstanding clarifications. OnboardingStatus only represents NotStarted, InProgress, and Completed. Neither needs Narrative logic.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingCompletionGate.cs:24-54; OnboardingStatus.cs:3-26",
+     "quote": "every required slot is captured"
+    },
+    {
+     "claim": "Marten already registers AnswerCaptured and maps all registered events to schema version 1. No Marten registration change is indicated for an additive nullable property.",
+     "source": "backend/src/RunCoach.Api/Infrastructure/MartenConfiguration.cs:60-65,113-140",
+     "quote": "typeof(AnswerCaptured)"
+    },
+    {
+     "claim": "The repository documents nullable-additive event fields as hydrating null for existing persisted events on replay without an upcaster. Apply the same precedent to an old AnswerCaptured JSON object missing Narrative.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Conversation/CoachMessagePosted.cs:30-34; LoggedRunSummary.cs:5-11",
+     "quote": "existing persisted events hydrate null on replay, no upcaster"
+    },
+    {
+     "claim": "The handler checks idempotency before loading or appending. A prior result returns immediately. The marker is recorded last, after append and any plan generation.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersHandler.cs:76-84,170-195",
+     "quote": "on idempotency hit return the byte-identical prior result, append nothing"
+    },
+    {
+     "claim": "When plan generation throws PlanGenerationRejectedException, the controller maps it to HTTP 422 with the plan-generation-failed type, title, and Please submit again detail. The transaction has no staged onboarding events, and the existing integration helper retries with a new key.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingController.cs:123-139,201-212; backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/OnboardingAnswersEndpointIntegrationTests.cs:692-724",
+     "quote": "Please submit again."
+    },
+    {
+     "claim": "Plan generation receives OnboardingView. BuildPlanGenerationUserMessage writes the profile snapshot, then AppendSlotSummary writes six slots. The captured profile is explicitly not re-sanitized.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:37-42,250-278,606-677",
+     "quote": "the captured profile snapshot ... is not re-sanitized"
+    },
+    {
+     "claim": "The existing prompt test creates a completed OnboardingView, calls ComposeForPlanGenerationAsync, and asserts PROFILE SNAPSHOT plus each captured slot label. A Narrative test should use the same fixture and assert verbatim presence before PrimaryGoal.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/ContextAssemblerPlanGenerationTests.cs:105-129,230-285",
+     "quote": "ComposeForPlanGenerationAsync_RendersCapturedSlots_InProfileSnapshot"
+    },
+    {
+     "claim": "Mapper tests use a DTO Arrange, TryMap Act, and direct canonical-record assertions. TryMap_NullDescription_MapsToEmptyString pins null behavior; WithTopics supplies partial requests; AssertMapFailed pins failed mapping.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapperTests.cs:19-90,116-178,457-478",
+     "quote": "TryMap_NullDescription_MapsToEmptyString"
+    },
+    {
+     "claim": "Projection tests create a view from OnboardingStarted, serialize a typed answer with SerializeToDocument, construct AnswerCaptured, apply it, and assert the slot and Version. EF tests use WrapEvent and NullDbContext/NullSession.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/OnboardingProjectionTests.cs:93-117,285-315",
+     "quote": "OnboardingProjection_Apply_AnswerCaptured_PrimaryGoal_SetsTypedSlot"
+    },
+    {
+     "claim": "Endpoint tests pin full submission, partial state, duplicate idempotency, and 422 rollback. The happy path uses RaceTrainingRequest, antiforgery priming, PostAnswersAsync, response DTO equality, and EF profile assertions.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/OnboardingAnswersEndpointIntegrationTests.cs:51-140,213-299,430-448,618-650",
+     "quote": "SubmitAnswers_DuplicateIdempotencyKey_SinglePlan_NoDoubleAppend"
+    },
+    {
+     "claim": "Controller integration seeds an OnboardingView stream directly, appends TopicAsked, performs GET state, and asserts status, progress, completion, and clarification fields. Separate tests pin anonymous, no-stream, and tenant isolation paths.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/OnboardingControllerIntegrationTests.cs:37-114,120-156",
+     "quote": "GetState_Authenticated_SeededStream_Returns_200_With_StateDto"
+    },
+    {
+     "claim": "The complete backend edit path is DTO, command, mapper TryMap, handler Handle and AppendAnswer, AnswerCaptured, OnboardingView, OnboardingProjection.Apply, OnboardingStateDto, controller BuildStateDto, and ContextAssembler prompt assembly. Generated OpenAPI and frontend contract artifacts follow.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapper.cs:43-109; SubmitStructuredAnswersHandler.cs:60-207; OnboardingController.cs:157-174; docs/plans/split-ui-cycle/cycle-plan.md:248-250",
+     "quote": "one narrative field through the onboarding answer path + ContextAssembler"
+    },
+    {
+     "claim": "The generated Zod request schema currently has no narrative property, and the cycle requires the Release build to swagger.json to npm run codegen to drift gate chain for wire changes.",
+     "source": "frontend/src/app/api/generated/zod/onboarding/onboarding.ts:135-183; docs/plans/split-ui-cycle/cycle-plan.md:248-250",
+     "quote": "Every wire change rides the full codegen chain"
+    },
+    {
+     "claim": "Slice 5 requires narrative persistence, verbatim prompt visibility, resume hydration, valid empty input, a max length, projection tests, prompt tests, and a DEC-074 targeted plan-generation re-record.",
+     "source": "docs/plans/split-ui-cycle/slice-5-onboarding.md:12,20-28",
+     "quote": "Empty narrative is valid (field optional)"
+    },
+    {
+     "claim": "The slice explicitly says no event-model changes beyond the additive AnswerCaptured field and no migration risk. That supports stream/view persistence without adding Narrative to the EF profile unless product requires relational parity.",
+     "source": "docs/plans/split-ui-cycle/cycle-plan.md:248-250",
+     "quote": "no event-model changes beyond the additive AnswerCaptured field, no migration risk"
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "MartenConfiguration.RegisteredEventTypes",
+     "value": "typeof(AnswerCaptured)",
+     "source": "backend/src/RunCoach.Api/Infrastructure/MartenConfiguration.cs:60-65"
+    },
+    {
+     "name": "MartenConfiguration event schema version",
+     "value": "MapEventTypeWithSchemaVersionFor(opts.Events, eventType, version: 1U)",
+     "source": "backend/src/RunCoach.Api/Infrastructure/MartenConfiguration.cs:113-122"
+    }
+   ],
+   "gaps": [
+    "No numeric onboarding nuance max length exists in the mapper or answer records. Slice 5 requires a max but says the spec picks the bound. The only existing raw free-text cap found is 500 in RegenerationIntent.",
+    "No current projection test covers replaying an old AnswerCaptured JSON object with the Narrative property absent. Existing tests cover null NormalizedPayload and fail-fast behavior instead.",
+    "UserProfileFromOnboardingProjection does not retain top-level event metadata, and PrimaryGoal.Description is intentionally excluded from the EF row. Decide whether Narrative is stream/view-only or requires EF entity and projection changes.",
+    "Resume hydration also needs the hand-written frontend state model and hydrateOnboardingFormFields updated. Backend codegen alone will not add the form field or its hydration mapping."
+   ],
+   "risks": [
+    {
+     "risk": "ContextAssembler documents captured onboarding text as not re-sanitized. Verbatim Narrative therefore preserves the same accepted prompt-injection caveat as existing nuances.",
+     "evidence": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:37-42; docs/plans/split-ui-cycle/slice-5-onboarding.md:12,26-28"
+    },
+    {
+     "risk": "AnswerCaptured is emitted once per submitted topic. Attaching one Narrative value to every event would duplicate the same text in the stream and complicate replay semantics.",
+     "evidence": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersHandler.cs:114-167,198-206"
+    },
+    {
+     "risk": "Adding a prompt block changes plan-generation user-message bytes and triggers the documented DEC-074 manifest and targeted eval re-record.",
+     "evidence": "docs/plans/split-ui-cycle/slice-5-onboarding.md:12,26; docs/plans/split-ui-cycle/cycle-plan.md:259"
+    },
+    {
+     "risk": "Adding Narrative to the EF profile for parity would diverge from the cycle's no-migration-risk scope and from the existing decision not to duplicate PrimaryGoal description.",
+     "evidence": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Entities/RunnerOnboardingProfile.cs:56-63; docs/plans/split-ui-cycle/cycle-plan.md:248-250"
+    }
+   ],
+   "recommendation": "Use `string? Narrative` as wire `narrative`. Add it to the request DTO and command; validate in `TryMap`, accept null/empty, preserve exact text, and cap at 500 via a new constant. Add nullable-last event/view fields, attach once per submission, project, expose in state, render before slots, then regenerate OpenAPI and add sibling tests.",
+   "draft_artifacts": [],
+   "open_questions": [
+    "The onboarding code has no numeric nuance bound. Should PR-A adopt 500 from RegenerationIntent.RawMaxFreeTextLength, or should the slice spec select another cap?",
+    "Should Narrative be stream/view-only as the cycle scope implies, or must UserProfileFromOnboardingProjection and RunnerOnboardingProfile also persist it?",
+    "Should null mean no narrative update while empty string clears an existing narrative? The slice says empty is valid but does not define update semantics.",
+    "Which AnswerCaptured event should carry Narrative when a command emits several topic events? Recommend the first emitted event, but the current code does not define this single-field event policy."
+   ]
+  }
+ },
+ {
+  "id": "r2-prompt-assembly-and-evals",
+  "result": {
+   "id": "r2-prompt-assembly-and-evals",
+   "facts": [
+    {
+     "claim": "INSPECTED: Production bootstrap generation calls ComposeForPlanGenerationAsync once, then reuses its system prompt and base user message for the tier chain.",
+     "source": "backend/src/RunCoach.Api/Modules/Training/Plan/PlanGenerationService.cs:266-280",
+     "quote": "Compose the cacheable prefix"
+    },
+    {
+     "claim": "INSPECTED: The horizon-extension path also calls ComposeForPlanGenerationAsync with the same profile snapshot and no intent.",
+     "source": "backend/src/RunCoach.Api/Modules/Training/Plan/PlanGenerationService.HorizonExtension.cs:71-82",
+     "quote": "Same cacheable-prefix composition"
+    },
+    {
+     "claim": "INSPECTED: ComposeForPlanGenerationAsync loads only StaticSystemPrompt from YAML; the user message is built by C# BuildPlanGenerationUserMessage.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:250-278",
+     "quote": "var userMessage = BuildPlanGenerationUserMessage"
+    },
+    {
+     "claim": "INSPECTED: The current user-message order is PROFILE SNAPSHOT, six slot lines, PLAN DATE CONTEXT, then optional regeneration intent at the end.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:616-635",
+     "quote": "PROFILE SNAPSHOT (captured during onboarding):"
+    },
+    {
+     "claim": "INSPECTED: Slot labels are exactly PrimaryGoal, TargetEvent, CurrentFitness, WeeklySchedule, InjuryHistory, and Preferences, in that order.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:663-676",
+     "quote": "AppendSlotLine(sb, \"PrimaryGoal\", view.PrimaryGoal)"
+    },
+    {
+     "claim": "INSPECTED: Existing onboarding nuance fields are PrimaryGoal.Description, CurrentFitness.Description, WeeklySchedule.Description, InjuryHistory.ActiveInjuryDescription, InjuryHistory.PastInjurySummary, and Preferences.Description.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/PrimaryGoalAnswer.cs:17-21; CurrentFitnessAnswer.cs:75-79; WeeklyScheduleAnswer.cs:83-87; InjuryHistoryAnswer.cs:18-29; PreferencesAnswer.cs:29-33",
+     "quote": "free-text description"
+    },
+    {
+     "claim": "INSPECTED: TargetEventAnswer has no detail or description field, matching the no-detail rule for the race section.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/TargetEventAnswer.cs:37-47",
+     "quote": "Gets the optional target finishing time"
+    },
+    {
+     "claim": "INSPECTED: Each populated slot is serialized as one compact camelCase JSON line; null slots emit a not-yet-captured label.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:125-135; 679-694",
+     "quote": "WriteIndented = false"
+    },
+    {
+     "claim": "INSPECTED: The request DTO and command currently contain only six nullable topic slots and no narrative field.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/SubmitStructuredAnswersRequestDto.cs:21-28; SubmitStructuredAnswers.cs:30-38",
+     "quote": "PreferencesInputDto? Preferences"
+    },
+    {
+     "claim": "INSPECTED: The mapper copies current nuance text into canonical records, defaulting null descriptions to empty strings.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapper.cs:100-108; 137-141; 211-218; 237-243; 256-283",
+     "quote": "Description = input.Description ?? string.Empty"
+    },
+    {
+     "claim": "INSPECTED: The handler serializes each canonical topic record into AnswerCaptured.NormalizedPayload and appends one event per submitted topic.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersHandler.cs:114-168; 198-206",
+     "quote": "new AnswerCaptured(topic, payload"
+    },
+    {
+     "claim": "INSPECTED: OnboardingProjection deserializes AnswerCaptured payloads into the six typed OnboardingView slots; no narrative field is currently applied.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingProjection.cs:82-139; OnboardingView.cs:43-59",
+     "quote": "Captures a normalized topic answer"
+    },
+    {
+     "claim": "INSPECTED: PromptRenderer is not the plan-generation path. It only replaces YAML tokens and collapses double braces in token values.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Prompts/PromptRenderer.cs:3-12; 39-74",
+     "quote": "conditional logic for which sections to include stays in the ContextAssembler C# code"
+    },
+    {
+     "claim": "INSPECTED: context-injection-v1.yaml and coaching-system.v2.yaml define older context-template placeholders, but the plan composer does not render them.",
+     "source": "backend/src/RunCoach.Api/Prompts/context-injection-v1.yaml:18-158; coaching-system.v2.yaml:75-92; ContextAssembler.cs:216-217",
+     "quote": "template.ContextTemplate is loaded but not yet used"
+    },
+    {
+     "claim": "INSPECTED: Base appsettings selects coaching-system v1, and EvalTestBase also constructs its prompt store with v1.",
+     "source": "backend/src/RunCoach.Api/appsettings.json:15-20; backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/EvalTestBase.cs:553-565",
+     "quote": "\"coaching-system\": \"v1\""
+    },
+    {
+     "claim": "INSPECTED: AssembleAsync is a legacy section assembler. Repository search found its callers in ContextAssembler tests and EvalTestBase, while production plan generation uses ComposeForPlanGenerationAsync.",
+     "source": "MECHANIZED: rg search; backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:208-246; backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/EvalTestBase.cs:465-485",
+     "quote": "currently sections are built programmatically"
+    },
+    {
+     "claim": "INSPECTED: The legacy AssembleAsync path lists older free-text fields for future sanitization and says it is currently exercised only by programmatic fixtures.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:48-69",
+     "quote": "AssembleAsync (legacy plan-generation path) - does NOT sanitize"
+    },
+    {
+     "claim": "INSPECTED: A C#-only narrative block does not require editing Prompts/*.yaml. YAML edits are what the DEC-074 script hashes and compares.",
+     "source": "backend/tests/scripts/check-prompt-hashes.sh:4-18; 39-72",
+     "quote": "one line per Prompts/*.yaml"
+    },
+    {
+     "claim": "INSPECTED: If the narrative branch emits no characters for null or empty input, SystemPrompt, UserMessage, and every tier message remain byte-identical to today.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:616-635; PlanGenerationService.cs:738-752; ContextAssemblerPlanGenerationTests.cs:26-55",
+     "quote": "both system prompt and user message bytes must be equal"
+    },
+    {
+     "claim": "INSPECTED: For nonempty narrative, only the composed user-message bytes change at the base prefix insertion; the YAML-backed system bytes stay unchanged. All macro, meso, and micro messages inherit that changed base.",
+     "source": "backend/src/RunCoach.Api/Modules/Training/Plan/PlanGenerationService.cs:307-311; 346-350; 382-386",
+     "quote": "userMessage: BuildMacroUserMessage(basePrompt"
+    },
+    {
+     "claim": "INSPECTED: The six-call chain is one macro, four meso weeks, and one micro week. The base prompt reaches all three tiers, not only macro.",
+     "source": "backend/src/RunCoach.Api/Modules/Training/Plan/PlanGenerationService.cs:337-360; 362-410; 738-752",
+     "quote": "Total LLM call count per chain: 1 + N meso + 1"
+    },
+    {
+     "claim": "INSPECTED: Macro correction text is appended only after a blank line on retry; attempt zero has no correction suffix.",
+     "source": "backend/src/RunCoach.Api/Modules/Training/Plan/PlanGenerationService.cs:597-616; 619-655",
+     "quote": "A null correction yields bytes identical"
+    },
+    {
+     "claim": "INSPECTED: Micro correction text is also appended after the tier body only on retry, and names the exact run-day schedule from the meso week.",
+     "source": "backend/src/RunCoach.Api/Modules/Training/Plan/PlanGenerationService.cs:546-578; 678-705",
+     "quote": "Your previous week-{weekIndex} workouts did not match"
+    },
+    {
+     "claim": "INSPECTED: Eval comments explicitly state that prompt text in messages[] affects the response-cache key and that client metadata must match between record and replay.",
+     "source": "backend/tests/scripts/check-prompt-hashes.sh:4-14; backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/EvalTestBase.cs:577-595",
+     "quote": "the M.E.AI cache key includes client metadata"
+    },
+    {
+     "claim": "INSPECTED: Eval calls pass a system message, user message, and for structured calls a JSON schema ChatOptions response format.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs:647-671; 681-712",
+     "quote": "new ChatMessage(ChatRole.User, composition.UserMessage)"
+    },
+    {
+     "claim": "INSPECTED: The repository does not state the internal digest algorithm or conclusively enumerate whether ChatOptions fields are hashed. The supported cache-key inputs documented here are message text and matching client metadata.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/EvalTestBase.cs:577-584; PlanGenerationEvalTests.cs:640-645",
+     "quote": "Mirrors GenerateStructuredAsync exactly so the cache-key derivation is identical"
+    },
+    {
+     "claim": "MECHANIZED: Fixtures are stored under backend/tests/eval-cache/{sonnet|haiku}/cache/{scenario}/1/{hash}/ with contents.data and entry.json. The mapped tree includes plan.dated-event.macro and plan.james.narrative.",
+     "source": "MECHANIZED: ls -R backend/tests/eval-cache; backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/EvalTestBase.cs:332-355; 568-569",
+     "quote": "a directory named after the scenario"
+    },
+    {
+     "claim": "INSPECTED: PlanGenerationEvalTests has Sarah, Lee, Maria, James, and Priya profile scenarios. Those scenarios call legacy AssembleContextAsync and use profile fixture names sarah, lee, maria, james, and priya.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs:33-53; 124-145; 217-237; 286-316; 392-412",
+     "quote": "var assembled = await AssembleContextAsync(profile"
+    },
+    {
+     "claim": "INSPECTED: James plan.james.narrative is a separate unstructured call over the legacy assembled prompt, not the new onboarding narrative.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs:298-316; 722-744",
+     "quote": "Separate unstructured call for coaching narrative"
+    },
+    {
+     "claim": "INSPECTED: DatedEvent_Macro_LandsRaceWeekInFinalPhase is the direct eval for ComposeForPlanGenerationAsync. Its BuildDatedRaceView contains current nuance examples but no narrative field.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs:456-516; 547-608",
+     "quote": "This drives the plan-generation prompt"
+    },
+    {
+     "claim": "INSPECTED: Existing direct composer tests already assert replay equality, intent placement, and the six slot labels. Their completed view includes all current nuance examples.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/ContextAssemblerPlanGenerationTests.cs:26-129; 230-285",
+     "quote": "the user message above the optional intent block is the cacheable prefix"
+    },
+    {
+     "claim": "INSPECTED: PlanGenerationServiceTests assert identical macro user messages across two service invocations. Its CreateSut prompt stub currently includes only a primary-goal line and optional intent.",
+     "source": "backend/tests/RunCoach.Api.Tests/Modules/Training/Plan/PlanGenerationServiceTests.cs:433-465; 1995-2025",
+     "quote": "both macro prompts are byte-identical"
+    },
+    {
+     "claim": "INSPECTED: The targeted Record run requires a funded Anthropic key, EVAL_CACHE_MODE=Record, the PlanGenerationEvalTests class filter, and a prebuilt test project.",
+     "source": "AGENTS.md:67-70; EvalTestBase.cs:119-124",
+     "quote": "EVAL_CACHE_MODE=Record requires a valid Anthropic API key"
+    },
+    {
+     "claim": "INSPECTED: The full re-record script regenerates the manifest before recording, patches entry.json expiration to 9999-12-31T23:59:59Z, then verifies Replay. It first deletes the whole cache.",
+     "source": "backend/tests/scripts/rerecord-eval-cache.sh:37-60; 62-86",
+     "quote": "Delete existing cache"
+    },
+    {
+     "claim": "INSPECTED: The observed eval workflow invokes the test binary directly and the scripts contain no Docker step. Docker is not needed by this record path.",
+     "source": "backend/tests/scripts/rerecord-eval-cache.sh:52-60; AGENTS.md:36-38",
+     "quote": "Invoke the test binary directly"
+    },
+    {
+     "claim": "INSPECTED: Current onboarding nuance fields do not pass through SanitizationPromptSection. ContextAssembler explicitly says the captured snapshot is already validated and not re-sanitized.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:37-42; PromptSection.cs:14-53",
+     "quote": "is not re-sanitized"
+    },
+    {
+     "claim": "INSPECTED: SanitizationAuditChatClient is audit-only. It does not re-sanitize message content and records only message count and policy metadata.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Sanitization/SanitizationAuditChatClient.cs:12-31; 82-94",
+     "quote": "does NOT re-sanitize"
+    },
+    {
+     "claim": "INSPECTED: The current plan-generation path therefore passes existing onboarding nuance text through compact JSON without sanitizer delimiters. This is a prompt-injection exposure shared by the proposed raw narrative.",
+     "source": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapper.cs:137-143; 211-218; ContextAssembler.cs:688-694",
+     "quote": "same input deterministically yields the same output"
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "targeted_record_command",
+     "value": "cd backend && ANTHROPIC_API_KEY=<funded-key> EVAL_CACHE_MODE=Record dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests",
+     "source": "AGENTS.md:67-70; PlanGenerationEvalTests.cs:23-25"
+    },
+    {
+     "name": "targeted_replay_command",
+     "value": "cd backend && EVAL_CACHE_MODE=Replay dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests",
+     "source": "AGENTS.md:67-70; EvalTestBase.cs:31-35"
+    },
+    {
+     "name": "manifest_verify",
+     "value": "bash backend/tests/scripts/check-prompt-hashes.sh",
+     "source": "backend/tests/scripts/check-prompt-hashes.sh:16-18; 55-72"
+    },
+    {
+     "name": "manifest_write_if_yaml_changed",
+     "value": "bash backend/tests/scripts/check-prompt-hashes.sh --write",
+     "source": "backend/tests/scripts/check-prompt-hashes.sh:16-18; 49-54"
+    },
+    {
+     "name": "eval_cache_expiration",
+     "value": "9999-12-31T23:59:59Z",
+     "source": "backend/tests/scripts/rerecord-eval-cache.sh:62-82"
+    },
+    {
+     "name": "docker",
+     "value": "none",
+     "source": "backend/tests/scripts/rerecord-eval-cache.sh:52-60"
+    }
+   ],
+   "gaps": [
+    "INSPECTED: The requested source does not expose the M.E.AI internal hash serialization, digest algorithm, or whether structured ChatOptions schema fields participate in the key. See EvalTestBase.cs:577-584 and PlanGenerationEvalTests.cs:655-671.",
+    "INSPECTED: The repository scripts document direct-binary trait filtering, not a direct-binary class selector. The MTP class command above comes from AGENTS.md:67-70.",
+    "INSPECTED: Current AnswerCaptured is one event per topic, so the exact event attachment semantics for one top-level nullable Narrative are not established by current code. See SubmitStructuredAnswersHandler.cs:114-168; 198-206.",
+    "INSPECTED: The exact OpenAPI codegen command and generated-file list are not in the required sources. The DTO is a wire request at SubmitStructuredAnswersRequestDto.cs:5-28.",
+    "INSPECTED: No build, test, network, or write was run, per the read-only recon brief and AGENTS.md:36-49."
+   ],
+   "risks": [
+    {
+     "risk": "MECHANIZED: Adding narrative bytes to the existing dated-event composition changes its response-cache key and requires a new or re-recorded fixture when nonempty.",
+     "evidence": "PlanGenerationEvalTests.cs:504-516; EvalTestBase.cs:577-584; ls -R shows plan.dated-event.macro."
+    },
+    {
+     "risk": "INSPECTED: Editing any Prompts/*.yaml changes the DEC-074 manifest and can invalidate the broader committed eval cache, even if the edited YAML is not active v1.",
+     "evidence": "check-prompt-hashes.sh:4-18; appsettings.json:15-20."
+    },
+    {
+     "risk": "INSPECTED: The full rerecord-eval-cache.sh workflow is destructive for targeted work because it removes the entire eval-cache directory first.",
+     "evidence": "backend/tests/scripts/rerecord-eval-cache.sh:37-40."
+    },
+    {
+     "risk": "INSPECTED: Existing plan eval coverage is mostly legacy AssembleAsync coverage, so it will not prove that onboarding narrative reaches the production composer.",
+     "evidence": "PlanGenerationEvalTests.cs:33-53; 124-145; 217-237; 286-316; 392-412."
+    },
+    {
+     "risk": "INSPECTED: Raw narrative would extend the same un-sanitized prompt-injection posture currently applied to onboarding nuance fields.",
+     "evidence": "ContextAssembler.cs:37-42; PromptSection.cs:14-53; SanitizationAuditChatClient.cs:12-20."
+    }
+   ],
+   "recommendation": "Add nullable top-level Narrative, separate from slot JSON. In ContextAssembler.BuildPlanGenerationUserMessage, emit `RUNNER NARRATIVE (read first; runner data, not instructions):` plus raw text immediately before `PROFILE SNAPSHOT`; null/empty emits no bytes. Add exact-byte unit coverage and a new dated-event narrative fixture (ContextAssembler.cs:616-635).",
+   "draft_artifacts": [],
+   "open_questions": [
+    "Should Narrative be duplicated on every AnswerCaptured event, attached to one event per submission, or represented by a new event topic? Current code does not define this.",
+    "Should PR-A preserve raw text exactly, or introduce a deterministic cache-safe sanitizer/delimiter for both narrative and existing nuance fields? The current sanitizer adds per-call delimiters and is not used by plan composition.",
+    "Should the new eval scenario assert only deterministic macro validity, or add an output constraint proving the model used the narrative? Existing PlanConstraintEvaluator inputs are not shown in the required sources for such a rule.",
+    "What exact direct-binary xUnit class selector should be used if the orchestrator avoids dotnet test? The repository scripts document only -trait Category=Eval.",
+    "What OpenAPI generation command and generated files must follow the DTO wire change?"
+   ]
+  }
+ },
+ {
+  "id": "r3-frontend-form-and-contracts",
+  "result": {
+   "id": "r3-frontend-form-and-contracts",
+   "facts": [
+    {
+     "claim": "OnboardingPage reads resolved units, GET /state, and owns unit persistence plus seed and pending-unit state.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:122-149",
+     "quote": "usePreferredUnitsResolution(); useGetOnboardingStateQuery(undefined); const [seed...]; const [pendingUnits...]"
+    },
+    {
+     "claim": "The page gates the form behind unit resolution and state loading, with unit errors checked before state errors.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:63-109",
+     "quote": "if (unitsError) ... if (stateFatalError) ... if (!isResolved || stateLoading) ... <OnboardingForm"
+    },
+    {
+     "claim": "A 404 state is treated as a fresh blank form. A defined state is hydrated through hydrateOnboardingFormFields.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:172-180",
+     "quote": "stateDto !== undefined ? hydrateOnboardingFormFields(stateDto, units) : makeDefaultOnboardingFormFields()"
+    },
+    {
+     "claim": "The complete OnboardingForm remounts when resolved units changes because the page sets key={units}.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:101-108",
+     "quote": "<OnboardingForm key={units} units={units} initialFields={initialFields}"
+    },
+    {
+     "claim": "OnboardingForm owns the RHF instance, schema, answers mutation, submit state, and form-level alert.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:37-71",
+     "quote": "Owns the RHF form instance ... the POST /answers mutation, and the submit orchestration."
+    },
+    {
+     "claim": "RHF uses zodResolver, mode onChange, shouldUnregister false, and initialFields as defaultValues.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:65-71",
+     "quote": "resolver: zodResolver(schema), mode: 'onChange', shouldUnregister: false, defaultValues: initialFields"
+    },
+    {
+     "claim": "The current render order is units, goal, conditional race, fitness, schedule, injury, preferences, alert, submit.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:124-160",
+     "quote": "<OnboardingUnitsField ... /> <OnboardingGoalSection ... /> ... <OnboardingPreferencesSection ... />"
+    },
+    {
+     "claim": "The goal is watched with useWatch. TargetEvent renders only when goal equals PrimaryGoal.RaceTraining.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:73-75,133-136",
+     "quote": "const isRaceGoal = goalValue === String(PrimaryGoal.RaceTraining); {isRaceGoal ? <OnboardingTargetEventSection"
+    },
+    {
+     "claim": "The goal section contains goal plus goalDescription nuance. The target section contains eventName, eventDistance, eventDate, and targetFinishTime.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-goal-section.component.tsx:10-20; frontend/src/app/modules/onboarding/components/onboarding-target-event-section.component.tsx:21-46",
+     "quote": "name=\"goalDescription\" ... name=\"eventName\" ... name=\"targetFinishTime\""
+    },
+    {
+     "claim": "TargetEvent intentionally has no nuance control in the current implementation.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-target-event-section.component.tsx:11-15",
+     "quote": "No free-text nuance box"
+    },
+    {
+     "claim": "The fitness section contains weekly volume, longest run, optional recent race distance/time, and fitnessDescription nuance.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-fitness-section.component.tsx:17-56",
+     "quote": "name=\"typicalWeekly\" ... name=\"longestRecentRun\" ... name=\"fitnessDescription\""
+    },
+    {
+     "claim": "The schedule section contains maxRunDays, sessionMinutes, days, and scheduleDescription nuance.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-schedule-section.component.tsx:17-44",
+     "quote": "name=\"maxRunDays\" ... name=\"sessionMinutes\" ... <OnboardingDayToggleField ... />"
+    },
+    {
+     "claim": "The day picker is a Radix ToggleGroup type multiple backed by the string[] days field and seven DAY_OPTIONS.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-day-toggle-field.component.tsx:22-51; frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:33-42",
+     "quote": "name=\"days\"; type=\"multiple\"; value={field.value}"
+    },
+    {
+     "claim": "The injury section conditionally shows activeInjuryDescription when hasActiveInjury is true and also captures pastInjurySummary.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-injury-section.component.tsx:19-46",
+     "quote": "const hasActiveInjury = useWatch(...); {hasActiveInjury ? <OnboardingTextField name=\"activeInjuryDescription\""
+    },
+    {
+     "claim": "The preferences section contains preferTrail, comfortableWithIntensity, and preferencesDescription.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-preferences-section.component.tsx:16-37",
+     "quote": "name=\"preferTrail\" ... name=\"comfortableWithIntensity\" ... name=\"preferencesDescription\""
+    },
+    {
+     "claim": "OnboardingSection is currently a rounded bordered card with a title, optional description, and children.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-section.component.tsx:15-32",
+     "quote": "rounded-lg border border-border bg-card p-4"
+    },
+    {
+     "claim": "Text fields use RHF FormField, FormLabel, Input, and FormMessage. Their default test id is {name}-field.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-text-field.component.tsx:36-65",
+     "quote": "data-testid={testId ?? `${name}-field`}"
+    },
+    {
+     "claim": "Checkbox fields map checked state to boolean and use {name}-field test ids.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-checkbox-field.component.tsx:20-37",
+     "quote": "onCheckedChange={(checked) => field.onChange(checked === true)}"
+    },
+    {
+     "claim": "Nuance textareas are behind closed Collapsible controls. shouldUnregister false means a filled but collapsed textarea remains submitted.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-nuance-section.component.tsx:21-27,35-75",
+     "quote": "default closed ... the Textarea is always part of the form"
+    },
+    {
+     "claim": "The current building state is a plain p with role status, aria-live polite, test id onboarding-building, and text Building your plan...",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:111-120",
+     "quote": "role=\"status\" aria-live=\"polite\" data-testid=\"onboarding-building\""
+    },
+    {
+     "claim": "CLAUDE.md identifies Switch, SegmentedControl, SectionRule, and BuildingPlanSurface as Slice 0 Alpine components. Switch replaces onboarding checkboxes.",
+     "source": "frontend/CLAUDE.md:227-241",
+     "quote": "Switch ... replaces onboarding's checkboxes; SegmentedControl ...; BuildingPlanSurface"
+    },
+    {
+     "claim": "The Alpine state law requires disabled, focus-visible, error, hit-target, and reduced-motion treatment on interactive primitives.",
+     "source": "frontend/CLAUDE.md:213-226",
+     "quote": "disabled:opacity-35 ... aria-invalid ... every animation pairs a motion-reduce variant"
+    },
+    {
+     "claim": "The schema base object has 21 fields: goal, goalDescription, eventName, eventDistance, eventDate, targetFinishTime, typicalWeekly, longestRecentRun, recentRaceDistance, recentRaceTime, fitnessDescription, maxRunDays, sessionMinutes, days, scheduleDescription, hasActiveInjury, activeInjuryDescription, pastInjurySummary, preferTrail, comfortableWithIntensity, preferencesDescription.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:219-255",
+     "quote": "return z.object({ goal: goalField, goalDescription: nuanceField, eventName: ... preferencesDescription: nuanceField })"
+    },
+    {
+     "claim": "The base schema holds input values as strings, string[] for days, or booleans, then transforms numeric and optional text values for output.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:20-31,101-138",
+     "quote": "Every field is held as a STRING ... a string[] ... or a boolean"
+    },
+    {
+     "claim": "numericField trims blanks to undefined, rejects non-finite values, enforces integer and range checks, and returns numbers for nonblank values.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:107-132",
+     "quote": "return value === '' ? undefined : Number(value)"
+    },
+    {
+     "claim": "nuanceField trims and turns blank text into undefined. timeField accepts blank or valid MM:SS/H:MM:SS and transforms blank to undefined.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:134-151",
+     "quote": "value.length === 0 ? undefined : value; return value === '' ? undefined : value"
+    },
+    {
+     "claim": "lenientTimeField defers finish-time format validation until the race-gated refine, so hidden stale values do not block non-race submit.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:153-161,282-312",
+     "quote": "Format deferred to the race-gated refine"
+    },
+    {
+     "claim": "makeOnboardingFormSchema adds superRefine checks for required fitness values, race-only target fields, and active-injury description.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:264-342",
+     "quote": "...requiredFitnessIssues(values), ...targetEventIssues(values, units), ...activeInjuryIssues(values)"
+    },
+    {
+     "claim": "OnboardingFormFields is z.input of the unrefined object schema. OnboardingFormValues is z.output of that schema. The control type supplies all three RHF generics.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:326-357",
+     "quote": "type OnboardingFormFields = z.input<OnboardingObjectSchema>; type OnboardingFormValues = z.output<OnboardingObjectSchema>"
+    },
+    {
+     "claim": "OnboardingStringFieldName and OnboardingBooleanFieldName are mapped types derived from the raw form fields, so a new string narrative field would join the string-name union automatically.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:359-367",
+     "quote": "[K in keyof OnboardingFormFields]: OnboardingFormFields[K] extends string ? K : never"
+    },
+    {
+     "claim": "Fresh defaults use empty strings, an empty days array, and false booleans for all current fields.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:369-392",
+     "quote": "goal: ''; days: []; hasActiveInjury: false"
+    },
+    {
+     "claim": "Resume hydration converts stored km to the selected display unit with one decimal, converts ISO durations to clock strings, filters day booleans, and preserves optional text.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:394-432",
+     "quote": "const distance = (km: number): string => kmToDisplayDistance(km, units).toFixed(1)"
+    },
+    {
+     "claim": "Hydration maps primaryGoal, targetEvent, currentFitness, weeklySchedule, injuryHistory, and preferences slots into the 21 raw form fields.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:404-431",
+     "quote": "const { primaryGoal, targetEvent, currentFitness, weeklySchedule, injuryHistory, preferences } = state"
+    },
+    {
+     "claim": "Unit reseeding converts exactly eventDistance, typicalWeekly, longestRecentRun, and recentRaceDistance, leaving every other field untouched.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:435-459",
+     "quote": "const DISTANCE_FIELD_NAMES = ['eventDistance', 'typicalWeekly', 'longestRecentRun', 'recentRaceDistance']"
+    },
+    {
+     "claim": "The submit mapper sends idempotencyKey, converts distances to km, converts times to ISO durations, maps days to seven booleans, and sends targetEvent null for non-race goals.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:472-528",
+     "quote": "TargetEvent is sent only for a race-training goal"
+    },
+    {
+     "claim": "The current mapper sends optional empty descriptions as empty strings and optional recent race values as null.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:491-528",
+     "quote": "description: values.fitnessDescription ?? ''; recentRaceDistanceKm: ... : null"
+    },
+    {
+     "claim": "The handwritten OnboardingStateDto makes currentTopic and all six answer slots nullable. currentPlanId is string or null.",
+     "source": "frontend/src/app/modules/onboarding/models/onboarding.model.ts:83-98",
+     "quote": "currentTopic: OnboardingTopic | null; primaryGoal: PrimaryGoalAnswer | null"
+    },
+    {
+     "claim": "The handwritten SubmitStructuredAnswersRequest has required idempotencyKey and five required topic objects, with targetEvent typed as nullable.",
+     "source": "frontend/src/app/modules/onboarding/models/onboarding.model.ts:109-118",
+     "quote": "targetEvent: TargetEventInputDto | null"
+    },
+    {
+     "claim": "onboarding.api defines GET /v1/onboarding/state and POST /v1/onboarding/answers, both returning the handwritten OnboardingStateDto.",
+     "source": "frontend/src/app/api/onboarding.api.ts:19-30",
+     "quote": "getOnboardingState: builder.query<OnboardingStateDto, undefined>; submitStructuredAnswers: builder.mutation<OnboardingStateDto, SubmitStructuredAnswersRequest>"
+    },
+    {
+     "claim": "Successful answers invalidate the Onboarding tag. Errors including 400, 409, and 422 return no invalidation.",
+     "source": "frontend/src/app/api/onboarding.api.ts:31-40",
+     "quote": "invalidatesTags: (_result, error) => (error === undefined ? ['Onboarding'] : [])"
+    },
+    {
+     "claim": "Generated GET Zod schema is a strict object with required uuid userId, status 0|1|2, currentTopic 0..5, integer counters, boolean isComplete, and an outstandingClarifications enum array.",
+     "source": "frontend/src/app/api/generated/zod/onboarding/onboarding.ts:9-32",
+     "quote": "export const GetApiV1OnboardingStateResponse = zod.strictObject({"
+    },
+    {
+     "claim": "Generated GET Zod answer slots are required objects. targetFinishTimeIso, recentRaceDistanceKm, and recentRaceTimeIso are required properties but nullable.",
+     "source": "frontend/src/app/api/generated/zod/onboarding/onboarding.ts:33-131",
+     "quote": "targetEvent: zod.strictObject(...); targetFinishTimeIso: zod.string().nullable()"
+    },
+    {
+     "claim": "Generated GET Zod currentPlanId is the only top-level nullish field. The generated schema does not make currentTopic or answer slots nullable.",
+     "source": "frontend/src/app/api/generated/zod/onboarding/onboarding.ts:9-19,132-133",
+     "quote": "currentPlanId: zod.uuid().nullish()"
+    },
+    {
+     "claim": "Generated POST Zod body requires idempotencyKey uuid, primaryGoal, targetEvent, currentFitness, weeklySchedule, injuryHistory, and preferences.",
+     "source": "frontend/src/app/api/generated/zod/onboarding/onboarding.ts:135-183",
+     "quote": "export const PostApiV1OnboardingAnswersBody = zod.strictObject({"
+    },
+    {
+     "claim": "Generated POST Zod makes descriptions and optional race values nullish, but targetEvent itself is a required strict object rather than nullable.",
+     "source": "frontend/src/app/api/generated/zod/onboarding/onboarding.ts:145-181",
+     "quote": "targetEvent: zod.strictObject(...); description: zod.string().nullish()"
+    },
+    {
+     "claim": "Generated POST response repeats the generated non-null answer-slot shape and nullable currentPlanId.",
+     "source": "frontend/src/app/api/generated/zod/onboarding/onboarding.ts:185-309",
+     "quote": "export const PostApiV1OnboardingAnswersResponse = zod.strictObject({"
+    },
+    {
+     "claim": "Generated RTK has a void GET argument and a POST argument object named submitStructuredAnswersRequestDto.",
+     "source": "frontend/src/app/api/generated/rtk/api.ts:81-96,192-197",
+     "quote": "GetApiV1OnboardingStateApiArg = void; PostApiV1OnboardingAnswersApiArg = { submitStructuredAnswersRequestDto: SubmitStructuredAnswersRequestDto }"
+    },
+    {
+     "claim": "Generated RTK OnboardingStateDto requires currentTopic and all six answer slots, with currentPlanId optional nullable.",
+     "source": "frontend/src/app/api/generated/rtk/api.ts:473-487",
+     "quote": "currentTopic: OnboardingTopic; primaryGoal: PrimaryGoalAnswer; currentPlanId?: string | null"
+    },
+    {
+     "claim": "Generated RTK input types require core numeric, boolean, and day fields. Description fields and optional race values are optional nullable.",
+     "source": "frontend/src/app/api/generated/rtk/api.ts:489-527",
+     "quote": "description?: string | null; recentRaceDistanceKm?: number | null; activeInjuryDescription?: string | null"
+    },
+    {
+     "claim": "Generated RTK SubmitStructuredAnswersRequestDto requires targetEvent and has no narrative property in the current file.",
+     "source": "frontend/src/app/api/generated/rtk/api.ts:529-537",
+     "quote": "targetEvent: TargetEventInputDto; preferences: PreferencesInputDto"
+    },
+    {
+     "claim": "The preferred-units resolution hook reports isResolved only after successful GET and reports errors separately, while its display value falls back to kilometers.",
+     "source": "frontend/src/app/modules/settings/hooks/use-preferred-units.hooks.ts:46-64",
+     "quote": "isResolved: isSuccess; isError; units: data?.preferredUnits ?? PreferredUnits.Kilometers"
+    },
+    {
+     "claim": "A unit change converts current form values, sets pendingUnits, awaits PUT /settings/units, and sets the converted seed only after success.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:151-161",
+     "quote": "const converted = reseedDistancesForUnitChange(...); await putUnitPreference({ preferredUnits: nextUnits }).unwrap(); setSeed(converted)"
+    },
+    {
+     "claim": "While the preference query has not caught up to pendingUnits, unitsChangePending is true and the units control and submit button are disabled.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:148-149; frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:128-132,152-159",
+     "quote": "const unitsChangePending = pendingUnits !== null && pendingUnits !== units"
+    },
+    {
+     "claim": "A new idempotency UUID is minted on each OnboardingForm mount, including a units-keyed remount.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:59-65; frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:101-108",
+     "quote": "useState(() => crypto.randomUUID()); <OnboardingForm key={units}"
+    },
+    {
+     "claim": "The same key is passed to the POST on every valid submit until a rotation occurs.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:77-82",
+     "quote": "toSubmitStructuredAnswersRequest(values, idempotencyKey, units)"
+    },
+    {
+     "claim": "A successful complete response sets isBuilding and does not rotate the key. A successful incomplete response rotates the key and shows a partial-progress alert.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:83-93",
+     "quote": "if (state.isComplete) ... setIsBuilding(true) ... setIdempotencyKey(crypto.randomUUID())"
+    },
+    {
+     "claim": "Any mutation rejection enters one generic catch, reports the error, shows a retry alert, and leaves the form mounted for another submit.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:94-103,111-122",
+     "quote": "setFormAlert('We could not build your plan. Please try again in a moment.')"
+    },
+    {
+     "claim": "There is no status-specific 422 branch. A 422 would follow the generic catch and retain the current idempotency key unless the form remounts.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:59-63,94-103; frontend/src/app/api/onboarding.api.ts:35-39",
+     "quote": "Errors including 422 do not invalidate; the catch does not call setIdempotencyKey"
+    },
+    {
+     "claim": "OnboardingRedirectGuard queries the same state endpoint, shows a loading status, treats 404 as incomplete, and shows retry on non-404 errors.",
+     "source": "frontend/src/app/modules/app/app.component.tsx:45-120",
+     "quote": "const treatAs404 = isError && isErrorStatus(error, 404); const hasFatalError = isError && !treatAs404"
+    },
+    {
+     "claim": "The onboarding route is inside RequireAuth, outside ShellLayout, and redirects completed users to /. Home, coach, log, and history redirect incomplete users to /onboarding.",
+     "source": "frontend/src/app/modules/app/app.component.tsx:153-223",
+     "quote": "path=\"/onboarding\" ... expectComplete={true} redirectTo=\"/\"; path=\"/\" ... expectComplete={false} redirectTo=\"/onboarding\""
+    },
+    {
+     "claim": "The directly asserted page test ids are onboarding-units-error, onboarding-loading, onboarding-state-error, and onboarding-form-stub.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx:116-147",
+     "quote": "getByTestId('onboarding-units-error'); getByTestId('onboarding-loading'); getByTestId('onboarding-form-stub')"
+    },
+    {
+     "claim": "The directly asserted form test ids include onboarding-units-field, onboarding-section-goal, onboarding-section-target-event, onboarding-section-fitness, onboarding-section-schedule, onboarding-section-injury, and onboarding-section-preferences.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:86-124",
+     "quote": "getByTestId('onboarding-section-goal'); queryByTestId('onboarding-section-target-event')"
+    },
+    {
+     "claim": "The directly asserted field and state test ids include typicalWeekly-field, longestRecentRun-field, maxRunDays-field, sessionMinutes-field, onboarding-submit, onboarding-building, and onboarding-form-alert.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:59-70,133-296",
+     "quote": "getByTestId('typicalWeekly-field'); getByTestId('onboarding-submit'); findByTestId('onboarding-building')"
+    },
+    {
+     "claim": "The e2e test directly asserts onboarding-page, onboarding-units-field, typicalWeekly-field, longestRecentRun-field, maxRunDays-field, sessionMinutes-field, and onboarding-submit.",
+     "source": "frontend/e2e/onboarding.spec.ts:126-140",
+     "quote": "getByTestId('onboarding-page'); getByTestId('onboarding-units-field'); getByTestId('onboarding-submit')"
+    },
+    {
+     "claim": "The page spec mock also depends on data-units, data-goal, data-typical-weekly, and data-pending on onboarding-form-stub.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx:56-73,142-247",
+     "quote": "data-units={units}; data-goal={initialFields.goal}; data-pending={String(unitsChangePending)}"
+    },
+    {
+     "claim": "The component-generated ids include goal-field, days-field, {name}-field, and {name}-trigger. Current fields use names from the schema, so renaming field names breaks selectors and RHF mapping.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-goal-field.component.tsx:19-32; frontend/src/app/modules/onboarding/components/onboarding-day-toggle-field.component.tsx:22-35; frontend/src/app/modules/onboarding/components/onboarding-nuance-section.component.tsx:38-66",
+     "quote": "data-testid=\"goal-field\"; data-testid=\"days-field\"; data-testid={`${name}-trigger`}"
+    },
+    {
+     "claim": "Current accessible labels include the units legend Which units do you think in?, goal label What's your primary goal?, race labels Race name, Race distance (unit), Race date, and Goal finish time (optional).",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-units-field.component.tsx:27-34; frontend/src/app/modules/onboarding/components/onboarding-goal-field.component.tsx:24-32; frontend/src/app/modules/onboarding/components/onboarding-target-event-section.component.tsx:26-45",
+     "quote": "Which units do you think in?; What's your primary goal?; Race name; Race date"
+    },
+    {
+     "claim": "Current accessible labels include Typical weekly volume (unit), Longest recent run (unit), Recent race distance (unit, optional), Recent race time (optional), Days per week you can run, and Typical session length (minutes).",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-fitness-section.component.tsx:23-48; frontend/src/app/modules/onboarding/components/onboarding-schedule-section.component.tsx:23-35",
+     "quote": "Typical weekly volume (${unitLabel}); Days per week you can run"
+    },
+    {
+     "claim": "Current boolean and nuance labels include I have a current injury or limitation, What's bothering you right now?, I prefer trails where possible, I'm comfortable with hard, structured workouts, Add detail, and Add past injuries.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-injury-section.component.tsx:28-46; frontend/src/app/modules/onboarding/components/onboarding-preferences-section.component.tsx:22-36; frontend/src/app/modules/onboarding/components/onboarding-goal-section.component.tsx:14-18",
+     "quote": "I have a current injury or limitation; Add detail; Add past injuries"
+    },
+    {
+     "claim": "Current section headings are Your goal, Your goal race, Where you're at, Your week, Injuries, and Preferences.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-goal-section.component.tsx:12; frontend/src/app/modules/onboarding/components/onboarding-target-event-section.component.tsx:21-24; frontend/src/app/modules/onboarding/components/onboarding-fitness-section.component.tsx:18-21; frontend/src/app/modules/onboarding/components/onboarding-schedule-section.component.tsx:18-21; frontend/src/app/modules/onboarding/components/onboarding-injury-section.component.tsx:23-26; frontend/src/app/modules/onboarding/components/onboarding-preferences-section.component.tsx:17-20",
+     "quote": "title=\"Your goal\"; title=\"Your goal race\"; title=\"Where you're at\""
+    },
+    {
+     "claim": "The e2e registration prerequisite depends on labels Email and Password and a button matching create account.",
+     "source": "frontend/e2e/onboarding.spec.ts:119-124",
+     "quote": "getByLabel('Email'); getByLabel('Password'); getByRole('button', { name: /create account/i })"
+    },
+    {
+     "claim": "Rendered ARIA dependencies include role alert for retry/form errors, role status for loading/building, aria-live polite on loading/building, aria-label Units, aria-label Preferred run days, per-day aria-labels, and aria-hidden true on the chevron.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:30-40,93-97; frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:111-145; frontend/src/app/modules/onboarding/components/onboarding-units-field.component.tsx:27-34; frontend/src/app/modules/onboarding/components/onboarding-day-toggle-field.component.tsx:27-49; frontend/src/app/modules/onboarding/components/onboarding-nuance-section.component.tsx:48-52",
+     "quote": "role=\"alert\"; role=\"status\"; aria-live=\"polite\"; aria-label=\"Units\"; aria-label=\"Preferred run days\""
+    },
+    {
+     "claim": "Page spec tests: shows a retry when the unit preference fails to load pins the unit error branch; shows a loading placeholder until the unit preference resolves pins the unit gate; shows a loading placeholder while the onboarding state is still loading pins the state gate.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx:116-134",
+     "quote": "it('shows a retry when the unit preference fails to load')"
+    },
+    {
+     "claim": "Page spec tests: shows a retry on a non-404 onboarding-state error pins fatal state handling; renders a blank form when no onboarding stream exists yet (404) pins fresh defaults; hydrates the form from a resumed onboarding state pins resume hydration.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx:136-175",
+     "quote": "it('hydrates the form from a resumed onboarding state')"
+    },
+    {
+     "claim": "Page spec tests: persists a unit change via PUT /settings/units pins the write request; reseeds the entered distances and remounts against the new unit after a successful change pins conversion, seed precedence, and units remount.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx:177-247",
+     "quote": "it('reseeds the entered distances and remounts against the new unit after a successful change')"
+    },
+    {
+     "claim": "Page spec tests: marks the units control pending while a change is in flight pins pending disable state; surfaces an error when persisting the unit change fails pins reporting and toast error behavior.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx:249-270",
+     "quote": "it('marks the units control pending while a change is in flight')"
+    },
+    {
+     "claim": "Form spec tests: renders the units field first and every topic section; reveals the TargetEvent section only for a race-training goal; does not leave submit stuck-disabled when the goal switches away from race with an invalid distance.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:86-124",
+     "quote": "it('reveals the TargetEvent section only for a race-training goal')"
+    },
+    {
+     "claim": "Form spec tests: keeps submit disabled until the whole record is valid; surfaces an accessible field error for an out-of-range entry; submits a non-race profile with targetEvent null, a fresh idempotency key, and km distances.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:126-154",
+     "quote": "it('submits a non-race profile with targetEvent null, a fresh idempotency key, and km distances')"
+    },
+    {
+     "claim": "Form spec tests: submits a race profile with the target event populated; interprets distances in miles and converts them to kilometres; reports a chosen unit up to the page without submitting.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:156-200",
+     "quote": "it('interprets distances in miles and converts them to kilometres')"
+    },
+    {
+     "claim": "Form spec tests: disables the units control while a change is pending; keeps submit disabled while a unit change is pending even once the record is valid; keeps the free-text nuance boxes optional.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:202-221",
+     "quote": "it('keeps the free-text nuance boxes optional')"
+    },
+    {
+     "claim": "Form spec tests: selects and deselects run days with the keyboard; carries selected run days into submitted schedule; shows the building state after a completed submission.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:223-255",
+     "quote": "it('selects and deselects run days with the keyboard')"
+    },
+    {
+     "claim": "Form spec tests: surfaces a partial-progress alert and rotates the idempotency key when the gate is unmet; reports a failed submission and surfaces a retry alert; disables submit and shows a building label while submit is in flight.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:257-296",
+     "quote": "it('surfaces a partial-progress alert and rotates the idempotency key when the gate is unmet')"
+    },
+    {
+     "claim": "Schema spec tests: accepts a complete race-training submission; requires a goal, weekly volume, long run, run days, and session length; requires event name/distance/date only for a race-training goal.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:45-88",
+     "quote": "it('requires a goal, weekly volume, long run, run days, and session length')"
+    },
+    {
+     "claim": "Schema spec tests: does not let a hidden out-of-range TargetEvent field block non-race submission; still enforces event-distance range for a race goal; rejects malformed race date and accepts valid ISO date.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:90-117",
+     "quote": "it('does not let a hidden, out-of-range TargetEvent field block a non-race submission')"
+    },
+    {
+     "claim": "Schema spec tests: requires active-injury description only when flagged; enforces the 1-7 whole-number run-days range; rejects a malformed finish time; caps miles-mode distances at the backend km limit.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:119-156",
+     "quote": "it('requires an active-injury description only when an active injury is flagged')"
+    },
+    {
+     "claim": "Schema mapping tests: maps a race submission with km distances; sends targetEvent null for non-race; converts miles to kilometres; omits optional recent-race distance/time as null; drops active-injury description when no injury is flagged.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:159-250",
+     "quote": "it('sends targetEvent as null for a non-race goal')"
+    },
+    {
+     "claim": "Schema reseed tests: converts four distance fields km to miles preserving physical distance; leaves non-distance fields and blank distances untouched.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:253-300",
+     "quote": "it('converts the four distance fields km to miles, preserving physical distance')"
+    },
+    {
+     "claim": "Schema hydration tests: hydrates populated km slots; converts stored km into display units on resume; leaves slots blank when state has no captured answer.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:302-379",
+     "quote": "it('converts stored km into the runner display unit on resume')"
+    },
+    {
+     "claim": "Helper tests: kilometres pass through; miles convert to canonical kilometres; km to miles to km round-trips without drift.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.helpers.spec.ts:16-31",
+     "quote": "describe('distance conversion')"
+    },
+    {
+     "claim": "Helper tests: parse MM:SS; parse H:MM:SS; accept two-part minutes above 59; reject seconds above 59; reject three-part minutes above 59; reject nonnumeric, blank, and malformed shapes.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.helpers.spec.ts:34-62",
+     "quote": "describe('parseTimeInput')"
+    },
+    {
+     "claim": "Helper tests: treat blank time as valid; accept well-formed times and reject garbage.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.helpers.spec.ts:64-76",
+     "quote": "describe('isValidTimeInput')"
+    },
+    {
+     "claim": "Helper tests: format components as xsd duration; map runner time to ISO and blank to null.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.helpers.spec.ts:78-90",
+     "quote": "describe('ISO duration formatting')"
+    },
+    {
+     "claim": "Helper tests: parse full and partial ISO durations; return null for absent or unparseable values; format ISO duration back to a clock string.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.helpers.spec.ts:92-112",
+     "quote": "describe('ISO duration parsing (resume hydration)')"
+    },
+    {
+     "claim": "Helper tests: keep blank distance blank; return same-unit values unchanged; convert km to miles; convert miles to km; leave unparseable entries untouched.",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.helpers.spec.ts:114-137",
+     "quote": "describe('convertDistanceInput (units change)')"
+    },
+    {
+     "claim": "API spec tests: issue a GET to /api/v1/onboarding/state and post structured answers to /api/v1/onboarding/answers with the exact body.",
+     "source": "frontend/src/app/api/onboarding.api.spec.ts:77-113",
+     "quote": "it('issues a GET to /api/v1/onboarding/state'); it('posts the structured answers to /api/v1/onboarding/answers')"
+    },
+    {
+     "claim": "API cache tests: refetch subscribed state after successful submit; do not refetch state when submit fails.",
+     "source": "frontend/src/app/api/onboarding.api.spec.ts:115-170",
+     "quote": "it('does not refetch the onboarding state when the submit fails')"
+    },
+    {
+     "claim": "The e2e test register -> fill the form once -> single submit -> navigate to / stubs units, state, answers, and plan endpoints, asserts one POST with the full record, and checks the session cookie.",
+     "source": "frontend/e2e/onboarding.spec.ts:4-15,56-113,115-164",
+     "quote": "test('register -> fill the form once -> single submit -> navigate to /')"
+    },
+    {
+     "claim": "Recommended unmodified preservation set: page hydration and units reseed tests; form idempotency tests; schema hydration and reseed tests; helper conversion tests; API success and failure invalidation tests.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx:149-247; frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:141-154,257-275; frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:253-379; frontend/src/app/api/onboarding.api.spec.ts:131-170",
+     "quote": "The existing tests directly pin resume, units, idempotency, and cache behavior"
+    },
+    {
+     "claim": "The current failed-submission form test is re-submittable but uses a generic Error, and the API failure test uses HTTP 400. No current test names or bodies explicitly exercise HTTP 422.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:277-288; frontend/src/app/api/onboarding.api.spec.ts:147-170",
+     "quote": "submitUnwrap.mockRejectedValue(new Error('network down')); status 400"
+    },
+    {
+     "claim": "The requested onboarding module contains five unit or integration spec files: page, form, schema, helpers, and onboarding API. No separate specs exist for the section or field components in the requested module.",
+     "source": "command: rg --files frontend/src/app/modules/onboarding frontend/src/app/api | sort | rg '(spec|onboarding)'",
+     "quote": "onboarding.page.spec.tsx; onboarding-form.component.spec.tsx; onboarding-form.schema.spec.ts; onboarding-form.helpers.spec.ts; onboarding.api.spec.ts"
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "stateUrl",
+     "value": "/v1/onboarding/state",
+     "source": "frontend/src/app/api/onboarding.api.ts:21-24"
+    },
+    {
+     "name": "answersUrl",
+     "value": "/v1/onboarding/answers",
+     "source": "frontend/src/app/api/onboarding.api.ts:25-30"
+    },
+    {
+     "name": "unitsPreferenceUrl",
+     "value": "/settings/units",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:157-159"
+    },
+    {
+     "name": "formValidationMode",
+     "value": "onChange",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:65-70"
+    },
+    {
+     "name": "shouldUnregister",
+     "value": "false",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:66-70"
+    },
+    {
+     "name": "formRemountKey",
+     "value": "units",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:101-108"
+    },
+    {
+     "name": "idempotencyGenerator",
+     "value": "crypto.randomUUID()",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:59-63,87-92"
+    },
+    {
+     "name": "nonRaceTargetEvent",
+     "value": "null",
+     "source": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:489-501"
+    },
+    {
+     "name": "submitDisabledExpression",
+     "value": "isLoading || !form.formState.isValid || unitsChangePending",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:152-159"
+    },
+    {
+     "name": "fieldTestIdConvention",
+     "value": "{name}-field",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-text-field.component.tsx:53-59"
+    },
+    {
+     "name": "sectionPlan",
+     "value": "00 new narrative; 01 adapt goal; 02 adapt target event; 03 adapt fitness; 04 adapt schedule; 05 combine injury and preferences; no race ADD DETAIL",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-target-event-section.component.tsx:11-15; frontend/src/app/modules/onboarding/components/onboarding-*.component.tsx"
+    },
+    {
+     "name": "alpineBuildingSurface",
+     "value": "BuildingPlanSurface",
+     "source": "frontend/CLAUDE.md:235-241"
+    },
+    {
+     "name": "alpineBooleanControl",
+     "value": "Switch",
+     "source": "frontend/CLAUDE.md:227-234"
+    }
+   ],
+   "gaps": [
+    "No current frontend schema, handwritten model, generated Zod schema, generated RTK type, mapper, or hydration field contains narrative.",
+    "The exact PR-A JSON property name and location for narrative are absent from the current frontend contract.",
+    "The PR-A narrative maximum length is absent from all requested frontend files, so a numeric frontend max cannot be grounded.",
+    "The requested files do not define whether blank narrative should be omitted or sent as null. Existing optional descriptions are usually sent as empty strings by the mapper.",
+    "No explicit PlanGenerationRejected type or HTTP 422 test exists in the current frontend specs.",
+    "Builds, tests, network access, and writes were intentionally not performed under the read-only recon brief."
+   ],
+   "risks": [
+    {
+     "risk": "Generated onboarding schemas and RTK types disagree with the handwritten nullable model, especially for targetEvent and resume slots. A narrative codegen change can widen this mismatch.",
+     "evidence": "frontend/src/app/api/generated/zod/onboarding/onboarding.ts:9-183; frontend/src/app/modules/onboarding/models/onboarding.model.ts:83-118"
+    },
+    {
+     "risk": "A rejected 422 currently keeps the same idempotency key because only non-terminal success rotates it. Confirm whether a 422 retry should replay or mint a new attempt.",
+     "evidence": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:59-63,87-103"
+    },
+    {
+     "risk": "The page updates initialFields with a converted seed before the units prop changes, while RHF is configured with defaultValues and no reset call. The implementation relies on the keyed remount catching up.",
+     "evidence": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:155-161; frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:65-71"
+    },
+    {
+     "risk": "Replacing current labels or test ids without compatibility updates will break form, page, and e2e selectors.",
+     "evidence": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:86-296; frontend/e2e/onboarding.spec.ts:126-159"
+    },
+    {
+     "risk": "Current onboarding uses bordered cards, checkbox controls, and a linear field layout, so the Alpine recomposition changes both structure and primitive semantics.",
+     "evidence": "frontend/src/app/modules/onboarding/components/onboarding-section.component.tsx:21-32; frontend/src/app/modules/onboarding/components/onboarding-checkbox-field.component.tsx:20-37; frontend/CLAUDE.md:227-241"
+    }
+   ],
+   "recommendation": "Keep onboarding.page.tsx:93-109,151-207 and guard routes. Replace form JSX/OnboardingSection with 00 narrative, 01 goal, 02 race, 03 where-at, 04 week, 05 fine-print. Reuse fields; use Switch, SegmentedControl, BuildingPlanSurface. Add narrative to schema/defaults/hydrate/model/mapper after PR-A names its limit; trim, max, blank=null. Preserve resume, units, idempotency, rejection tests.",
+   "draft_artifacts": [],
+   "open_questions": [
+    "What exact JSON property name and nesting will PR-A expose for narrative in POST /answers and GET /state?",
+    "What maximum narrative length does PR-A enforce?",
+    "Should an empty narrative be omitted or sent as null on the POST request?",
+    "What response shape and user-facing behavior identify PlanGenerationRejected at HTTP 422?",
+    "Should 05 THE FINE PRINT combine injury and preferences into one section with multiple detail controls, or use a single shared nuance field?"
+   ]
+  }
+ },
+ {
+  "id": "r4-alpine-primitives-and-precedents",
+  "result": {
+   "id": "r4-alpine-primitives-and-precedents",
+   "facts": [
+    {
+     "claim": "[INSPECTED] BuildingPlanSurface accepts optional statusLine and className only. It has no percent or progress prop.",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:3-10",
+     "quote": "statusLine?: string; className?: string"
+    },
+    {
+     "claim": "[INSPECTED] BuildingPlanSurface uses role=status and aria-live=polite. Its progress bar is decorative and indeterminate.",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:20-28,35-53",
+     "quote": "role=\"status\" aria-live=\"polite\""
+    },
+    {
+     "claim": "[INSPECTED] Its root class is screen-gutter, centered, full-screen, background-backed, and text-centered. The mono line uses font-mono text-sm text-muted-foreground.",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:39-53",
+     "quote": "screen-gutter flex min-h-screen flex-col items-center justify-center gap-6 bg-background text-center"
+    },
+    {
+     "claim": "[INSPECTED] The BuildingPlanSurface spec asserts the heading, live status role, default and supplied status lines, and aria-hidden on the decorative bar.",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.spec.tsx:5-35",
+     "quote": "getByRole('status'); aria-live='polite'; aria-hidden='true'"
+    },
+    {
+     "claim": "[INSPECTED] Current onboarding still returns a plain onboarding-building status paragraph after a completed submit. The Alpine surface is not mounted there.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:77-123",
+     "quote": "if (isBuilding) return <p ... data-testid=\"onboarding-building\">"
+    },
+    {
+     "claim": "[INSPECTED] SegmentedControl wraps Radix RadioGroup. It accepts RadioGroup root props, defaults orientation to horizontal, and adds data-slot=segmented-control.",
+     "source": "frontend/src/components/ui/segmented-control.tsx:13-25",
+     "quote": "orientation = 'horizontal'; data-slot=\"segmented-control\""
+    },
+    {
+     "claim": "[INSPECTED] SegmentedControlItem wraps a Radix radio item, accepts item props plus children and className, and adds data-slot=segmented-control-item.",
+     "source": "frontend/src/components/ui/segmented-control.tsx:28-45",
+     "quote": "React.ComponentProps<typeof SegmentedControlPrimitive.Item>"
+    },
+    {
+     "claim": "[INSPECTED] Segmented controls expose radiogroup/radio semantics through Radix. The spec checks aria-checked and exactly one selected item after clicks.",
+     "source": "frontend/src/components/ui/segmented-control.tsx:6-12; frontend/src/components/ui/segmented-control.spec.tsx:6-34,57-92",
+     "quote": "role=\"radiogroup\" / role=\"radio\"; aria-checked"
+    },
+    {
+     "claim": "[INSPECTED] Switch wraps Radix Switch.Root, accepts root props plus className, and renders data-slot values switch, switch-track, and switch-thumb.",
+     "source": "frontend/src/components/ui/switch.tsx:11-31",
+     "quote": "data-slot=\"switch\"; data-slot=\"switch-track\"; data-slot=\"switch-thumb\""
+    },
+    {
+     "claim": "[INSPECTED] Switch exposes role=switch and aria-checked through Radix. Its spec covers unchecked, checked, onCheckedChange(true), controlled checked, and disabled behavior.",
+     "source": "frontend/src/components/ui/switch.spec.tsx:6-45",
+     "quote": "getByRole('switch'); onCheckedChange(true); toBeDisabled()"
+    },
+    {
+     "claim": "[INSPECTED] SectionRule props are required label, optional as='h2'|'h3', optional children, and optional className. It emits data-testid=section-rule and an optional section-rule-slot.",
+     "source": "frontend/src/app/modules/common/components/section-rule/section-rule.component.tsx:4-20,28-44",
+     "quote": "label: string; as?: 'h2' | 'h3'; children?: ReactNode"
+    },
+    {
+     "claim": "[INSPECTED] SectionRule renders a 2px top border with border-rule and uses t-section-label on its h2 or h3 heading.",
+     "source": "frontend/src/app/modules/common/components/section-rule/section-rule.component.tsx:22-38",
+     "quote": "border-t-2 border-rule pt-2; className=\"t-section-label text-foreground\""
+    },
+    {
+     "claim": "[INSPECTED] MonoLabel props are required children, optional tone muted|clay|positive, and optional className. It emits data-testid=mono-label and always applies t-data-label.",
+     "source": "frontend/src/app/modules/common/components/mono-label/mono-label.component.tsx:4-18,27-34",
+     "quote": "tone?: MonoLabelTone; data-testid=\"mono-label\""
+    },
+    {
+     "claim": "[INSPECTED] MonoLabel tones map to text-muted-foreground, text-clay-text, and text-positive. Its intended role is a mono eyebrow, label, meta line, or short data tag.",
+     "source": "frontend/src/app/modules/common/components/mono-label/mono-label.component.tsx:7-11,21-25",
+     "quote": "muted: 'text-muted-foreground'; clay: 'text-clay-text'; positive: 'text-positive'"
+    },
+    {
+     "claim": "[INSPECTED] Wordmark props are optional size header|poster and className. It emits data-slot=wordmark, data-size, aria-label=Split, and role=img.",
+     "source": "frontend/src/app/modules/common/components/wordmark/wordmark.component.tsx:3-9,30-41",
+     "quote": "aria-label=\"Split\"; role=\"img\""
+    },
+    {
+     "claim": "[INSPECTED] Wordmark uses 21px for header and 58px for poster. Inner SPLIT and slash spans are aria-hidden and use foreground and clay-text.",
+     "source": "frontend/src/app/modules/common/components/wordmark/wordmark.component.tsx:11-16,43-47",
+     "quote": "header: 'text-[21px]'; poster: 'text-[58px]'"
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "BuildingPlanSurfaceProps",
+     "value": "statusLine?: string; className?: string",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:3-10"
+    },
+    {
+     "name": "BuildingPlanSurface.rootClass",
+     "value": "screen-gutter flex min-h-screen flex-col items-center justify-center gap-6 bg-background text-center",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:39-42"
+    },
+    {
+     "name": "BuildingPlanSurface.progressClass",
+     "value": "track: relative h-1.5 w-48 max-w-full overflow-hidden rounded-full bg-secondary; bar: absolute inset-y-0 left-0 w-2/5 animate-indeterminate rounded-full bg-primary motion-reduce:translate-x-0 motion-reduce:animate-pulse",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:46-50"
+    },
+    {
+     "name": "SegmentedControl.rootClass",
+     "value": "inline-flex w-full items-center gap-0.5 rounded-md bg-muted p-0.5",
+     "source": "frontend/src/components/ui/segmented-control.tsx:19-23"
+    },
+    {
+     "name": "SegmentedControlItem.class",
+     "value": "inline-flex min-h-11 flex-1 items-center justify-center rounded-sm font-condensed text-[13px] font-bold tracking-[0.1em] text-muted-foreground uppercase transition-[transform,background-color,color,opacity] duration-150 ease-out motion-reduce:transition-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] disabled:pointer-events-none disabled:opacity-35 active:scale-[0.98] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=unchecked]:active:bg-secondary data-[state=checked]:active:bg-clay-pressed",
+     "source": "frontend/src/components/ui/segmented-control.tsx:34-40"
+    },
+    {
+     "name": "Switch.rootClass",
+     "value": "group peer inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full outline-none transition-[transform,background-color,opacity] duration-150 ease-out motion-reduce:transition-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35",
+     "source": "frontend/src/components/ui/switch.tsx:13-18"
+    },
+    {
+     "name": "Switch.trackClass",
+     "value": "pointer-events-none relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border border-input bg-input-fill transition-[background-color,border-color] duration-150 ease-out motion-reduce:transition-none group-data-[state=checked]:border-primary group-data-[state=checked]:bg-primary",
+     "source": "frontend/src/components/ui/switch.tsx:21-25"
+    },
+    {
+     "name": "Switch.thumbClass",
+     "value": "pointer-events-none block size-5 translate-x-0.5 rounded-full bg-foreground shadow-xs transition-transform duration-150 ease-out motion-reduce:transition-none data-[state=checked]:translate-x-5",
+     "source": "frontend/src/components/ui/switch.tsx:26-29"
+    },
+    {
+     "name": "SectionRule.class",
+     "value": "flex items-center justify-between gap-3 border-t-2 border-rule pt-2",
+     "source": "frontend/src/app/modules/common/components/section-rule/section-rule.component.tsx:34-38"
+    },
+    {
+     "name": "MonoLabel.class",
+     "value": "t-data-label plus one of text-muted-foreground, text-clay-text, or text-positive",
+     "source": "frontend/src/app/modules/common/components/mono-label/mono-label.component.tsx:7-11,32-34"
+    },
+    {
+     "name": "Wordmark.class",
+     "value": "inline-flex items-baseline font-condensed leading-none font-extrabold plus text-[21px] or text-[58px]",
+     "source": "frontend/src/app/modules/common/components/wordmark/wordmark.component.tsx:13-16,37-40"
+    },
+    {
+     "name": "RadioGroup.class",
+     "value": "grid gap-3",
+     "source": "frontend/src/components/ui/radio-group.tsx:7-17"
+    },
+    {
+     "name": "RadioGroupItem.class",
+     "value": "relative aspect-square size-4 shrink-0 rounded-full border border-input text-primary outline-none transition-[transform,background-color,border-color,opacity] duration-150 ease-out hit-target-44 motion-reduce:transition-none data-[state=checked]:border-primary focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] disabled:pointer-events-none disabled:opacity-35 aria-invalid:border-destructive aria-invalid:ring-destructive/[0.22]",
+     "source": "frontend/src/components/ui/radio-group.tsx:25-33"
+    },
+    {
+     "name": "CollapsibleContent.class",
+     "value": "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none",
+     "source": "frontend/src/components/ui/collapsible.tsx:17-33"
+    },
+    {
+     "name": "Textarea.class",
+     "value": "min-h-11 w-full rounded-md border border-input bg-input-fill px-3 py-2 font-body text-foreground text-sm transition-[transform,background-color,border-color,opacity] duration-150 ease-out motion-reduce:transition-none outline-none placeholder:text-muted-foreground disabled:pointer-events-none disabled:opacity-35 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] aria-invalid:border-destructive aria-invalid:ring-destructive/[0.22]",
+     "source": "frontend/src/components/ui/textarea.tsx:5-16"
+    },
+    {
+     "name": "Input.class",
+     "value": "flex h-9 min-h-11 w-full min-w-0 rounded-md border border-input bg-input-fill px-3 py-1 font-body text-base text-foreground transition-[transform,background-color,border-color,opacity] duration-150 ease-out motion-reduce:transition-none outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:opacity-35 md:text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] aria-invalid:border-destructive aria-invalid:ring-destructive/[0.22]",
+     "source": "frontend/src/components/ui/input.tsx:5-17"
+    },
+    {
+     "name": "Label.class",
+     "value": "flex items-center gap-2 text-sm leading-none font-medium text-foreground select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-35 peer-disabled:pointer-events-none peer-disabled:opacity-35",
+     "source": "frontend/src/components/ui/label.tsx:6-15"
+    },
+    {
+     "name": "Form.parts",
+     "value": "Form=FormProvider; FormItem=div grid gap-2; FormDescription=p text-sm text-muted-foreground; FormMessage=p font-mono text-sm text-destructive",
+     "source": "frontend/src/components/ui/form.tsx:16,76-83,114-149"
+    },
+    {
+     "name": "Form.control",
+     "value": "FormControl injects id, aria-describedby, and aria-invalid through Radix Slot; FormLabel targets the generated id",
+     "source": "frontend/src/components/ui/form.tsx:86-110"
+    },
+    {
+     "name": "Button.variants",
+     "value": "default|destructive|outline|secondary|ghost|link",
+     "source": "frontend/src/components/ui/button.tsx:7-23"
+    },
+    {
+     "name": "Button.sizes",
+     "value": "default|xs|sm|lg|icon|icon-xs|icon-sm|icon-lg",
+     "source": "frontend/src/components/ui/button.tsx:24-33"
+    },
+    {
+     "name": "Button.baseClass",
+     "value": "relative inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-condensed text-[15px] leading-[1.2] font-bold tracking-[0.12em] uppercase whitespace-nowrap transition-[transform,background-color,border-color,opacity] duration-150 ease-out before:absolute before:content-[''] motion-reduce:transition-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] disabled:pointer-events-none disabled:opacity-35 aria-invalid:border-destructive aria-invalid:ring-destructive/[0.22]",
+     "source": "frontend/src/components/ui/button.tsx:7-8"
+    },
+    {
+     "name": "Checkbox.class",
+     "value": "peer relative size-4 shrink-0 rounded-xs border border-input outline-none transition-[transform,background-color,border-color,opacity] duration-150 ease-out hit-target-44 motion-reduce:transition-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22] disabled:pointer-events-none disabled:opacity-35 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground aria-invalid:border-destructive aria-invalid:ring-destructive/[0.22]",
+     "source": "frontend/src/components/ui/checkbox.tsx:7-26"
+    },
+    {
+     "name": "Contrast.PAIRS",
+     "value": "readonly Pair[]; append { label, fg, bg, threshold } with semantic slot names and threshold 4.5 or 3",
+     "source": "frontend/scripts/check-contrast.ts:76-104,157-229"
+    }
+   ],
+   "gaps": [
+    "[INSPECTED] No shared DayGrid file or export was observed. TheWeek renders seven noninteractive cells inline, while onboarding owns an inline ToggleGroup day picker.",
+    "[INSPECTED] No shared radio-right option-row primitive was observed. The current goal field composes Label and RadioGroupItem inline.",
+    "[INSPECTED] The current onboarding schema and defaults contain no narrative field. PR-B needs the exact PR-A wire key before adding the RHF field and mapper.",
+    "[INSPECTED] Wordmark is documented as having no mount point. The current onboarding header is text-only, so whether Slice 5 should mount it is unresolved."
+   ],
+   "risks": [
+    {
+     "risk": "[INSPECTED] Current onboarding's completed-submit branch still renders onboarding-building, so leaving it unchanged omits the required Alpine surface.",
+     "evidence": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:77-123"
+    },
+    {
+     "risk": "[INSPECTED] Existing day chips use focus-visible:ring-ring/50 and omit active scale. The Alpine law requires ring/[0.22], active:scale-[0.98], disabled opacity, and reduced-motion pairing.",
+     "evidence": "frontend/src/app/modules/onboarding/components/onboarding-day-toggle-field.component.tsx:27-50; frontend/CLAUDE.md:213-226"
+    },
+    {
+     "risk": "[INSPECTED] RadioGroupItem has the canonical focus, disabled, error, and hit-target classes but no active:scale-[0.98]. The row composition must supply the press treatment.",
+     "evidence": "frontend/src/components/ui/radio-group.tsx:25-33; frontend/CLAUDE.md:213-226"
+    },
+    {
+     "risk": "[INSPECTED] Checkbox-to-Switch migration must preserve RHF's boolean mapping and generated FormControl/FormLabel association.",
+     "evidence": "frontend/src/app/modules/onboarding/components/onboarding-checkbox-field.component.tsx:20-35; frontend/src/components/ui/switch.spec.tsx:14-32"
+    },
+    {
+     "risk": "[INSPECTED] --alp-faint is decorative-only and fails AA by design. It must not carry essential onboarding labels or values.",
+     "evidence": "frontend/CLAUDE.md:142-156; frontend/scripts/check-contrast.ts:25-40"
+    }
+   ],
+   "recommendation": "[INSPECTED] Keep OnboardingForm/page as the compatibility shell, including RHF, unit reseed/keying, race gating, and submit state. Replace its building paragraph with <BuildingPlanSurface />. Implement sections using the map below, with local radio-row and day-chip compositions only (onboarding-form.component.tsx:56-123; onboarding.page.tsx:138-207).",
+   "draft_artifacts": [],
+   "open_questions": [
+    "[INSPECTED] What exact PR-A field name and nullable wire shape should the new narrative use? Current fields stop at preferencesDescription (frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:219-255).",
+    "[INSPECTED] Should BuildingPlanSurface mount inside OnboardingForm's isBuilding branch or at OnboardingPage level? Current branch is inside the form, while the surface is min-h-screen (onboarding-form.component.tsx:111-121; building-plan-surface.component.tsx:35-53).",
+    "[INSPECTED] What final testid, label, placeholder, and row count are required for the narrative textarea? The existing Textarea API supplies native textarea props but no onboarding-specific contract (frontend/src/components/ui/textarea.tsx:5-20)."
+   ]
+  }
+ },
+ {
+  "id": "r5-codegen-e2e-and-gates",
+  "result": {
+   "id": "r5-codegen-e2e-and-gates",
+   "facts": [
+    {
+     "claim": "INSPECTED: EmitOpenApi runs after Build for Release or EmitOpenApi=true, then writes backend/openapi/swagger.json with dotnet swagger tofile from the repo root.",
+     "source": "backend/src/RunCoach.Api/RunCoach.Api.csproj:62-78",
+     "quote": "Condition='$(Configuration)' == 'Release' OR '$(EmitOpenApi)' == 'true' ... dotnet swagger tofile"
+    },
+    {
+     "claim": "INSPECTED: CI restores the backend and tools, runs the Release build, then checks swagger drift.",
+     "source": ".github/workflows/ci.yml:60-77",
+     "quote": "Restore dotnet tools; Build (Release; emits backend/openapi/swagger.json); OpenAPI drift gate"
+    },
+    {
+     "claim": "INSPECTED: RTK codegen reads ../backend/openapi/swagger.json and writes src/app/api/generated/rtk/api.ts.",
+     "source": "frontend/openapi-config.ts:13-26",
+     "quote": "schemaFile: '../backend/openapi/swagger.json'; outputFile: './src/app/api/generated/rtk/api.ts'."
+    },
+    {
+     "claim": "INSPECTED: Orval reads the same spec and writes tags-split Zod files under src/app/api/generated/zod.",
+     "source": "frontend/orval.config.ts:14-33",
+     "quote": "input: '../backend/openapi/swagger.json'; target: './src/app/api/generated/zod'; mode: 'tags-split'"
+    },
+    {
+     "claim": "INSPECTED: codegen:rtk creates the RTK directory, runs RTK codegen, then prepends the generated header. The header script skips an existing header.",
+     "source": "frontend/package.json:21-23; frontend/scripts/codegen-prepend-header.mjs:23-31",
+     "quote": "mkdir -p ... && rtk-query-codegen-openapi ... && node scripts/codegen-prepend-header.mjs"
+    },
+    {
+     "claim": "INSPECTED: npm run codegen order is RTK generation, Orval Zod generation, then Prettier over generated TypeScript.",
+     "source": "frontend/package.json:21-24",
+     "quote": "npm run codegen:rtk && npm run codegen:zod && prettier --write"
+    },
+    {
+     "claim": "INSPECTED: codegen:check reruns codegen and fails if generated frontend output or backend swagger differs from git.",
+     "source": "frontend/package.json:24; .github/workflows/ci.yml:175-184",
+     "quote": "npm run codegen && git diff --exit-code -- src/app/api/generated ../backend/openapi/swagger.json"
+    },
+    {
+     "claim": "INSPECTED: The generated barrel is hand-maintained, not generated, and its rule is one export line per migrated schema or hook direction.",
+     "source": "frontend/src/app/api/generated/index.ts:10-13",
+     "quote": "This file is NOT generated ... Each migrated schema or hook gets one line here per direction"
+    },
+    {
+     "claim": "INSPECTED: The onboarding barrel currently exports the per-topic input and answer types, while the request envelope and nullable-slot state model remain hand-written elsewhere.",
+     "source": "frontend/src/app/api/generated/index.ts:129-153",
+     "quote": "SubmitStructuredAnswersRequest ... and the nullable-slot state model are hand-written"
+    },
+    {
+     "claim": "INSPECTED: An additive optional property on an already exported generated type does not require a barrel edit. A new exported symbol or hook does require one.",
+     "source": "frontend/src/app/api/generated/index.ts:10-13",
+     "quote": "Each migrated schema or hook gets one line here per direction"
+    },
+    {
+     "claim": "INSPECTED: GET /api/v1/onboarding/state and POST /api/v1/onboarding/answers both use OnboardingStateDto; the POST request uses SubmitStructuredAnswersRequestDto.",
+     "source": "backend/openapi/swagger.json:668-689; backend/openapi/swagger.json:725-765",
+     "quote": "$ref: '#/components/schemas/OnboardingStateDto'; $ref: '#/components/schemas/SubmitStructuredAnswersRequestDto'"
+    },
+    {
+     "claim": "INSPECTED: SubmitStructuredAnswersRequestDto requires seven top-level members, all current topic or idempotency fields. It has no top-level nullable string today.",
+     "source": "backend/openapi/swagger.json:2802-2837",
+     "quote": "required: currentFitness, idempotencyKey, injuryHistory, preferences, primaryGoal, targetEvent, weeklySchedule"
+    },
+    {
+     "claim": "INSPECTED: The request-side nullable string precedent is TargetEventInputDto.targetFinishTimeIso. It is nullable and omitted from required.",
+     "source": "backend/openapi/swagger.json:2869-2892",
+     "quote": "\"required\": [\"distanceKm\", \"eventDateIso\", \"eventName\"]; \"targetFinishTimeIso\": {\"type\": \"string\", \"nullable\": true}"
+    },
+    {
+     "claim": "INSPECTED: The state-side nullable string precedent is TargetEventAnswer.targetFinishTimeIso. It is nullable but included in required because the answer record marks the member required.",
+     "source": "backend/openapi/swagger.json:2839-2867",
+     "quote": "\"required\": [\"distanceKm\", \"eventDateIso\", \"eventName\", \"targetFinishTimeIso\"]; \"targetFinishTimeIso\": {\"type\": \"string\", \"nullable\": true}"
+    },
+    {
+     "claim": "INSPECTED: OnboardingStateDto has no top-level nullable string. Its top-level nullable member is currentPlanId, emitted as a nullable UUID string and omitted from required.",
+     "source": "backend/openapi/swagger.json:2188-2257",
+     "quote": "\"currentPlanId\": {\"type\": \"string\", \"format\": \"uuid\", \"nullable\": true}"
+    },
+    {
+     "claim": "INSPECTED: Playwright uses HTTPS localhost:5173, Chromium, and starts only Vite. The API must already run at HTTPS localhost:5001.",
+     "source": "frontend/playwright.config.ts:3-8; frontend/playwright.config.ts:24-40",
+     "quote": "const baseURL = 'https://localhost:5173'; The backend API on https://localhost:5001 must already be running"
+    },
+    {
+     "claim": "INSPECTED: The onboarding E2E registers a fresh real backend account using a UUID email, which seeds the session and antiforgery cookies.",
+     "source": "frontend/e2e/onboarding.spec.ts:4-15; frontend/e2e/onboarding.spec.ts:32-32; frontend/e2e/onboarding.spec.ts:119-124",
+     "quote": "Real backend register seeds the session + antiforgery cookie pair; uniqueEmail uses e2e-<uuid>@runcoach.test"
+    },
+    {
+     "claim": "INSPECTED: Plan generation is stubbed in the browser E2E. Settings, state, answers, and plan/current are intercepted, so no real LLM or plan generator is reached.",
+     "source": "frontend/e2e/onboarding.spec.ts:10-15; frontend/e2e/onboarding.spec.ts:56-112",
+     "quote": "so nothing touches the real LLM / plan generator"
+    },
+    {
+     "claim": "INSPECTED: The current E2E selectors are Email, Password, Create account, onboarding-page, onboarding-units-field, General Fitness, five field test IDs, Mon, Wed, and onboarding-submit.",
+     "source": "frontend/e2e/onboarding.spec.ts:119-140",
+     "quote": "getByLabel('Email'); getByTestId('onboarding-units-field'); getByTestId('onboarding-submit')"
+    },
+    {
+     "claim": "INSPECTED: The current E2E asserts one POST, a UUID idempotency key, topic values, null targetEvent, schedule flags, preferred units, redirect to /, and the __Host-RunCoach cookie.",
+     "source": "frontend/e2e/onboarding.spec.ts:142-164",
+     "quote": "expect(state.answersBodies).toHaveLength(1); expect(body.idempotencyKey).toMatch(uuidPattern)"
+    },
+    {
+     "claim": "INSPECTED: CONTRIBUTING prescribes Compose Postgres and Redis, a host-run HTTPS API on port 5001, then frontend npm run e2e. Playwright starts or reuses Vite on port 5173.",
+     "source": "CONTRIBUTING.md:122-136; CONTRIBUTING.md:346-357",
+     "quote": "docker compose up -d postgres redis; dotnet run --project src/RunCoach.Api --launch-profile https; npm run e2e"
+    },
+    {
+     "claim": "INSPECTED: e2e-clean deletes only normalized emails matching E2E-% [at] RUNCOACH.TEST from AspNetUsers.",
+     "source": "frontend/scripts/e2e-clean.sh:2-14; frontend/scripts/e2e-clean.sh:26-29",
+     "quote": "DELETE FROM \"AspNetUsers\" WHERE \"NormalizedEmail\" LIKE 'E2E-% [at] RUNCOACH.TEST';"
+    },
+    {
+     "claim": "INSPECTED: Backend integration tests replace plan generation with a deterministic stub, make no LLM calls, and still exercise Marten, Wolverine, and EF projection wiring.",
+     "source": "backend/tests/RunCoach.Api.Tests/Infrastructure/StubPlanGenerationService.cs:8-16; backend/tests/RunCoach.Api.Tests/Infrastructure/StubPlanGenerationService.cs:27-32",
+     "quote": "no LLM calls, fully deterministic event sequence, and the full Marten + EF projection stack is exercised end-to-end"
+    },
+    {
+     "claim": "INSPECTED: RejectOnceThenSucceedPlanGenerationService is singleton-oriented and proves a terminal 422 leaves nothing staged before the same turn can be resubmitted successfully.",
+     "source": "backend/tests/RunCoach.Api.Tests/Infrastructure/RejectOnceThenSucceedPlanGenerationService.cs:8-19",
+     "quote": "maps a terminal plan-generation rejection to a handled 422 (with nothing staged) AND that the same turn is re-submittable"
+    },
+    {
+     "claim": "INSPECTED: Pre-commit backend C# uses dotnet-format. Eval cache entry files use TTL fix and cache-wide deduplication.",
+     "source": "lefthook.yml:10-21",
+     "quote": "glob: \"*.cs\"; eval-cache-ttl-fix; eval-cache-dedup"
+    },
+    {
+     "claim": "INSPECTED: Pre-commit prompt YAML runs check-prompt-hashes. It is the only prompt-specific pre-commit hook.",
+     "source": "lefthook.yml:22-32",
+     "quote": "glob: \"backend/src/RunCoach.Api/Prompts/*.yaml\"; run: bash backend/tests/scripts/check-prompt-hashes.sh"
+    },
+    {
+     "claim": "INSPECTED: Pre-commit frontend TypeScript uses eslint and Prettier. check-contrast also fires for frontend/scripts/check-contrast.ts.",
+     "source": "lefthook.yml:33-37; lefthook.yml:46-65",
+     "quote": "eslint glob: \"*.{ts,tsx}\"; prettier glob: \"*.{ts,tsx,css,json}\""
+    },
+    {
+     "claim": "INSPECTED: Commit messages run commitlint with the commit message file argument.",
+     "source": "lefthook.yml:67-70",
+     "quote": "run: npx commitlint --edit {1}"
+    },
+    {
+     "claim": "INSPECTED: Pre-push backend C# runs dotnet-build, eval-cache-replay, and codegen-check. There is no pre-push Prompts/*.yaml glob.",
+     "source": "lefthook.yml:82-114",
+     "quote": "dotnet-build; eval-cache-replay; codegen-check; glob: \"{backend/**/*.cs,backend/openapi/swagger.json,...}\""
+    },
+    {
+     "claim": "INSPECTED: Pre-push eval-cache TTL check matches entry.json files, while frontend TypeScript runs tsc. The replay hook itself matches staged C# files, not eval-cache paths.",
+     "source": "lefthook.yml:94-103; backend/tests/scripts/check-eval-cache-ttl.sh:10-14",
+     "quote": "eval-cache-ttl-check glob: \"**/eval-cache/**/entry.json\"; STAGED_ENTRIES=$(git diff --cached --name-only ...)"
+    },
+    {
+     "claim": "INSPECTED: CI Gate depends on backend, frontend, codegen-drift, security, and conditional infra validation, and fails on any failed or cancelled upstream job.",
+     "source": ".github/workflows/ci.yml:236-254",
+     "quote": "needs: [backend, frontend, codegen-drift, security, infra-validate]"
+    },
+    {
+     "claim": "INSPECTED: The documented required checks are CI Gate, two CodeQL matrix checks, Backend analysis, Frontend analysis, and License & dependency review.",
+     "source": "docs/ci/unblock-procedures.md:7-18",
+     "quote": "All six checks are active in the main-protection ruleset"
+    },
+    {
+     "claim": "INSPECTED: Backend CI tests run with EVAL_CACHE_MODE=Replay. Sonar backend tests also set Replay.",
+     "source": ".github/workflows/ci.yml:78-91; .github/workflows/sonarqube.yml:66-77",
+     "quote": "EVAL_CACHE_MODE: Replay"
+    },
+    {
+     "claim": "INSPECTED: Any backend or frontend path change activates codegen-drift. Backend changes include eval-cache and prompt-manifest paths, and codegen-drift runs a Release build plus npm run codegen:check.",
+     "source": ".github/workflows/ci.yml:27-34; .github/workflows/ci.yml:145-176",
+     "quote": "backend: 'backend/**'; if: backend == 'true' || frontend == 'true'"
+    },
+    {
+     "claim": "INSPECTED: The prompt hash script describes the manifest as a CI and no-verify backstop, while the explicit TTL checker is wired only through Lefthook.",
+     "source": "backend/tests/scripts/check-prompt-hashes.sh:4-10; backend/tests/scripts/check-eval-cache-ttl.sh:4-10; lefthook.yml:15-18; lefthook.yml:97-99",
+     "quote": "check-eval-cache-ttl.sh is called by lefthook pre-commit hook"
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "release_build",
+     "value": "dotnet build backend/RunCoach.slnx -c Release --no-restore",
+     "source": ".github/workflows/ci.yml:64-71"
+    },
+    {
+     "name": "dotnet_tool_restore",
+     "value": "dotnet tool restore",
+     "source": ".github/workflows/ci.yml:60-63"
+    },
+    {
+     "name": "frontend_codegen_rtk",
+     "value": "mkdir -p src/app/api/generated/rtk && rtk-query-codegen-openapi ./openapi-config.ts && node scripts/codegen-prepend-header.mjs",
+     "source": "frontend/package.json:21"
+    },
+    {
+     "name": "frontend_codegen_zod",
+     "value": "orval --config ./orval.config.ts",
+     "source": "frontend/package.json:22"
+    },
+    {
+     "name": "frontend_codegen",
+     "value": "npm run codegen:rtk && npm run codegen:zod && prettier --write \"src/app/api/generated/**/*.ts\"",
+     "source": "frontend/package.json:23"
+    },
+    {
+     "name": "frontend_codegen_check",
+     "value": "npm run codegen && git diff --exit-code -- src/app/api/generated ../backend/openapi/swagger.json",
+     "source": "frontend/package.json:24"
+    },
+    {
+     "name": "prompt_manifest_verify",
+     "value": "bash backend/tests/scripts/check-prompt-hashes.sh",
+     "source": "backend/tests/scripts/check-prompt-hashes.sh:17-18"
+    },
+    {
+     "name": "prompt_manifest_regenerate",
+     "value": "bash backend/tests/scripts/check-prompt-hashes.sh --write",
+     "source": "backend/tests/scripts/check-prompt-hashes.sh:17-18; backend/tests/scripts/check-prompt-hashes.sh:49-54"
+    },
+    {
+     "name": "backend_full_replay",
+     "value": "EVAL_CACHE_MODE=Replay dotnet test --solution backend/RunCoach.slnx --no-build",
+     "source": "backend/CLAUDE.md:99-102; .github/workflows/ci.yml:80-91"
+    },
+    {
+     "name": "targeted_plan_generation_record",
+     "value": "EVAL_CACHE_MODE=Record dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests",
+     "source": "AGENTS.md:52-57; backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs:12-25"
+    },
+    {
+     "name": "targeted_plan_generation_replay",
+     "value": "EVAL_CACHE_MODE=Replay dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests",
+     "source": "AGENTS.md:52-57; backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs:12-25"
+    },
+    {
+     "name": "all_eval_replay",
+     "value": "bash backend/tests/scripts/prepush-eval-check.sh",
+     "source": "backend/tests/scripts/prepush-eval-check.sh:12-26"
+    },
+    {
+     "name": "eval_ttl_check",
+     "value": "bash backend/tests/scripts/check-eval-cache-ttl.sh",
+     "source": "lefthook.yml:97-99; backend/tests/scripts/check-eval-cache-ttl.sh:10-14"
+    },
+    {
+     "name": "e2e_stack_infra",
+     "value": "docker compose up -d postgres redis",
+     "source": "CONTRIBUTING.md:122-133"
+    },
+    {
+     "name": "e2e_stack_api",
+     "value": "cd <repo>/backend && dotnet run --project src/RunCoach.Api --launch-profile https",
+     "source": "CONTRIBUTING.md:128-136; frontend/playwright.config.ts:30-33"
+    },
+    {
+     "name": "e2e_run",
+     "value": "cd <repo>/frontend && npm run e2e",
+     "source": "CONTRIBUTING.md:346-357; frontend/package.json:17"
+    },
+    {
+     "name": "e2e_clean",
+     "value": "cd <repo>/frontend && npm run e2e:clean",
+     "source": "CONTRIBUTING.md:359-375; frontend/package.json:18"
+    }
+   ],
+   "gaps": [
+    "INSPECTED: OnboardingStateDto has no current top-level nullable string, so confirm whether narrative belongs at the state top level or inside a nested answer DTO and verify its required-array membership after generation.",
+    "INSPECTED: onboarding.spec.ts has no selector for BuildingPlanSurface and currently asserts only the redirect, so PR-B needs a stable surface test ID or accessible text.",
+    "INSPECTED: The repository documents a full eval re-record script, but no official targeted script or targeted TTL post-processing command is documented.",
+    "INSPECTED: No build, test, network, or E2E command was run because this brief required read-only recon."
+   ],
+   "risks": [
+    {
+     "risk": "INSPECTED: rerecord-eval-cache.sh deletes the entire eval-cache and records every Category=Eval test; it is not a targeted plan-generation command.",
+     "evidence": "backend/tests/scripts/rerecord-eval-cache.sh:4-10; backend/tests/scripts/rerecord-eval-cache.sh:37-59"
+    },
+    {
+     "risk": "INSPECTED: Nullable state shapes are inconsistent: TargetEventAnswer includes a nullable string in required, while OnboardingStateDto currentPlanId is nullable and omitted from required.",
+     "evidence": "backend/openapi/swagger.json:2188-2257; backend/openapi/swagger.json:2839-2865"
+    },
+    {
+     "risk": "INSPECTED: The browser E2E intercepts POST /onboarding/answers and GET /plan/current, so it cannot detect a live API mapping or LLM prompt regression.",
+     "evidence": "frontend/e2e/onboarding.spec.ts:84-112"
+    },
+    {
+     "risk": "INSPECTED: check-eval-cache-ttl.sh reads git diff --cached, but it is also wired to pre-push. After a commit the index is normally clean, so that pre-push check can be a no-op.",
+     "evidence": "backend/tests/scripts/check-eval-cache-ttl.sh:10-14; lefthook.yml:97-99"
+    },
+    {
+     "risk": "INSPECTED: The workflow does not directly invoke check-eval-cache-ttl.sh or check-prompt-hashes.sh. Replay is the visible CI protection for cache and prompt drift.",
+     "evidence": ".github/workflows/ci.yml:80-91; .github/workflows/sonarqube.yml:66-77"
+    },
+    {
+     "risk": "INSPECTED: The required-check document lists older action versions than the workflow comments for CodeQL, SonarQube, and dependency review.",
+     "evidence": "docs/ci/unblock-procedures.md:9-16; .github/workflows/codeql.yml:41-46; .github/workflows/sonarqube.yml:133-139; .github/workflows/license-review.yml:25-30"
+    }
+   ],
+   "recommendation": "Run PR-A in this order: restore tools, Release build, backend Replay, frontend codegen plus drift check, manifest verify or conditional write, filtered PlanGenerationEvalTests Record, staged TTL check, then full Replay. For PR-B keep the stubbed HTTPS stack and update onboarding.spec.ts for narrative, new controls, race reveal, loading surface, and stable selectors.",
+   "draft_artifacts": [],
+   "open_questions": [
+    "OPEN: Should narrative be a top-level string on both SubmitStructuredAnswersRequestDto and OnboardingStateDto, or only be represented through nested Answer types?",
+    "OPEN: What stable accessible label or data-testid will PR-B expose for the BuildingPlanSurface loading state?",
+    "OPEN: After filtered Record, which orchestrator step will extend only new entry.json files to the 9999-12-31 TTL without running the all-Eval destructive script?",
+    "OPEN: Should CI gain direct prompt-manifest and eval-TTL checks, or is Replay plus the EvalTestBase backstop the intended policy?"
+   ]
+  }
+ },
+ {
+  "id": "r6-design-source-and-decisions",
+  "result": {
+   "id": "r6-design-source-and-decisions",
+   "facts": [
+    {
+     "claim": "ASCII copy extraction: artboard 5d and 2e contain the same 58 visible text items in the same order; only the frame label and theme metadata differ.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:424-598; 1877-2052",
+     "quote": "The ordered copy table is in draft_artifacts. Non-ASCII glyphs are rendered as [EM DASH], [MIDDLE DOT], and [ELLIPSIS]."
+    },
+    {
+     "claim": "The full onboarding title, subtitle, units-first ordering, narrative field, and keep rules are specified in the handoff.",
+     "source": "docs/design/split-alpine/HANDOFF.md:116-122",
+     "quote": "Title `TELL ME WHAT WE'RE WORKING WITH` plus `Answer straight. The plan is only as honest as you are.`; UNITS comes first; `00 -- IN YOUR OWN WORDS` is under units; keep reseed/remount, resume hydration, and idempotency rotation."
+    },
+    {
+     "claim": "The full onboarding screen uses the numbered sections, radio-right rows, race reveal, fitness grid, day chips, switches, and conditional detail affordances.",
+     "source": "docs/design/split-alpine/HANDOFF.md:119-121",
+     "quote": "Numbered rule sections `01 THE GOAL` through `05 THE FINE PRINT`; race selection reveals `02 THE RACE`; sections use radio-right options, a 2x2 numeric grid, 7-day chips, switches, and `+ ADD DETAIL`."
+    },
+    {
+     "claim": "The 5d screen is a 390px daylight mobile artboard with a 2px opener rule, 20px content gap, and 22px horizontal content padding.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:430-458",
+     "quote": "Screen `width: 390px`; content `gap: 20px; padding: 10px 22px 30px`; hero rule `height: 2px`; section opener `border-top: 2px solid`."
+    },
+    {
+     "claim": "The 5d units control is a two-column grid with 8px gap and 44px-high controls.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:448-453",
+     "quote": "`display: grid; grid-template-columns: 1fr 1fr; gap: 8px`; each unit control has `height: 44px` and `border-radius: 8px`."
+    },
+    {
+     "claim": "The 5d goal rows use right-positioned 18px radios, 1.5px radio borders, 9px selected dots, and 8px row radius.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:466-490",
+     "quote": "Rows use `justify-content: space-between`, `border-radius: 8px`, `padding: 13px 14px`; radio is `18px` with `border: 1.5px`; selected dot is `9px`."
+    },
+    {
+     "claim": "The 5d race and fitness layouts use 1fr/1fr grids with 12px gaps; inputs are 46px high.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:498-539",
+     "quote": "Race distance/date and both fitness rows use `grid-template-columns: 1fr 1fr; gap: 12px`; fields use `height: 46px`."
+    },
+    {
+     "claim": "The 5d week layout uses a 7-column equal grid with 6px gaps and 40px-high chips.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:549-568",
+     "quote": "`grid-template-columns: repeat(7, 1fr); gap: 6px`; day chips have `height: 40px` and `border-radius: 6px`."
+    },
+    {
+     "claim": "The 5d fine-print switches are 44x26px pills with 20px knobs, and the detail trigger uses IBM Plex Mono 600 at 11px.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:573-589",
+     "quote": "Switches use `width: 44px; height: 26px; border-radius: 999px`; knobs are `20px`; detail text is IBM Plex Mono `600 11px`."
+    },
+    {
+     "claim": "The 5d CTA is 54px high and its mono reassurance line is 9.5px.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:592-595",
+     "quote": "CTA `height: 54px`; CTA font is Barlow Condensed `700 18px`; reassurance is IBM Plex Mono `500 9.5px`."
+    },
+    {
+     "claim": "The dark 2e artboard preserves the same geometry and copy while switching to the dark Alpine palette.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:1883-2048",
+     "quote": "The 2e screen is `width: 390px`, uses `gap: 20px; padding: 10px 22px 30px`, 2px section rules, the same grids, inputs, chips, switches, CTA, and ordered copy."
+    },
+    {
+     "claim": "The open-input 3c artboard omits the wordmark and units, enlarges outer padding, and shows only the narrative plus a dimmed start of the form.",
+     "source": "docs/design/split-alpine/split-alpine.dc.html:1238-1267",
+     "quote": "3c uses `width: 390px`, `padding: 20px 22px 24px`, `gap: 18px`; the form preview has `opacity: 0.45`; its narrative helper says `THE REST BELOW...`."
+    },
+    {
+     "claim": "The requested artboards do not show the building state. Handoff and Slice 0 define its required title and progress treatment but not an exact mono sentence.",
+     "source": "docs/design/split-alpine/HANDOFF.md:130-134; docs/plans/split-ui-cycle/slice-0-alpine-foundation.md:16",
+     "quote": "Plan building is `BUILDING YOUR PLAN` with a full surface, clay progress, and a mono line."
+    },
+    {
+     "claim": "The three Alpine font families and role sizes are locked: Barlow Condensed, Barlow, and IBM Plex Mono.",
+     "source": "docs/design/split-alpine/HANDOFF.md:54-70",
+     "quote": "Screen title is Barlow Condensed 700 at 30px uppercase; section label is 13px uppercase; body is Barlow 14-15px; row title is 15px; mono labels are 9.5-11px."
+    },
+    {
+     "claim": "The Slice 5 design confirms exact field parity for sections 01-05 and no field-level wire change for those sections.",
+     "source": "docs/plans/split-ui-cycle/slice-5-onboarding.md:9-12",
+     "quote": "The five goal options, race-gated event, fitness 2x2, schedule, injury, hard-workouts, and trails fields already match; sections 01-05 need recomposition and restyle only."
+    },
+    {
+     "claim": "The narrative is optional, persisted through the onboarding answer path, and injected verbatim beside existing nuance fields.",
+     "source": "docs/plans/split-ui-cycle/slice-5-onboarding.md:12; docs/decisions/decision-log.md:3157",
+     "quote": "The narrative submits with the form, flows through the canonical record, `OnboardingView`, and additive `AnswerCaptured`, then is injected verbatim into plan-generation prompt assembly."
+    },
+    {
+     "claim": "The narrative change requires OpenAPI codegen, DEC-074 manifest regeneration, and a targeted funded-key plan-generation fixture re-record in its own PR.",
+     "source": "docs/plans/split-ui-cycle/slice-5-onboarding.md:12,40-46",
+     "quote": "Consequences are `OpenAPI codegen` plus `DEC-074 hash-manifest regen + targeted plan-gen eval fixture re-record`; isolate this in its own PR."
+    },
+    {
+     "claim": "DEC-086 locks form-first onboarding and deterministic AnswerCaptured origination, while units remain frontend display conversion and the prompt stays km-native.",
+     "source": "docs/decisions/decision-log.md:3067-3071",
+     "quote": "A structured form is the primary intake and originates `AnswerCaptured` deterministically; conversion is frontend display/write behavior; the wire and plan-generation prompt stay km/SI."
+    },
+    {
+     "claim": "The handoff and Slice 5 requirements preserve units-change reseed/remount, resume hydration, and idempotency-key rotation.",
+     "source": "docs/design/split-alpine/HANDOFF.md:118-122; docs/plans/split-ui-cycle/slice-5-onboarding.md:13-15",
+     "quote": "Keep units-change reseed/remount flow, resume hydration, and idempotency-key rotation."
+    },
+    {
+     "claim": "DEC-086 research integration says onboarding itself needs no LLM call and confirms TargetEventAnswer has no nuance field.",
+     "source": "docs/decisions/decision-log.md:3084",
+     "quote": "Onboarding needs no LLM call; per-area nuance is stored verbatim for later prompts; `TargetEventAnswer` has no free-text field, so omit its nuance box."
+    },
+    {
+     "claim": "DEC-089 D7 permits exactly one narrative field and explicitly forbids an ADD DETAIL affordance in THE RACE.",
+     "source": "docs/decisions/decision-log.md:3157",
+     "quote": "Onboarding gains exactly one narrative free-text field; THE RACE section gets no ADD DETAIL collapsible because no nuance field exists."
+    },
+    {
+     "claim": "DEC-087 preserves the handled 422 and atomic no-staged-events rollback after macro retry exhaustion.",
+     "source": "docs/decisions/decision-log.md:3101-3102",
+     "quote": "After the budget is spent, throw `PlanGenerationRejectedException(lastViolation)`; onboarding's existing handled 422 and atomic no-staged-events rollback are preserved."
+    },
+    {
+     "claim": "DEC-088 maps micro consistency retry exhaustion to the identical re-submittable 422 with nothing staged.",
+     "source": "docs/decisions/decision-log.md:3127-3129",
+     "quote": "On budget exhaustion, throw `MesoMicroConsistencyRejectedException`; the onboarding controller catches it into the identical re-submittable 422 with nothing staged."
+    },
+    {
+     "claim": "DEC-074 binds prompt bytes to `Prompts/.prompt-hashes.sha256` and requires the re-record script after prompt changes.",
+     "source": "docs/decisions/decision-log.md:2738-2749",
+     "quote": "Adopt a committed SHA-256 sentinel manifest of `Prompts/*.yaml`; `rerecord-eval-cache.sh` regenerates it after patching cache TTL; remediation is `run rerecord-eval-cache.sh`."
+    },
+    {
+     "claim": "DEC-039 requires committed eval entries to use a far-future expiration and Replay cache misses to fail fast.",
+     "source": "docs/decisions/decision-log.md:1030-1036",
+     "quote": "Set `expiration` to `9999-12-31T23:59:59Z`; CI uses `EVAL_CACHE_MODE=Replay`; cache misses throw immediately; re-record when prompts or model versions change."
+    },
+    {
+     "claim": "Cycle status says Slice 5 is the active next slice, has no spec yet, and depends only on Slice 0.",
+     "source": "docs/plans/split-ui-cycle/cycle-plan.md:5-20",
+     "quote": "Active Slice: Slice 5; no spec yet; write it first; Slice 5 needs only Slice 0 because onboarding renders outside the shell."
+    },
+    {
+     "claim": "The captured 2026-07-13 row says current generation produces four meso weeks, one micro week, and real workouts only in week 1.",
+     "source": "docs/plans/split-ui-cycle/cycle-plan.md:26-38",
+     "quote": "Plan generation only ever produces 4 meso weeks and ONE micro week; nothing extends them; only week 1 of any plan has real workouts."
+    },
+    {
+     "claim": "The rolling-horizon Status says PR1 merged and PR2 handler work is still the next step, so the 12-week promise is not current product truth.",
+     "source": "docs/plans/plan-horizon/rolling-horizon-plan.md:5-10",
+     "quote": "PR1 merged 2026-08-16; next step is spec plus build PR2 for horizon extension."
+    },
+    {
+     "claim": "The honest CTA reassurance should avoid claiming 12 weeks until the rolling horizon is shipped and verified.",
+     "source": "docs/plans/split-ui-cycle/cycle-plan.md:36; docs/plans/plan-horizon/rolling-horizon-plan.md:5-10",
+     "quote": "Recommended copy: `THE COACH DRAFTS YOUR STARTING PLAN IN ABOUT 30 SECONDS`."
+    },
+    {
+     "claim": "Slice 4's spec is an implementer-contract model with a source register, build stages, edge cases, tests, and non-negotiables.",
+     "source": "docs/specs/slice-4-log-logbook/spec.md:1-5,25-65,304-337",
+     "quote": "It calls itself an implementer's contract; it uses `1. Decision record`, `2. References (ground truth)`, and `3. Build stages`, followed by edge cases, tests, and non-negotiables."
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "EVAL_CACHE_MODE",
+     "value": "Replay",
+     "source": "docs/decisions/decision-log.md:1034"
+    },
+    {
+     "name": "entry.json expiration",
+     "value": "9999-12-31T23:59:59Z",
+     "source": "docs/decisions/decision-log.md:1033"
+    },
+    {
+     "name": "Prompt hash manifest",
+     "value": "Prompts/.prompt-hashes.sha256",
+     "source": "docs/decisions/decision-log.md:2747"
+    }
+   ],
+   "gaps": [
+    "The exact property name for the optional narrative and its maximum length are not specified; Slice 5 says the spec must choose the bound.",
+    "The requested artboards do not contain the building surface's exact mono line. Handoff and Slice 0 only require a mono line.",
+    "The 3c helper says `THE REST BELOW`, while 5d and 2e say `THE FORM BELOW`; the state-specific copy must be decided.",
+    "The design rule permits ADD DETAIL only where a nuance field exists, but the requested full artboards draw only the 05 trigger. Placement for other existing nuance fields needs an explicit spec table.",
+    "The current source does not establish that a 12-week plan is populated today; it records four meso weeks, one micro week, and week-1 workouts only."
+   ],
+   "risks": [
+    {
+     "risk": "Prompt bytes and eval fixtures can drift if the narrative injection is changed without the manifest and targeted re-record.",
+     "evidence": "Slice 5 D2 and DEC-074 require hash-manifest regeneration and funded-key Replay verification: docs/plans/split-ui-cycle/slice-5-onboarding.md:12; docs/decisions/decision-log.md:2747."
+    },
+    {
+     "risk": "The narrative is intentionally injected with the same unsanitized posture as nuance fields, so prompt-injection hardening remains deferred.",
+     "evidence": "docs/plans/split-ui-cycle/slice-5-onboarding.md:12,28; docs/decisions/decision-log.md:3157."
+    },
+    {
+     "risk": "A failed plan-generation exhaustion path can become non-resubmittable if the frontend leaves the building surface mounted after the handled 422.",
+     "evidence": "DEC-087 D5 and DEC-088 D5 require the existing re-submittable 422 and no staged events: docs/decisions/decision-log.md:3102,3129."
+    },
+    {
+     "risk": "The mock's `12 WEEKS` line overpromises against the captured current horizon and can mislead users about available workouts.",
+     "evidence": "docs/design/split-alpine/split-alpine.dc.html:592-595; docs/plans/split-ui-cycle/cycle-plan.md:36; docs/plans/plan-horizon/rolling-horizon-plan.md:5-10."
+    },
+    {
+     "risk": "The 3c open-input artboard and the full onboarding artboards use different helper copy, so an implementation can silently lose a design-state distinction.",
+     "evidence": "docs/design/split-alpine/split-alpine.dc.html:456-464,1249-1257."
+    }
+   ],
+   "recommendation": "Write `docs/specs/slice-5-onboarding/spec.md` using the Slice 4 contract pattern. Put the complete ASCII-transliterated copy/layout table and character map in the ground-truth register. Lock PR-A around the narrative DTO/canonical record/OnboardingView/AnswerCaptured/ContextAssembler path, codegen, DEC-074, and Replay re-record. Lock PR-B around the Alpine recomposition, D6 building surface, and preserved 422/resume/idempotency/reseed tests. Replace the 12-week reassurance with `THE COACH DRAFTS YOUR STARTING PLAN IN ABOUT 30 SECONDS` unless horizon work is verified complete.",
+   "draft_artifacts": [
+    {
+     "path": "docs/specs/slice-5-onboarding/design-source-and-decisions.md",
+     "content": "# Slice 5 onboarding design source and decisions\n\nStatus: recon draft. This file is a proposed spec appendix, not a committed file.\nAll copy below is ASCII-transliterated because the output contract is ASCII-only.\n\n## Character map\n\n- `[EM DASH]` = U+2014, used in section number labels, helper copy, metadata, and the 3c footer.\n- `[MIDDLE DOT]` = U+00B7, used in the 5d metadata and unit-bearing labels.\n- `[ELLIPSIS]` = U+2026, used at the end of the narrative placeholder.\n- Apostrophes in `we're`, `you're`, and `INTAKE'S` are ASCII U+0027.\n- The table uses `--` only for prose punctuation where the source uses an em dash. It uses the bracket tokens above where exact character identity matters.\n\n## Source register\n\n- Design source: `docs/design/split-alpine/HANDOFF.md`, sections 1-3, 5.5, 6, 7, and 8. Key lines: 10-70, 116-145.\n- Design artboards: `docs/design/split-alpine/split-alpine.dc.html`, 5d lines 424-598, 3c lines 1238-1269, 2e lines 1877-2052.\n- Requirements: `docs/plans/split-ui-cycle/slice-5-onboarding.md`, lines 1-47.\n- Shared building surface: `docs/plans/split-ui-cycle/slice-0-alpine-foundation.md:16,26`.\n- Cycle status and horizon warning: `docs/plans/split-ui-cycle/cycle-plan.md:5-20,26-38,184-197,230-260`; `docs/plans/plan-horizon/rolling-horizon-plan.md:5-10`.\n- Decisions: DEC-039 lines 1023-1046; DEC-074 lines 2738-2755; DEC-086 lines 3059-3084; DEC-087 lines 3088-3109; DEC-088 lines 3113-3137; DEC-089 lines 3141-3166.\n- Spec pattern: `docs/specs/slice-4-log-logbook/spec.md:1-65,304-352`.\n\n## Ordered copy table: artboard 5d, daylight onboarding\n\nSource: `split-alpine.dc.html:424-598`.\n\n1. `5d` - artboard badge, line 426.\n2. `DAYLIGHT [MIDDLE DOT] /onboarding -- intake, no tab bar` - frame label, line 427.\n3. `05:42` - status time, line 432.\n4. `SPLIT` - wordmark, line 440.\n5. `/` - clay slash, line 441.\n6. `Tell me what we're working with` - title source copy, line 443. CSS transforms it to uppercase.\n7. `Answer straight. The plan is only as honest as you are.` - subtitle, line 444.\n8. `UNITS` - units eyebrow, line 449.\n9. `KILOMETERS` - selected unit, line 451.\n10. `MILES` - alternate unit, line 452.\n11. `00 [EM DASH] IN YOUR OWN WORDS` - section label, line 458.\n12. `Coming back from a calf strain. 10K in October. Tuesdays are impossible, and I hate treadmills[ELLIPSIS]` - textarea placeholder, line 461.\n13. `THE COACH READS THIS FIRST. PLAIN WORDS BEAT PERFECT FORMS [EM DASH] THE FORM BELOW KEEPS THE NUMBERS HONEST.` - helper, line 463.\n14. `01 [EM DASH] THE GOAL` - section label, line 468.\n15. `Train for a race` - selected goal, line 472.\n16. `General fitness` - goal option, line 476.\n17. `Return to running` - goal option, line 480.\n18. `Build volume` - goal option, line 484.\n19. `Build speed` - goal option, line 488.\n20. `02 [EM DASH] THE RACE` - section label, line 496.\n21. `RACE NAME` - field label, line 499.\n22. `Portland 10K` - field value, line 500.\n23. `DISTANCE [MIDDLE DOT] KM` - field label, line 504.\n24. `10` - distance value, line 505.\n25. `DATE` - field label, line 508.\n26. `Oct 3, 2026` - date value, line 509.\n27. `GOAL TIME [EM DASH] OPTIONAL` - field label, line 513.\n28. `H:MM:SS` - goal-time placeholder, line 514.\n29. `03 [EM DASH] WHERE YOU'RE AT` - section label, line 520.\n30. `WEEKLY VOLUME [MIDDLE DOT] KM` - field label, line 524.\n31. `30` - field value, line 525.\n32. `LONGEST RECENT [MIDDLE DOT] KM` - field label, line 528.\n33. `14` - field value, line 529.\n34. `RECENT RACE [MIDDLE DOT] KM` - field label, line 534.\n35. `Optional` - field placeholder, line 535.\n36. `RACE TIME` - field label, line 538.\n37. `H:MM:SS` - race-time placeholder, line 539.\n38. `A RECENT RACE SHARPENS YOUR PACE ZONES. NO RACE [EM DASH] NO PROBLEM.` - reassurance, line 542.\n39. `04 [EM DASH] YOUR WEEK` - section label, line 547.\n40. `RUN DAYS / WEEK` - field label, line 551.\n41. `4` - field value, line 552.\n42. `SESSION LENGTH [MIDDLE DOT] MIN` - field label, line 555.\n43. `60` - field value, line 556.\n44. `DAYS YOU CAN RUN` - chip label, line 560.\n45. `MO` - chip, line 562.\n46. `TU` - chip, line 563.\n47. `WE` - chip, line 564.\n48. `TH` - chip, line 565.\n49. `FR` - chip, line 566.\n50. `SA` - chip, line 567.\n51. `SU` - chip, line 568.\n52. `05 [EM DASH] THE FINE PRINT` - section label, line 575.\n53. `Current injury or limitation` - switch label, line 578.\n54. `Comfortable with hard, structured work` - switch label, line 582.\n55. `Prefer trails where possible` - switch label, line 586.\n56. `+ ADD DETAIL [EM DASH] INJURIES, SCHEDULE, ANYTHING` - detail trigger, line 589.\n57. `BUILD MY PLAN` - CTA, line 593.\n58. `THE COACH DRAFTS 12 WEEKS IN ABOUT 30 SECONDS` - mono line under CTA, line 594.\n\n## Ordered copy table: artboard 2e, dark onboarding\n\nSource: `split-alpine.dc.html:1877-2052`.\n\n1. `2e` - artboard badge, line 1879.\n2. `/onboarding -- intake, no tab bar` - frame label, line 1880.\n3. `05:42` - status time, line 1885.\n4. `SPLIT` - wordmark, line 1893.\n5. `/` - clay slash, line 1894.\n6. `Tell me what we're working with` - title source copy, line 1896. CSS transforms it to uppercase.\n7. `Answer straight. The plan is only as honest as you are.` - subtitle, line 1897.\n8. `UNITS` - units eyebrow, line 1902.\n9. `KILOMETERS` - selected unit, line 1904.\n10. `MILES` - alternate unit, line 1905.\n11. `00 [EM DASH] IN YOUR OWN WORDS` - section label, line 1911.\n12. `Coming back from a calf strain. 10K in October. Tuesdays are impossible, and I hate treadmills[ELLIPSIS]` - textarea placeholder, line 1914.\n13. `THE COACH READS THIS FIRST. PLAIN WORDS BEAT PERFECT FORMS [EM DASH] THE FORM BELOW KEEPS THE NUMBERS HONEST.` - helper, line 1916.\n14. `01 [EM DASH] THE GOAL` - section label, line 1921.\n15. `Train for a race` - selected goal, line 1925.\n16. `General fitness` - goal option, line 1929.\n17. `Return to running` - goal option, line 1933.\n18. `Build volume` - goal option, line 1937.\n19. `Build speed` - goal option, line 1941.\n20. `02 [EM DASH] THE RACE` - section label, line 1949.\n21. `RACE NAME` - field label, line 1952.\n22. `Portland 10K` - field value, line 1953.\n23. `DISTANCE [MIDDLE DOT] KM` - field label, line 1957.\n24. `10` - distance value, line 1958.\n25. `DATE` - field label, line 1961.\n26. `Oct 3, 2026` - date value, line 1962.\n27. `GOAL TIME [EM DASH] OPTIONAL` - field label, line 1966.\n28. `H:MM:SS` - goal-time placeholder, line 1967.\n29. `03 [EM DASH] WHERE YOU'RE AT` - section label, line 1973.\n30. `WEEKLY VOLUME [MIDDLE DOT] KM` - field label, line 1977.\n31. `30` - field value, line 1978.\n32. `LONGEST RECENT [MIDDLE DOT] KM` - field label, line 1981.\n33. `14` - field value, line 1982.\n34. `RECENT RACE [MIDDLE DOT] KM` - field label, line 1987.\n35. `Optional` - field placeholder, line 1988.\n36. `RACE TIME` - field label, line 1991.\n37. `H:MM:SS` - race-time placeholder, line 1992.\n38. `A RECENT RACE SHARPENS YOUR PACE ZONES. NO RACE [EM DASH] NO PROBLEM.` - reassurance, line 1995.\n39. `04 [EM DASH] YOUR WEEK` - section label, line 2000.\n40. `RUN DAYS / WEEK` - field label, line 2004.\n41. `4` - field value, line 2005.\n42. `SESSION LENGTH [MIDDLE DOT] MIN` - field label, line 2008.\n43. `60` - field value, line 2009.\n44. `DAYS YOU CAN RUN` - chip label, line 2013.\n45. `MO`, 46. `TU`, 47. `WE`, 48. `TH`, 49. `FR`, 50. `SA`, 51. `SU` - chips in order, lines 2015-2021.\n52. `05 [EM DASH] THE FINE PRINT` - section label, line 2028.\n53. `Current injury or limitation` - switch label, line 2031.\n54. `Comfortable with hard, structured work` - switch label, line 2035.\n55. `Prefer trails where possible` - switch label, line 2039.\n56. `+ ADD DETAIL [EM DASH] INJURIES, SCHEDULE, ANYTHING` - detail trigger, line 2042.\n57. `BUILD MY PLAN` - CTA, line 2046.\n58. `THE COACH DRAFTS 12 WEEKS IN ABOUT 30 SECONDS` - mono line under CTA, line 2047.\n\n## Ordered copy table: artboard 3c, open input\n\nSource: `split-alpine.dc.html:1238-1268`.\n\n1. `3c` - artboard badge, line 1240.\n2. `Onboarding opens with free text [EM DASH] the form follows` - frame label, line 1241.\n3. `Tell me what we're working with` - title source copy, line 1245. CSS transforms it to uppercase.\n4. `Answer straight. The plan is only as honest as you are.` - subtitle, line 1246.\n5. `00 [EM DASH] IN YOUR OWN WORDS` - section label, line 1251.\n6. `Coming back from a calf strain. 10K in October. Tuesdays are impossible, and I hate treadmills[ELLIPSIS]` - textarea placeholder, line 1254.\n7. `THE COACH READS THIS FIRST. PLAIN WORDS BEAT PERFECT FORMS [EM DASH] THE REST BELOW KEEPS THE NUMBERS HONEST.` - open-input helper, line 1256.\n8. `01 [EM DASH] THE GOAL` - dimmed section label, line 1260.\n9. `Train for a race` - dimmed selected goal, line 1263.\n10. `FREE TEXT SUBMITS WITH THE FORM AS THE INTAKE'S NARRATIVE FIELD [EM DASH] SAME PAYLOAD, READ VERBATIM BY THE COACH. PER-SECTION \"+ ADD DETAIL\" STAYS FOR TARGETED NUANCE. APPLIED TO 2e.` - explanatory footer, line 1267.\n\n## Layout and typography facts\n\n### Artboard 5d\n\n- Outer artboard wrapper: column flex, 14px gap. Source lines 424-425.\n- Screen: 390px wide, daylight background, 28px radius, 1px border, hidden overflow, Barlow root family, column flex. Source line 430.\n- Status row: centered flex, space-between, padding `14px 24px 6px`. Time is IBM Plex Mono 600 13px. Source lines 431-433.\n- Main content: column flex, 20px gap, padding `10px 22px 30px`. Source line 436.\n- Header stack: 10px gap. Wordmark is Barlow Condensed 800 at 20px with 0.04em spacing. Title is Barlow Condensed 700 at 36px, line-height 0.95, `text-transform: uppercase`. Subtitle is Barlow 400 at 14px with line-height 1.55. Source lines 438-445.\n- Hero rule: 2px high. Section opener rules: 2px solid. Source lines 445,457,467,495,519,546,574.\n- Units: IBM Plex Mono 500 at 10px, 0.1em spacing; two equal columns, 8px gap; controls 44px high and 8px radius. Source lines 448-453.\n- Narrative: section stack gap 10px; textarea minimum height 96px, 1px border, 8px radius, padding `11px 14px`; placeholder Barlow 400 at 14px with line-height 1.55; helper IBM Plex Mono 500 at 9.5px, 0.06em spacing. Source lines 456-464.\n- Goal: section stack gap 10px; rows are flex with `justify-content: space-between`, 1px border, 8px radius, padding `13px 14px`; row copy is Barlow 500 at 15px. Radios are 18px with 1.5px border and selected dot 9px. Source lines 466-490.\n- Race: section stack gap 12px; labels IBM Plex Mono 500 at 10px, 0.1em spacing; inputs 46px high, 1px border, 8px radius, horizontal padding 14px; distance/date grid is two equal columns with 12px gap. Source lines 494-515.\n- Fitness: two separate two-column equal grids, each with 12px gap; field stacks gap 6px; fields are 46px high. Reassurance is IBM Plex Mono 500 at 9.5px, 0.06em spacing. Source lines 518-543.\n- Week: run-days/session grid is two equal columns with 12px gap; chip grid is seven equal columns with 6px gap; chips are 40px high and 6px radius. Selected chips use Barlow Condensed 700 at 13px; unselected chips use 600 at 13px. Source lines 545-570.\n- Fine print: stack gap 12px; switch rows are flex, centered, space-between; switch is 44x26px with 999px radius and 3px padding; knob is 20px; selected switch uses right justification. Source lines 573-589.\n- Detail trigger: flex aligned center with 6px gap; IBM Plex Mono 600 at 11px, 0.08em spacing. Source line 589.\n- CTA group: 8px gap; CTA 54px high, 8px radius, Barlow Condensed 700 at 18px, 0.14em spacing; mono line centered, IBM Plex Mono 500 at 9.5px, 0.08em spacing. Source lines 592-595.\n\n### Artboard 2e\n\n- Geometry is the same as 5d: 390px screen, 20px main gap, `10px 22px 30px` main padding, 2px rules, 8px controls, 46px fields, 40px chips, 44x26px switches, and 54px CTA. Source lines 1883-2047.\n- Theme is dark: screen background `#10140F`, surface/input `#131812`, raised `#212819`, hairline `#2A3326`, bone `#EDE8DB`, muted `#A9A594`, faint `#6F6D5E`, clay `#D06A3B`. Source lines 1883-2047.\n- Typography and text-transform values match 5d, including Barlow Condensed title, IBM Plex Mono labels, 2px rules, radio-right row layout, 2-column fields, 7-column chips, and switch dimensions. Source lines 1891-2047.\n\n### Artboard 3c\n\n- Outer screen: 390px wide, dark background, 16px radius, 1px border, padding `20px 22px 24px`, column flex, 18px gap, Barlow root family. Source line 1243.\n- Header stack: 10px gap; title Barlow Condensed 700 at 32px, line-height 0.95, uppercase; subtitle Barlow 400 at 14px, line-height 1.55; rule is 2px high. Source lines 1244-1247.\n- Narrative stack: 10px gap; section opener has 2px top rule and 8px top padding; narrative field is 96px minimum height, 1px border, 8px radius, padding `11px 14px`; helper is IBM Plex Mono 500 at 9.5px with 0.06em spacing. Source lines 1249-1257.\n- Preview form block: 10px gap and `opacity: 0.45`; it shows the 01 rule and one radio-right row. Source lines 1258-1266.\n- Open-input footer: IBM Plex Mono 500 at 10px, line-height 1.7, 0.04em spacing. Source line 1267.\n\n## Shared state contract\n\n- Submit CTA copy is `BUILD MY PLAN`. Source: `HANDOFF.md:121`; 5d `:593`; 2e `:2046`.\n- Submit replaces ordinary status text with the shared `BUILDING YOUR PLAN` surface. It must be full-surface, use clay indeterminate-honest progress, and include a mono line. Source: `HANDOFF.md:130-134`; `slice-0-alpine-foundation.md:16,26`.\n- The exact building-state mono line is not present in 5d, 2e, or 3c. Do not invent it in the spec without a source decision.\n- If plan generation exhausts its bounded retry budget, return the form through the existing handled, re-submittable 422 path with no staged events. Source: DEC-087 D5 and DEC-088 D5.\n\n## Decision citations the Slice 5 spec must carry\n\n1. DEC-086 D2: structured form is primary and deterministically originates `AnswerCaptured`; projections survive unchanged. Source: `decision-log.md:3070`.\n2. DEC-086 D3: units are frontend display/write conversion; wire and plan prompt remain km/SI; LLM never converts units. Source: `decision-log.md:3071`.\n3. DEC-086 research integration: no onboarding-time LLM call; nuance is stored for later prompts; TargetEvent has no nuance field; day chips use ToggleGroup. Source: `decision-log.md:3084`.\n4. DEC-089 D7: exactly one narrative field, additive AnswerCaptured path, verbatim prompt injection, DEC-074 re-record, and no THE RACE detail trigger. Source: `decision-log.md:3157`.\n5. DEC-087 D5: macro exhaustion remains handled 422 with atomic rollback. Source: `decision-log.md:3102`.\n6. DEC-088 D5: micro exhaustion uses the same re-submittable 422 with nothing staged. Source: `decision-log.md:3129`.\n7. DEC-074: prompt hash manifest and `rerecord-eval-cache.sh` binding. Source: `decision-log.md:2747`.\n8. DEC-039: committed fixture expiration, Replay fail-fast behavior, and re-record triggers. Source: `decision-log.md:1030-1036`.\n9. Slice 0 D6: shared building surface is built once and adopted by Slice 5. Source: `slice-0-alpine-foundation.md:16`.\n10. Handoff section 8: preserve form ARIA, trademark-clean pace-zone wording, and focus/touch requirements. Source: `HANDOFF.md:142-145`.\n\n## Horizon copy correction\n\nThe artboard says `THE COACH DRAFTS 12 WEEKS IN ABOUT 30 SECONDS` at `split-alpine.dc.html:594,2047`. The cycle's 2026-07-13 capture says generation currently produces four meso weeks and one micro week, with real workouts only in week 1, at `cycle-plan.md:36`. Rolling Plan Horizon Status says PR1 merged and PR2 is still the next step at `rolling-horizon-plan.md:5-10`.\n\nRecommended current copy:\n\n`THE COACH DRAFTS YOUR STARTING PLAN IN ABOUT 30 SECONDS`\n\nThis preserves the sourced latency claim while avoiding an unsupported 12-week promise. Revisit after the rolling-horizon handler and populated buffer are shipped and verified.\n\n## Recommended spec shape\n\nUse the existing Slice 4 implementer-contract pattern:\n\n- Header: working-spec status, parent requirements, cycle plan, design source, and explicit PR count.\n- Section 1: decision record for exact copy, narrative wire path, building state, and horizon wording.\n- Section 2: ground-truth source register with file and line ranges.\n- Section 3: build stages. PR-A is backend narrative plus codegen, prompt injection, manifest, and funded-key Replay re-record. PR-B is frontend recomposition and building-surface adoption.\n- Section 4: exact client derivations and component contracts if needed.\n- Section 5: acceptance criteria for both themes, conditional reveals, narrative round-trip, empty narrative, 422 return-to-form, resume, idempotency, and units reseed.\n- Section 6: edge-case matrix for race reveal, injury description, empty narrative, units remount, 422 exhaustion, and prompt Replay.\n- Section 7: test plan for mapper/projection/prompt tests, schema tests, preserved behavior specs, e2e, codegen drift, manifest, and targeted eval.\n- Section 8: non-negotiables checklist carrying the decision citations above.\n\nThe spec should make the exact copy table authoritative, use `[EM DASH]`, `[MIDDLE DOT]`, and `[ELLIPSIS]` only as transcription markers, and resolve the 3c helper variant and non-05 ADD DETAIL placement before implementation."
+    }
+   ],
+   "open_questions": [
+    "What exact nullable property name should the answers DTO and canonical record use for the narrative field?",
+    "What maximum narrative length should the schema enforce, given Slice 5 requires a bound but does not name one?",
+    "What exact mono sentence belongs on the shared BUILDING YOUR PLAN surface?",
+    "Should ADD DETAIL appear in sections 01, 03, and 04 for their existing nuance fields, or only in the single drawn 05 location?",
+    "Should the implementation preserve the 3c `THE REST BELOW` helper variant only for the open-input state, or normalize it to the full-screen `THE FORM BELOW` copy?",
+    "When rolling-horizon PR2 is complete, what populated horizon and user-facing wording are verified for onboarding?"
+   ]
+  }
+ }
+]

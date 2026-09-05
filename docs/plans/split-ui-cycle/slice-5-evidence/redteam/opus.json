@@ -1,0 +1,122 @@
+{
+ "findings": [
+  {
+   "severity": "BLOCKER",
+   "gate": "G3",
+   "claim": "Unit 3's \"empty narrative composition is byte-identical to no narrative\" criterion is circular: after the change there is no view state that is \"no narrative\" distinct from \"empty narrative\", so the named test compares a function against itself and can never fail.",
+   "evidence": "spec.md:27 locks the view field as non-nullable and initialized: \"Add `public string Narrative { get; set; } = string.Empty;` to `OnboardingView`\". spec.md:303 then requires \"Given empty narrative composition, when compared with no narrative, then all message bytes match\", scored by spec.md:131 `ComposeForPlanGenerationAsync_EmptyNarrative_IsByteIdenticalToNoNarrative`. A view with `Narrative = \"\"` and a view with Narrative unassigned are the same object state, so the assertion holds even for an implementation that emits the A-block unconditionally. spec.md:287 states the spec's own rule: \"Each criterion names the test that must fail before the change and pass after it.\"",
+   "fix": "Replace the self-comparison with a real oracle: assert the composed user message for an empty narrative starts with the literal `PROFILE SNAPSHOT (captured during onboarding):` (backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs:624 is that first AppendLine today) and contains no occurrence of `IN THE RUNNER'S OWN WORDS`, or pin a golden string captured from main. Keep the name but state the oracle in the spec."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G4",
+   "claim": "PR-A adds a non-optional `narrative` to the hand-written `OnboardingStateDto` while forbidding any schema/spec change, which breaks `tsc -b`; PR-A's orchestrator runs also omit every frontend gate that would catch it.",
+   "evidence": "spec.md:143 \"add `narrative: string | null` to `OnboardingStateDto` ... No schema, hydration, or form change in PR-A.\" frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:303 builds a full literal of that type: \"const seededState = (): OnboardingStateDto => ({\" and would then be missing a required property. frontend/tsconfig.app.json includes `\"include\": [\"src\"]` and frontend/package.json:11 defines \"build\": \"tsc -b && vite build\", so spec files are in the typecheck graph. spec.md:153-158 (PR-A Orchestrator runs) lists only backend tests, the eval record/replay, and the codegen chain - no `npm run build` and no `npm run test`.",
+   "fix": "Either type the PR-A addition as optional (`narrative?: string | null`) on the hand-written `OnboardingStateDto` and tighten it in PR-B when hydration lands, or move `onboarding-form.schema.spec.ts` into PR-A's file list for the one-line fixture addition. Either way add `npm run build` and `npm run test` to PR-A's orchestrator runs, since PR-A changes four frontend files."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G3",
+   "claim": "`SubmitAnswers_Narrative_PassesWorkingViewToInlinePlanGeneration` cannot observe what it claims: the shared test stub discards the `OnboardingView` it is handed, is registered per-scope so a test cannot reach the instance the handler used, and the stub file is not in PR-A's locked file list.",
+   "evidence": "spec.md:125 \"(the test `StubPlanGenerationService` records the `OnboardingView` it received; assert its `Narrative` equals the submitted text)\". backend/tests/RunCoach.Api.Tests/Infrastructure/StubPlanGenerationService.cs:45 is \"        _ = profileSnapshot;\" - it records nothing. backend/tests/RunCoach.Api.Tests/Infrastructure/RunCoachAppFactory.cs:244 \"services.AddScoped<IPlanGenerationService, StubPlanGenerationService>();\" so each request scope builds a fresh instance. spec.md:389 cites that same stub as unchanged evidence, and spec.md:120-136 (\"Changed production files\" plus the four test files) never lists it.",
+   "fix": "Name the mechanism explicitly: add a recording decorator in the test class (the precedent already exists at backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/OnboardingAnswersEndpointIntegrationTests.cs:699, `new RejectOnceThenSucceedPlanGenerationService(new StubPlanGenerationService(), rejection)`), register it for that one test's factory, and add the decorator file to PR-A's file list. Do not add mutable state to the shared scoped stub."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G5",
+   "claim": "The spec silently drops the DEC-074 hash-manifest regeneration that DEC-089 D7, the cycle plan and the parent slice doc all lock for this slice, without recording the amendment as a flagged deviation or a decision-log note.",
+   "evidence": "docs/decisions/decision-log.md:3157 (DEC-089 D7) \"This is the cycle's only LLM-touching change: DEC-074 manifest regen + targeted plan-gen fixture re-record, isolated in its own PR.\" docs/plans/split-ui-cycle/cycle-plan.md:198 repeats it in Slice 5 Scope, and docs/plans/split-ui-cycle/slice-5-onboarding.md:12 says \"OpenAPI codegen chain **and** DEC-074 hash-manifest regen\". spec.md:39 rules the opposite: \"Do not edit `Prompts/*.yaml`. The composer is C#, so the DEC-074 manifest remains unchanged.\" The spec is factually right (backend/tests/scripts/check-prompt-hashes.sh:42-46 hashes only `*.yaml` in the Prompts directory), but spec.md:441-446 (\"Open questions and flagged deviations\") never lists this deviation.",
+   "fix": "Add a deviation entry to spec.md section 9 naming DEC-089 D7 and the cycle plan Slice 5 Scope line, and assign the one-line decision-log note plus the cycle-plan Captured row to PR-A's file list - the same treatment Slice 4 gave DEC-089 D5 (cycle-plan.md:167)."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The \"locked copy\" is locked twice with different casing, so the copy tests named in the spec have two conflicting expected values, and the all-caps 00 helper also contradicts the parent requirement's sentence-case copy.",
+   "evidence": "spec.md:232 copy table gives `00 [EM DASH] IN YOUR OWN WORDS` and `THE COACH READS THIS FIRST. PLAIN WORDS BEAT PERFECT FORMS [EM DASH] THE FORM BELOW KEEPS THE NUMBERS HONEST.`, while spec.md:259 locks the same section's strings as `00 \u2014 In your own words`. frontend/CLAUDE.md:199 states the rule as absolute: \"source copy stays sentence case - `uppercase` is a presentation concern applied via CSS, never baked into stored strings\", echoed in frontend/src/app/modules/common/components/mono-label/mono-label.component.tsx:24. docs/plans/split-ui-cycle/slice-5-onboarding.md:12 gives the helper in sentence case. spec.md:227's hedge (\"Source strings remain sentence case where `frontend/CLAUDE.md:198-200` requires it\") does not say which table wins, yet spec.md:198 names `rendersNarrativeBeforeGoalWithLockedCopy` as the scorer.",
+   "fix": "Make the copy table the rendered-appearance reference only and declare the component map the single source of source strings; restate every table row in sentence case, and say explicitly that tests assert the sentence-case source string, not the CSS-uppercased rendering."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G1",
+   "claim": "The day-chip label change from `Mon` to `MO` is locked without naming its source of truth or its two broken selectors, while the e2e realignment is capped at \"selectors ... add only narrative-field\".",
+   "evidence": "spec.md:263 locks \"per-day accessible names `MO`, `TU`, `WE`, `TH`, `FR`, `SA`, `SU`\". Those strings come from frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:35-41 (`{ value: 'monday', label: 'Mon' }`), consumed at frontend/src/app/modules/onboarding/components/onboarding-day-toggle-field.component.tsx:41 `aria-label={option.label}`. spec.md:182 lists the schema change as only \"add the 22nd raw field, narrative validation, default, hydration, mapping, and unchanged four-distance reseed algorithm\", and spec.md:405 says \"Add only `narrative-field` and the request assertion.\" But frontend/e2e/onboarding.spec.ts:136 is \"await page.getByRole('button', { name: 'Mon' }).click()\" and will fail.",
+   "fix": "Add `DAY_OPTIONS` label edits to the schema bullet in spec.md:182, and extend the e2e realignment list to name the two day-chip clicks at frontend/e2e/onboarding.spec.ts:135-136 as selectors that must change to the new labels."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G1",
+   "claim": "The adjudication's section C explicitly requires C1/C2/C3 to be captured in the cycle plan, but no PR file list or orchestrator run in the spec owns that write, and neither PR touches `cycle-plan.md`.",
+   "evidence": "docs/plans/split-ui-cycle/slice-5-evidence/recon/adjudication.md:182 heads the section \"## C. Open follow-ups to capture in the cycle plan (not blocking)\". spec.md:441-446 restates C1/C2/C3 under \"These are recorded recommendations, not implementation questions\" but spec.md:120-149 (PR-A changed files, \"Deleted files: none\") and spec.md:162-194 (PR-B new/changed/deleted files) list no docs file. cycle-plan.md:34 makes the destination a standing rule: \"Follow-ups surfaced mid-cycle land here with a date + disposition\".",
+   "fix": "Add `docs/plans/split-ui-cycle/cycle-plan.md` to PR-B's changed-file list with three dated Captured During Cycle rows (C1 starting-plan copy, C2 nuance-field bounds, C3 422 copy), and say which PR carries them."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G1",
+   "claim": "The locked screen geometry puts day chips below the hit-target floor the same document makes a non-negotiable, and names no expansion mechanism, so the two locked sections cannot both be satisfied as written.",
+   "evidence": "spec.md:266 locks \"days `grid grid-cols-7 gap-1.5`, day chips `min-h-10`\" (40px). spec.md:431 requires \"Keep every interactive target at least 44px, including visually smaller radios, day chips, switches, buttons, and segmented items.\" The spec's own locked classes show it knows the mechanism elsewhere - spec.md:250 keeps `hit-target-44` on `RadioGroupItem` and spec.md:248 gives `SegmentedControlItem` `min-h-11` - but the day-chip line has neither. The utility exists at frontend/src/index.css:520 `.hit-target-44 {`.",
+   "fix": "Amend the geometry line to `min-h-10 hit-target-44` for day chips (matching frontend/src/components/ui/radio-group.tsx:30's pattern), or raise the chip to `min-h-11`, and state which so `rendersDayChipsAndSwitchesWithStableRoles` has one expected class set."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G4",
+   "claim": "The event's documented three-state semantics collapse to two on the write path, because the mapper canonicalizes both a missing and a whitespace narrative to the same clearing value; the invariant that keeps a stored narrative alive across a resumed submission is never stated.",
+   "evidence": "spec.md:21 \"Normalize with `string.IsNullOrWhiteSpace(request.Narrative) ? string.Empty : request.Narrative`\" and spec.md:23 \"`null` means no narrative information ... `\\\"\\\"` means the runner submitted a blank narrative and clears the view.\" spec.md:365 confirms the collapse: \"Missing narrative | Canonical `\\\"\\\"`, first event carries `\\\"\\\"`, GET emits `null`\". So no HTTP request can ever produce the `null` state; any client that omits `narrative` clears a stored one. What prevents loss is only spec.md:59's \"Hydrate with `state.narrative ?? ''`\", which ships in PR-B, one PR after the backend semantics.",
+   "fix": "State the invariant explicitly in section 4: a submission that omits `narrative` intentionally clears it, and the frontend is safe only because hydration re-sends the stored value; add one endpoint test that resumes with a hydrated narrative and asserts it survives a second partial submission."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G3",
+   "claim": "The narrative field's locked accessible name is the section heading text, but no mechanism is given to attach it while keeping the FormLabel wiring the non-negotiables require.",
+   "evidence": "spec.md:259 requires the 00 `Textarea` to have \"accessible name `00 \u2014 In your own words`\" and the section opener to be \"`SectionRule as=\\\"h2\\\"` label `00 \u2014 In your own words`\". frontend/src/app/modules/common/components/section-rule/section-rule.component.tsx:38 renders that text inside `<Heading className=\"t-section-label text-foreground\">`, an h2 - not a label. spec.md:432 nevertheless requires \"Keep `FormLabel`, `FormControl`, `FormDescription`, `FormMessage`, `aria-invalid`, and `role=\\\"alert\\\"` wiring.\"",
+   "fix": "Name the mechanism: either a visually-hidden `FormLabel` carrying the same string, or `aria-labelledby` pointing at the SectionRule heading id, and say which one `rendersNarrativeBeforeGoalWithLockedCopy` asserts."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G4",
+   "claim": "The new eval scenario is specified as a copy of the dated-event scenario but omits the two hard prose gates that scenario runs, and gives a default action only for the calf/strain assertion.",
+   "evidence": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs:534-538 runs both on the recorded macro: \"TrademarkProseGuard.AssertClean(\\\"plan-dated-event\\\", new { macro });\" and \"// Voice guard (Slice 4A) - hard gate: every prose field matches the gruff-direct register.\" spec.md:41 lists only three assertions plus \"If assertion (3) fails during Record, record once more. If it fails again, drop assertion (3) and report the deviation.\" - the guards are neither required nor given a fallback.",
+   "fix": "Say explicitly whether `TrademarkProseGuard.AssertClean` and `VoiceProseGuard.AssertClean` are carried into `DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf`, and if so give the default action when a funded Record output trips the voice guard (re-record once, then report as a deviation)."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G3",
+   "claim": "One named frontend acceptance test is tautological against the existing implementation and cannot fail for the reason it is named.",
+   "evidence": "spec.md:200 names `leavesNarrativeUntouchedDuringUnitReseed` and spec.md:274 says reseed \"copies narrative and all other fields unchanged\". frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:456-461 already copies every field by spread (`const next = { ...fields }`) and only rewrites the four names in `DISTANCE_FIELD_NAMES`, so the assertion holds for any narrative key with no implementation work at all.",
+   "fix": "Keep the test as a regression pin but stop counting it as a scoring criterion for Unit 12, or strengthen it to assert the exact `DISTANCE_FIELD_NAMES` set is still four so a future field addition is caught."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G2",
+   "claim": "A non-negotiable checklist item cites a HANDOFF line that says something else.",
+   "evidence": "spec.md:429 \"Use semantic theme tokens. Do not add hardcoded color utilities. Keep dark root and light override behavior. `[frontend/CLAUDE.md:180-209; docs/design/split-alpine/HANDOFF.md:52-52]`\". docs/design/split-alpine/HANDOFF.md:52 is the contrast line: \"- Contrast (dark): bone/bg 14.2:1 ... clay text only >=12px semibold. `--alp-faint` decorative only.\" That line supports the NEXT checklist item (spec.md:430, the `--alp-faint` rule), not the dark-root/light-override claim.",
+   "fix": "Re-point the citation at docs/design/split-alpine/HANDOFF.md:42-46 (the light primitive tier and semantic mapping headings) and leave 52 attached to the `--alp-faint` item."
+  }
+ ],
+ "gates": {
+  "G1": {
+   "result": "fail",
+   "note": "Nothing outside Slice 5 is planned, but the slice is narrowed (the DEC-074 manifest regen the cycle plan locks is dropped), the adjudication's mandated cycle-plan capture of C1/C2/C3 has no owning PR or file, and the day-chip label change is required by the copy table without mapping to the schema file that owns those strings."
+  },
+  "G2": {
+   "result": "fail",
+   "note": "About twenty cited paths and symbols were checked and nearly all hold exactly (swagger required arrays, generated RTK/Zod nullable shape, barrel, handler topic order, projection, BuildPlanGenerationUserMessage, EvalTestBase skip helper, check-prompt-hashes scope, rerecord script, index.css and frontend/CLAUDE.md rules), but the spec's claim that the test stub records the OnboardingView is refuted by StubPlanGenerationService.cs:45, and HANDOFF.md:52 is mis-cited."
+  },
+  "G3": {
+   "result": "fail",
+   "note": "Three named tests cannot score what they claim: the empty-narrative byte-identity test compares a view against an identical view, the working-view test needs a stub that discards its input and is scoped per request, and the locked-copy test has two conflicting expected casings."
+  },
+  "G4": {
+   "result": "fail",
+   "note": "The wire and prompt consequence chain is otherwise carefully and correctly traced (nullable-not-required swagger shape, codegen chain, no barrel edit, no upcaster, targeted Record plus TTL patch plus Replay, unchanged prompt manifest), but the hand-written envelope change lands in PR-A as a required property with no frontend gate in PR-A's runs, so PR-A's own typecheck is red."
+  },
+  "G5": {
+   "result": "fail",
+   "note": "DEC-039, DEC-074, DEC-086, DEC-087/088 and DEC-089 are cited and respected, and the B2/B3/B4/C1-C3 rulings are carried faithfully, but DEC-089 D7's locked 'DEC-074 manifest regen' consequence is reversed without a flagged deviation or a decision-log amendment."
+  },
+  "G6": {
+   "result": "pass",
+   "note": "No unknown is guessed where the research protocol would demand a prompt: the 1000-character bound is explicitly delegated to the spec by slice-5-onboarding.md:21, the additive-nullable event pattern reuses the verified DEC-091 precedent, and no new library or framework choice is introduced."
+  }
+ },
+ "verdict": "REJECT"
+}
