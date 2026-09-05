@@ -45,13 +45,16 @@ jobs:
             Unlicense, CC0-1.0, CC-BY-4.0, OFL-1.1, Zlib, BSL-1.0,
             Python-2.0, PSF-2.0, Artistic-2.0, MPL-2.0, WTFPL,
             PostgreSQL
-          # LGPL-3.0 CI tools (SonarQube scan action, SonarAnalyzer.CSharp,
+          # Sonar CI tools (SonarQube scan action, SonarAnalyzer.CSharp,
           # eslint-plugin-sonarjs) are build-time only — never shipped in the
-          # binary. runcoach-frontend is the monorepo's own private root
-          # package with no published license. Exempt by purl so the allowlist
-          # stays strict.
+          # binary. SonarAnalyzer.CSharp moved from LGPL-3.0 to the Sonar
+          # Source-Available License (SAL-1.0) in 10.33; it still only runs
+          # as a Roslyn analyzer at build time. runcoach-frontend is the
+          # monorepo's own private root package with no published license.
+          # Exempt by purl so the allowlist stays strict.
           allow-dependencies-licenses: >-
             pkg:githubactions/SonarSource/sonarqube-scan-action,
+            pkg:nuget/SonarAnalyzer.CSharp,
             pkg:npm/runcoach-frontend
           comment-summary-in-pr: always
           retry-on-snapshot-warnings: true
