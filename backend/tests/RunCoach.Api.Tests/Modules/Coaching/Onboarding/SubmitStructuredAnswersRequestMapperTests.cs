@@ -153,12 +153,12 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
             narrative: null);
 
         // Act
-        var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
+        var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var actualCommand, out var actualError);
 
         // Assert
         actual.Should().BeTrue();
-        error.Should().BeNull();
-        command!.Narrative.Should().BeEmpty();
+        actualError.Should().BeNull();
+        actualCommand!.Narrative.Should().BeEmpty();
     }
 
     [Fact]

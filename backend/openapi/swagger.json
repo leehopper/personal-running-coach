@@ -2838,6 +2838,7 @@
             "$ref": "#/components/schemas/PreferencesInputDto"
           },
           "narrative": {
+            "maxLength": 1000,
             "type": "string",
             "nullable": true
           }

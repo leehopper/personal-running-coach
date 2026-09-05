@@ -133,3 +133,14 @@ FULL-REPLAY DONE
 npm run check-contrast
 check-contrast: all 50 pairs pass WCAG thresholds.
 ```
+
+## CodeRabbit follow-up on PR #361 (orchestrator runs)
+
+`[StringLength(NarrativeMaxLength)]` on the record constructor parameter (ASP.NET throws at runtime when the attribute targets the synthesized property instead: 'validation metadata must be associated with the constructor parameter'). Swagger now emits `maxLength: 1000`; zod regenerated with `.max(1000)`. Endpoint class 20/20 with `SubmitAnswers_OverlongNarrative_Returns400_NothingStaged` asserting a `ValidationProblemDetails` with an `errors.Narrative` entry; mapper 40/40; projection 42/42; full Replay below; frontend build and the api/onboarding specs green.
+
+```text
+  total: 2055
+  failed: 0
+  succeeded: 2055
+  skipped: 0
+```

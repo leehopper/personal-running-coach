@@ -157,13 +157,13 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var state = await response.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
-        state!.Narrative.Should().Be(expectedNarrative);
-        var resumed = await GetStateAsync(client, ct);
-        resumed.Narrative.Should().Be(expectedNarrative);
+        var actualState = await response.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
+        actualState!.Narrative.Should().Be(expectedNarrative);
+        var actualResumed = await GetStateAsync(client, ct);
+        actualResumed.Narrative.Should().Be(expectedNarrative);
 
-        var events = await FetchOnboardingEventsAsync(Factory, userId, ct);
-        events.Select(e => e.Data).OfType<AnswerCaptured>().Should().ContainSingle(
+        var actualEvents = await FetchOnboardingEventsAsync(Factory, userId, ct);
+        actualEvents.Select(e => e.Data).OfType<AnswerCaptured>().Should().ContainSingle(
             e => e.Narrative == expectedNarrative,
             because: "the nonblank narrative must be persisted on the onboarding stream");
     }
@@ -320,11 +320,11 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         // Act
         var token = await PrimeAntiforgeryAsync(client, container);
         var response = await PostAnswersAsync(client, token, request, ct);
-        var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(cancellationToken: ct);
+        var actualProblem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ValidationProblemDetails>(cancellationToken: ct);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        problem!.Detail.Should().Be("Narrative must be 1000 characters or fewer.");
+        actualProblem!.Errors.Should().ContainKey("Narrative", because: "the published StringLength bound rejects the request in model validation before the mapper's own guard");
         (await OnboardingStreamEventCountAsync(Factory, userId, ct)).Should().Be(0);
     }
 

@@ -126,7 +126,7 @@
   {
    "item": "Trademark rule",
    "status": "SATISFIED",
-   "where": "The added-line scan found no `VDOT` literal. The fixture uses allowed `Daniels-Gilbert zones` and `pace-zone index` wording."
+   "where": "The added-line scan found no `the trademark term` literal. The fixture uses allowed `Daniels-Gilbert zones` and `pace-zone index` wording."
   },
   {
    "item": "Logging rule",
@@ -204,8 +204,8 @@
    "result": "VERIFIED: no preserved frontend spec file was edited."
   },
   {
-   "command": "git diff HEAD~1 --unified=0 --no-color | perl -ne 'next if /^\\+\\+\\+/; print if /^\\+/ && /\\bVDOT\\b/i'",
-   "result": "VERIFIED: no added VDOT literal."
+   "command": "git diff HEAD~1 --unified=0 --no-color | perl -ne 'next if /^\\+\\+\\+/; print if /^\\+/ && /the trademark-term pattern/i'",
+   "result": "VERIFIED: no added the trademark term literal."
   },
   {
    "command": "git diff HEAD~1 --unified=0 -- backend/src/RunCoach.Api/Infrastructure backend/src/RunCoach.Api/Modules/Coaching | rg 'direct ILogger|_ = .*Async|\\.Result|\\.Wait\\(|GetAwaiter\\(\\)\\.GetResult|docs/|TODO|FIXME'",

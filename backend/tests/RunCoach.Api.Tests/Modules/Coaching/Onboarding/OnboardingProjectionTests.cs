@@ -95,8 +95,8 @@ public sealed class OnboardingProjectionTests
     [Fact]
     public void OnboardingView_LegacyDocumentWithoutNarrative_HydratesEmpty()
     {
-        // Arrange -- MartenConfiguration leaves the built-in System.Text.Json serializer in
-        // place, using its default PascalCase document member casing.
+        // Arrange -- the configured document serializer is the built-in `System.Text.Json` one
+        // with `PascalCase` member casing, so a legacy document is built with the same serializer.
         var expected = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
         var serializer = new SystemTextJsonSerializer();
         var document = JsonNode.Parse(serializer.ToJson(expected));
@@ -142,7 +142,7 @@ public sealed class OnboardingProjectionTests
     public void OnboardingProjection_Apply_AnswerCaptured_NarrativeText_SetsView()
     {
         // Arrange
-        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        var actualView = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
         var captured = new AnswerCaptured(
             OnboardingTopic.PrimaryGoal,
             JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
@@ -155,10 +155,10 @@ public sealed class OnboardingProjectionTests
             Narrative: "  returning from a calf strain\nslowly  ");
 
         // Act
-        OnboardingProjection.Apply(captured, view);
+        OnboardingProjection.Apply(captured, actualView);
 
         // Assert
-        view.Narrative.Should().Be("  returning from a calf strain\nslowly  ");
+        actualView.Narrative.Should().Be("  returning from a calf strain\nslowly  ");
     }
 
     [Fact]

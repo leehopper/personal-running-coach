@@ -133,6 +133,8 @@ export const GetApiV1OnboardingStateResponse = zod.strictObject({
   narrative: zod.string().nullish(),
 })
 
+export const postApiV1OnboardingAnswersBodyNarrativeMax = 1000
+
 export const PostApiV1OnboardingAnswersBody = zod.strictObject({
   idempotencyKey: zod.uuid(),
   primaryGoal: zod.strictObject({
@@ -181,7 +183,7 @@ export const PostApiV1OnboardingAnswersBody = zod.strictObject({
     comfortableWithIntensity: zod.boolean(),
     description: zod.string().nullish(),
   }),
-  narrative: zod.string().nullish(),
+  narrative: zod.string().max(postApiV1OnboardingAnswersBodyNarrativeMax).nullish(),
 })
 
 export const PostApiV1OnboardingAnswersResponse = zod.strictObject({

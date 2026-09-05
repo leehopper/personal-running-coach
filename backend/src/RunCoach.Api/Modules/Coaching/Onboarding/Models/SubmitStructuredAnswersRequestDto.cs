@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
@@ -18,7 +19,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// <param name="WeeklySchedule">WeeklySchedule answer, or null.</param>
 /// <param name="InjuryHistory">InjuryHistory answer, or null.</param>
 /// <param name="Preferences">Preferences answer, or null.</param>
-/// <param name="Narrative">The runner's optional free-text onboarding narrative, or null.</param>
+/// <param name="Narrative">The runner's optional free-text onboarding narrative, or null. Bounded to 1000 characters; the bound is published in the OpenAPI schema and enforced by model validation before the mapper's own guard.</param>
 public sealed record SubmitStructuredAnswersRequestDto(
     [property: JsonRequired] Guid IdempotencyKey,
     PrimaryGoalInputDto? PrimaryGoal,
@@ -27,4 +28,4 @@ public sealed record SubmitStructuredAnswersRequestDto(
     WeeklyScheduleInputDto? WeeklySchedule,
     InjuryHistoryInputDto? InjuryHistory,
     PreferencesInputDto? Preferences,
-    string? Narrative = null);
+    [StringLength(SubmitStructuredAnswersRequestMapper.NarrativeMaxLength)] string? Narrative = null);
