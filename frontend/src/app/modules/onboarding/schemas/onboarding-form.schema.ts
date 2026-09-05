@@ -19,27 +19,27 @@ import {
 
 // DEC-075 form conventions, applied to the six-topic onboarding intake
 // (slice 4C-onboarding). Every field is held as a STRING (the natural `<input>`
-// value), a `string[]` (the day ToggleGroup), or a `boolean` (a checkbox); the
+// value), a `string[]` (the day ToggleGroup), or a `boolean` (a switch); the
 // schema transforms each into the validated, typed output the submit handler
 // maps down to the wire. `z.input` is the loose form shape, `z.output` the
-// strict typed shape — the `useForm<Input, unknown, Output>` split DEC-075
+// strict typed shape - the `useForm<Input, unknown, Output>` split DEC-075
 // mandates. Blank optional numerics resolve to `undefined`, never `0`/`NaN`.
 //
 // Units are display-only: distances are entered in the runner's preferred unit
 // and converted to canonical kilometres at the wire by
-// `toSubmitStructuredAnswersRequest` — storage and the prompt stay km-native and
+// `toSubmitStructuredAnswersRequest` - storage and the prompt stay km-native and
 // the LLM performs zero conversion (DEC-086).
 
 /** The seven day-slot keys in week order, paired with their user-facing labels. */
 export const DAY_OPTIONS = [
-  { value: 'monday', label: 'Mon' },
-  { value: 'tuesday', label: 'Tue' },
-  { value: 'wednesday', label: 'Wed' },
-  { value: 'thursday', label: 'Thu' },
-  { value: 'friday', label: 'Fri' },
-  { value: 'saturday', label: 'Sat' },
-  { value: 'sunday', label: 'Sun' },
-] as const satisfies ReadonlyArray<{ value: keyof DaySlots; label: string }>
+  { value: 'monday', label: 'Mon', short: 'Mo' },
+  { value: 'tuesday', label: 'Tue', short: 'Tu' },
+  { value: 'wednesday', label: 'Wed', short: 'We' },
+  { value: 'thursday', label: 'Thu', short: 'Th' },
+  { value: 'friday', label: 'Fri', short: 'Fr' },
+  { value: 'saturday', label: 'Sat', short: 'Sa' },
+  { value: 'sunday', label: 'Sun', short: 'Su' },
+] as const satisfies ReadonlyArray<{ value: keyof DaySlots; label: string; short: string }>
 
 interface DaySlots {
   monday: boolean
@@ -99,7 +99,7 @@ const numericRangeError = (parsed: number, options: NumericFieldOptions): string
 }
 
 /**
- * A string-backed numeric form field (DEC-075). Blank → `undefined` (optional at
+ * A string-backed numeric form field (DEC-075). Blank -> `undefined` (optional at
  * this level; required-ness is enforced by the form-level refine so it can
  * depend on other fields). A non-blank value must parse to a finite number
  * within range (and be a whole number when `integer`).
@@ -131,11 +131,18 @@ const numericField = (options: NumericFieldOptions) =>
       return value === '' ? undefined : Number(value)
     })
 
-/** Optional free-text nuance: trimmed, blank → `undefined`. */
+/** Optional free-text nuance: trimmed, blank -> `undefined`. */
 const nuanceField = z.string().transform((raw) => {
   const value = raw.trim()
   return value.length === 0 ? undefined : value
 })
+
+/** Primary free-text narrative: trimmed, blank -> `undefined`, max 1000 chars. */
+const narrativeField = z
+  .string()
+  .trim()
+  .max(1000, 'Narrative must be 1000 characters or fewer.')
+  .transform((value) => (value.length === 0 ? undefined : value))
 
 /** Optional clock-time field (`MM:SS` / `H:MM:SS`); blank is valid (no value). */
 const timeField = z
@@ -153,7 +160,7 @@ const timeField = z
 /**
  * A finish-time field whose format check is deferred to a form-level gate (the
  * goal finish time only exists for a race goal, so a stale value must not block
- * submit once the TargetEvent section is hidden). Blank → `undefined`.
+ * submit once the TargetEvent section is hidden). Blank -> `undefined`.
  */
 const lenientTimeField = z.string().transform((raw) => {
   const value = raw.trim()
@@ -178,7 +185,7 @@ const goalField = z
   .transform((raw) => Number(raw) as PrimaryGoal)
 
 /**
- * The km-native distance ceiling in the runner's active unit — a client-only
+ * The km-native distance ceiling in the runner's active unit - a client-only
  * fat-finger guard mirroring the backend's `value <= 100 000` km cap. Rounded
  * DOWN when converted into the display unit so the client never *accepts* a
  * value whose km-equivalent the backend would reject (a mile-mode entry at the
@@ -193,7 +200,7 @@ const displayDistanceMax = (units: PreferredUnits): number =>
 /**
  * The numeric options for the event-distance field, shared so the in-field parse
  * and the race-gated range check produce identical messages. Its range is
- * deferred (the field is only shown for a race goal — see makeOnboardingFormSchema).
+ * deferred (the field is only shown for a race goal - see makeOnboardingFormSchema).
  */
 const eventDistanceOptions = (units: PreferredUnits): NumericFieldOptions => ({
   min: 0,
@@ -217,12 +224,13 @@ const makeOnboardingObjectSchema = (units: PreferredUnits) => {
     numericField({ min: 0, minExclusive: true, max: distanceMax, label: `${label} in ${unit}` })
 
   return z.object({
+    narrative: narrativeField,
     goal: goalField,
     goalDescription: nuanceField,
 
     eventName: z.string().transform((raw) => raw.trim()),
     // Range deferred to the race-gated refine so a value left behind when the
-    // TargetEvent section is hidden (goal ≠ race) can never hold a blocking error.
+    // TargetEvent section is hidden (goal != race) can never hold a blocking error.
     eventDistance: numericField({ ...eventDistanceOptions(units), deferRange: true }),
     eventDate: z.string().transform((raw) => raw.trim()),
     // Format deferred to the race-gated refine for the same reason (the finish
@@ -280,9 +288,9 @@ const requiredFitnessIssues = (values: OnboardingFormValues): OnboardingRefineIs
 }
 
 /**
- * TargetEvent validation — required fields for a race goal, plus the range/format
+ * TargetEvent validation - required fields for a race goal, plus the range/format
  * checks deferred from the fields so a value left behind when the section is
- * hidden (goal ≠ race) can never hold a blocking error. All gated on the race goal.
+ * hidden (goal != race) can never hold a blocking error. All gated on the race goal.
  */
 const targetEventIssues = (
   values: OnboardingFormValues,
@@ -352,7 +360,7 @@ export type OnboardingFormValues = z.output<OnboardingObjectSchema>
 
 /**
  * The form's `control` type, spelled out with all three RHF generics because
- * input (strings) ≠ output (coerced) — field components take this concrete alias.
+ * input (strings) != output (coerced) - field components take this concrete alias.
  */
 export type OnboardingFormControl = Control<OnboardingFormFields, unknown, OnboardingFormValues>
 
@@ -361,13 +369,14 @@ export type OnboardingStringFieldName = {
   [K in keyof OnboardingFormFields]: OnboardingFormFields[K] extends string ? K : never
 }[keyof OnboardingFormFields]
 
-/** Names of the boolean-valued form fields (checkboxes). */
+/** Names of the boolean-valued form fields (switches). */
 export type OnboardingBooleanFieldName = {
   [K in keyof OnboardingFormFields]: OnboardingFormFields[K] extends boolean ? K : never
 }[keyof OnboardingFormFields]
 
-/** Fresh form defaults: everything blank, no days selected, all toggles off. */
+/** Fresh form defaults: everything blank, no days selected, all switches off. */
 export const makeDefaultOnboardingFormFields = (): OnboardingFormFields => ({
+  narrative: '',
   goal: '',
   goalDescription: '',
   eventName: '',
@@ -405,6 +414,7 @@ export const hydrateOnboardingFormFields = (
     state
 
   return {
+    narrative: state.narrative ?? '',
     goal: primaryGoal ? String(primaryGoal.goal) : '',
     goalDescription: primaryGoal?.description ?? '',
     eventName: targetEvent?.eventName ?? '',
@@ -433,7 +443,7 @@ export const hydrateOnboardingFormFields = (
 }
 
 /** The four distance-valued form fields, re-seeded when the runner changes units. */
-const DISTANCE_FIELD_NAMES = [
+export const DISTANCE_FIELD_NAMES = [
   'eventDistance',
   'typicalWeekly',
   'longestRecentRun',
@@ -471,14 +481,14 @@ const toDaySlots = (days: string[]): DaySlots => ({
 
 /**
  * Maps validated form values down to the `POST /answers` wire request. Distances
- * (entered in the runner's unit) → canonical km; clock times → ISO-8601
+ * (entered in the runner's unit) -> canonical km; clock times -> ISO-8601
  * durations; `preferredUnits` is the resolved display preference (populated but
- * non-authoritative — `UserSettings` is canonical, DP-4). TargetEvent is sent
- * only for a race-training goal so the backend's `TargetEvent ⇒ RaceTraining`
+ * non-authoritative - `UserSettings` is canonical, DP-4). TargetEvent is sent
+ * only for a race-training goal so the backend's `TargetEvent => RaceTraining`
  * cross-field rule is satisfied and no stale race metadata is originated.
  *
  * The `?? 0` / `?? 1` fallbacks are unreachable in practice (the form is
- * submit-gated on validity, which requires these fields) — they only keep the
+ * submit-gated on validity, which requires these fields) - they only keep the
  * types total.
  */
 export const toSubmitStructuredAnswersRequest = (
@@ -490,6 +500,7 @@ export const toSubmitStructuredAnswersRequest = (
 
   return {
     idempotencyKey,
+    narrative: values.narrative ?? null,
     primaryGoal: { goal: values.goal, description: values.goalDescription ?? '' },
     targetEvent: isRace
       ? {

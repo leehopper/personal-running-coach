@@ -27,11 +27,8 @@ export interface OnboardingTextFieldProps {
 }
 
 /**
- * A single string-backed onboarding input (text / date / numeric) wired through
- * an RHF `Controller` and the shadcn `Form` primitives — the label, control, and
- * `FormMessage` share the ARIA wiring `form.tsx` provides. Numeric fields pass
- * `inputMode` for a numeric soft keyboard while the value stays a string
- * (DEC-075).
+ * A single string-backed onboarding input wired through RHF and the Alpine
+ * `Form` primitives. Numeric fields pass `inputMode` while values stay strings.
  */
 export const OnboardingTextField = ({
   control,
@@ -48,17 +45,22 @@ export const OnboardingTextField = ({
     name={name}
     render={({ field }) => (
       <FormItem>
-        <FormLabel>{label}</FormLabel>
+        <FormLabel className="t-data-label text-foreground">{label}</FormLabel>
         <FormControl>
           <Input
             type={type}
             inputMode={inputMode}
             placeholder={placeholder}
             data-testid={testId ?? `${name}-field`}
+            className="h-[46px]"
             {...field}
           />
         </FormControl>
-        {description !== undefined ? <FormDescription>{description}</FormDescription> : null}
+        {description !== undefined ? (
+          <FormDescription className="t-data-label text-muted-foreground">
+            {description}
+          </FormDescription>
+        ) : null}
         <FormMessage />
       </FormItem>
     )}
