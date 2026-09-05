@@ -1,0 +1,66 @@
+F1 (blocker; mutation #1): The goal radiogroup has no accessible name. In
+`onboarding-goal-field.component.tsx` give the `RadioGroup` an accessible name equal to its visible label
+(`aria-labelledby` pointing at the `FormLabel`'s id, or the label rendered as the group's accessible name),
+keep `data-testid="goal-field"`, and add a form-spec assertion
+`getByRole('radiogroup', { name: "What's your primary goal?" })` that fails against the current code.
+
+F2 (major; mutation #2): `renders the units field first` cannot fail. Assert DOM order in
+`onboarding-form.component.spec.tsx`: the units field precedes the narrative section, the first numbered
+section, and every numeric input (use `compareDocumentPosition` or element index in the form). Mutation
+that must go red: moving the units field below the narrative section.
+
+F3 (major; mutation #3 and #4): `showsBuildingPlanSurfaceAfterCompleteUntilRedirect` does not exist as
+named; the completed-submit test only checks overlay presence and does not pin key non-rotation. Add a
+terminal-success test that (a) asserts the overlay stays mounted while the form remains rendered after a
+completed response, and (b) captures the first idempotency key and proves a second submit on the still
+mounted form posts the SAME key (no rotation on complete success). Mutation that must go red: rotating the
+key in the complete-success branch. Name the test as the stage report claims, or correct the report.
+
+F4 (major; mutation #5): The 422 test asserts only the narrative survives. Enter distinct values across
+required and optional fields (goal, event fields for a race goal, weekly volume, longest run, run days,
+session minutes, day chips, switches, narrative, at least one detail field) and assert every value after
+the handled 422 and before retry. Mutation that must go red: `form.setValue('typicalWeekly','41')` in the
+catch path.
+
+F5 (major; mutation #6): Fresh UUID per mount is untested. Mount two independent forms (or remount one) and
+assert their initial request keys differ. Mutation that must go red: a fixed valid UUID initializer.
+
+F6 (major; mutation #7): Legacy missing-narrative hydration has no frontend test. Add a state DTO fixture
+WITHOUT `narrative` (and one with `narrative: null`) and assert `hydrateOnboardingFormFields` returns
+`narrative: ''`. Mutation that must go red: a non-empty sentinel fallback.
+
+F7 (major; mutation #8): Wordmark-first order is untested. Assert in the page spec that the `Wordmark` node
+precedes the page header (DOM order), so moving it below the header goes red.
+
+F8 (minor; orchestrator review): The build rewrote pre-existing JSDoc on `OnboardingForm`
+(`onboarding-form.component.tsx`): the component summary lost its sentences about the whole-record
+co-submit, the `Onboarding` tag invalidation, and the route guard redirect, and pre-existing em dashes in
+comments were replaced with hyphens. Restore the original comment text verbatim (existing em dashes stay;
+only NEW text must be ASCII) and add one sentence about the building overlay and `inert` form.
+
+F9 ORCHESTRATOR-DONE (conformance #2 major, mutation conformance note on the stage report; conformance #1 blocker on evidence hygiene): the orchestrator appended a
+reconciliation addendum to `.stage-report.md` and `build-report.md` (host gates: `npm run test` 1035/1035,
+`check-contrast` 50/50, `codegen:check` 0, Playwright 14 passed with the two pre-existing failures documented
+in `build-orchestrator-runs.md`). No implementer action. The four evidence files the stage report does not list are orchestrator-added by the recipe (brief, vars, report, orchestrator runs); the ANSI escapes and non-ASCII marks that leaked into `build-orchestrator-runs.md` were scrubbed by the orchestrator.
+
+F10 ORCHESTRATOR-RAN (treat as measured fact): from the session against the clone at 6b50123b, recorded in
+`docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-orchestrator-runs.md`: `npm run build` clean;
+`npm run test` 1035/1035; `npm run check-contrast` 50/50 pairs; `npm run codegen:check` exit 0; prettier
+clean on touched files; Playwright 14 passed, 2 failed (both pre-existing on `main`, outside this PR's
+surfaces); `npm run lint` reports only pre-existing problems in untouched files.
+
+F11 (major; conformance #3): The `+ Add detail` trigger and Collapsible content do not carry the locked
+styling and motion. In `onboarding-nuance-section.component.tsx`: the trigger renders as a collapsed mono
+label (the `MonoLabel` role classes: `t-data-label`, clay tone `text-clay-text`, 44px hit target, the
+canonical focus ring, `active:scale-[0.98]` with `motion-reduce:transition-none`, chevron rotating with
+`motion-reduce:transition-none`), and the content uses the shared `CollapsibleContent` state animation
+classes (`data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in
+data-[state=open]:fade-in-0 motion-reduce:animate-none`) instead of a bare `overflow-hidden`. Add a form-spec
+assertion for the trigger's mono classes and the content's motion-reduce pairing that fails today.
+
+F12 (major; conformance #4): `rendersTheAlpineIntakeInLightAndDarkThemes` asserts only test ids, section
+presence, and no hex literals. For BOTH `renderInBothThemes` results also assert the locked copy (section
+labels 00-05 with the em dash escape, the narrative placeholder and helper, the CTA text and the mono line),
+the accessible names of the units group, the goal radiogroup (after F1), the narrative textarea, the day
+group, and the three switches, and that color comes only from semantic token classes (no `text-[#`,
+`bg-[#`, or raw hex, and no `--alp-faint` on essential text).

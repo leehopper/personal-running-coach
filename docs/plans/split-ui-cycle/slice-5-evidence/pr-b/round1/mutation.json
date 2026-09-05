@@ -1,0 +1,420 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "blocker",
+   "claim": "The goal radiogroup has no accessible name equal to its visible label.",
+   "evidence": "frontend/src/app/modules/onboarding/components/onboarding-goal-field.component.tsx:23-30 renders the visible FormLabel and RadioGroup, but the group has no aria-label or aria-labelledby. The shared FormLabel htmlFor targets the group id, which does not label a div role=radiogroup. INSPECTED.",
+   "fix": "Associate the visible label with the RadioGroup through aria-labelledby or an equivalent accessible-name relation, then add a role query for the group name.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The test named for units-first order cannot fail when units are moved below the narrative.",
+   "evidence": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:225-232 only checks presence by test ID. Moving the units field below the narrative and running npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx stayed GREEN: 25 tests passed. MECHANIZED.",
+   "fix": "Assert DOM order, including the units field before the first numbered section and before numeric fields.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "The stage report claims a completed-submit-until-redirect test that does not exist.",
+   "evidence": ".stage-report.md:40,52 names showsBuildingPlanSurfaceAfterCompleteUntilRedirect, but frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:389-394 only checks that the overlay appears after completion. It does not test guard redirect timing or unmount behavior. INSPECTED.",
+   "fix": "Correct the report and add a test that verifies the completed surface remains until the redirect guard unmounts the route.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "Complete-success idempotency nonrotation is not covered by the frontend tests.",
+   "evidence": "The invariant is specified at docs/specs/slice-5-onboarding/spec.md:356, while the completed test at frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:389-394 checks only overlay presence. Adding setIdempotencyKey(crypto.randomUUID()) to the complete branch left the narrow form suite GREEN with 25 tests passed. MECHANIZED.",
+   "fix": "Add a terminal-success test that captures the first key and proves a subsequent submit on the mounted form does not rotate it.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "The 422 test does not prove that all entered values survive the rejection.",
+   "evidence": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:206-222 asserts only the narrative value and submit state. Injecting form.setValue('typicalWeekly','41') in the catch path left the narrow form suite GREEN with 25 tests passed. MECHANIZED.",
+   "fix": "Enter distinct values across required and optional fields and assert every value after the handled 422 before retry.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "Fresh UUID uniqueness per form mount is not tested.",
+   "evidence": "The source initializes the key at frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:57-61, but the existing test at :280-287 checks only UUID shape. Replacing the initializer with a fixed valid UUID left the narrow form suite GREEN with 25 tests passed. MECHANIZED.",
+   "fix": "Mount two independent forms or remount one form and assert their initial request keys differ.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "The legacy missing-narrative hydration case has no frontend test.",
+   "evidence": "The implementation uses the required fallback at frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:408-417, but the seeded fixtures at frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:342-389 and page fixture at :162-192 both provide narrative. The spec edge case requires missing narrative to hydrate as empty. INSPECTED.",
+   "fix": "Add a DTO fixture without narrative and assert hydrateOnboardingFormFields returns narrative ''.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The page identity test does not prove Wordmark is mounted first.",
+   "evidence": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:186-194 places Wordmark before the header, but frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx:150-160 checks only presence and classes. Moving Wordmark after the header would keep that test green. INSPECTED.",
+   "fix": "Assert the Wordmark DOM node precedes the page header or first form gate child.",
+   "mode": "INSPECTED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "Change BuildingPlanSurface DEFAULT_STATUS_LINE to the former 12-week copy.",
+   "expected_red_test": "npx vitest run src/app/modules/common/components/building-plan-surface/building-plan-surface.component.spec.tsx should fail the starting-plan default assertion.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change narrativeField max(1000) to max(999).",
+   "expected_red_test": "npx vitest run src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts should fail the 1000-character acceptance test.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove narrativeField blank-to-undefined normalization.",
+   "expected_red_test": "The schema normalization and blank mapping assertions should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Map narrative to null unconditionally in toSubmitStructuredAnswersRequest.",
+   "expected_red_test": "The nonblank narrative mapping assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Replace state.narrative ?? '' with an empty string in hydration.",
+   "expected_red_test": "The populated narrative hydration assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Add narrative to DISTANCE_FIELD_NAMES.",
+   "expected_red_test": "The exact four-field reseed assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Move the units field below the narrative section.",
+   "expected_red_test": "The test titled renders the units field first should fail, but npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx stayed green with 25 tests passed.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Change the narrative placeholder ellipsis to a period.",
+   "expected_red_test": "The locked narrative copy test should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Force isRaceGoal to false.",
+   "expected_red_test": "Race reveal, race mapping, and conditional validation tests should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Force the active-injury conditional to false.",
+   "expected_red_test": "The direct active-injury field reveal test should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change the fine-print em-dash trigger copy to a hyphen.",
+   "expected_red_test": "The exact fine-print detail trigger assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change day chip min-h-11 to min-h-10.",
+   "expected_red_test": "The day chip touch-target assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove the switch data-testid attribute.",
+   "expected_red_test": "The stable switch ID assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Hardcode the unit label to km.",
+   "expected_red_test": "The miles label assertions should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove inert from the form.",
+   "expected_red_test": "The building-state inert assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Rotate the idempotency key in the handled error catch path.",
+   "expected_red_test": "The same-key-after-422 assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove Wordmark from the onboarding page.",
+   "expected_red_test": "The page identity test should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Replace initialFields={seed ?? hydrated} with initialFields={hydrated}.",
+   "expected_red_test": "The page reseed/remount test should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Map narrative to null unconditionally and run the E2E journey.",
+   "expected_red_test": "The E2E request body narrative assertion should fail if the stack starts. Sandbox output: Error: listen EPERM: operation not permitted ::1:5173.",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Remove OnboardingFinePrintSection from the form.",
+   "expected_red_test": "Theme, race/injury, detail, switch, and numbered-section tests should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change the in-flight button ellipsis to three periods.",
+   "expected_red_test": "The in-flight building-label assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change the page test stub to emit data-narrative=\"\".",
+   "expected_red_test": "The resumed narrative forwarding assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change narrativeField max(1000) to max(1001).",
+   "expected_red_test": "The over-1000 rejection assertion should fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Rotate the key in the complete-success branch.",
+   "expected_red_test": "A terminal-success nonrotation test would fail; the existing narrow form suite stayed GREEN with 25 tests passed.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Replace crypto.randomUUID() with a fixed valid UUID initializer.",
+   "expected_red_test": "A per-mount uniqueness test would fail; the existing narrow form suite stayed GREEN with 25 tests passed.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Set typicalWeekly to 41 in the handled-error catch path.",
+   "expected_red_test": "An all-values-after-422 test would fail; the existing narrow form suite stayed GREEN with 25 tests passed.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Add a radiogroup accessible-name assertion for the visible goal label.",
+   "expected_red_test": "getByRole('radiogroup', {name: \"What's your primary goal?\"}) should fail against the current unnamed group.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Replace the missing-narrative fallback with a nonempty sentinel.",
+   "expected_red_test": "A legacy DTO hydration test without narrative should fail.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Move Wordmark below the onboarding header.",
+   "expected_red_test": "A DOM-order test should fail when Wordmark is no longer first.",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-brief.txt: evidence-only scope and commands; stale scope could misdirect verification; cross-checked against the actual diff and gates.",
+   "status": "SATISFIED",
+   "where": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-brief.txt"
+  },
+  {
+   "item": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-orchestrator-runs.md: measured full-test, contrast, codegen, and Playwright claims; stale green output could hide regressions; read and treated as orchestrator evidence.",
+   "status": "SATISFIED",
+   "where": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-orchestrator-runs.md"
+  },
+  {
+   "item": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-report.md: records build and review evidence; stale lifecycle claims could misstate coverage; compared against source tests and orchestrator runs.",
+   "status": "PARTIAL",
+   "where": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-report.md"
+  },
+  {
+   "item": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-vars.json: records reproducibility variables; wrong paths or commands would invalidate evidence; codegen and build paths were exercised.",
+   "status": "SATISFIED",
+   "where": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-vars.json"
+  },
+  {
+   "item": "frontend/e2e/onboarding.spec.ts: mutates the POST wire body with narrative; omission or wrong value breaks the request contract; the assertion defends it, but local E2E is stack-blocked.",
+   "status": "SATISFIED",
+   "where": "frontend/e2e/onboarding.spec.ts:127-153"
+  },
+  {
+   "item": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.spec.tsx: mutates default status copy; wrong 12-week promise breaks the locked copy; narrow mutation was RED.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.spec.tsx:17-35"
+  },
+  {
+   "item": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx: mutates status text, live status, and semantic surface tokens; wrong copy or missing live region breaks feedback; tests and source checks defend it.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:12-53"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-checkbox-field.component.tsx: deleted old checkbox control; stale imports or lost boolean events would break build or submissions; reference scan and build defend the removal.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-checkbox-field.component.tsx"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-day-toggle-field.component.tsx: mutates days array events, labels, order, and touch-target tokens; wrong value order or height breaks schedule state or accessibility; focused tests and build defend most behavior.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-day-toggle-field.component.tsx:27-51"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-fine-print-section.component.tsx: mutates switch state, active-injury reveal, detail open state, and field order; wrong conditions or order break submission fields; focused mutations were RED.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-fine-print-section.component.tsx:30-95"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-fitness-section.component.tsx: mutates field labels and optional fitness wire fields; wrong unit label breaks display semantics; miles-label and mapping tests defend it.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-fitness-section.component.tsx:15-61"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx: mutates test claims for order, copy, sections, switches, loading, and 422; several attacks were RED, but order, all-values, and terminal-key gaps remain.",
+   "status": "PARTIAL",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:87-434"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx: mutates form state, submit events, loading overlay, inertness, idempotency, and wire mapping; wrong order or key handling breaks onboarding; focused tests defend most behavior but expose coverage gaps.",
+   "status": "PARTIAL",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:54-163"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-goal-field.component.tsx: mutates goal radio events and accessible names; wrong goal changes conditional sections, while the group name is currently undefended and missing.",
+   "status": "PARTIAL",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-goal-field.component.tsx:17-41"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-goal-section.component.tsx: mutates goal-description detail state and section placement; a misplaced trigger changes submitted nuance; detail placement mutation was RED.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-goal-section.component.tsx:11-21"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-injury-section.component.tsx: deleted old injury section; stale imports or lost injury events would break build or fields; reference scan and build defend the merge.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-injury-section.component.tsx"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-narrative-field.component.tsx: mutates narrative state, placeholder, length, and helper copy; wrong value or limit breaks intake context; form and schema mutations were RED.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-narrative-field.component.tsx:17-42"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-nuance-section.component.tsx: mutates collapsible open state, trigger events, and field IDs; wrong section or field breaks optional nuance; detail tests and build defend it.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-nuance-section.component.tsx:33-84"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-preferences-section.component.tsx: deleted old preferences section; stale imports or lost preference events would break build or fields; reference scan and build defend the merge.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-preferences-section.component.tsx"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-schedule-section.component.tsx: mutates schedule fields, day events, and detail placement; wrong order or field name breaks weeklySchedule wire data; focused tests defend values and placement.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-schedule-section.component.tsx:14-40"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-section.component.tsx: mutates section DOM order, headings, and spacing tokens; wrong order breaks the intake narrative; section presence is tested but units-first order is not.",
+   "status": "PARTIAL",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-section.component.tsx:18-31"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-switch-field.component.tsx: mutates boolean switch events, labels, IDs, and hit-target tokens; wrong state or ID breaks fine-print submission; switch mutation was RED.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-switch-field.component.tsx:15-35"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-target-event-section.component.tsx: mutates race-gated fields, wire names, and reveal classes; wrong goal branch or unit label breaks race submission; race mutation and label tests defend it.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-target-event-section.component.tsx:16-43"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-text-field.component.tsx: mutates shared label/control IDs and input token classes; wrong association breaks accessible names or wire fields; miles-label and form tests defend it.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-text-field.component.tsx:43-65"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/components/onboarding-units-field.component.tsx: mutates unit selection events, disabled state, labels, and segmented tokens; wrong value can reinterpret distances; pending and page reseed tests defend it.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-units-field.component.tsx:22-38"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx: mutates page identity, narrative forwarding, and reseed stub wiring; wrong values fail focused tests, but Wordmark order is not asserted.",
+   "status": "PARTIAL",
+   "where": "frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx:50-192"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx: mutates route state gating, hydration, PUT events, reseed state, and keyed remounts; wrong seed or route gate breaks resume; focused page mutation was RED.",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:85-213"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts: mutates narrative bounds, normalization, wire mapping, exact distance names, reseed, and hydration; boundary and mapping mutations were RED, but missing-narrative hydration is absent.",
+   "status": "PARTIAL",
+   "where": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:150-405"
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts: mutates form state shape, narrative wire value, hydration, distance reseed, and km-native conversions; schema mutations were RED, with the legacy fallback test gap noted.",
+   "status": "PARTIAL",
+   "where": "frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts:131-145,408-540"
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts src/app/modules/onboarding/pages/onboarding.page.spec.tsx src/app/modules/common/components/building-plan-surface/building-plan-surface.component.spec.tsx",
+   "result": "GREEN: 4 test files passed, 66 tests passed, exit=0."
+  },
+  {
+   "command": "npm run build (frontend/)",
+   "result": "GREEN: last output line was Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.; exit=0."
+  },
+  {
+   "command": "npx eslint <22 changed TypeScript/TSX files> (frontend/)",
+   "result": "GREEN: no output, exit=0."
+  },
+  {
+   "command": "npx prettier --check <22 changed TypeScript/TSX files> (frontend/)",
+   "result": "GREEN: All matched files use Prettier code style!, exit=0."
+  },
+  {
+   "command": "npm run codegen:check (frontend/)",
+   "result": "GREEN: generated outputs unchanged, exit=0."
+  },
+  {
+   "command": "dotnet build RunCoach.slnx --no-restore -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers (backend/)",
+   "result": "GREEN: Time Elapsed: 00:00:07.91; Build succeeded with 0 warnings and 0 errors."
+  },
+  {
+   "command": "git diff --check HEAD~1",
+   "result": "GREEN: no output, exit=0."
+  },
+  {
+   "command": "npm run check-contrast (frontend/)",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: Error: listen EPERM: operation not permitted /var/folders/dn/lbs14ltd7x77tk_cds6wrzx80000gp/T/tsx-502/35858.pipe"
+  },
+  {
+   "command": "npm run test (frontend/)",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: nested check-contrast reported Error: listen EPERM: operation not permitted /var/folders/dn/lbs14ltd7x77tk_cds6wrzx80000gp/T/tsx-502/35988.pipe; local run ended with 3 failed files and 22 failed tests."
+  },
+  {
+   "command": "npm run e2e (frontend/)",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: Error: listen EPERM: operation not permitted ::1:5173."
+  },
+  {
+   "command": "dotnet format RunCoach.slnx --include <changed .cs files> --no-restore --verify-no-changes",
+   "result": "VERIFIED BY INSPECTION: git diff HEAD~1 contains no changed .cs files, so no scoped C# format target exists."
+  },
+  {
+   "command": "git status --short",
+   "result": "GREEN: (clean), exit=0."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "npm run check-contrast",
+   "purpose": "Rerun the sandbox-blocked contrast gate; the orchestrator evidence records 50 of 50 pairs passing."
+  },
+  {
+   "command": "npm run test",
+   "purpose": "Rerun the sandbox-blocked full frontend suite; the orchestrator evidence records 86 files and 1035 tests passing."
+  },
+  {
+   "command": "npm run e2e",
+   "purpose": "Run the stack-dependent Playwright suite; the orchestrator evidence records 14 passing and 2 pre-existing failures outside this PR."
+  }
+ ],
+ "verdict": "REJECT: one accessibility acceptance failure and multiple major mutation-ledger coverage gaps remain. All reversible mutations were restored, focused tests and compile gates pass, and the worktree is clean."
+}

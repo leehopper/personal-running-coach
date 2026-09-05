@@ -150,7 +150,12 @@ describe('OnboardingPage gating', () => {
   it('renders the Alpine onboarding page identity before the form gate', () => {
     render(<OnboardingPage />)
 
-    expect(screen.getByRole('img', { name: 'Split' })).toBeInTheDocument()
+    const wordmark = screen.getByRole('img', { name: 'Split' })
+    const pageHeader = screen.getByRole('banner')
+    expect(wordmark).toBeInTheDocument()
+    expect(
+      Boolean(wordmark.compareDocumentPosition(pageHeader) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true)
     expect(
       screen.getByRole('heading', { level: 1, name: "Tell me what we're working with" }),
     ).toHaveClass('t-screen-title')

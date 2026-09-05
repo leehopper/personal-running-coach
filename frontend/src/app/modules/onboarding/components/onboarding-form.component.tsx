@@ -26,7 +26,7 @@ import { OnboardingTargetEventSection } from './onboarding-target-event-section.
 import { OnboardingUnitsField } from './onboarding-units-field.component'
 
 export interface OnboardingFormProps {
-  /** The runner's resolved display unit - distances are entered and shown in this unit. */
+  /** The runner's resolved display unit — distances are entered and shown in this unit. */
   units: PreferredUnits
   /** Seed values (blank defaults, or hydrated from a resumed `GET /state`). */
   initialFields: OnboardingFormFields
@@ -37,13 +37,19 @@ export interface OnboardingFormProps {
 }
 
 /**
- * The single-page onboarding form. It owns the RHF form, answers mutation, and
- * submit orchestration for the whole intake record.
+ * The single-page onboarding form. Owns the RHF form instance (schema derived
+ * from the resolved `units`), the `POST /answers` mutation, and the submit
+ * orchestration. The whole record is co-submitted in one request, so there is no
+ * per-topic clarification loop. On a completed submission the mutation
+ * invalidates the `Onboarding` tag and the route guard redirects to `/` — this
+ * component only surfaces the in-flight "building" state and any error.
  *
  * The form is mounted keyed on `units` by the page, so a mid-form unit change
- * remounts it against the re-seeded (unit-converted) values - the schema, the
+ * remounts it against the re-seeded (unit-converted) values — the schema, the
  * distance labels, and the km write-conversion are all computed once against the
  * correct unit (the shipped `/log` pattern), never a mid-form schema swap.
+ * While the building overlay is visible, the form remains mounted and inert until
+ * the route guard redirects.
  */
 export const OnboardingForm = ({
   units,
@@ -91,7 +97,7 @@ export const OnboardingForm = ({
       }
     } catch (error) {
       // The awaited `.unwrap()` rejection is a *handled* rejection the global
-      // reporter/boundary never sees - forward it so a failed onboarding still
+      // reporter/boundary never sees — forward it so a failed onboarding still
       // leaves a diagnostic trail.
       reportClientError({
         kind: 'unhandled-rejection',

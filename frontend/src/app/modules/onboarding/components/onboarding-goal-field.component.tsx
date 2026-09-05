@@ -20,12 +20,13 @@ export const OnboardingGoalField = ({ control }: OnboardingGoalFieldProps) => (
     name="goal"
     render={({ field }) => (
       <FormItem>
-        <FormLabel>What's your primary goal?</FormLabel>
+        <FormLabel id="goal-field-label">What's your primary goal?</FormLabel>
         <FormControl>
           <RadioGroup
             value={field.value}
             onValueChange={field.onChange}
             className="gap-0"
+            aria-labelledby="goal-field-label"
             data-testid="goal-field"
           >
             {GOAL_OPTIONS.map((option) => (
