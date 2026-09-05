@@ -1,0 +1,168 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "major",
+   "claim": "F4 report reconciliation is incomplete and the fixer report contains unsupported claims.",
+   "evidence": "MECHANIZED: .stage-report.md:6 claims addenda at line 106, but the file ends at line 35. Only build-report.md:106 has an addendum. .stage-report.md:14-15 claims git diff --check passed, while the fresh command exited 2.",
+   "fix": "Append the reconciliation addendum to .stage-report.md, correct the stale gate claim, and reconcile the final evidence files.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "minor",
+   "claim": "The fix-round evidence diff is not whitespace-clean.",
+   "evidence": "MECHANIZED: git diff HEAD~1 --check reports trailing whitespace at round1/fix-report.md:12,14,16 and a blank line at EOF at build-report.md:124.",
+   "fix": "Remove Markdown hard-break spaces from fix-report.md and the blank EOF line from build-report.md, then rerun git diff HEAD~1 --check.",
+   "mode": "MECHANIZED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "Temporarily moved the committed plan.dated-event-narrative.macro fixture aside for M21, then restored it.",
+   "expected_red_test": "EVAL_CACHE_MODE=Replay dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-method RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests.DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Temporarily replaced OnboardingView.Narrative's string.Empty initializer with a sentinel for M22, then restored it.",
+   "expected_red_test": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.OnboardingProjectionTests",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove or alter the restored XML cache-prefix explanation in ContextAssembler.cs. This is documentation-only and has no executable red test.",
+   "expected_red_test": "None. Verify by inspection only.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Remove the orchestrator reconciliation addendum from the reports. This is evidence documentation and has no executable red test.",
+   "expected_red_test": "None. Verify report contents and final diff only.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "No product mutation. F5 was dropped by adjudication because planning-document typography is explicitly out of scope.",
+   "expected_red_test": "None. No defect remains to mutate.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "No product mutation. F6 is orchestrator-owned gate evidence, not behavior.",
+   "expected_red_test": "None. Use the recorded orchestrator gate outputs.",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "F1 Replay skip removal",
+   "status": "SATISFIED",
+   "where": "PlanGenerationEvalTests.cs:547-558 retains CanRunEvals and removes only the new fixture skip. M21 is RED at round1/orchestrator-runs.md:76-87."
+  },
+  {
+   "item": "F2 legacy OnboardingView hydration test",
+   "status": "SATISFIED",
+   "where": "OnboardingProjectionTests.cs:95-113 mirrors Marten's SystemTextJsonSerializer, removes Narrative from a real serialized view, and asserts empty. M22 is RED at round1/orchestrator-runs.md:68-75."
+  },
+  {
+   "item": "F3 cache-prefix XML summary",
+   "status": "SATISFIED",
+   "where": "ContextAssembler.cs:606-617 restores the cache-prefix explanation and adds the narrative behavior sentence."
+  },
+  {
+   "item": "F4 report reconciliation and whitespace cleanup",
+   "status": "PARTIAL",
+   "where": "build-report.md:106 has the addendum, but .stage-report.md:6 claims a nonexistent line 106 addendum and .stage-report.md:14-15 claims a check that is RED."
+  },
+  {
+   "item": "F5 dropped planning-document ASCII finding",
+   "status": "SATISFIED",
+   "where": ".fix-brief.txt:36-39 records the adjudicated drop. No fix action is required."
+  },
+  {
+   "item": "F6 orchestrator-owned gates",
+   "status": "SATISFIED",
+   "where": "round1/orchestrator-runs.md:48-91 records M21/M22 and fix-round tests. build-orchestrator-runs.md:57-135 records the broader gates."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify DOTNET_CLI_HOME=/tmp/codex-agent-slice5-r2-verify/dotnet DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 MSBUILDNODEREUSE=0 dotnet build RunCoach.slnx --no-restore -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers",
+   "result": "PASS. Build succeeded. 0 Warning(s). 0 Error(s). Last line: Time Elapsed: 00:00:07.44."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify DOTNET_CLI_HOME=/tmp/codex-agent-slice5-r2-verify/dotnet DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 MSBUILDNODEREUSE=0 dotnet format RunCoach.slnx --include src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/OnboardingProjectionTests.cs --no-restore --verify-no-changes",
+   "result": "NOT_RUNNABLE_IN_SANDBOX. System.Net.Sockets.SocketException (13): Permission denied while creating the named pipe."
+  },
+  {
+   "command": "git diff HEAD~1 --check",
+   "result": "RED, exit 2. Trailing whitespace at round1/fix-report.md:12,14,16 and a blank line at EOF at build-report.md:124."
+  },
+  {
+   "command": "bash backend/tests/scripts/check-prompt-hashes.sh",
+   "result": "PASS. Last line: Prompt-hash manifest is in sync (DEC-074)."
+  },
+  {
+   "command": "jq -e . docs/plans/split-ui-cycle/slice-5-evidence/round1/conformance.json && jq -e . docs/plans/split-ui-cycle/slice-5-evidence/round1/mutation.json && jq -e . docs/plans/split-ui-cycle/slice-5-evidence/round1/fix-vars.json",
+   "result": "PASS. All three evidence JSON files parsed."
+  },
+  {
+   "command": "git diff HEAD~1 --name-status",
+   "result": "PASS. 15 paths changed. No migration or prompt YAML path changed."
+  },
+  {
+   "command": "git status --short",
+   "result": "PASS. Empty output after all recorded mutation restores."
+  },
+  {
+   "command": "nl -ba .stage-report.md | sed -n '1,150p'; nl -ba docs/plans/split-ui-cycle/slice-5-evidence/build-report.md | sed -n '100,130p'",
+   "result": "F4 contradiction confirmed. .stage-report.md ends at line 35, while build-report.md has its addendum at line 106."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "EVAL_CACHE_MODE=Replay dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-method RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests.DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf",
+   "purpose": "Recorded M21 missing-fixture mutation RED with 1 failed and 0 skipped, followed by fixture-present Replay green."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.OnboardingProjectionTests",
+   "purpose": "Recorded M22 sentinel mutation RED with 1 failed of 42, followed by restoration and 42 passed."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests",
+   "purpose": "Recorded post-fix eval class result: 7 passed, 0 skipped."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.SubmitStructuredAnswersRequestMapperTests",
+   "purpose": "Recorded F6 mapper gate: 40 passed."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.ContextAssemblerPlanGenerationTests",
+   "purpose": "Recorded F6 composer gate: 10 passed."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.OnboardingAnswersEndpointIntegrationTests",
+   "purpose": "Recorded F6 endpoint gate: 20 passed."
+  },
+  {
+   "command": "EVAL_CACHE_MODE=Replay dotnet test --solution RunCoach.slnx --no-build",
+   "purpose": "Recorded full Replay gate: 2054 passed and 0 skipped."
+  },
+  {
+   "command": "npm run test",
+   "purpose": "Recorded frontend gate: 1022 tests passed."
+  },
+  {
+   "command": "npm run check-contrast",
+   "purpose": "Recorded contrast gate: all 50 pairs pass WCAG thresholds."
+  },
+  {
+   "command": "npm run codegen:check",
+   "purpose": "Recorded codegen check exit 0 after the commit."
+  },
+  {
+   "command": "bash backend/tests/scripts/check-prompt-hashes.sh --write",
+   "purpose": "Recorded manifest regeneration as a no-op."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-r2-verify DOTNET_CLI_HOME=/tmp/codex-agent-slice5-r2-verify/dotnet DOTNET_CLI_TELEMETRY_OPTOUT=1 MSBUILDNODEREUSE=0 dotnet format RunCoach.slnx --include src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/OnboardingProjectionTests.cs --no-restore --verify-no-changes",
+   "purpose": "Rerun the required format gate outside this sandbox because the build host cannot create its named pipe here."
+  }
+ ],
+ "verdict": "REJECT. F1, F2, and F3 are present and effective, with M21 and M22 recorded RED. F4 is only partial because .stage-report.md lacks the claimed addendum and the fresh diff check is RED."
+}

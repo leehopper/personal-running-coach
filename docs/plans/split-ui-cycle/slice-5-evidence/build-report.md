@@ -121,4 +121,3 @@ first sample), the TTL patch, the targeted Replay, the full Replay suite (2054/2
 `npm run check-contrast` (50/50 pairs), `npm run codegen:check` (exit 0 after the commit), the swagger `jq`
 oracle, and the DEC-089 D7 manifest `--write` no-op. The `backend/REVIEW.md` amendment the report lists as
 outstanding is in the commit.
-
