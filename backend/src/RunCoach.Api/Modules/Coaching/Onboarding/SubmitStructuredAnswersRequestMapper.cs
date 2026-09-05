@@ -21,6 +21,9 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// </remarks>
 public static class SubmitStructuredAnswersRequestMapper
 {
+    /// <summary>Maximum number of characters accepted in the runner narrative.</summary>
+    public const int NarrativeMaxLength = 1000;
+
     // Distances above this are physically implausible. Combined with double.IsFinite this closes the
     // hole where a JSON literal overflowing double range (e.g. 1e400) deserializes to
     // double.PositiveInfinity, slips past the answer records' one-sided lower-bound guards, and then
@@ -68,6 +71,16 @@ public static class SubmitStructuredAnswersRequestMapper
             return false;
         }
 
+        if (request.Narrative is { Length: > NarrativeMaxLength })
+        {
+            error = "Narrative must be 1000 characters or fewer.";
+            return false;
+        }
+
+        var narrative = string.IsNullOrWhiteSpace(request.Narrative)
+            ? string.Empty
+            : request.Narrative;
+
         try
         {
             if (!TryMapPrimaryGoal(request.PrimaryGoal, out var primaryGoal, out error))
@@ -105,7 +118,8 @@ public static class SubmitStructuredAnswersRequestMapper
                 currentFitness,
                 weeklySchedule,
                 injuryHistory,
-                preferences);
+                preferences,
+                narrative);
             return true;
         }
         catch (ArgumentException ex)

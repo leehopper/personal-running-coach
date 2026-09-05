@@ -55,6 +55,12 @@
 - CRITICAL: Never modify an existing event record's properties. Add a new
   event type for schema changes and register upcasters for old events. Events
   are immutable contracts.
+- One exception, additive-nullable only: a nullable property with a default,
+  appended as the last parameter of an existing event record, may ship without
+  a version or upcaster when old JSON hydrates it null and a projection test
+  replays a legacy payload to prove it (DEC-091; Slice 2 `PlanGenerated`;
+  Slice 5 `AnswerCaptured`). Renames, removals, type changes, and non-null
+  additions still need a versioned type and an upcaster (DEC-067).
 - CRITICAL: Renaming a CLR event type without `opts.Events.MapEventType<NewName>("old_alias")`
   silently returns zero rows on replay — no exception, just mystery empty
   streams. Every event-type rename must register the old type name as an

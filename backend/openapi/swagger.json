@@ -2252,6 +2252,10 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "narrative": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -2832,6 +2836,10 @@
           },
           "preferences": {
             "$ref": "#/components/schemas/PreferencesInputDto"
+          },
+          "narrative": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

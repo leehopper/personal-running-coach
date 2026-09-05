@@ -130,6 +130,7 @@ export const GetApiV1OnboardingStateResponse = zod.strictObject({
       ),
   }),
   currentPlanId: zod.uuid().nullish(),
+  narrative: zod.string().nullish(),
 })
 
 export const PostApiV1OnboardingAnswersBody = zod.strictObject({
@@ -180,6 +181,7 @@ export const PostApiV1OnboardingAnswersBody = zod.strictObject({
     comfortableWithIntensity: zod.boolean(),
     description: zod.string().nullish(),
   }),
+  narrative: zod.string().nullish(),
 })
 
 export const PostApiV1OnboardingAnswersResponse = zod.strictObject({
@@ -306,4 +308,5 @@ export const PostApiV1OnboardingAnswersResponse = zod.strictObject({
       ),
   }),
   currentPlanId: zod.uuid().nullish(),
+  narrative: zod.string().nullish(),
 })

@@ -18,6 +18,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// <param name="WeeklySchedule">WeeklySchedule answer, or null.</param>
 /// <param name="InjuryHistory">InjuryHistory answer, or null.</param>
 /// <param name="Preferences">Preferences answer, or null.</param>
+/// <param name="Narrative">The runner's optional free-text onboarding narrative, or null.</param>
 public sealed record SubmitStructuredAnswersRequestDto(
     [property: JsonRequired] Guid IdempotencyKey,
     PrimaryGoalInputDto? PrimaryGoal,
@@ -25,4 +26,5 @@ public sealed record SubmitStructuredAnswersRequestDto(
     CurrentFitnessInputDto? CurrentFitness,
     WeeklyScheduleInputDto? WeeklySchedule,
     InjuryHistoryInputDto? InjuryHistory,
-    PreferencesInputDto? Preferences);
+    PreferencesInputDto? Preferences,
+    string? Narrative = null);

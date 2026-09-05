@@ -95,6 +95,7 @@ export interface OnboardingStateDto {
   injuryHistory: InjuryHistoryAnswer | null
   preferences: PreferencesAnswer | null
   currentPlanId: string | null
+  narrative?: string | null
 }
 
 /**
@@ -115,4 +116,5 @@ export interface SubmitStructuredAnswersRequest {
   weeklySchedule: WeeklyScheduleInputDto
   injuryHistory: InjuryHistoryInputDto
   preferences: PreferencesInputDto
+  narrative?: string | null
 }

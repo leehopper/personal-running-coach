@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using FluentAssertions;
+using JasperFx.Events;
 using Marten;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -137,6 +138,194 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         // Assert — a plan stream was actually created at the linked id.
         (await PlanStreamExistsAsync(Factory, userId, state.CurrentPlanId.Value, ct))
             .Should().BeTrue(because: "the terminal branch starts a plan stream at the linked plan id");
+    }
+
+    [Fact]
+    public async Task SubmitAnswers_Narrative_RoundTripsThroughEventAndState()
+    {
+        // Arrange
+        const string expectedNarrative = "  I am returning from a calf strain.\nKeep it controlled.  ";
+        var ct = TestContext.Current.CancellationToken;
+        var (client, container) = CreateCookieClient(Factory);
+        var email = GenerateEmail();
+        var userId = await RegisterAsync(client, container, email);
+        await LoginAsync(client, container, email);
+
+        // Act
+        var token = await PrimeAntiforgeryAsync(client, container);
+        var response = await PostAnswersAsync(client, token, RaceTrainingRequest(Guid.NewGuid(), expectedNarrative), ct);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var state = await response.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
+        state!.Narrative.Should().Be(expectedNarrative);
+        var resumed = await GetStateAsync(client, ct);
+        resumed.Narrative.Should().Be(expectedNarrative);
+
+        var events = await FetchOnboardingEventsAsync(Factory, userId, ct);
+        events.Select(e => e.Data).OfType<AnswerCaptured>().Should().ContainSingle(
+            e => e.Narrative == expectedNarrative,
+            because: "the nonblank narrative must be persisted on the onboarding stream");
+    }
+
+    [Fact]
+    public async Task SubmitAnswers_Narrative_AttachesOnlyToFirstAnswerCaptured()
+    {
+        // Arrange
+        const string expectedNarrative = "Runner context comes first.";
+        var ct = TestContext.Current.CancellationToken;
+        var (client, container) = CreateCookieClient(Factory);
+        var email = GenerateEmail();
+        var userId = await RegisterAsync(client, container, email);
+        await LoginAsync(client, container, email);
+
+        // Act
+        var token = await PrimeAntiforgeryAsync(client, container);
+        var response = await PostAnswersAsync(client, token, RaceTrainingRequest(Guid.NewGuid(), expectedNarrative), ct);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var answerEvents = (await FetchOnboardingEventsAsync(Factory, userId, ct))
+            .Select(e => e.Data)
+            .OfType<AnswerCaptured>()
+            .ToArray();
+        answerEvents.Should().HaveCount(6);
+        answerEvents[0].Narrative.Should().Be(expectedNarrative);
+        answerEvents.Skip(1).Should().OnlyContain(e => e.Narrative == null);
+    }
+
+    [Fact]
+    public async Task SubmitAnswers_Narrative_PassesWorkingViewToInlinePlanGeneration()
+    {
+        // Arrange
+        const string expectedNarrative = "Plan around this calf strain recovery.";
+        var recorder = new RecordingPlanGenerationService(new StubPlanGenerationService());
+        using var recordingFactory = Factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IPlanGenerationService>();
+                services.AddSingleton<IPlanGenerationService>(recorder);
+            }));
+        var ct = TestContext.Current.CancellationToken;
+        var (client, container) = CreateCookieClient(recordingFactory);
+        var email = GenerateEmail();
+        await RegisterAsync(client, container, email);
+        await LoginAsync(client, container, email);
+
+        // Act
+        var token = await PrimeAntiforgeryAsync(client, container);
+        var response = await PostAnswersAsync(client, token, RaceTrainingRequest(Guid.NewGuid(), expectedNarrative), ct);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        recorder.LastOnboardingView.Should().NotBeNull();
+        recorder.LastOnboardingView.Narrative.Should().Be(expectedNarrative);
+    }
+
+    [Fact]
+    public async Task SubmitAnswers_BlankNarrative_ClearsState()
+    {
+        // Arrange
+        const string expectedNarrative = "Existing runner context.";
+        var ct = TestContext.Current.CancellationToken;
+        var (client, container) = CreateCookieClient(Factory);
+        var email = GenerateEmail();
+        await RegisterAsync(client, container, email);
+        await LoginAsync(client, container, email);
+        var firstRequest = new SubmitStructuredAnswersRequestDto(
+            Guid.NewGuid(),
+            new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, "Stay healthy"),
+            TargetEvent: null,
+            CurrentFitness: null,
+            WeeklySchedule: null,
+            InjuryHistory: null,
+            Preferences: null,
+            Narrative: expectedNarrative);
+
+        // Act 1
+        var token1 = await PrimeAntiforgeryAsync(client, container);
+        var first = await PostAnswersAsync(client, token1, firstRequest, ct);
+        var firstState = await first.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
+
+        // Act 2
+        var secondRequest = new SubmitStructuredAnswersRequestDto(
+            Guid.NewGuid(),
+            PrimaryGoal: null,
+            TargetEvent: null,
+            new CurrentFitnessInputDto(30, 12, null, null, "Moderate"),
+            WeeklySchedule: null,
+            InjuryHistory: null,
+            Preferences: null,
+            Narrative: " \t\n ");
+        var token2 = await PrimeAntiforgeryAsync(client, container);
+        var second = await PostAnswersAsync(client, token2, secondRequest, ct);
+
+        // Assert
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        firstState!.Narrative.Should().Be(expectedNarrative);
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        var secondState = await second.Content.ReadFromJsonAsync<OnboardingStateDto>(cancellationToken: ct);
+        secondState!.Narrative.Should().BeNull();
+        (await GetStateAsync(client, ct)).Narrative.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SubmitAnswers_DuplicateIdempotencyKey_WithNarrative_AppendsNothing()
+    {
+        // Arrange
+        const string expectedNarrative = "The same key must not append twice.";
+        var ct = TestContext.Current.CancellationToken;
+        var (client, container) = CreateCookieClient(Factory);
+        var email = GenerateEmail();
+        var userId = await RegisterAsync(client, container, email);
+        await LoginAsync(client, container, email);
+        var key = Guid.NewGuid();
+        var request = RaceTrainingRequest(key, expectedNarrative);
+
+        // Act
+        var token1 = await PrimeAntiforgeryAsync(client, container);
+        var first = await PostAnswersAsync(client, token1, request, ct);
+        var eventCountAfterFirst = await OnboardingStreamEventCountAsync(Factory, userId, ct);
+        var token2 = await PrimeAntiforgeryAsync(client, container);
+        var second = await PostAnswersAsync(client, token2, request, ct);
+        var eventCountAfterSecond = await OnboardingStreamEventCountAsync(Factory, userId, ct);
+
+        // Assert
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        eventCountAfterSecond.Should().Be(eventCountAfterFirst);
+        var state = await GetStateAsync(client, ct);
+        state.Narrative.Should().Be(expectedNarrative);
+    }
+
+    [Fact]
+    public async Task SubmitAnswers_OverlongNarrative_Returns400_NothingStaged()
+    {
+        // Arrange
+        var ct = TestContext.Current.CancellationToken;
+        var (client, container) = CreateCookieClient(Factory);
+        var email = GenerateEmail();
+        var userId = await RegisterAsync(client, container, email);
+        await LoginAsync(client, container, email);
+        var request = new SubmitStructuredAnswersRequestDto(
+            Guid.NewGuid(),
+            new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, "Stay healthy"),
+            TargetEvent: null,
+            CurrentFitness: null,
+            WeeklySchedule: null,
+            InjuryHistory: null,
+            Preferences: null,
+            Narrative: new string('n', SubmitStructuredAnswersRequestMapper.NarrativeMaxLength + 1));
+
+        // Act
+        var token = await PrimeAntiforgeryAsync(client, container);
+        var response = await PostAnswersAsync(client, token, request, ct);
+        var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(cancellationToken: ct);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        problem!.Detail.Should().Be("Narrative must be 1000 characters or fewer.");
+        (await OnboardingStreamEventCountAsync(Factory, userId, ct)).Should().Be(0);
     }
 
     [Fact]
@@ -553,23 +742,25 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         await base.DisposeAsync();
     }
 
-    private static SubmitStructuredAnswersRequestDto RaceTrainingRequest(Guid key) => new(
+    private static SubmitStructuredAnswersRequestDto RaceTrainingRequest(Guid key, string? narrative = null) => new(
         key,
         new PrimaryGoalInputDto(PrimaryGoal.RaceTraining, "Sub-4 marathon"),
         new TargetEventInputDto("Berlin Marathon", 42.2, "2026-09-27", "PT3H55M0S"),
         new CurrentFitnessInputDto(45, 20, 21.1, "PT1H45M0S", "Feeling strong"),
         new WeeklyScheduleInputDto(5, 60, true, false, true, false, true, true, false, "Evenings only"),
         new InjuryHistoryInputDto(false, string.Empty, "Rolled ankle 2024"),
-        new PreferencesInputDto(PreferredUnits.Miles, true, true, "Prefer mornings"));
+        new PreferencesInputDto(PreferredUnits.Miles, true, true, "Prefer mornings"),
+        narrative);
 
-    private static SubmitStructuredAnswersRequestDto FitnessRequest(Guid key) => new(
+    private static SubmitStructuredAnswersRequestDto FitnessRequest(Guid key, string? narrative = null) => new(
         key,
         new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, "Stay healthy"),
         TargetEvent: null,
         new CurrentFitnessInputDto(30, 12, null, null, "Moderate"),
         new WeeklyScheduleInputDto(4, 45, true, false, true, false, true, false, true, "Evenings"),
         new InjuryHistoryInputDto(false, string.Empty, string.Empty),
-        new PreferencesInputDto(PreferredUnits.Kilometers, false, true, string.Empty));
+        new PreferencesInputDto(PreferredUnits.Kilometers, false, true, string.Empty),
+        narrative);
 
     private static async Task<RunnerOnboardingProfile?> LoadProfileAsync(RunCoachAppFactory factory, Guid userId, CancellationToken ct)
     {
@@ -603,6 +794,16 @@ public sealed class OnboardingAnswersEndpointIntegrationTests : DbBackedIntegrat
         await using var session = store.LightweightSession(userId.ToString());
         var events = await session.Events.FetchStreamAsync(userId, token: ct);
         return events.Count;
+    }
+
+    private static async Task<IReadOnlyList<IEvent>> FetchOnboardingEventsAsync(
+        RunCoachAppFactory factory,
+        Guid userId,
+        CancellationToken ct)
+    {
+        var store = factory.Services.GetRequiredService<IDocumentStore>();
+        await using var session = store.LightweightSession(userId.ToString());
+        return await session.Events.FetchStreamAsync(userId, token: ct);
     }
 
     private static (HttpClient Client, CookieContainer Container) CreateCookieClient(

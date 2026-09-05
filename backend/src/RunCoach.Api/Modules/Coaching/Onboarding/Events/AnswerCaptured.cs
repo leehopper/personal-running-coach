@@ -14,8 +14,10 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// </param>
 /// <param name="Confidence">The assistant's confidence in the extraction (0.0-1.0).</param>
 /// <param name="CapturedAt">Wall-clock time the answer was captured.</param>
+/// <param name="Narrative">The first-event-only runner narrative, or null when not present.</param>
 public sealed record AnswerCaptured(
     OnboardingTopic Topic,
     JsonDocument NormalizedPayload,
     double Confidence,
-    DateTimeOffset CapturedAt);
+    DateTimeOffset CapturedAt,
+    string? Narrative = null);

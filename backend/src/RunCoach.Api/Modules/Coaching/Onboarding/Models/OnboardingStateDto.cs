@@ -27,6 +27,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding.Models;
 /// <param name="InjuryHistory">Captured InjuryHistory answer or null.</param>
 /// <param name="Preferences">Captured Preferences answer or null.</param>
 /// <param name="CurrentPlanId">Currently active plan id once <see cref="PlanLinkedToUser"/> has fired; null otherwise.</param>
+/// <param name="Narrative">The runner's onboarding narrative, or null when empty.</param>
 public sealed record OnboardingStateDto(
     Guid UserId,
     OnboardingStatus Status,
@@ -41,4 +42,5 @@ public sealed record OnboardingStateDto(
     WeeklyScheduleAnswer? WeeklySchedule,
     InjuryHistoryAnswer? InjuryHistory,
     PreferencesAnswer? Preferences,
-    Guid? CurrentPlanId);
+    Guid? CurrentPlanId,
+    string? Narrative = null);

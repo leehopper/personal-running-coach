@@ -171,7 +171,8 @@ public sealed partial class OnboardingController(
             WeeklySchedule: view.WeeklySchedule,
             InjuryHistory: view.InjuryHistory,
             Preferences: view.Preferences,
-            CurrentPlanId: view.CurrentPlanId);
+            CurrentPlanId: view.CurrentPlanId,
+            Narrative: view.Narrative.Length == 0 ? null : view.Narrative);
     }
 
     [LoggerMessage(

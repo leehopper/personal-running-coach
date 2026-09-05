@@ -117,6 +117,96 @@ public sealed class OnboardingProjectionTests
     }
 
     [Fact]
+    public void OnboardingProjection_Apply_AnswerCaptured_NarrativeText_SetsView()
+    {
+        // Arrange
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+            {
+                Goal = PrimaryGoal.GeneralFitness,
+                Description = string.Empty,
+            }),
+            Confidence: 1.0,
+            CapturedAt: Now,
+            Narrative: "  returning from a calf strain\nslowly  ");
+
+        // Act
+        OnboardingProjection.Apply(captured, view);
+
+        // Assert
+        view.Narrative.Should().Be("  returning from a calf strain\nslowly  ");
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_AnswerCaptured_NullNarrative_LeavesView()
+    {
+        // Arrange
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        view.Narrative = "existing runner context";
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+            {
+                Goal = PrimaryGoal.GeneralFitness,
+                Description = string.Empty,
+            }),
+            Confidence: 1.0,
+            CapturedAt: Now);
+
+        // Act
+        OnboardingProjection.Apply(captured, view);
+
+        // Assert
+        view.Narrative.Should().Be("existing runner context");
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_AnswerCaptured_EmptyNarrative_ClearsView()
+    {
+        // Arrange
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        view.Narrative = "existing runner context";
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+            {
+                Goal = PrimaryGoal.GeneralFitness,
+                Description = string.Empty,
+            }),
+            Confidence: 1.0,
+            CapturedAt: Now,
+            Narrative: string.Empty);
+
+        // Act
+        OnboardingProjection.Apply(captured, view);
+
+        // Assert
+        view.Narrative.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_LegacyAnswerCapturedWithoutNarrative_LeavesView()
+    {
+        // Arrange
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        view.Narrative = "existing runner context";
+        const string legacyJson =
+            "{\"Topic\":0,\"NormalizedPayload\":{\"Goal\":1,\"Description\":\"legacy\"},\"Confidence\":1,\"CapturedAt\":\"2026-04-25T12:00:00Z\"}";
+        var captured = JsonSerializer.Deserialize<AnswerCaptured>(legacyJson);
+
+        // Act
+        captured.Should().NotBeNull();
+        captured.Narrative.Should().BeNull();
+        OnboardingProjection.Apply(captured, view);
+
+        // Assert
+        view.Narrative.Should().Be("existing runner context");
+        view.PrimaryGoal!.Description.Should().Be("legacy");
+    }
+
+    [Fact]
     public void OnboardingProjection_Apply_TopicAsked_SetsCurrentTopicAndBumpsVersion()
     {
         // Arrange — TopicAsked is the chat-surface signal for "the assistant just asked X".

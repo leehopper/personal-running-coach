@@ -485,6 +485,7 @@ export type OnboardingStateDto = {
   injuryHistory: InjuryHistoryAnswer
   preferences: PreferencesAnswer
   currentPlanId?: string | null
+  narrative?: string | null
 }
 export type PrimaryGoalInputDto = {
   goal: PrimaryGoal
@@ -534,6 +535,7 @@ export type SubmitStructuredAnswersRequestDto = {
   weeklySchedule: WeeklyScheduleInputDto
   injuryHistory: InjuryHistoryInputDto
   preferences: PreferencesInputDto
+  narrative?: string | null
 }
 export type PhaseType = 'Base' | 'Build' | 'Peak' | 'Taper' | 'Recovery'
 export type PlanPhaseOutput = {

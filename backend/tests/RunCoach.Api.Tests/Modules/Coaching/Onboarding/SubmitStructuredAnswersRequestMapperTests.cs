@@ -145,6 +145,116 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
     }
 
     [Fact]
+    public void TryMap_NullNarrative_MapsToEmptyString()
+    {
+        // Arrange
+        var request = WithTopics(
+            primaryGoal: new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, string.Empty),
+            narrative: null);
+
+        // Act
+        var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
+
+        // Assert
+        actual.Should().BeTrue();
+        error.Should().BeNull();
+        command!.Narrative.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void TryMap_WhitespaceNarrative_MapsToEmptyString()
+    {
+        // Arrange
+        var request = WithTopics(
+            primaryGoal: new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, string.Empty),
+            narrative: " \t\n ");
+
+        // Act
+        var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
+
+        // Assert
+        actual.Should().BeTrue();
+        error.Should().BeNull();
+        command!.Narrative.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void TryMap_Narrative_PreservesLeadingTrailingSpacesAndInnerNewline()
+    {
+        // Arrange
+        const string expectedNarrative = "  first line\nsecond line  ";
+        var request = WithTopics(
+            primaryGoal: new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, string.Empty),
+            narrative: expectedNarrative);
+
+        // Act
+        var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
+
+        // Assert
+        actual.Should().BeTrue();
+        error.Should().BeNull();
+        command!.Narrative.Should().Be(expectedNarrative);
+    }
+
+    [Fact]
+    public void TryMap_Narrative_AtMaxLength_Succeeds()
+    {
+        // Arrange
+        var expectedNarrative = new string('n', SubmitStructuredAnswersRequestMapper.NarrativeMaxLength);
+        var request = WithTopics(
+            primaryGoal: new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, string.Empty),
+            narrative: expectedNarrative);
+
+        // Act
+        var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
+
+        // Assert
+        actual.Should().BeTrue();
+        error.Should().BeNull();
+        command!.Narrative.Should().Be(expectedNarrative);
+    }
+
+    [Fact]
+    public void TryMap_Narrative_OverMaxLength_FailsWithBoundMessage()
+    {
+        // Arrange
+        var request = WithTopics(
+            primaryGoal: new PrimaryGoalInputDto(PrimaryGoal.GeneralFitness, string.Empty),
+            narrative: new string('n', SubmitStructuredAnswersRequestMapper.NarrativeMaxLength + 1));
+
+        // Act
+        var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
+
+        // Assert
+        actual.Should().BeFalse();
+        command.Should().BeNull();
+        error.Should().Be("Narrative must be 1000 characters or fewer.");
+    }
+
+    [Fact]
+    public void TryMap_NarrativeOnly_NoTopics_Fails()
+    {
+        // Arrange
+        var request = new SubmitStructuredAnswersRequestDto(
+            Key,
+            PrimaryGoal: null,
+            TargetEvent: null,
+            CurrentFitness: null,
+            WeeklySchedule: null,
+            InjuryHistory: null,
+            Preferences: null,
+            Narrative: "runner context");
+
+        // Act
+        var actual = SubmitStructuredAnswersRequestMapper.TryMap(request, UserId, out var command, out var error);
+
+        // Assert
+        actual.Should().BeFalse();
+        command.Should().BeNull();
+        error.Should().Be("At least one topic answer must be provided.");
+    }
+
+    [Fact]
     public void TryMap_NoTopicsProvided_Fails()
     {
         // Arrange
@@ -474,6 +584,7 @@ public sealed class SubmitStructuredAnswersRequestMapperTests
         CurrentFitnessInputDto? currentFitness = null,
         WeeklyScheduleInputDto? weeklySchedule = null,
         InjuryHistoryInputDto? injuryHistory = null,
-        PreferencesInputDto? preferences = null) =>
-        new(Key, primaryGoal, targetEvent, currentFitness, weeklySchedule, injuryHistory, preferences);
+        PreferencesInputDto? preferences = null,
+        string? narrative = null) =>
+        new(Key, primaryGoal, targetEvent, currentFitness, weeklySchedule, injuryHistory, preferences, narrative);
 }
