@@ -60,3 +60,6 @@ docs/specs/
 .stage-report.md
 .fix-brief.txt
 .tmp-*/
+
+# Python bytecode from the orchestrator-side check script
+__pycache__/
