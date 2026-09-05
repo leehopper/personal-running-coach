@@ -546,7 +546,8 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
 
     /// <summary>
     /// Verifies that a dated-event plan-generation prompt carries the runner narrative before
-    /// the profile snapshot while preserving horizon validation and relevant output prose.
+    /// the profile snapshot while preserving horizon validation and relevant output prose. The
+    /// fixture is committed, so a Replay cache miss is a failure.
     /// </summary>
     [Fact]
     public async Task DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf()
@@ -554,16 +555,6 @@ public sealed class PlanGenerationEvalTests : EvalTestBase
         if (!CanRunEvals)
         {
             return;
-        }
-
-        // Skip until the fixture is recorded, but only in Replay mode.
-        var effectiveMode = ResolveEffectiveMode(CacheMode, IsApiKeyConfigured);
-        if (effectiveMode == EvalCacheMode.Replay
-            && !SonnetFixtureExists("plan.dated-event-narrative.macro"))
-        {
-            Assert.Skip(
-                "Eval fixture 'plan.dated-event-narrative.macro' not yet recorded; "
-                + "skipping until present.");
         }
 
         // Arrange -- use the same anchored dates and view as the dated-event precedent.

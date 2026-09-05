@@ -604,7 +604,16 @@ public sealed partial class ContextAssembler : IContextAssembler
     private static string FormatPace(Pace pace) => FormatTimeSpan(pace.ToTimeSpan());
 
     /// <summary>
-    /// Builds the plan-generation base user message, placing a non-empty runner narrative before the profile snapshot.
+    /// Builds the plan-generation base user message. Layout: the captured
+    /// onboarding profile snapshot (slot summary, identical shape to the
+    /// onboarding turn user message) precedes the optional regeneration
+    /// intent block. Intent goes LAST under a stable label so the prefix
+    /// above it is byte-identical across initial-generation and regenerate
+    /// calls - the calling chain appends tier-specific suffixes (macro vs
+    /// meso vs micro) AFTER this base, keeping these bytes inside the
+    /// cacheable prefix per DEC-047. A non-empty runner narrative precedes
+    /// the profile snapshot inside that same cacheable prefix, and an empty
+    /// narrative adds no bytes.
     /// </summary>
     private static string BuildPlanGenerationUserMessage(
         OnboardingView profileSnapshot,

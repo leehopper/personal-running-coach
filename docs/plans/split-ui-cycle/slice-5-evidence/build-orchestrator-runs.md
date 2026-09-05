@@ -126,3 +126,10 @@ Sat Sep  5 13:21:54 CDT 2026
 FULL-REPLAY DONE
 
 ```
+
+## Contrast gate (run after the round-1 conformance lens listed it)
+
+```text
+npm run check-contrast
+check-contrast: all 50 pairs pass WCAG thresholds.
+```

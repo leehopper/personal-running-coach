@@ -10,31 +10,31 @@ No generated files, prompts, migrations, snapshots, or caches changed.
 
 ## Gates
 
-- PASS `dotnet build RunCoach.slnx --no-restore`  
+- PASS `dotnet build RunCoach.slnx --no-restore`
   Last line: `Time Elapsed: 00:00:04.84`
 
-- PASS changed-file `dotnet format ... --no-restore --verify-no-changes`  
+- PASS changed-file `dotnet format ... --no-restore --verify-no-changes`
   Last output: no output.
 
-- PASS `bash backend/tests/scripts/check-prompt-hashes.sh`  
+- PASS `bash backend/tests/scripts/check-prompt-hashes.sh`
   Last line: `Prompt-hash manifest is in sync (DEC-074).`
 
-- PASS `npm run build`  
+- PASS `npm run build`
   Build completed: `built in 530ms`
 
-- PASS `npx vitest run src/app/modules/onboarding src/app/api`  
+- PASS `npx vitest run src/app/modules/onboarding src/app/api`
   Last line: `Duration 2.31s`
 
-- PASS `npx eslint src/app/modules/onboarding/models/onboarding.model.ts`  
+- PASS `npx eslint src/app/modules/onboarding/models/onboarding.model.ts`
   Last output: no output.
 
-- PASS `npx prettier --check src/app/modules/onboarding/models/onboarding.model.ts`  
+- PASS `npx prettier --check src/app/modules/onboarding/models/onboarding.model.ts`
   Last line: `All matched files use Prettier code style!`
 
-- DEVIATION `npm run test`  
+- DEVIATION `npm run test`
   `Test Files 3 failed, 83 passed (86)` due sandbox `tsx` IPC pipe and missing `localStorage`.
 
-- DEVIATION `npm run check-contrast`  
+- DEVIATION `npm run check-contrast`
   Failed because `tsx` cannot create its IPC pipe: `Error: listen EPERM`.
 
 ## Acceptance table
@@ -102,3 +102,23 @@ STAGE COMPLETE
 
 Codex session ID: 01a072ba-9414-7f40-b06e-9fe446a88ac0
 Resume in Codex: codex resume 01a072ba-9414-7f40-b06e-9fe446a88ac0
+
+## Orchestrator addendum (after the build stage)
+
+The report above is the implementer's stage report and describes its 17-file working tree. The
+commit at 6265c38d carries 28 files because the orchestrator added, per spec section 3 PR-A:
+
+- generated: `backend/openapi/swagger.json`, `frontend/src/app/api/generated/rtk/api.ts`,
+  `frontend/src/app/api/generated/zod/onboarding/onboarding.ts` (Release EmitOpenApi build, then `npm run codegen`)
+- the recorded eval fixture: `backend/tests/eval-cache/sonnet/cache/plan.dated-event-narrative.macro/1/<hash>/{contents.data,entry.json}`
+- orchestrator-owned docs: `backend/REVIEW.md` (additive-nullable event exception), `docs/decisions/decision-log.md`
+  (DEC-089 D7 build note), `docs/plans/split-ui-cycle/cycle-plan.md` (four Captured rows + Status), `ROADMAP.md` (Status)
+- evidence: `build-report.md`, `build-orchestrator-runs.md`
+
+Gate results the sandbox could not produce are superseded by `build-orchestrator-runs.md`: the four backend test
+classes (40/41/10/20 passed), the eval class in Replay, the funded-key Record of the new scenario (passed on the
+first sample), the TTL patch, the targeted Replay, the full Replay suite (2054/2054), `npm run test` (1022/1022),
+`npm run check-contrast` (50/50 pairs), `npm run codegen:check` (exit 0 after the commit), the swagger `jq`
+oracle, and the DEC-089 D7 manifest `--write` no-op. The `backend/REVIEW.md` amendment the report lists as
+outstanding is in the commit.
+

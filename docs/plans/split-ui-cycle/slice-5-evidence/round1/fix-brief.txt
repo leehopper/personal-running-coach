@@ -1,0 +1,63 @@
+<task>
+You are the fix-round implementer for Slice 5 PR-A (backend narrative field) in this git clone (cwd, branch feat/slice-5-onboarding-backend, HEAD = 6265c38d). Two Codex lenses and the orchestrator judged the build against docs/specs/slice-5-onboarding/spec.md; the orchestrator adjudicated their findings into the fix list below. Apply every fix. Read AGENTS.md, the spec, and the prior stage report at .stage-report.md first, then the CLAUDE.md and REVIEW.md files covering the trees you touch.
+</task>
+
+<fixes>
+F1 (major; conformance #1 blocker, mutation #2): Remove the Replay-only missing-fixture skip in
+`PlanGenerationEvalTests.DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf`
+(backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs, the
+`ResolveEffectiveMode` + `SonnetFixtureExists("plan.dated-event-narrative.macro")` + `Assert.Skip` block).
+Keep the `CanRunEvals` guard. The fixture is committed at HEAD, so a missing fixture must now FAIL Replay
+(the ReplayGuard cache-miss path), never skip. Update the method's doc comment to say the fixture is
+committed and that a cache miss is a failure. Do not touch the dated-event precedent test's own skip.
+
+F2 (major; mutation #4): Add `OnboardingProjectionTests.OnboardingView_LegacyDocumentWithoutNarrative_HydratesEmpty`:
+deserialize a persisted OnboardingView JSON document that lacks the `Narrative` property, using the same
+serializer configuration Marten uses for documents in this repo (read Infrastructure/MartenConfiguration.cs
+to find whether documents use System.Text.Json or Newtonsoft and with which casing; mirror it), and assert
+`view.Narrative == string.Empty`. Build the JSON from a real serialized view with the property removed (for
+example serialize a bootstrap view, parse it, drop the `Narrative` node, re-serialize) so the test tracks the
+document shape. Mutation that must turn it red: replace the `= string.Empty` initializer on
+`OnboardingView.Narrative` with a sentinel value.
+
+F3 (minor; orchestrator review): The build replaced the XML summary of
+`ContextAssembler.BuildPlanGenerationUserMessage` with one sentence and lost the cacheable-prefix
+explanation. Restore the original summary sentences (layout: profile snapshot precedes the optional
+regeneration intent; intent goes LAST under a stable label so the prefix above it is byte-identical across
+initial generation and regenerate; the calling chain appends tier-specific suffixes after this base, keeping
+these bytes inside the cacheable prefix) and ADD one sentence: a non-empty runner narrative precedes the
+profile snapshot inside that same cacheable prefix, and an empty narrative adds no bytes. ASCII only.
+
+F4 ORCHESTRATOR-DONE (major; conformance #3, mutation #3; minor conformance #4): the stage report was
+stale against the 28-file commit and had trailing whitespace. The orchestrator stripped the whitespace and
+appended an "Orchestrator addendum" to `.stage-report.md` and `build-report.md` reconciling the 11 files it
+added (generated, fixture, docs, evidence) and the superseded gate results. No implementer action.
+
+F5 DROPPED (conformance #2 blocker, mutation #1 blocker: non-ASCII in ROADMAP.md, cycle-plan.md,
+decision-log.md): the only non-ASCII additions are em dashes in planning docs that already use them
+throughout (678 in the decision log alone). That is house style, not a defect; the spec checklist line has
+been narrowed to source, tests, comments, and evidence files. No action.
+
+F6 ORCHESTRATOR-RAN (the NOT_RUNNABLE_IN_SANDBOX gates; treat as measured fact): from the session against
+the clone at 6265c38d, recorded in docs/plans/split-ui-cycle/slice-5-evidence/build-orchestrator-runs.md:
+SubmitStructuredAnswersRequestMapperTests 40/40; OnboardingProjectionTests 41/41;
+ContextAssemblerPlanGenerationTests 10/10; OnboardingAnswersEndpointIntegrationTests 20/20;
+PlanGenerationEvalTests 7 total (6 passed, 1 skipped before the fixture existed); targeted Record of the new
+scenario PASSED on the first sample; entry.json expiration patched to 9999-12-31T23:59:59Z; targeted Replay
+1/1; full Replay suite 2054/2054 passed, 0 skipped; `npm run test` 1022/1022; `npm run check-contrast`
+50/50 pairs; `npm run codegen:check` exit 0 after the commit; swagger jq oracle true;
+`check-prompt-hashes.sh --write` no-op (manifest unchanged). The mutation probes M1-M20 are being run by
+the orchestrator in a separate worktree while this fix round runs; their reds are recorded in
+round1/orchestrator-runs.md.
+
+Items marked ORCHESTRATOR-RAN carry the output of a command the sandbox could not run; treat that output as measured fact.
+</fixes>
+
+<environment_and_gates>
+Same as the build round: create `/tmp/codex-agent-feat/slice-5-onboarding-backend` once and set `TMPDIR=/tmp/codex-agent-feat/slice-5-onboarding-backend` inline on each command that needs it; from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format RunCoach.slnx --include <changed .cs> --no-restore --verify-no-changes` on changed .cs; from frontend/ `npm run build`, `npx vitest run <each touched spec>`, `npx eslint` and `npx prettier --check` on changed files. Git is blocked; leave changes in the working tree. No backend test runs in this sandbox: the test host cannot create its named pipe (SocketException 13). For every test you add or change, name the exact `dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class <FullName>` command for the orchestrator under Deviations, with that error as the reason; never claim a test result.
+Files you may touch: the build's file list plus nothing beyond the build's file list (F1 touches PlanGenerationEvalTests.cs, F2 touches OnboardingProjectionTests.cs, F3 touches ContextAssembler.cs). Nothing else.
+</environment_and_gates>
+
+<completeness_contract>
+Final message = markdown stage report: Fixes (F1..Fn, each: what changed, file:line, the check that now goes red against the original bug, or VERIFIED BY INSPECTION when the item is documentation-only; never claim a mechanized red for a doc change), Gates (each command and its last output line), Deviations (any fix you could not apply and why), Open questions. Finish with the line FIX ROUND COMPLETE.
+</completeness_contract>

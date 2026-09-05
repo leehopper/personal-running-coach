@@ -1,0 +1,294 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "blocker",
+   "claim": "The committed PR-A still contains the Replay-only missing-fixture skip after the fixture was committed.",
+   "evidence": "INSPECTED `backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs:559-567` calls `Assert.Skip` when the new fixture is absent. The spec requires removing this scaffolding after commit at `docs/specs/slice-5-onboarding/spec.md:41,387`.",
+   "fix": "Remove the new scenario's `SonnetFixtureExists` skip while retaining ReplayGuard cache-miss failure behavior.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "blocker",
+   "claim": "Changed documentation violates the spec's ASCII-only non-negotiable.",
+   "evidence": "MECHANIZED diff scan found non-ASCII additions at `ROADMAP.md:4-5`, `docs/decisions/decision-log.md:3158`, and `docs/plans/split-ui-cycle/cycle-plan.md:4-5`. The requirement is locked at `docs/specs/slice-5-onboarding/spec.md:432`.",
+   "fix": "Replace copied Unicode punctuation and symbols in changed documentation with ASCII equivalents.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "The committed stage and evidence reports are stale and do not describe the final diff or gate state.",
+   "evidence": "INSPECTED `.stage-report.md:3-9,34-49,95` and `build-report.md:3,9,95`. They report 16 existing files, no generated files or caches, and an outstanding REVIEW amendment. `git diff HEAD~1 --stat` reports 28 files, generated artifacts and cache files are present, and `backend/REVIEW.md` is changed. The reports also conflict on frontend test and eval results.",
+   "fix": "Regenerate both reports from the final 28-file diff and reconcile all gate results and amendment status.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "minor",
+   "claim": "The added evidence report fails the repository whitespace check.",
+   "evidence": "MECHANIZED `git diff HEAD~1 --check` reports trailing whitespace in `docs/plans/split-ui-cycle/slice-5-evidence/build-report.md:13,16,19,22,25,28,31,34,37`.",
+   "fix": "Remove trailing spaces from the added report lines.",
+   "mode": "MECHANIZED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "Remove mapper blank normalization or alter the narrative length bound.",
+   "expected_red_test": "SubmitStructuredAnswersRequestMapperTests narrative normalization, max-length, overlength, and narrative-only tests.",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Remove nullable narrative assignment or make null clear the projection.",
+   "expected_red_test": "OnboardingProjectionTests narrative text, null, empty, and legacy replay tests.",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Remove first-event attachment, working-view assignment, idempotency short-circuit, or HTTP bound validation.",
+   "expected_red_test": "OnboardingAnswersEndpointIntegrationTests narrative round-trip, first-event, working-view, duplicate-key, blank-clear, and overlength tests.",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Always emit or reorder the narrative prompt block.",
+   "expected_red_test": "ContextAssemblerPlanGenerationTests empty, ordering, and byte-stability tests.",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Remove the committed-fixture Replay guard skip.",
+   "expected_red_test": "Replay with the scenario fixture absent must fail instead of skip.",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "Unit 1: narrative round-trip",
+   "status": "SATISFIED",
+   "where": "`SubmitStructuredAnswersHandler.cs:113-176` attaches text once and copies it to the working view. `OnboardingAnswersEndpointIntegrationTests.cs:143-222` covers event, state, and inline plan generation."
+  },
+  {
+   "item": "Unit 2: blank narrative and bounds",
+   "status": "SATISFIED",
+   "where": "`SubmitStructuredAnswersRequestMapper.cs:24-82` defines the 1000-character bound, exact error, blank normalization, and byte preservation. Mapper tests cover the named cases."
+  },
+  {
+   "item": "Unit 3: clear and legacy replay",
+   "status": "SATISFIED",
+   "where": "`OnboardingProjection.cs:88-91` applies only non-null event values, so empty clears and null preserves. `OnboardingProjectionTests.cs:120-194` includes empty and legacy JSON cases. `ContextAssembler.cs:617-624` omits the block for empty text."
+  },
+  {
+   "item": "Unit 4: deterministic composition",
+   "status": "SATISFIED",
+   "where": "`ContextAssembler.cs:617-635` uses deterministic StringBuilder appends. `ContextAssemblerPlanGenerationTests.cs:182-226` compares system prompt, user message, block order, and slot order."
+  },
+  {
+   "item": "Unit 5: targeted eval",
+   "status": "PARTIAL",
+   "where": "`PlanGenerationEvalTests.cs:552-630` has the required prompt, horizon, prose guards, and calf/strain assertion, and the fixture has the required TTL in `entry.json`. The Replay skip remains at lines 559-567."
+  },
+  {
+   "item": "Unit 6: nullable optional OpenAPI shape",
+   "status": "SATISFIED",
+   "where": "`swagger.json` and generated RTK/Zod files contain nullable optional `narrative`. The locked jq oracle exited 0 and reported `true`. The generated barrel has no diff entry."
+  },
+  {
+   "item": "Top-level narrative contract and EF boundary",
+   "status": "SATISFIED",
+   "where": "`SubmitStructuredAnswersRequestDto.cs:21-30` and `OnboardingStateDto.cs:30-46` append nullable properties. `OnboardingView.cs:61-62` stores the initialized value. No RunnerOnboardingProfile, migration, or snapshot path changed."
+  },
+  {
+   "item": "Additive-nullable AnswerCaptured evolution",
+   "status": "SATISFIED",
+   "where": "`AnswerCaptured.cs:17-23` appends `string? Narrative = null`. `OnboardingProjectionTests.cs:170-194` replays legacy JSON without the property. `backend/REVIEW.md:58-63` records the allowed exception."
+  },
+  {
+   "item": "Prompt composition and no YAML change",
+   "status": "SATISFIED",
+   "where": "`ContextAssembler.cs:617-625` emits the exact runner block before the profile snapshot only for nonempty text. No `Prompts/*.yaml` path changed. The prompt-hash check exited 0."
+  },
+  {
+   "item": "Eval fixture and TTL pairing",
+   "status": "PARTIAL",
+   "where": "The new cache fixture exists and `entry.json` uses `9999-12-31T23:59:59Z`. The required post-record skip removal is missing in `PlanGenerationEvalTests.cs:559-567`."
+  },
+  {
+   "item": "Preserved frontend specs unmodified",
+   "status": "SATISFIED",
+   "where": "The named resume, reseed, schema, API, form, building-surface, and E2E spec paths have no `git diff HEAD~1 --name-only` entries. PR-A remains scoped to contract files and models."
+  },
+  {
+   "item": "Preserved idempotency, guards, and completion gate",
+   "status": "SATISFIED",
+   "where": "`SubmitStructuredAnswersHandler.cs:76-105` preserves duplicate and completed-stream guards. `OnboardingController.cs:23-80` preserves auth, POST, and antiforgery. The handler retains the completion gate and transaction path."
+  },
+  {
+   "item": "Wire and event delta is exactly nullable-additive",
+   "status": "SATISFIED",
+   "where": "The only wire fields are `narrative` on request and state. The only persisted event change is nullable `AnswerCaptured.Narrative`; no new event type, rename, upcaster, migration, or EF column appears."
+  },
+  {
+   "item": "Trademark rule",
+   "status": "SATISFIED",
+   "where": "The added-line scan found no `VDOT` literal. The fixture uses allowed `Daniels-Gilbert zones` and `pace-zone index` wording."
+  },
+  {
+   "item": "Logging rule",
+   "status": "SATISFIED",
+   "where": "The added-line logging scan found no direct `ILogger` calls. Existing controller and handler logging remains source-generated."
+  },
+  {
+   "item": "Comment hygiene",
+   "status": "SATISFIED",
+   "where": "The added production comments contain no external documentation paths, TODO/FIXME markers, or planning-only references."
+  },
+  {
+   "item": "ASCII source and test hygiene",
+   "status": "SATISFIED",
+   "where": "Added C# and TypeScript source/test lines are ASCII. Documentation additions are not ASCII-only, reported separately as a blocker."
+  },
+  {
+   "item": "Units 7-12 frontend recomposition",
+   "status": "NOT_APPLICABLE",
+   "where": "The spec assigns these criteria to PR-B at `docs/specs/slice-5-onboarding/spec.md:164-215`; this diff is PR-A."
+  },
+  {
+   "item": "Required runtime test gates",
+   "status": "PARTIAL",
+   "where": "Backend build, format, frontend build, targeted Vitest, ESLint, Prettier, Swagger jq, and prompt hash checks passed here. Backend dotnet tests, full frontend test, contrast, targeted eval Replay, and full Replay were not independently runnable in this sandbox."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "git diff HEAD~1 --stat",
+   "result": "VERIFIED: 28 files changed, 981 insertions(+), 34 deletions(-). This contradicts the stage report's 16 existing plus 1 new inventory."
+  },
+  {
+   "command": "git diff HEAD~1 --check",
+   "result": "CONTRADICTED report cleanliness: RED with trailing whitespace in build-report.md lines 13,16,19,22,25,28,31,34,37."
+  },
+  {
+   "command": "dotnet build RunCoach.slnx --no-restore -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers",
+   "result": "VERIFIED: Build succeeded. 0 Warning(s). 0 Error(s). Time Elapsed: 00:00:09.07."
+  },
+  {
+   "command": "dotnet format RunCoach.slnx --include <changed backend C# files> --no-restore --verify-no-changes",
+   "result": "VERIFIED: exit 0 with no output."
+  },
+  {
+   "command": "npm run build",
+   "result": "VERIFIED: exit 0. Vite reported built in 504ms. Prebuild codegen regenerated unchanged outputs."
+  },
+  {
+   "command": "npx vitest run src/app/modules/onboarding src/app/api",
+   "result": "VERIFIED: 12 files passed and 126 tests passed."
+  },
+  {
+   "command": "npx eslint src/app/modules/onboarding/models/onboarding.model.ts",
+   "result": "VERIFIED: exit 0 with no output."
+  },
+  {
+   "command": "npx prettier --check src/app/modules/onboarding/models/onboarding.model.ts",
+   "result": "VERIFIED: All matched files use Prettier code style!"
+  },
+  {
+   "command": "jq -e '.components.schemas.SubmitStructuredAnswersRequestDto.properties.narrative.nullable == true and (.components.schemas.SubmitStructuredAnswersRequestDto.required | index(\"narrative\")) == null and .components.schemas.OnboardingStateDto.properties.narrative.nullable == true and (.components.schemas.OnboardingStateDto.required | index(\"narrative\")) == null' backend/openapi/swagger.json",
+   "result": "VERIFIED: exit 0 and output true."
+  },
+  {
+   "command": "bash backend/tests/scripts/check-prompt-hashes.sh",
+   "result": "VERIFIED: exit 0. Prompt-hash manifest is in sync (DEC-074)."
+  },
+  {
+   "command": "git diff HEAD~1 --exit-code -- backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256",
+   "result": "VERIFIED: exit 0. Manifest unchanged."
+  },
+  {
+   "command": "git diff HEAD~1 --name-only -- frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts frontend/src/app/api/onboarding.api.spec.ts frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.spec.tsx frontend/e2e/onboarding.spec.ts",
+   "result": "VERIFIED: no preserved frontend spec file was edited."
+  },
+  {
+   "command": "git diff HEAD~1 --unified=0 --no-color | perl -ne 'next if /^\\+\\+\\+/; print if /^\\+/ && /\\bVDOT\\b/i'",
+   "result": "VERIFIED: no added VDOT literal."
+  },
+  {
+   "command": "git diff HEAD~1 --unified=0 -- backend/src/RunCoach.Api/Infrastructure backend/src/RunCoach.Api/Modules/Coaching | rg 'direct ILogger|_ = .*Async|\\.Result|\\.Wait\\(|GetAwaiter\\(\\)\\.GetResult|docs/|TODO|FIXME'",
+   "result": "VERIFIED: no matching added production violations."
+  },
+  {
+   "command": "nl -ba .stage-report.md | sed -n '1,180p'",
+   "result": "CONTRADICTED: lines 3-9 have an incomplete file inventory; lines 34-35 report frontend failures while build-orchestrator-runs.md:38-40 reports 86 passed; lines 48-49 are stale against the committed fixture and orchestrator record; line 95 says the REVIEW amendment is outstanding although it is in the diff; line 101 says STAGE COMPLETE despite these gaps."
+  },
+  {
+   "command": "Backend dotnet test focused classes and Replay suite",
+   "result": "UNVERIFIED: not run per explicit NO dotnet test instruction. AGENTS documents the sandbox failure as test-host named-pipe SocketException 13."
+  },
+  {
+   "command": "npm run test",
+   "result": "UNVERIFIED: not run in this lens. The stage report claims 3 failures, while the committed orchestrator record claims 86 frontend files passed."
+  },
+  {
+   "command": "npm run check-contrast",
+   "result": "UNVERIFIED: not run in this lens. The stage report records sandbox `tsx` IPC `Error: listen EPERM`."
+  },
+  {
+   "command": "git status --short",
+   "result": "VERIFIED: clean. No scratch files or worktree mutations remain."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.SubmitStructuredAnswersRequestMapperTests",
+   "purpose": "Run the focused mapper tests outside this sandbox."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.OnboardingProjectionTests",
+   "purpose": "Run the focused projection and legacy replay tests outside this sandbox."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.OnboardingAnswersEndpointIntegrationTests",
+   "purpose": "Run the HTTP, Marten, Wolverine, EF, idempotency, and bound integration tests outside this sandbox."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.ContextAssemblerPlanGenerationTests",
+   "purpose": "Run the focused empty, ordering, and byte-stability tests outside this sandbox."
+  },
+  {
+   "command": "ANTHROPIC_API_KEY=<funded-key> EVAL_CACHE_MODE=Record dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-method RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests.DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf",
+   "purpose": "Record the targeted Sonnet fixture with a funded key."
+  },
+  {
+   "command": "EVAL_CACHE_MODE=Replay dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-method RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests.DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf",
+   "purpose": "Replay the targeted narrative eval and verify cache behavior."
+  },
+  {
+   "command": "EVAL_CACHE_MODE=Replay dotnet test --solution RunCoach.slnx --no-build",
+   "purpose": "Run the full backend Replay suite."
+  },
+  {
+   "command": "dotnet build src/RunCoach.Api/RunCoach.Api.csproj -c Release --no-restore -p:EmitOpenApi=true",
+   "purpose": "Emit Release OpenAPI for the codegen chain using the repository's EmitOpenApi target."
+  },
+  {
+   "command": "npm run codegen",
+   "purpose": "Regenerate RTK and Zod artifacts from the emitted OpenAPI."
+  },
+  {
+   "command": "npm run codegen:check",
+   "purpose": "Verify generated artifacts and the unchanged generated barrel."
+  },
+  {
+   "command": "bash backend/tests/scripts/check-prompt-hashes.sh --write",
+   "purpose": "Run the DEC-089 D7 manifest regeneration no-op step."
+  },
+  {
+   "command": "git diff --exit-code -- backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256",
+   "purpose": "Confirm the prompt manifest remains unchanged."
+  },
+  {
+   "command": "npm run test",
+   "purpose": "Run the full frontend preserved behavior suite."
+  },
+  {
+   "command": "npm run check-contrast",
+   "purpose": "Run the frontend semantic-token contrast gate."
+  }
+ ],
+ "verdict": "REJECT. The narrative plumbing, nullable wire shape, projection behavior, prompt composition, generated artifacts, and local build gates conform, but the committed eval test still silently skips missing fixtures, changed documentation violates ASCII hygiene, the stage/evidence reports are stale and incomplete, and the evidence report has trailing whitespace."
+}

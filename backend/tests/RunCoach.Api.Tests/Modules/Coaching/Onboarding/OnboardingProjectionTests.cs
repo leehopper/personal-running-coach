@@ -1,7 +1,9 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FluentAssertions;
 using JasperFx.Events;
 using Marten;
+using Marten.Services;
 using NSubstitute;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Onboarding;
@@ -88,6 +90,26 @@ public sealed class OnboardingProjectionTests
         actual.OnboardingStartedAt.Should().Be(Now);
         actual.OutstandingClarifications.Should().BeEmpty();
         actual.Version.Should().Be(1);
+    }
+
+    [Fact]
+    public void OnboardingView_LegacyDocumentWithoutNarrative_HydratesEmpty()
+    {
+        // Arrange -- MartenConfiguration leaves the built-in System.Text.Json serializer in
+        // place, using its default PascalCase document member casing.
+        var expected = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        var serializer = new SystemTextJsonSerializer();
+        var document = JsonNode.Parse(serializer.ToJson(expected));
+        document.Should().NotBeNull();
+        document.AsObject().Remove(nameof(OnboardingView.Narrative));
+        var legacyJson = document.ToJsonString();
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(legacyJson));
+
+        // Act
+        var actual = serializer.FromJson<OnboardingView>(stream);
+
+        // Assert
+        actual.Narrative.Should().Be(string.Empty);
     }
 
     [Fact]
