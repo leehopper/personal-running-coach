@@ -418,4 +418,13 @@ describe('hydrateOnboardingFormFields \u2014 resume', () => {
     expect(blank.days).toEqual([])
     expect(blank.maxRunDays).toBe('')
   })
+
+  it('hydrates legacy states without a narrative as an empty string', () => {
+    const stateWithoutNarrative = seededState()
+    delete stateWithoutNarrative.narrative
+
+    for (const state of [stateWithoutNarrative, { ...seededState(), narrative: null }]) {
+      expect(hydrateOnboardingFormFields(state, PreferredUnits.Kilometers).narrative).toBe('')
+    }
+  })
 })

@@ -88,19 +88,61 @@ describe('OnboardingForm', () => {
     const result = renderInBothThemes(
       <OnboardingForm
         units={PreferredUnits.Kilometers}
-        initialFields={makeDefaultOnboardingFormFields()}
+        initialFields={{
+          ...makeDefaultOnboardingFormFields(),
+          goal: String(PrimaryGoal.RaceTraining),
+        }}
         onUnitsChange={onUnitsChange}
       />,
     )
 
     expect(testidsIn(result.dark.container)).toEqual(testidsIn(result.light.container))
     for (const renderResult of [result.dark, result.light]) {
-      expect(renderResult.getByTestId('onboarding-section-narrative')).toBeInTheDocument()
-      expect(renderResult.getByTestId('onboarding-section-goal')).toBeInTheDocument()
-      expect(renderResult.getByTestId('onboarding-section-fitness')).toBeInTheDocument()
-      expect(renderResult.getByTestId('onboarding-section-schedule')).toBeInTheDocument()
-      expect(renderResult.getByTestId('onboarding-section-fine-print')).toBeInTheDocument()
+      for (const label of [
+        '00 \u2014 In your own words',
+        '01 \u2014 The goal',
+        '02 \u2014 The race',
+        "03 \u2014 Where you're at",
+        '04 \u2014 Your week',
+        '05 \u2014 The fine print',
+      ]) {
+        expect(renderResult.getByRole('heading', { level: 2, name: label })).toBeInTheDocument()
+      }
+      expect(
+        renderResult.getByPlaceholderText(
+          'Coming back from a calf strain. 10K in October. Tuesdays are impossible, and I hate treadmills\u2026',
+        ),
+      ).toBeInTheDocument()
+      expect(
+        renderResult.getByText(
+          'The coach reads this first. Plain words beat perfect forms \u2014 the form below keeps the numbers honest.',
+        ),
+      ).toBeInTheDocument()
+      expect(renderResult.getByRole('button', { name: 'Build my plan' })).toBeInTheDocument()
+      expect(
+        renderResult.getByText(
+          'A recent race sharpens your pace zones. No race \u2014 no problem.',
+        ),
+      ).toBeInTheDocument()
+
+      expect(renderResult.getByRole('radiogroup', { name: 'Units' })).toBeInTheDocument()
+      expect(
+        renderResult.getByRole('radiogroup', { name: "What's your primary goal?" }),
+      ).toBeInTheDocument()
+      expect(renderResult.getByRole('textbox', { name: 'In your own words' })).toBeInTheDocument()
+      expect(renderResult.getByRole('toolbar', { name: 'Preferred run days' })).toBeInTheDocument()
+      for (const name of [
+        'Current injury or limitation',
+        'Comfortable with hard, structured work',
+        'Prefer trails where possible',
+      ]) {
+        expect(renderResult.getByRole('switch', { name })).toBeInTheDocument()
+      }
+
+      expect(renderResult.container.innerHTML).not.toMatch(/text-\[#/)
+      expect(renderResult.container.innerHTML).not.toMatch(/bg-\[#/)
       expect(renderResult.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+      expect(renderResult.container.innerHTML).not.toContain('--alp-faint')
     }
   })
 
@@ -150,7 +192,32 @@ describe('OnboardingForm', () => {
   it('places detail triggers only in the sections with nuance fields', async () => {
     const { user } = renderForm()
 
-    expect(screen.getByTestId('goalDescription-trigger')).toHaveTextContent('+ Add detail')
+    const goalDetailTrigger = screen.getByTestId('goalDescription-trigger')
+    expect(goalDetailTrigger).toHaveTextContent('+ Add detail')
+    expect(goalDetailTrigger).toHaveClass(
+      't-data-label',
+      'text-clay-text',
+      'min-h-11',
+      'focus-visible:ring-[3px]',
+      'active:scale-[0.98]',
+      'motion-reduce:transition-none',
+    )
+    const monoLabel = goalDetailTrigger.querySelector('[data-testid="mono-label"]')
+    if (monoLabel === null) throw new Error('Expected a mono detail label')
+    expect(monoLabel).toHaveClass('t-data-label', 'text-clay-text')
+    const detailContent = goalDetailTrigger.parentElement?.querySelector(
+      '[data-slot="collapsible-content"]',
+    )
+    if (detailContent === undefined || detailContent === null) {
+      throw new Error('Expected collapsible detail content')
+    }
+    expect(detailContent).toHaveClass(
+      'data-[state=closed]:animate-out',
+      'data-[state=closed]:fade-out-0',
+      'data-[state=open]:animate-in',
+      'data-[state=open]:fade-in-0',
+      'motion-reduce:animate-none',
+    )
     expect(screen.getByTestId('fitnessDescription-trigger')).toHaveTextContent('+ Add detail')
     expect(screen.getByTestId('scheduleDescription-trigger')).toHaveTextContent('+ Add detail')
     expect(screen.getByTestId('fine-print-detail-trigger')).toHaveTextContent(
@@ -203,33 +270,94 @@ describe('OnboardingForm', () => {
     expect(screen.getByRole('status')).toHaveTextContent('BUILDING YOUR PLAN')
   })
 
-  it('returns values and the same idempotency key after a handled 422', async () => {
+  it('returns every entered value and the same idempotency key after a handled 422', async () => {
     submitUnwrap.mockRejectedValueOnce({ status: 422 })
     const { user } = renderForm()
-    await fillMinimalValid(user)
-    await user.type(screen.getByTestId('narrative-field'), 'Keep my return gradual.')
+    await user.click(screen.getByRole('radio', { name: /train for a race/i }))
+    await user.type(screen.getByTestId('eventName-field'), 'Chicago Marathon')
+    await user.type(screen.getByTestId('eventDistance-field'), '42.2')
+    await user.type(screen.getByTestId('eventDate-field'), '2026-10-11')
+    await user.type(screen.getByTestId('targetFinishTime-field'), '3:45:00')
+    await user.type(screen.getByTestId('typicalWeekly-field'), '37')
+    await user.type(screen.getByTestId('longestRecentRun-field'), '19')
+    await user.type(screen.getByTestId('recentRaceDistance-field'), '10')
+    await user.type(screen.getByTestId('recentRaceTime-field'), '45:00')
+    await user.type(screen.getByTestId('maxRunDays-field'), '5')
+    await user.type(screen.getByTestId('sessionMinutes-field'), '70')
+    await user.click(screen.getByRole('button', { name: 'Mon' }))
+    await user.click(screen.getByRole('button', { name: 'Thu' }))
+    await user.click(screen.getByRole('button', { name: 'Sat' }))
+    await user.click(screen.getByRole('switch', { name: 'Current injury or limitation' }))
+    await user.type(
+      screen.getByLabelText("What's bothering you right now?"),
+      'Right calf tightness',
+    )
+    await user.click(screen.getByRole('switch', { name: 'Comfortable with hard, structured work' }))
+    await user.click(screen.getByRole('switch', { name: 'Prefer trails where possible' }))
+    await user.type(
+      screen.getByTestId('narrative-field'),
+      'Returning carefully after a calf strain.',
+    )
+    await user.click(screen.getByTestId('goalDescription-trigger'))
+    await user.type(screen.getByTestId('goalDescription-field'), 'Chasing a sub-four finish.')
     await submitForm(user)
 
     await waitFor(() => expect(screen.getByTestId('onboarding-form-alert')).toBeInTheDocument())
     const firstRequest = submitTrigger.mock.calls[0][0]
-    expect(screen.getByTestId('narrative-field')).toHaveValue('Keep my return gradual.')
+    expect(screen.getByRole('radio', { name: /train for a race/i })).toBeChecked()
+    expect(screen.getByTestId('eventName-field')).toHaveValue('Chicago Marathon')
+    expect(screen.getByTestId('eventDistance-field')).toHaveValue('42.2')
+    expect(screen.getByTestId('eventDate-field')).toHaveValue('2026-10-11')
+    expect(screen.getByTestId('targetFinishTime-field')).toHaveValue('3:45:00')
+    expect(screen.getByTestId('typicalWeekly-field')).toHaveValue('37')
+    expect(screen.getByTestId('longestRecentRun-field')).toHaveValue('19')
+    expect(screen.getByTestId('recentRaceDistance-field')).toHaveValue('10')
+    expect(screen.getByTestId('recentRaceTime-field')).toHaveValue('45:00')
+    expect(screen.getByTestId('maxRunDays-field')).toHaveValue('5')
+    expect(screen.getByTestId('sessionMinutes-field')).toHaveValue('70')
+    for (const day of ['Mon', 'Thu', 'Sat']) {
+      expect(screen.getByRole('button', { name: day })).toHaveAttribute('data-state', 'on')
+    }
+    for (const name of [
+      'Current injury or limitation',
+      'Comfortable with hard, structured work',
+      'Prefer trails where possible',
+    ]) {
+      expect(screen.getByRole('switch', { name })).toHaveAttribute('data-state', 'checked')
+    }
+    expect(screen.getByLabelText("What's bothering you right now?")).toHaveValue(
+      'Right calf tightness',
+    )
+    expect(screen.getByTestId('narrative-field')).toHaveValue(
+      'Returning carefully after a calf strain.',
+    )
+    expect(screen.getByTestId('goalDescription-field')).toHaveValue('Chasing a sub-four finish.')
     expect(screen.getByTestId('onboarding-submit')).toBeEnabled()
     expect(screen.queryByTestId('onboarding-building')).not.toBeInTheDocument()
 
     submitUnwrap.mockResolvedValueOnce({ isComplete: true, currentPlanId: 'plan-1' })
-    await user.click(screen.getByTestId('onboarding-submit'))
+    await submitForm(user)
     await waitFor(() => expect(submitTrigger).toHaveBeenCalledTimes(2))
     expect(submitTrigger.mock.calls[1][0].idempotencyKey).toBe(firstRequest.idempotencyKey)
   })
 
   it('renders the units field first and every numbered section', () => {
     renderForm()
-    expect(screen.getByTestId('onboarding-units-field')).toBeInTheDocument()
-    expect(screen.getByTestId('onboarding-section-narrative')).toBeInTheDocument()
-    expect(screen.getByTestId('onboarding-section-goal')).toBeInTheDocument()
-    expect(screen.getByTestId('onboarding-section-fitness')).toBeInTheDocument()
-    expect(screen.getByTestId('onboarding-section-schedule')).toBeInTheDocument()
-    expect(screen.getByTestId('onboarding-section-fine-print')).toBeInTheDocument()
+    const form = screen.getByTestId('onboarding-submit').closest('form')
+    if (form === null) throw new Error('Expected onboarding form')
+    const formNodes = [...form.querySelectorAll('*')]
+    const indexOf = (element: Element): number => formNodes.indexOf(element)
+    const unitsField = screen.getByTestId('onboarding-units-field')
+    const narrativeSection = screen.getByTestId('onboarding-section-narrative')
+    const firstNumberedSection = screen.getByTestId('onboarding-section-goal')
+
+    expect(indexOf(unitsField)).toBeLessThan(indexOf(narrativeSection))
+    expect(indexOf(unitsField)).toBeLessThan(indexOf(firstNumberedSection))
+    const numericInputs = form.querySelectorAll('[inputmode="numeric"], [inputmode="decimal"]')
+    expect(numericInputs.length).toBeGreaterThan(0)
+    for (const numericInput of numericInputs) {
+      expect(indexOf(unitsField)).toBeLessThan(indexOf(numericInput))
+    }
   })
 
   it('reveals the TargetEvent section only for a race-training goal', async () => {
@@ -290,6 +418,25 @@ describe('OnboardingForm', () => {
     expect(request.currentFitness.typicalWeeklyKm).toBe(40)
     expect(request.weeklySchedule.maxRunDaysPerWeek).toBe(5)
     expect(request.preferences.preferredUnits).toBe(PreferredUnits.Kilometers)
+  })
+
+  it('creates a fresh idempotency key for each independent form mount', async () => {
+    const first = renderForm()
+    await fillMinimalValid(first.user)
+    await submitForm(first.user)
+    await waitFor(() => expect(submitTrigger).toHaveBeenCalledTimes(1))
+    const firstKey = submitTrigger.mock.calls[0][0].idempotencyKey
+    first.unmount()
+
+    const second = renderForm()
+    await fillMinimalValid(second.user)
+    await submitForm(second.user)
+    await waitFor(() => expect(submitTrigger).toHaveBeenCalledTimes(2))
+    const secondKey = submitTrigger.mock.calls[1][0].idempotencyKey
+
+    expect(firstKey).toMatch(UUID_PATTERN)
+    expect(secondKey).toMatch(UUID_PATTERN)
+    expect(secondKey).not.toBe(firstKey)
   })
 
   it('submits a race profile with the target event populated', async () => {
@@ -386,11 +533,20 @@ describe('OnboardingForm', () => {
     })
   })
 
-  it('shows the building state after a completed submission', async () => {
+  it('showsBuildingPlanSurfaceAfterCompleteUntilRedirect', async () => {
     const { user } = renderForm()
     await fillMinimalValid(user)
     await submitForm(user)
+
+    const firstRequest = submitTrigger.mock.calls[0][0]
     expect(await screen.findByTestId('onboarding-building')).toBeInTheDocument()
+    expect(screen.getByTestId('onboarding-section-narrative')).toBeInTheDocument()
+    expect(screen.getByTestId('onboarding-submit')).toBeInTheDocument()
+
+    await submitForm(user)
+    await waitFor(() => expect(submitTrigger).toHaveBeenCalledTimes(2))
+    expect(submitTrigger.mock.calls[1][0].idempotencyKey).toBe(firstRequest.idempotencyKey)
+    expect(screen.getByTestId('onboarding-building')).toBeInTheDocument()
   })
 
   it('surfaces a partial-progress alert and rotates the idempotency key when the gate is unmet', async () => {

@@ -78,3 +78,12 @@ STAGE COMPLETE
 
 Codex session ID: 01a072f4-1cc7-75b0-abc4-2082c25bc2ac
 Resume in Codex: codex resume 01a072f4-1cc7-75b0-abc4-2082c25bc2ac
+
+## Orchestrator addendum (after the build stage)
+
+The report above is the implementer's stage report. Host gates the sandbox could not run are recorded in
+`build-orchestrator-runs.md`: `npm run build` clean, `npm run test` 1035/1035 (86 files), `npm run check-contrast`
+50/50 pairs, `npm run codegen:check` exit 0, prettier clean, Playwright 14 passed with 2 failures that reproduce
+from `main`'s frontend (documented there; outside this PR's surfaces). The `dotnet format` line is not applicable
+(no C# changed). The Mutations section's claim of a test named `showsBuildingPlanSurfaceAfterCompleteUntilRedirect`
+is corrected in the round-1 fix list (F3): the committed spec has a narrower completed-submit test.

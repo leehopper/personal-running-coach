@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Textarea } from '@/components/ui/textarea'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { MonoLabel } from '~/modules/common/components/mono-label/mono-label.component'
 import type {
   OnboardingFormControl,
   OnboardingStringFieldName,
@@ -46,11 +47,10 @@ export const OnboardingNuanceSection = ({
         <Button
           type="button"
           variant="ghost"
-          size="sm"
-          className="w-fit gap-1 px-2 text-muted-foreground motion-reduce:active:scale-100"
+          className="t-data-label w-fit min-h-11 gap-1 px-2 text-clay-text active:scale-[0.98] motion-reduce:transition-none"
           data-testid={triggerTestId ?? `${name}-trigger`}
         >
-          {label}
+          <MonoLabel tone="clay">{label}</MonoLabel>
           <ChevronDownIcon
             aria-hidden="true"
             className={`size-4 transition-transform duration-200 ease-out motion-reduce:transition-none ${
@@ -59,7 +59,7 @@ export const OnboardingNuanceSection = ({
           />
         </Button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="overflow-hidden">
+      <CollapsibleContent className="data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none overflow-hidden">
         <FormField
           control={control}
           name={name}

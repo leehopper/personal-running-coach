@@ -1,0 +1,300 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "blocker",
+   "claim": "Changed evidence is not ASCII-only.",
+   "evidence": "MECHANIZED scan found Unicode and ANSI text in docs/plans/split-ui-cycle/slice-5-evidence/pr-b/build-orchestrator-runs.md:10,11,17,38,39. Spec.md:432 requires changed evidence files to be ASCII.",
+   "fix": "Rewrite the evidence log with ASCII-only output and remove ANSI control characters.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "The stage report file list does not match the diff scope.",
+   "evidence": "MECHANIZED git diff HEAD~1 --stat reports 29 files. .stage-report.md:3-17 lists the 25 task paths but omits four changed evidence files: build-brief.txt, build-orchestrator-runs.md, build-report.md, and build-vars.json.",
+   "fix": "Remove the four unlisted files from the change or update the authorized file list and report consistently.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "The locked nuance trigger styling and motion decision is not implemented.",
+   "evidence": "INSPECTED spec.md:182 requires collapsed mono + Add detail triggers and locked Collapsible motion classes. onboarding-nuance-section.component.tsx:50 lacks mono/clay styling and :62 uses overflow-hidden without the required state animation classes.",
+   "fix": "Apply the locked mono trigger classes and state animation classes with the motion-reduce variant.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The named dual-theme test does not cover the full Unit 7 acceptance criterion.",
+   "evidence": "INSPECTED onboarding-form.component.spec.tsx:87-104 checks test IDs, section presence, and absence of hex literals only. It does not assert locked copy, accessible names, or semantic token classes in both theme renders.",
+   "fix": "Assert the required copy, accessible names, and semantic token classes for both renderInBothThemes results.",
+   "mode": "INSPECTED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "Narrative, recomposition, and dual-theme tests against HEAD~1.",
+   "expected_red_test": "The new narrative and recomposition assertions should fail against the pre-PR-B implementation.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Overlay lifecycle and handled 422 retry tests against HEAD~1.",
+   "expected_red_test": "The overlay, inert form, and same-key 422 assertions should fail against the pre-PR-B implementation.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Narrative hydration, mapping, and four-distance reseed tests against HEAD~1.",
+   "expected_red_test": "The new schema and hydration assertions should fail against the pre-PR-B implementation.",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "PR-B exact file scope",
+   "status": "PARTIAL",
+   "where": "spec.md:164-210 and .stage-report.md:3-17 describe 25 task paths, while git diff HEAD~1 --stat reports 29 files."
+  },
+  {
+   "item": "Section 1.B copy, escape, and source-string decisions",
+   "status": "SATISFIED",
+   "where": "onboarding.page.tsx:190-195, onboarding-form.component.tsx:125-137, and onboarding-narrative-field.component.tsx:28-40 use the locked copy and TSX escapes."
+  },
+  {
+   "item": "Starting-plan CTA and building status copy",
+   "status": "SATISFIED",
+   "where": "building-plan-surface.component.tsx:12,44-53 and its spec:17-30 use the locked starting-plan text."
+  },
+  {
+   "item": "Full-screen narrative helper",
+   "status": "SATISFIED",
+   "where": "onboarding-narrative-field.component.tsx:25-40 has the locked placeholder, 1000-character limit, minimum height, and helper."
+  },
+  {
+   "item": "Detail trigger placement and styling decision",
+   "status": "PARTIAL",
+   "where": "Placement is implemented in onboarding-goal-section.component.tsx:12-20, onboarding-fitness-section.component.tsx:50-56, onboarding-schedule-section.component.tsx:33-39, and onboarding-fine-print-section.component.tsx:95. Locked nuance trigger styling is missing at onboarding-nuance-section.component.tsx:50-62."
+  },
+  {
+   "item": "Building overlay lifecycle",
+   "status": "SATISFIED",
+   "where": "onboarding-form.component.tsx:109-163 implements isLoading || isBuilding, fixed inset overlay, inert form, and mounted form. Focused Vitest passed 66/66."
+  },
+  {
+   "item": "Preserved field names, IDs, page guards, resume, units gates, and idempotency",
+   "status": "SATISFIED",
+   "where": "onboarding-form.component.tsx:57-101, onboarding.page.tsx:141-211, and onboarding-form.schema.ts:445-540 preserve the contracts. Existing page and schema tests remain in the changed files without loosened assertions."
+  },
+  {
+   "item": "Unit 6 nullable generated shape and barrel",
+   "status": "SATISFIED",
+   "where": "Generated RTK and Zod files contain optional nullable narrative at api.ts:488,538 and onboarding.ts:133,184. npm run codegen:check exited 0 and the generated barrel was unchanged."
+  },
+  {
+   "item": "Unit 7 recomposed intake in both themes",
+   "status": "SATISFIED",
+   "where": "onboarding-form.component.tsx:120-137 renders units and the numbered sections in order. The focused component test passed."
+  },
+  {
+   "item": "Unit 7 test oracle coverage",
+   "status": "PARTIAL",
+   "where": "onboarding-form.component.spec.tsx:87-104 does not assert all copy, accessible names, or semantic token classes for both themes."
+  },
+  {
+   "item": "Unit 8 conditional sections and detail placement",
+   "status": "SATISFIED",
+   "where": "onboarding-form.component.tsx:132-137, onboarding-target-event-section.component.tsx:16-20, and onboarding-fine-print-section.component.tsx:85-95 implement race, injury, and detail behavior. Focused Vitest passed."
+  },
+  {
+   "item": "Unit 9 chips, switches, stable IDs, unit labels, and km-native mapping",
+   "status": "SATISFIED",
+   "where": "onboarding-day-toggle-field.component.tsx:27-49, onboarding-switch-field.component.tsx:20-30, and onboarding-form.schema.ts:482-540 implement the contract. Focused Vitest passed."
+  },
+  {
+   "item": "Unit 10 building lifecycle",
+   "status": "SATISFIED",
+   "where": "onboarding-form.component.tsx:109-163 and building-plan-surface.component.tsx:35-53 implement pending and completed overlays. Focused Vitest passed."
+  },
+  {
+   "item": "Unit 11 422 retry and idempotency",
+   "status": "SATISFIED",
+   "where": "onboarding-form.component.tsx:75-101 retains the key on rejection and rotates only incomplete success. onboarding-form.component.spec.tsx:206-223 and :396-414 cover both paths."
+  },
+  {
+   "item": "Unit 12 resume and reseed",
+   "status": "SATISFIED",
+   "where": "onboarding-form.schema.ts:408-469 hydrates narrative and converts exactly four distance fields. onboarding.page.tsx:154-164 and page spec:205-265 preserve remount behavior."
+  },
+  {
+   "item": "Units 1-5 preserved PR-A backend contracts",
+   "status": "PARTIAL",
+   "where": "No backend, event, prompt, or wire file is in the PR-B diff, but backend tests were not runnable in this sandbox. The attempted dotnet test failed on named-pipe permission."
+  },
+  {
+   "item": "Preserved helper and API specs unmodified",
+   "status": "SATISFIED",
+   "where": "spec.md:397-404 requires preservation; git diff HEAD~1 --name-only contains no onboarding helper or API spec path. Page, form, and schema specs are explicitly listed for PR-B realignment at spec.md:200-206."
+  },
+  {
+   "item": "Edge-case matrix for frontend behavior",
+   "status": "SATISFIED",
+   "where": "onboarding-form.component.spec.tsx:135-223 and onboarding-form.schema.spec.ts:160-338 cover race, injury, narrative bounds, mapping, units, overlay, retry, and reseed cases."
+  },
+  {
+   "item": "E2E thin journey and narrative request assertion",
+   "status": "SATISFIED",
+   "where": "frontend/e2e/onboarding.spec.ts:115-166 keeps one journey and asserts narrative at :152. Orchestrator evidence reports the onboarding journey passed at build-orchestrator-runs.md:41-44."
+  },
+  {
+   "item": "Wire and event delta",
+   "status": "SATISFIED",
+   "where": "No PR-B wire or event file changed. git diff HEAD~1 --name-only has no backend, generated, event, migration, or swagger path."
+  },
+  {
+   "item": "Prompt YAML, manifest, and eval-cache pairing",
+   "status": "NOT_APPLICABLE",
+   "where": "No prompt YAML, prompt hash manifest, or eval-cache file is in the PR-B diff. This matches spec.md:423 and :446."
+  },
+  {
+   "item": "Trademark rule",
+   "status": "SATISFIED",
+   "where": "No frontend source file in the diff contains VDOT or vdot. The only lowercase occurrence is a captured pre-existing E2E title in evidence at build-orchestrator-runs.md:38, not user-facing UI copy."
+  },
+  {
+   "item": "Logging rule",
+   "status": "NOT_APPLICABLE",
+   "where": "No backend source or logging call changed in the PR-B diff."
+  },
+  {
+   "item": "Migration and model snapshot rule",
+   "status": "SATISFIED",
+   "where": "No migration or model snapshot path appears in git diff HEAD~1 --name-only."
+  },
+  {
+   "item": "Comment hygiene",
+   "status": "SATISFIED",
+   "where": "Changed production source comments contain no TODO/FIXME or plan/spec/decision-log paths. The static scan returned only intentional paths in evidence metadata."
+  },
+  {
+   "item": "Semantic tokens and 44px targets",
+   "status": "PARTIAL",
+   "where": "New controls use semantic classes and min-h-11 or hit-target classes at onboarding-goal-field.component.tsx:35-39, onboarding-switch-field.component.tsx:20-28, and onboarding-day-toggle-field.component.tsx:42-45. The nuance trigger styling decision remains nonconformant."
+  },
+  {
+   "item": "ASCII requirement",
+   "status": "MISSING",
+   "where": "spec.md:432 is violated by Unicode and ANSI text in build-orchestrator-runs.md:10-11,17,38-39."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "git diff HEAD~1 --stat",
+   "result": "VERIFIED: 29 files changed, 823 insertions(+), 362 deletions(-)."
+  },
+  {
+   "command": "npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx src/app/modules/onboarding/pages/onboarding.page.spec.tsx src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts src/app/modules/common/components/building-plan-surface/building-plan-surface.component.spec.tsx",
+   "result": "VERIFIED: exit 0; Test Files 4 passed (4), Tests 66 passed (66), Duration 2.74s."
+  },
+  {
+   "command": "npm run build",
+   "result": "VERIFIED: exit 0; last output line was the existing chunk-size warning."
+  },
+  {
+   "command": "git diff HEAD~1 --name-only --diff-filter=ACMRT | rg '^frontend/.*\\.(ts|tsx)$' | sed 's#^frontend/##' | xargs npx eslint",
+   "result": "VERIFIED: exit 0 with no output."
+  },
+  {
+   "command": "git diff HEAD~1 --name-only --diff-filter=ACMRT | rg '^frontend/.*\\.(ts|tsx)$' | sed 's#^frontend/##' | xargs npx prettier --check",
+   "result": "VERIFIED: exit 0; All matched files use Prettier code style!"
+  },
+  {
+   "command": "npm run codegen:check",
+   "result": "VERIFIED: exit 0; generated output and barrel remained unchanged."
+  },
+  {
+   "command": "git diff HEAD~1 --check",
+   "result": "VERIFIED: exit 0 with no output."
+  },
+  {
+   "command": "git diff HEAD~1 --name-only --diff-filter=ACMRT -z | xargs -0 -r rg -n --pcre2 '[^\\x00-\\x7F]'",
+   "result": "CONTRADICTED the stage report ASCII claim: non-ASCII and ANSI output exists in build-orchestrator-runs.md:10,11,17,38,39."
+  },
+  {
+   "command": "npm run test",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: tsx IPC failed with listen EPERM on a .pipe path; the full run also showed environment failures caused by the same sandbox limitation."
+  },
+  {
+   "command": "npm run check-contrast",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: listen EPERM on the tsx IPC pipe. Orchestrator evidence later records 50/50 pairs passing."
+  },
+  {
+   "command": "npm run e2e",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: Vite web server failed to bind ::1:5173 with EPERM. Orchestrator evidence later records the onboarding journey passing."
+  },
+  {
+   "command": "dotnet test --solution RunCoach.slnx --no-build",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: System.Net.Sockets.SocketException (13) Permission denied while creating the Microsoft.Testing.Platform named pipe."
+  },
+  {
+   "command": "git show HEAD~1:<deleted onboarding component path>",
+   "result": "VERIFIED: all three deleted components are recoverable from HEAD~1. Scratch-backup portion of the report claim was not independently verified."
+  },
+  {
+   "command": ".stage-report.md:21-29",
+   "result": "VERIFIED: focused Vitest, build, ESLint, Prettier, codegen, and diff-check claims match local or orchestrator evidence. Sandbox deviations also reproduce."
+  },
+  {
+   "command": ".stage-report.md:26",
+   "result": "UNVERIFIED: the reported dotnet build pass is not present in the supplied orchestrator run record and was not run in this review."
+  },
+  {
+   "command": ".stage-report.md:35-42",
+   "result": "VERIFIED for frontend scope and focused tests; backend portion remains partial because dotnet test is not runnable here."
+  },
+  {
+   "command": ".stage-report.md:43",
+   "result": "CONTRADICTED: Section 8 is not fully satisfied because the changed evidence file is non-ASCII and the locked nuance classes are missing."
+  },
+  {
+   "command": ".stage-report.md:44",
+   "result": "CONTRADICTED: the diff contains four evidence files omitted by the report's task-path list."
+  },
+  {
+   "command": ".stage-report.md:48",
+   "result": "UNVERIFIED: no old-implementation mutation command or output was supplied, and it was not rerun in this review."
+  },
+  {
+   "command": ".stage-report.md:65-71",
+   "result": "VERIFIED for the check-contrast, E2E, full-test, and backend-test sandbox deviations. The dotnet format timeout claim was not rerun."
+  },
+  {
+   "command": ".stage-report.md:73-77",
+   "result": "CONTRADICTED: open questions are not none because this review found unresolved blocker and major conformance gaps; STAGE COMPLETE is not supported by the final gate."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "npm run test",
+   "purpose": "Run the full frontend suite outside the sandbox IPC restriction. The supplied record reports 1035/1035."
+  },
+  {
+   "command": "npm run check-contrast",
+   "purpose": "Run the contrast gate outside the sandbox IPC restriction. The supplied record reports all 50 pairs passing."
+  },
+  {
+   "command": "npm run e2e",
+   "purpose": "Run Playwright with the application stack. The supplied record reports the onboarding journey passing and two unrelated pre-existing failures."
+  },
+  {
+   "command": "dotnet test --solution RunCoach.slnx --no-build",
+   "purpose": "Verify preserved PR-A backend contracts and the full Replay suite outside the sandbox named-pipe restriction."
+  },
+  {
+   "command": "dotnet build RunCoach.slnx --no-restore -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers",
+   "purpose": "Verify the stage report's unsubstantiated backend build pass."
+  },
+  {
+   "command": "dotnet format RunCoach.slnx --no-restore --verify-no-changes",
+   "purpose": "Verify the stage report's unsubstantiated format result."
+  }
+ ],
+ "verdict": "REJECT: one blocker and three major conformance findings remain."
+}
