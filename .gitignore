@@ -53,3 +53,10 @@ docs/specs/
 # Brainstorming visual companion (superpowers)
 .superpowers/
 /.code-gauntlet/
+
+# Codex agent artifacts (companion-generated mirrors and per-stage scratch; see .claude/rules/codex-dispatch.md)
+.codex/
+.agents/
+.stage-report.md
+.fix-brief.txt
+.tmp-*/

@@ -1,0 +1,36 @@
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": ["gates", "findings", "verdict"],
+ "properties": {
+  "gates": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["gate", "result", "note"],
+    "properties": {
+     "gate": {"type": "string", "enum": ["G1", "G2", "G3", "G4", "G5", "G6"]},
+     "result": {"type": "string", "enum": ["pass", "fail"]},
+     "note": {"type": "string"}
+    }
+   }
+  },
+  "findings": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["severity", "gate", "claim", "evidence", "fix"],
+    "properties": {
+     "severity": {"type": "string", "enum": ["BLOCKER", "MAJOR", "MINOR"]},
+     "gate": {"type": "string"},
+     "claim": {"type": "string"},
+     "evidence": {"type": "string"},
+     "fix": {"type": "string"}
+    }
+   }
+  },
+  "verdict": {"type": "string", "enum": ["ACCEPT", "REVISE", "REJECT"]}
+ }
+}

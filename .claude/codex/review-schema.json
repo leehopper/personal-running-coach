@@ -1,0 +1,74 @@
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": ["gate", "findings", "mutations", "conformance", "checks_run", "orchestrator_runs", "verdict"],
+ "properties": {
+  "gate": {"type": "string", "enum": ["ACCEPT", "REJECT"]},
+  "findings": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["severity", "claim", "evidence", "fix", "mode"],
+    "properties": {
+     "severity": {"type": "string", "enum": ["blocker", "major", "minor"]},
+     "claim": {"type": "string"},
+     "evidence": {"type": "string"},
+     "fix": {"type": "string"},
+     "mode": {"type": "string", "enum": ["MECHANIZED", "INSPECTED"]}
+    }
+   }
+  },
+  "mutations": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["mutation", "expected_red_test", "observed"],
+    "properties": {
+     "mutation": {"type": "string"},
+     "expected_red_test": {"type": "string"},
+     "observed": {"type": "string", "enum": ["RED", "GREEN", "NOT_RUNNABLE_IN_SANDBOX", "NOT_RUN"]}
+    }
+   }
+  },
+  "conformance": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["item", "status", "where"],
+    "properties": {
+     "item": {"type": "string"},
+     "status": {"type": "string", "enum": ["SATISFIED", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+     "where": {"type": "string"}
+    }
+   }
+  },
+  "checks_run": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["command", "result"],
+    "properties": {
+     "command": {"type": "string"},
+     "result": {"type": "string"}
+    }
+   }
+  },
+  "orchestrator_runs": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["command", "purpose"],
+    "properties": {
+     "command": {"type": "string"},
+     "purpose": {"type": "string"}
+    }
+   }
+  },
+  "verdict": {"type": "string"}
+ }
+}

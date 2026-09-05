@@ -1,0 +1,30 @@
+<task>
+You are the implementer for {slice} in the RunCoach repo. Your cwd is a local git clone on branch {branch}. Read AGENTS.md first (sandbox facts, blocked git, house rules), then in this order before touching anything:
+1. {spec_path}  (the spec: its Given/When/Then acceptance criteria are your definition of done)
+2. {plan_paths}  (the cycle plan section and the slice design; the spec wins where they differ)
+3. The CLAUDE.md and REVIEW.md files covering the trees you touch (reviewers judge by them)
+{extra_reading}
+
+Deliver every acceptance criterion in the spec. Files you will create or change (this is the stage-explicit list the orchestrator commits; keep it exact):
+{file_list}
+Do not touch any other file. If an acceptance criterion forces another file, stop and say so in the report instead.
+</task>
+
+<environment_and_gates>
+- Start with `mkdir -p .tmp-agent && export TMPDIR="$PWD/.tmp-agent"`.
+- Gates, run before you report: from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format RunCoach.slnx --include <changed .cs> --no-restore --verify-no-changes`; from frontend/ `npm run build`, `npx vitest run <each changed or added spec>`, `npx eslint <changed .ts/.tsx>`, `npx prettier --check <changed>`. Backend tests that need Docker cannot run here: name the exact `dotnet test` command for the orchestrator under Deviations instead of claiming them.
+- Git is blocked (leave changes in the working tree). Never delete or move a tracked file unless the file list says so. Backups go to .tmp-agent via /bin/cp -f.
+- ASCII only in new prose and comments; no em dashes. Comments never cite a plan, spec, or decision path.
+{extra_constraints}
+</environment_and_gates>
+
+<method>
+1. Read everything listed. Write .tmp-agent/plan.md with the exact edit list and the tests you will add per acceptance criterion, then implement.
+2. Tests first where the spec pins a behavior: each new test must fail against the bug or gap it names; note that red in the report.
+3. Keep every change inside the file list. Prefer the smallest diff that satisfies the criterion; match the surrounding code's conventions rather than introducing new patterns.
+4. Run every gate above; paste each command's last output line.
+</method>
+
+<completeness_contract>
+Every acceptance criterion gets a line: PASS with the command and its last output line, or DEVIATION with what and why. No criterion may be silently skipped. The report is your final message, markdown, sections: Files (exact paths, new vs changed), Gates (each command and its last line), Acceptance table, Mutations (each new test and the bug it fails against), Deviations (including every command the orchestrator must run for you), Open questions. Finish with the line STAGE COMPLETE.
+</completeness_contract>

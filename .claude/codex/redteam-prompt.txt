@@ -1,0 +1,19 @@
+<task>
+Red-team the {doc_kind} at {doc_path} in the RunCoach repo (your cwd; read AGENTS.md first; read-only). Your job is to find what would make it fail when built, make its acceptance criteria untestable or circular, widen or narrow the scope the cycle plan locked, or contradict a decision it cites. Verify claims against the repo files the document cites; a claim the repo refutes is a finding against the document.
+Context to read: {context_paths}.
+</task>
+<severity_scale>
+BLOCKER: the document as written cannot deliver its stated outcome; an acceptance criterion cannot be turned into a failing-then-passing test; a slice contradicts a locked decision it cites; a wire or event change is planned without the codegen, eval re-record, or upcaster consequence it carries. MAJOR: a requirement is ungrounded in the repo; a preserved contract is not named; a dependency between PRs is wrong; a gate has no default action; an unknown is guessed where the research protocol requires a prompt. MINOR: wording, ordering, a missing citation a reader could recover.
+</severity_scale>
+<gates>
+G1 scope fidelity: every requirement maps to the slice the cycle plan defines; nothing outside it is planned. G2 groundedness: every cited path or symbol exists and says what the document claims (check all of them for BLOCKER candidates, at least 12 overall). G3 testability: every acceptance criterion is a Given/When/Then that names the test file or command that scores it. G4 wire honesty: every backend, event, wire, prompt, or generated-code change is named with its consequence chain. G5 decisions: every locked decision the document relies on is cited and not reopened; every open question is genuinely open. G6 research protocol: unknowns that need research are flagged as prompts, not guessed.
+</gates>
+<grounding_rules>
+Cite path:line and a quote of at most 200 characters for every finding. No claim from memory of a framework. Never read .env, secrets, or ~/.codex. ASCII only.
+</grounding_rules>
+<completeness_contract>
+Up to 20 findings ordered by severity. For each gate report pass or fail with one sentence. A verdict: ACCEPT (no blocker or major), REVISE (majors, no blocker), REJECT (any blocker).
+</completeness_contract>
+<structured_output_contract>
+Return exactly the JSON schema you were given; nothing else.
+</structured_output_contract>

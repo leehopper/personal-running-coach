@@ -1,0 +1,17 @@
+<task>
+You are the fix-round implementer for {slice} in this git clone (cwd, branch {branch}, HEAD = {head}). Two Codex lenses and the orchestrator judged the build against {spec_path}; the orchestrator adjudicated their findings into the fix list below. Apply every fix. Read AGENTS.md, the spec, and the prior stage report at .stage-report.md first, then the CLAUDE.md and REVIEW.md files covering the trees you touch.
+</task>
+
+<fixes>
+{fix_list}
+Items marked ORCHESTRATOR-RAN carry the output of a command the sandbox could not run; treat that output as measured fact.
+</fixes>
+
+<environment_and_gates>
+Same as the build round: `mkdir -p .tmp-agent && export TMPDIR="$PWD/.tmp-agent"` first; from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format --verify-no-changes` on changed .cs; from frontend/ `npm run build`, `npx vitest run <each touched spec>`, `npx eslint` and `npx prettier --check` on changed files. Git is blocked; leave changes in the working tree. Backend tests that need Docker go to the orchestrator under Deviations with the exact command.
+Files you may touch: the build's file list plus {allowed_files}. Nothing else.
+</environment_and_gates>
+
+<completeness_contract>
+Final message = markdown stage report: Fixes (F1..Fn, each: what changed, file:line, the check that now goes red against the original bug, or VERIFIED BY INSPECTION when the item is documentation-only; never claim a mechanized red for a doc change), Gates (each command and its last output line), Deviations (any fix you could not apply and why), Open questions. Finish with the line FIX ROUND COMPLETE.
+</completeness_contract>

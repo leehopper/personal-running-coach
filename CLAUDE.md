@@ -89,6 +89,10 @@ This applies to both planning decisions AND implementation decisions. Ad-hoc web
 
 Within an active cycle, the cycle plan's **When Agents Encounter Unknowns** section lists pre-flagged research triggers and holds the prompt template.
 
+## Agent Policy (DEC-092)
+
+Route by what a task needs: the conversation (adjudication, gates, merges, rulings) stays on this session; bulk read-only work over many items goes to **Codex luna at xhigh** fleets with a schema, any batch size, no question; builds run on Codex in a local clone outside the repo, and this session commits; per-stage review is two Codex lenses plus fix rounds, and the cross-family pass on every PR is the maintainer's own code-gauntlet run in another session (never run it here); spec red-team is one Claude opus lens plus one Codex sol lens; first drafts and big reads are a Codex task from a brief (the session diet). Never Fable for a subagent. Run the budget line at catchup and before any fan-out. Full rule and repo mechanics: `.claude/rules/codex-dispatch.md`; stage recipe and templates: `.claude/codex/README.md`; Codex agents read `AGENTS.md`.
+
 ## Security Rules
 
 - NEVER read, display, or commit files containing secrets (.env, secrets.json, credentials, API keys, tokens, certificates)
