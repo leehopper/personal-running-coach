@@ -8,6 +8,7 @@ import {
   type SubmitStructuredAnswersRequest,
 } from '~/modules/onboarding/models/onboarding.model'
 import { makeDefaultOnboardingFormFields } from '~/modules/onboarding/schemas/onboarding-form.schema'
+import { renderInBothThemes, testidsIn } from '~/modules/common/test-utils/render-in-both-themes'
 
 // vi.mock is hoisted above imports, so the mock fns must come from vi.hoisted.
 const { submitTrigger, submitUnwrap, mutationStateRef, reportClientErrorMock } = vi.hoisted(() => {
@@ -83,14 +84,152 @@ describe('OnboardingForm', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders the units field first and every topic section', () => {
+  it('renders the Alpine intake in light and dark themes', () => {
+    const result = renderInBothThemes(
+      <OnboardingForm
+        units={PreferredUnits.Kilometers}
+        initialFields={makeDefaultOnboardingFormFields()}
+        onUnitsChange={onUnitsChange}
+      />,
+    )
+
+    expect(testidsIn(result.dark.container)).toEqual(testidsIn(result.light.container))
+    for (const renderResult of [result.dark, result.light]) {
+      expect(renderResult.getByTestId('onboarding-section-narrative')).toBeInTheDocument()
+      expect(renderResult.getByTestId('onboarding-section-goal')).toBeInTheDocument()
+      expect(renderResult.getByTestId('onboarding-section-fitness')).toBeInTheDocument()
+      expect(renderResult.getByTestId('onboarding-section-schedule')).toBeInTheDocument()
+      expect(renderResult.getByTestId('onboarding-section-fine-print')).toBeInTheDocument()
+      expect(renderResult.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+    }
+  })
+
+  it('renders narrative before the goal with locked copy', () => {
+    renderForm()
+
+    const sections = [...document.querySelectorAll('section[data-testid]')].map((section) =>
+      section.getAttribute('data-testid'),
+    )
+    expect(sections).toEqual([
+      'onboarding-section-narrative',
+      'onboarding-section-goal',
+      'onboarding-section-fitness',
+      'onboarding-section-schedule',
+      'onboarding-section-fine-print',
+    ])
+    expect(
+      screen.getByRole('heading', { level: 2, name: '00 \u2014 In your own words' }),
+    ).toBeInTheDocument()
+    const narrative = screen.getByPlaceholderText(
+      'Coming back from a calf strain. 10K in October. Tuesdays are impossible, and I hate treadmills\u2026',
+    )
+    expect(narrative).toHaveAttribute('maxLength', '1000')
+    expect(narrative).toHaveClass('min-h-[96px]')
+    expect(
+      screen.getByText(
+        'The coach reads this first. Plain words beat perfect forms \u2014 the form below keeps the numbers honest.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('reveals the race and direct active-injury fields', async () => {
+    const { user } = renderForm()
+
+    await user.click(screen.getByRole('radio', { name: /train for a race/i }))
+    expect(screen.getByTestId('onboarding-section-target-event')).toHaveClass(
+      'animate-in',
+      'fade-in-0',
+      'motion-reduce:animate-none',
+    )
+    expect(screen.queryByTestId('target-event-detail-trigger')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('switch', { name: 'Current injury or limitation' }))
+    expect(screen.getByLabelText("What's bothering you right now?")).toBeInTheDocument()
+  })
+
+  it('places detail triggers only in the sections with nuance fields', async () => {
+    const { user } = renderForm()
+
+    expect(screen.getByTestId('goalDescription-trigger')).toHaveTextContent('+ Add detail')
+    expect(screen.getByTestId('fitnessDescription-trigger')).toHaveTextContent('+ Add detail')
+    expect(screen.getByTestId('scheduleDescription-trigger')).toHaveTextContent('+ Add detail')
+    expect(screen.getByTestId('fine-print-detail-trigger')).toHaveTextContent(
+      '+ Add detail \u2014 past injuries, preferences',
+    )
+    expect(screen.queryByTestId('target-event-detail-trigger')).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId('goalDescription-trigger'))
+    await user.click(screen.getByTestId('fitnessDescription-trigger'))
+    await user.click(screen.getByTestId('scheduleDescription-trigger'))
+    await user.click(screen.getByTestId('fine-print-detail-trigger'))
+
+    expect(screen.getByTestId('goalDescription-field')).toBeInTheDocument()
+    expect(screen.getByTestId('fitnessDescription-field')).toBeInTheDocument()
+    expect(screen.getByTestId('scheduleDescription-field')).toBeInTheDocument()
+    expect(screen.getByTestId('pastInjurySummary-field')).toBeInTheDocument()
+    expect(screen.getByTestId('preferencesDescription-field')).toBeInTheDocument()
+  })
+
+  it('renders day chips and switches with stable roles', async () => {
+    const { user } = renderForm(PreferredUnits.Miles)
+
+    expect(screen.getByTestId('days-field')).toHaveAttribute('aria-label', 'Preferred run days')
+    for (const day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) {
+      expect(screen.getByRole('button', { name: day })).toHaveClass('min-h-11')
+    }
+    expect(screen.getAllByRole('switch')).toHaveLength(3)
+    expect(screen.getByRole('switch', { name: 'Current injury or limitation' })).toHaveAttribute(
+      'data-testid',
+      'hasActiveInjury-field',
+    )
+    await user.click(screen.getByRole('radio', { name: /train for a race/i }))
+    expect(screen.getByLabelText('Distance \u00B7 mi')).toBeInTheDocument()
+    expect(screen.getByLabelText('Weekly volume \u00B7 mi')).toBeInTheDocument()
+    expect(screen.getByLabelText('Longest recent \u00B7 mi')).toBeInTheDocument()
+    expect(screen.getByLabelText('Recent race \u00B7 mi')).toBeInTheDocument()
+  })
+
+  it('shows the fixed building surface and makes the form inert while loading', () => {
+    mutationStateRef.isLoading = true
+    renderForm()
+
+    expect(screen.getByTestId('onboarding-building')).toBeInTheDocument()
+    expect(screen.getByTestId('onboarding-building').firstElementChild).toHaveClass(
+      'fixed',
+      'inset-0',
+      'z-50',
+    )
+    expect(screen.getByTestId('onboarding-submit').closest('form')).toHaveAttribute('inert')
+    expect(screen.getByRole('status')).toHaveTextContent('BUILDING YOUR PLAN')
+  })
+
+  it('returns values and the same idempotency key after a handled 422', async () => {
+    submitUnwrap.mockRejectedValueOnce({ status: 422 })
+    const { user } = renderForm()
+    await fillMinimalValid(user)
+    await user.type(screen.getByTestId('narrative-field'), 'Keep my return gradual.')
+    await submitForm(user)
+
+    await waitFor(() => expect(screen.getByTestId('onboarding-form-alert')).toBeInTheDocument())
+    const firstRequest = submitTrigger.mock.calls[0][0]
+    expect(screen.getByTestId('narrative-field')).toHaveValue('Keep my return gradual.')
+    expect(screen.getByTestId('onboarding-submit')).toBeEnabled()
+    expect(screen.queryByTestId('onboarding-building')).not.toBeInTheDocument()
+
+    submitUnwrap.mockResolvedValueOnce({ isComplete: true, currentPlanId: 'plan-1' })
+    await user.click(screen.getByTestId('onboarding-submit'))
+    await waitFor(() => expect(submitTrigger).toHaveBeenCalledTimes(2))
+    expect(submitTrigger.mock.calls[1][0].idempotencyKey).toBe(firstRequest.idempotencyKey)
+  })
+
+  it('renders the units field first and every numbered section', () => {
     renderForm()
     expect(screen.getByTestId('onboarding-units-field')).toBeInTheDocument()
+    expect(screen.getByTestId('onboarding-section-narrative')).toBeInTheDocument()
     expect(screen.getByTestId('onboarding-section-goal')).toBeInTheDocument()
     expect(screen.getByTestId('onboarding-section-fitness')).toBeInTheDocument()
     expect(screen.getByTestId('onboarding-section-schedule')).toBeInTheDocument()
-    expect(screen.getByTestId('onboarding-section-injury')).toBeInTheDocument()
-    expect(screen.getByTestId('onboarding-section-preferences')).toBeInTheDocument()
+    expect(screen.getByTestId('onboarding-section-fine-print')).toBeInTheDocument()
   })
 
   it('reveals the TargetEvent section only for a race-training goal', async () => {
@@ -115,7 +254,7 @@ describe('OnboardingForm', () => {
     await user.type(screen.getByTestId('maxRunDays-field'), '5')
     await user.type(screen.getByTestId('sessionMinutes-field'), '60')
 
-    // Switch the goal away — the TargetEvent section (and its invalid distance) hides.
+    // Switch the goal away - the TargetEvent section (and its invalid distance) hides.
     await user.click(screen.getByRole('radio', { name: /general fitness/i }))
     expect(screen.queryByTestId('onboarding-section-target-event')).toBeNull()
 
@@ -177,7 +316,7 @@ describe('OnboardingForm', () => {
   it('interprets distances in miles and converts them to kilometres', async () => {
     const { user } = renderForm(PreferredUnits.Miles)
     // The distance labels speak miles.
-    expect(screen.getByText(/weekly volume \(mi\)/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Weekly volume \u00B7 mi')).toBeInTheDocument()
 
     await user.click(screen.getByRole('radio', { name: /general fitness/i }))
     await user.type(screen.getByTestId('typicalWeekly-field'), '10')
@@ -187,7 +326,7 @@ describe('OnboardingForm', () => {
     await submitForm(user)
 
     await waitFor(() => expect(submitTrigger).toHaveBeenCalledTimes(1))
-    // 10 mi × 1.609344 = 16.09344 km
+    // 10 mi x 1.609344 = 16.09344 km
     expect(submitTrigger.mock.calls[0][0].currentFitness.typicalWeeklyKm).toBeCloseTo(16.09344, 4)
   })
 
@@ -292,6 +431,6 @@ describe('OnboardingForm', () => {
     renderForm()
     const submit = screen.getByTestId('onboarding-submit')
     expect(submit).toBeDisabled()
-    expect(submit).toHaveTextContent('Building your plan…')
+    expect(submit).toHaveTextContent('Building your plan\u2026')
   })
 })

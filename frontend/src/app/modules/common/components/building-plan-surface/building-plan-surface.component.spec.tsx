@@ -14,16 +14,18 @@ describe('BuildingPlanSurface', () => {
     expect(status).toHaveAttribute('aria-live', 'polite')
   })
 
-  it('renders a default mono status line when none is supplied', () => {
+  it('uses the starting-plan default status line', () => {
     render(<BuildingPlanSurface />)
-    expect(screen.getByText('The coach drafts 12 weeks in about 30 seconds.')).toBeInTheDocument()
+    expect(
+      screen.getByText('The coach drafts your starting plan in about 30 seconds.'),
+    ).toBeInTheDocument()
   })
 
   it('renders a caller-supplied mono status line', () => {
     render(<BuildingPlanSurface statusLine="Reworking your plan from the log book." />)
     expect(screen.getByText('Reworking your plan from the log book.')).toBeInTheDocument()
     expect(
-      screen.queryByText('The coach drafts 12 weeks in about 30 seconds.'),
+      screen.queryByText('The coach drafts your starting plan in about 30 seconds.'),
     ).not.toBeInTheDocument()
   })
 

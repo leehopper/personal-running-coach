@@ -10,6 +10,7 @@ import {
   hydrateOnboardingFormFields,
   makeDefaultOnboardingFormFields,
   makeOnboardingFormSchema,
+  DISTANCE_FIELD_NAMES,
   reseedDistancesForUnitChange,
   toSubmitStructuredAnswersRequest,
   type OnboardingFormFields,
@@ -19,6 +20,7 @@ const validRaceFields = (): OnboardingFormFields => ({
   ...makeDefaultOnboardingFormFields(),
   goal: String(PrimaryGoal.RaceTraining),
   goalDescription: 'Sub-4 marathon',
+  narrative: 'Returning from a calf strain before an October race.',
   eventName: 'Berlin Marathon',
   eventDistance: '42.2',
   eventDate: '2026-09-27',
@@ -42,7 +44,7 @@ const validRaceFields = (): OnboardingFormFields => ({
 const parse = (fields: OnboardingFormFields, units: PreferredUnits = PreferredUnits.Kilometers) =>
   makeOnboardingFormSchema(units).safeParse(fields)
 
-describe('makeOnboardingFormSchema — validation', () => {
+describe('makeOnboardingFormSchema \u2014 validation', () => {
   it('accepts a complete race-training submission', () => {
     expect(parse(validRaceFields()).success).toBe(true)
   })
@@ -146,7 +148,7 @@ describe('makeOnboardingFormSchema — validation', () => {
   it('caps miles-mode distances so the client never accepts a value the backend km-cap rejects', () => {
     // The backend rejects distances whose km value exceeds 100 000 km. 62138 mi
     // converts to ~100 001.4 km (backend-invalid), so the client must reject it;
-    // 62137 mi ≈ 99 999.8 km stays under the cap.
+    // 62137 mi is about 99 999.8 km and stays under the cap.
     expect(
       parse({ ...validRaceFields(), typicalWeekly: '62138' }, PreferredUnits.Miles).success,
     ).toBe(false)
@@ -154,9 +156,29 @@ describe('makeOnboardingFormSchema — validation', () => {
       parse({ ...validRaceFields(), typicalWeekly: '62137' }, PreferredUnits.Miles).success,
     ).toBe(true)
   })
+
+  it('accepts a narrative at the 1000-character limit', () => {
+    expect(parse({ ...validRaceFields(), narrative: 'a'.repeat(1000) }).success).toBe(true)
+  })
+
+  it('rejects a narrative over the 1000-character limit', () => {
+    expect(parse({ ...validRaceFields(), narrative: 'a'.repeat(1001) }).success).toBe(false)
+  })
+
+  it('normalizes empty and whitespace-only narrative values', () => {
+    const empty = parse({ ...validRaceFields(), narrative: '' })
+    const whitespace = parse({ ...validRaceFields(), narrative: '  \n\t' })
+
+    expect(empty.success).toBe(true)
+    expect(whitespace.success).toBe(true)
+    if (empty.success && whitespace.success) {
+      expect(empty.data.narrative).toBeUndefined()
+      expect(whitespace.data.narrative).toBeUndefined()
+    }
+  })
 })
 
-describe('toSubmitStructuredAnswersRequest — mapping to the wire', () => {
+describe('toSubmitStructuredAnswersRequest \u2014 mapping to the wire', () => {
   const mapOf = (
     fields: OnboardingFormFields,
     units: PreferredUnits = PreferredUnits.Kilometers,
@@ -228,7 +250,7 @@ describe('toSubmitStructuredAnswersRequest — mapping to the wire', () => {
       { ...validRaceFields(), typicalWeekly: '10', eventDistance: '26.2' },
       PreferredUnits.Miles,
     )
-    // 10 mi × 1.609344 = 16.09344 km; 26.2 mi × 1.609344 ≈ 42.16 km
+    // 10 mi x 1.609344 = 16.09344 km; 26.2 mi x 1.609344 is about 42.16 km.
     expect(request.currentFitness.typicalWeeklyKm).toBeCloseTo(16.09344, 4)
     expect(request.targetEvent?.distanceKm).toBeCloseTo(42.164, 2)
     expect(request.preferences.preferredUnits).toBe(PreferredUnits.Miles)
@@ -248,10 +270,26 @@ describe('toSubmitStructuredAnswersRequest — mapping to the wire', () => {
     })
     expect(request.injuryHistory.activeInjuryDescription).toBe('')
   })
+
+  it('maps a blank narrative to null and preserves a nonblank narrative', () => {
+    const blank = mapOf({ ...validRaceFields(), narrative: '' })
+    const text = mapOf({ ...validRaceFields(), narrative: 'Runner voice' })
+
+    expect(blank.narrative).toBeNull()
+    expect(text.narrative).toBe('Runner voice')
+  })
 })
 
-describe('reseedDistancesForUnitChange — units change mid-form', () => {
-  it('converts the four distance fields km → miles, preserving physical distance', () => {
+describe('reseedDistancesForUnitChange \u2014 units change mid-form', () => {
+  it('re-seeds exactly the four distance fields', () => {
+    expect(DISTANCE_FIELD_NAMES).toEqual([
+      'eventDistance',
+      'typicalWeekly',
+      'longestRecentRun',
+      'recentRaceDistance',
+    ])
+  })
+  it('converts the four distance fields km -> miles, preserving physical distance', () => {
     const fields: OnboardingFormFields = {
       ...makeDefaultOnboardingFormFields(),
       eventDistance: '42.2',
@@ -268,7 +306,7 @@ describe('reseedDistancesForUnitChange — units change mid-form', () => {
       PreferredUnits.Miles,
     )
 
-    // 40 km ÷ 1.609344 ≈ 24.9 mi; 16.1 km ≈ 10.0 mi; 10 km ≈ 6.2 mi; 42.2 km ≈ 26.2 mi
+    // 40 km / 1.609344 is about 24.9 mi; 16.1 km is about 10.0 mi; 10 km is about 6.2 mi; 42.2 km is about 26.2 mi.
     expect(next.typicalWeekly).toBe('24.9')
     expect(next.longestRecentRun).toBe('10.0')
     expect(next.recentRaceDistance).toBe('6.2')
@@ -296,10 +334,11 @@ describe('reseedDistancesForUnitChange — units change mid-form', () => {
     expect(next.maxRunDays).toBe('5')
     expect(next.goalDescription).toBe('a note')
     expect(next.days).toEqual(['monday'])
+    expect(next.narrative).toBe('')
   })
 })
 
-describe('hydrateOnboardingFormFields — resume', () => {
+describe('hydrateOnboardingFormFields \u2014 resume', () => {
   const seededState = (): OnboardingStateDto => ({
     userId: 'u1',
     status: OnboardingStatus.InProgress,
@@ -309,6 +348,7 @@ describe('hydrateOnboardingFormFields — resume', () => {
     isComplete: false,
     outstandingClarifications: [],
     primaryGoal: { goal: PrimaryGoal.RaceTraining, description: 'Marathon' },
+    narrative: 'A steady return after a calf strain.',
     targetEvent: {
       eventName: 'City Marathon',
       distanceKm: 42.2,
@@ -351,6 +391,7 @@ describe('hydrateOnboardingFormFields — resume', () => {
   it('hydrates populated km slots into form fields', () => {
     const fields = hydrateOnboardingFormFields(seededState(), PreferredUnits.Kilometers)
     expect(fields.goal).toBe(String(PrimaryGoal.RaceTraining))
+    expect(fields.narrative).toBe('A steady return after a calf strain.')
     expect(fields.eventName).toBe('City Marathon')
     expect(fields.eventDistance).toBe('42.2')
     expect(fields.targetFinishTime).toBe('3:30:00')
@@ -363,7 +404,7 @@ describe('hydrateOnboardingFormFields — resume', () => {
 
   it('converts stored km into the runner display unit on resume', () => {
     const fields = hydrateOnboardingFormFields(seededState(), PreferredUnits.Miles)
-    // 50 km ÷ 1.609344 ≈ 31.1 mi
+    // 50 km / 1.609344 is about 31.1 mi.
     expect(fields.typicalWeekly).toBe('31.1')
   })
 
