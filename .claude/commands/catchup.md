@@ -11,6 +11,10 @@ Read the following in order to understand current project state, then provide a 
 4. `git log --oneline -10` — last 10 commits on current branch.
 5. `git status` + `git diff --stat main...HEAD` if on a feature branch — working-tree changes and branch divergence.
 
+## Agent budget
+
+6. `python3 ~/.claude/skills/codex-orchestration/agent-budget.py --live --account` — the week's agent spend by family, the Codex weekly window (used %, reset), and which account is live.
+
 ## Summary format
 
 3-5 sentences covering:
@@ -19,5 +23,6 @@ Read the following in order to understand current project state, then provide a 
 - What was shipped most recently.
 - The next concrete action.
 - Any visible blockers or in-flight changes.
+- The agent budget line verbatim (week's spend, Codex window used and its reset).
 
 Point the user at the exact file they should open next if one is obvious (active slice plan, next slice's acceptance criteria, the follow-up they flagged last session, etc.).

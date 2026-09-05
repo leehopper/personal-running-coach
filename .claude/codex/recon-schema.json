@@ -1,0 +1,61 @@
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": ["id", "facts", "config_entries", "gaps", "risks", "recommendation", "draft_artifacts", "open_questions"],
+ "properties": {
+  "id": {"type": "string"},
+  "facts": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["claim", "source", "quote"],
+    "properties": {
+     "claim": {"type": "string"},
+     "source": {"type": "string"},
+     "quote": {"type": "string"}
+    }
+   }
+  },
+  "config_entries": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["name", "value", "source"],
+    "properties": {
+     "name": {"type": "string"},
+     "value": {"type": "string"},
+     "source": {"type": "string"}
+    }
+   }
+  },
+  "gaps": {"type": "array", "items": {"type": "string"}},
+  "risks": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["risk", "evidence"],
+    "properties": {
+     "risk": {"type": "string"},
+     "evidence": {"type": "string"}
+    }
+   }
+  },
+  "recommendation": {"type": "string"},
+  "draft_artifacts": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["path", "content"],
+    "properties": {
+     "path": {"type": "string"},
+     "content": {"type": "string"}
+    }
+   }
+  },
+  "open_questions": {"type": "array", "items": {"type": "string"}}
+ }
+}

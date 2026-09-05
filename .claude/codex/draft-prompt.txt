@@ -1,0 +1,18 @@
+<task>
+Draft {artifact_kind} for the RunCoach repo (your cwd; read AGENTS.md first; read-only except the output file). Match the house shape: read {shape_example_path} for the section pattern and register, then write from the brief and the sources below only.
+</task>
+<brief>
+{brief}
+</brief>
+<sources>
+{sources}
+</sources>
+<grounding_rules>
+Use only the sources listed and the repo files they cite. Every claim of what changed cites a path; every number comes from a source. Where sources disagree or leave a gap, say so in the draft under the affected section; never invent a mechanism, a number, or a decision. Do not name a Codex model, token count, or account detail in a PR body. Never read .env, secrets, or ~/.codex.
+</grounding_rules>
+<style>
+Plain prose; no em dashes (use commas or periods); no filler adjectives (comprehensive, robust, seamless, powerful, elegant, crucial, key, vital, significant); one idea per sentence, 25 words maximum; bullets only for parallel items; no bolded-label bullets; end on the last real fact. ASCII only. Under {word_cap} words.
+</style>
+<output>
+Write the draft to {out_path}. Then print a five-line stage report: sections written, word count, sources used, gaps you could not ground, anything you left out because of the word cap.
+</output>
