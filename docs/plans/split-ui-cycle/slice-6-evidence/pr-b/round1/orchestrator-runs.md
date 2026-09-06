@@ -27,3 +27,26 @@ All eight replays are RED: every reverted `getByLabel('Password')` fails with th
 - Mutation 5 (Prettier on evidence files): dropped; evidence markdown, JSON and briefs are outside the Prettier gate.
 - Mutation 6 and conformance 1, 2 (stale stage report): closed by the orchestrator addendum on `.stage-report.md` and `build-report.md`.
 - Sol red-team 5 and 10 (link hit target and focus ring; form rhythm classes): fix round F1, F2.
+
+## Fix-round host runs (clone at 194df59a, the round-1 fix commit)
+
+```text
+=== npm run test
+ Test Files  88 passed (88)
+      Tests  1065 passed (1065)
+=== eslint touched
+eslint rc=0
+=== prettier
+All matched files use Prettier code style!
+=== build
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+=== codegen
+codegen rc=0
+1) [chromium] › e2e/plan-render.spec.ts:242:1 › register → land on / → plan renders → reload → identical content + no vdot in DOM 
+2) [chromium] › e2e/workout-logging.spec.ts:192:1 › register → log a minimum + a rich workout → both appear in week-grouped history 
+Error: expect(locator).toBeVisible() failed
+2 failed
+14 passed (4.9s)
+```
+
+Playwright: 14 passed, the same two pre-existing `main` failures (`plan-render.spec.ts:242`, `workout-logging.spec.ts:192`), no PR-B surface involved. The seven new fix-round assertions (F1 to F5) are in the 1065.
