@@ -20,10 +20,7 @@ export const SettingsPage = (): ReactElement => {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   const handleSignOut = (): void => {
-    const signOutRequest = async (): Promise<void> => {
-      await signOut()
-    }
-    void signOutRequest()
+    void signOut()
   }
 
   return (

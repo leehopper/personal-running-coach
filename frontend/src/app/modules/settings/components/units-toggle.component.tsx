@@ -42,10 +42,7 @@ export const UnitsToggle = (): ReactElement => {
     <SegmentedControl
       value={String(current)}
       onValueChange={(value) => {
-        const persist = async (): Promise<void> => {
-          await persistPreference(parsePreferredUnits(value))
-        }
-        void persist()
+        void persistPreference(parsePreferredUnits(value))
       }}
       aria-label="Units"
       data-testid="settings-units-toggle"
