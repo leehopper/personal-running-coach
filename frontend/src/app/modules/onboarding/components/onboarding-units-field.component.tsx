@@ -11,8 +11,12 @@ export interface OnboardingUnitsFieldProps {
 }
 
 /**
- * The units-first control: the runner picks km or miles before numeric fields.
- * The enclosing page owns persistence and distance reseeding.
+ * The units-first control (DEC-086): the runner picks km or miles before the
+ * numeric fields, so every distance input speaks their unit from the start. It
+ * is presentational - the enclosing page owns persistence
+ * (`PUT /settings/units`) and the distance-field re-seed on change, so the
+ * standalone Settings toggle stays the only place that reads/writes directly.
+ * Mirrors `units-toggle.component.tsx`'s control shape.
  */
 export const OnboardingUnitsField = ({
   units,

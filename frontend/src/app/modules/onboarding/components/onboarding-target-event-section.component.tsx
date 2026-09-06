@@ -8,7 +8,12 @@ export interface OnboardingTargetEventSectionProps {
   unitLabel: string
 }
 
-/** Target-event fields revealed only for a race-training goal. */
+/**
+ * TargetEvent topic - revealed only for a race-training goal (the form watches
+ * `goal`). No free-text nuance box (adding one would edit the frozen
+ * `OnboardingSchema` and bust the DEC-074 manifest - DP-3). The optional goal
+ * finish time is entered as `H:MM:SS`.
+ */
 export const OnboardingTargetEventSection = ({
   control,
   unitLabel,

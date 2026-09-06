@@ -1,0 +1,34 @@
+These five findings come from the maintainer's code-gauntlet review of PR #362 (the cross-family pass).
+All are accepted. Scope is exactly these items; no other change.
+
+F13 (medium; gauntlet, onboarding-target-event-section.component.tsx:11): The build replaced the JSDoc that
+documented the invariant "no free-text nuance box on TargetEvent: adding one would edit the frozen
+OnboardingSchema and bust the DEC-074 manifest (DP-3)" with a one-liner. Restore that rationale in ASCII (a
+DEC / DP symbolic reference is allowed by REVIEW.md; no doc file paths), keeping the sentence that the
+section is revealed only for a race-training goal and that the finish time is entered as H:MM:SS.
+
+F14 (low; gauntlet, onboarding-fine-print-section.component.tsx:31 and :60) together with
+F15 (low; gauntlet, onboarding-nuance-section.component.tsx:23): The fine-print section hand-rolls its own
+Collapsible + Button + ChevronDownIcon disclosure with a size="sm" (32px) trigger and ad-hoc font classes
+(font-mono text-[11px] tracking-[0.1em]) that do not match the shared trigger's MonoLabel / t-data-label
+treatment and 44px target; and OnboardingNuanceSection gained a `triggerTestId` prop no caller uses.
+Fix as one refactor: generalize `OnboardingNuanceSection` so the revealed content is `children` (keep the
+existing single-field convenience: when `name` and `placeholder` are given and no children, render the one
+textarea as today), keep ONE trigger implementation (MonoLabel / t-data-label typography, default Button
+size with min-h-11, canonical focus ring, chevron with motion-reduce pairing, the collapsed-by-default
+useState), and make `OnboardingFinePrintSection` compose it for the pastInjurySummary + preferencesDescription
+pair with the locked label `+ Add detail — past injuries, preferences`. Delete
+`OnboardingFinePrintDetails` and the hand-rolled trigger. Wire the fine-print trigger's stable id
+(`fine-print-detail-trigger`) through the prop instead of leaving `triggerTestId` unused, or drop the prop
+and derive the id from `name` as the other sections do; either way no dead prop remains. Keep every existing
+data-testid the form spec and e2e use; update the form spec only where a testid or class contract moved.
+
+F16 (low; gauntlet, onboarding-schedule-section.component.tsx:11, onboarding-units-field.component.tsx,
+onboarding-text-field.component.tsx): the build dropped the DEC / R-NNN rationale from three JSDocs while
+converting em dashes: the schedule section's "(R-085 R6)" co-submit rationale, the units field's
+"(DEC-086)" note and its cross-reference to the settings units toggle component, and the text field's
+"(DEC-075)" numeric-inputMode rationale. Restore each rationale sentence (ASCII, symbolic references allowed,
+no doc file paths); compare against `git show 06bf8736:<path>` (the pre-PR text on main) for the wording.
+
+F17 (orchestrator, no implementer action): PR-B is now rebased onto main (PR-A squash-merged as 06bf8736);
+the round-3 evidence and the close-out docs edits are orchestrator-owned.

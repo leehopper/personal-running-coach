@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ChevronDownIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -13,12 +13,14 @@ import type {
 
 export interface OnboardingNuanceSectionProps {
   control: OnboardingFormControl
-  name: OnboardingStringFieldName
+  name?: OnboardingStringFieldName
   /** Trigger copy, e.g. "Add detail". */
   label: string
   placeholder?: string
   /** Accessible label for the revealed textarea. */
   fieldLabel?: string
+  /** Revealed content for disclosures with more than one field. */
+  children?: ReactNode
   /** Optional stable trigger id for merged sections. */
   triggerTestId?: string
 }
@@ -37,9 +39,32 @@ export const OnboardingNuanceSection = ({
   label,
   placeholder,
   fieldLabel,
+  children,
   triggerTestId,
 }: OnboardingNuanceSectionProps) => {
   const [open, setOpen] = useState(false)
+  const revealedContent =
+    children ??
+    (name !== undefined && placeholder !== undefined ? (
+      <FormField
+        control={control}
+        name={name}
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="sr-only">{fieldLabel ?? label}</FormLabel>
+            <FormControl>
+              <Textarea
+                rows={3}
+                placeholder={placeholder}
+                data-testid={`${name}-field`}
+                {...field}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    ) : null)
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="flex flex-col gap-2">
@@ -48,7 +73,7 @@ export const OnboardingNuanceSection = ({
           type="button"
           variant="ghost"
           className="t-data-label w-fit min-h-11 gap-1 px-2 text-clay-text active:scale-[0.98] motion-reduce:transition-none"
-          data-testid={triggerTestId ?? `${name}-trigger`}
+          data-testid={triggerTestId ?? (name === undefined ? undefined : `${name}-trigger`)}
         >
           <MonoLabel tone="clay">{label}</MonoLabel>
           <ChevronDownIcon
@@ -59,26 +84,7 @@ export const OnboardingNuanceSection = ({
           />
         </Button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="overflow-hidden">
-        <FormField
-          control={control}
-          name={name}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="sr-only">{fieldLabel ?? label}</FormLabel>
-              <FormControl>
-                <Textarea
-                  rows={3}
-                  placeholder={placeholder}
-                  data-testid={`${name}-field`}
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </CollapsibleContent>
+      <CollapsibleContent className="overflow-hidden">{revealedContent}</CollapsibleContent>
     </Collapsible>
   )
 }

@@ -220,9 +220,21 @@ describe('OnboardingForm', () => {
     )
     expect(screen.getByTestId('fitnessDescription-trigger')).toHaveTextContent('+ Add detail')
     expect(screen.getByTestId('scheduleDescription-trigger')).toHaveTextContent('+ Add detail')
-    expect(screen.getByTestId('fine-print-detail-trigger')).toHaveTextContent(
+    const finePrintDetailTrigger = screen.getByTestId('fine-print-detail-trigger')
+    expect(finePrintDetailTrigger).toHaveTextContent(
       '+ Add detail \u2014 past injuries, preferences',
     )
+    expect(finePrintDetailTrigger).toHaveAttribute('data-size', 'default')
+    expect(finePrintDetailTrigger).toHaveClass(
+      't-data-label',
+      'min-h-11',
+      'focus-visible:ring-[3px]',
+      'active:scale-[0.98]',
+      'motion-reduce:transition-none',
+    )
+    const finePrintMonoLabel = finePrintDetailTrigger.querySelector('[data-testid="mono-label"]')
+    if (finePrintMonoLabel === null) throw new Error('Expected a mono detail label')
+    expect(finePrintMonoLabel).toHaveClass('t-data-label', 'text-clay-text')
     expect(screen.queryByTestId('target-event-detail-trigger')).not.toBeInTheDocument()
 
     await user.click(screen.getByTestId('goalDescription-trigger'))

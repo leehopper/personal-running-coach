@@ -27,8 +27,11 @@ export interface OnboardingTextFieldProps {
 }
 
 /**
- * A single string-backed onboarding input wired through RHF and the Alpine
- * `Form` primitives. Numeric fields pass `inputMode` while values stay strings.
+ * A single string-backed onboarding input (text / date / numeric) wired through
+ * an RHF `Controller` and the shadcn `Form` primitives - the label, control, and
+ * `FormMessage` share the ARIA wiring `form.tsx` provides. Numeric fields pass
+ * `inputMode` for a numeric soft keyboard while the value stays a string
+ * (DEC-075).
  */
 export const OnboardingTextField = ({
   control,

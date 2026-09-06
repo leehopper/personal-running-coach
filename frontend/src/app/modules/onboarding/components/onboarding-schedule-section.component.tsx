@@ -9,7 +9,10 @@ export interface OnboardingScheduleSectionProps {
 }
 
 /**
- * Weekly schedule fields, preferred-day chips, and an optional free-text note.
+ * WeeklySchedule topic: run-day commitment, typical session length, the
+ * preferred-day toggle group, and a free-text note. Co-submitting every field
+ * at once is what structurally dissolves the old WeeklySchedule slot-merge loop
+ * (R-085 R6).
  */
 export const OnboardingScheduleSection = ({ control }: OnboardingScheduleSectionProps) => (
   <OnboardingSection title={'04 \u2014 Your week'} testId="onboarding-section-schedule">
