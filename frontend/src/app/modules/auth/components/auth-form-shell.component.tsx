@@ -52,7 +52,7 @@ export const AuthFormShell = <TValues extends FieldValues>({
       )}
 
       <Form {...form}>
-        <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-3.5">
           {children}
           <Button
             type="submit"

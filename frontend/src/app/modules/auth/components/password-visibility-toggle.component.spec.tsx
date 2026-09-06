@@ -45,6 +45,20 @@ describe('PasswordVisibilityToggle', () => {
     expect(button.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
   })
 
+  it('keeps the 44px target and the field-edge position', () => {
+    render(<PasswordVisibilityToggle isVisible={false} onToggle={() => {}} />)
+    const button = screen.getByTestId('password-visibility-toggle')
+
+    expect(button).toHaveClass(
+      'size-9',
+      'before:inset-[-4px]',
+      'absolute',
+      'top-1/2',
+      'right-1',
+      '-translate-y-1/2',
+    )
+  })
+
   // eslint-disable-next-line sonarjs/assertions-in-tests
   it('keeps parity in both themes', () => {
     const result = renderInBothThemes(

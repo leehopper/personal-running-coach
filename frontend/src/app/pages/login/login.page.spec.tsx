@@ -108,6 +108,19 @@ describe('LoginPage', () => {
     )
   })
 
+  it('renders the poster frame', () => {
+    renderLogin()
+
+    expect(screen.getByRole('main')).toHaveClass(
+      'mx-auto',
+      'min-h-dvh',
+      'max-w-md',
+      'gap-[26px]',
+      'px-[26px]',
+      'pb-10',
+    )
+  })
+
   // eslint-disable-next-line sonarjs/assertions-in-tests
   it('keeps the poster surface in both themes', () => {
     const result = renderInBothThemes(
@@ -167,6 +180,44 @@ describe('LoginPage', () => {
 
     expect(link).toHaveTextContent('Create account \u2192')
     expect(link).toHaveAttribute('href', '/register')
+  })
+
+  it('renders the secondary link with a 44px target and the canonical focus ring', () => {
+    renderLogin()
+    const link = screen.getByRole('link', { name: /create account/i })
+
+    expect(link).toHaveClass(
+      'relative',
+      'hit-target-44',
+      'rounded-sm',
+      'font-condensed',
+      'font-bold',
+      'uppercase',
+      'tracking-[0.12em]',
+      'text-clay-text',
+      'outline-none',
+      'focus-visible:border-ring',
+      'focus-visible:ring-[3px]',
+      'focus-visible:ring-ring/[0.22]',
+    )
+  })
+
+  it('lays out the form on the poster rhythm', () => {
+    renderLogin()
+
+    expect(document.querySelector('form')).toHaveClass('flex', 'flex-col', 'gap-3.5')
+    expect(screen.getByLabelText('Email', { exact: true }).parentElement).toHaveClass('gap-1.5')
+  })
+
+  it('renders the 52px poster primary', () => {
+    renderLogin()
+
+    expect(screen.getByRole('button', { name: 'Sign in' })).toHaveClass(
+      'w-full',
+      'h-[52px]',
+      'text-[17px]',
+      'tracking-[0.14em]',
+    )
   })
 
   it('renders the pending sign-in copy', () => {

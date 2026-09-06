@@ -1,0 +1,58 @@
+<task>
+You are the fix-round implementer for Slice 6 PR-B (auth poster screens, register mirror, password visibility toggle) in this git clone (cwd, branch feat/slice-6-auth, HEAD = 9c940941). Two Codex lenses and the orchestrator judged the build against docs/specs/slice-6-settings-auth/spec.md (sections 1 C, 3 PR-B, 4.1, 4.2 auth rows, 5 DU-5, 8); the orchestrator adjudicated their findings into the fix list below. Apply every fix. Read AGENTS.md, the spec, and the prior stage report at .stage-report.md first, then the CLAUDE.md and REVIEW.md files covering the trees you touch.
+</task>
+
+<fixes>
+F1 (major; sol red-team 5, spec 4.2 auth links, amended): both page-level secondary links (`Create account →` in
+login.page.tsx and `Sign in →` in register.page.tsx) have no 44px hit target and no focus ring. Give each `Link`
+the locked class `relative hit-target-44 rounded-sm font-condensed font-bold uppercase tracking-[0.12em]
+text-clay-text outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22]`
+(`hit-target-44` is the shared utility in frontend/src/index.css; it needs `relative`). Add a page-spec assertion on
+each page (`renders the secondary link with a 44px target and the canonical focus ring`) that reads the link's class
+list. Red: remove `hit-target-44`.
+
+F2 (major; sol red-team 10, spec 4.2 auth fields, amended): the auth form stack still uses `space-y-4` and the
+FormItem keeps the primitive's default gap. In auth-form-shell.component.tsx the `<form>` becomes
+`flex flex-col gap-3.5`; in auth-text-field.component.tsx each `FormItem` gets `className="gap-1.5"`. Add a page-spec
+assertion for both classes on one page (`lays out the form on the poster rhythm`). Red: restore `space-y-4`.
+
+F3 (major; mutation ledger finding 2): neither page spec pins the locked main frame. In login.page.spec.tsx and
+register.page.spec.tsx assert the `<main>` class list contains `mx-auto`, `min-h-dvh`, `max-w-md`, `gap-[26px]`,
+`px-[26px]`, and `pb-10` (`renders the poster frame`). Red: change `max-w-md` to `max-w-sm`.
+
+F4 (major; mutation ledger finding 3): password-visibility-toggle.component.spec.tsx does not pin the toggle's
+geometry. Assert the button carries the icon-size classes button.tsx emits for `size="icon"` (read button.tsx and
+assert the literal size class and the `before:` hit expansion class) and the position classes
+`absolute top-1/2 right-1 -translate-y-1/2` (`keeps the 44px target and the field-edge position`). Red: change
+`size="icon"` to `size="sm"`.
+
+F5 (major; mutation ledger finding 4): the auth primary geometry is untested. In one page spec assert the submit
+button's class list contains `w-full`, `h-[52px]`, `text-[17px]`, and `tracking-[0.14em]` (`renders the 52px poster
+primary`). Red: change `h-[52px]` to `h-9`.
+
+F6 DROPPED (mutation ledger finding 5, conformance checks_run prettier on evidence files): the evidence markdown,
+JSON, and brief under docs/plans/ are outside the Prettier gate (lefthook's prettier hook covers source globs; the
+stage report's claim covers the touched source and e2e files, all clean). No action.
+
+F7 ORCHESTRATOR-DONE (conformance findings 1 and 2, mutation finding 6): the stage report omitted the three
+orchestrator-added evidence paths and carried a stale E2E deviation. The orchestrator appended an addendum to
+.stage-report.md and build-report.md reconciling the 22-path commit and the host results. No implementer action.
+
+F8 ORCHESTRATOR-RAN (treat as measured fact; recorded in
+docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-orchestrator-runs.md and round1/orchestrator-runs.md): from the
+session against the clone at 8aa14029: `npm run test` 1058/1058; `npm run check-contrast` 50/50; `npm run codegen:check`
+exit 0; `npm run build` clean; eslint exit 0 and prettier clean on every touched source and e2e file; Playwright 14 passed
+with the two pre-existing `main` failures; the exact-password-locator and tagline e2e mutation replays are being run by
+the orchestrator in a separate worktree while this fix round runs.
+
+Items marked ORCHESTRATOR-RAN carry the output of a command the sandbox could not run; treat that output as measured fact.
+</fixes>
+
+<environment_and_gates>
+Same as the build round: create `/tmp/codex-agent-feat/slice-6-auth` once and set `TMPDIR=/tmp/codex-agent-feat/slice-6-auth` inline on each command that needs it; from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format RunCoach.slnx --include <changed .cs> --no-restore --verify-no-changes` on changed .cs; from frontend/ `npm run build`, `npx vitest run <each touched spec>`, `npx eslint` and `npx prettier --check` on changed files. Git is blocked; leave changes in the working tree. No backend test runs in this sandbox: the test host cannot create its named pipe (SocketException 13). For every test you add or change, name the exact `dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class <FullName>` command for the orchestrator under Deviations, with that error as the reason; never claim a test result.
+Files you may touch: the build's file list plus nothing beyond the build's file list (login.page.tsx, login-form.component.tsx, login.page.spec.tsx, register.page.tsx, register-form.component.tsx, register.page.spec.tsx, auth-form-shell.component.tsx, auth-text-field.component.tsx, auth-poster-header.component.tsx and .spec.tsx, password-visibility-toggle.component.tsx and .spec.tsx, the seven e2e specs). Do not touch frontend/src/components/ui/, frontend/src/index.css, or anything under docs/.. Nothing else.
+</environment_and_gates>
+
+<completeness_contract>
+Final message = markdown stage report: Fixes (F1..Fn, each: what changed, file:line, the check that now goes red against the original bug, or VERIFIED BY INSPECTION when the item is documentation-only; never claim a mechanized red for a doc change), Gates (each command and its last output line), Deviations (any fix you could not apply and why), Open questions. Finish with the line FIX ROUND COMPLETE.
+</completeness_contract>

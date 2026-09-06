@@ -113,6 +113,19 @@ describe('RegisterPage', () => {
     expect(heading).toHaveClass('t-screen-title')
   })
 
+  it('renders the poster frame', () => {
+    renderRegister()
+
+    expect(screen.getByRole('main')).toHaveClass(
+      'mx-auto',
+      'min-h-dvh',
+      'max-w-md',
+      'gap-[26px]',
+      'px-[26px]',
+      'pb-10',
+    )
+  })
+
   // eslint-disable-next-line sonarjs/assertions-in-tests
   it('keeps the poster surface in both themes', () => {
     const result = renderInBothThemes(
@@ -176,6 +189,26 @@ describe('RegisterPage', () => {
 
     expect(link).toHaveTextContent('Sign in \u2192')
     expect(link).toHaveAttribute('href', '/login')
+  })
+
+  it('renders the secondary link with a 44px target and the canonical focus ring', () => {
+    renderRegister()
+    const link = screen.getByRole('link', { name: /sign in/i })
+
+    expect(link).toHaveClass(
+      'relative',
+      'hit-target-44',
+      'rounded-sm',
+      'font-condensed',
+      'font-bold',
+      'uppercase',
+      'tracking-[0.12em]',
+      'text-clay-text',
+      'outline-none',
+      'focus-visible:border-ring',
+      'focus-visible:ring-[3px]',
+      'focus-visible:ring-ring/[0.22]',
+    )
   })
 
   it('renders the pending create-account copy', () => {

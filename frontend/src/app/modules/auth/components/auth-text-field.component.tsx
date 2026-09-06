@@ -84,7 +84,7 @@ export const AuthTextField = <TValues extends FieldValues>({
     control={control}
     name={name}
     render={({ field }) => (
-      <FormItem>
+      <FormItem className="gap-1.5">
         <FormLabel className="t-data-label">{label}</FormLabel>
         <AuthInputControl
           field={field}

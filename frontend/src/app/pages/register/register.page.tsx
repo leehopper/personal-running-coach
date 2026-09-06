@@ -80,7 +80,7 @@ const RegisterPage = () => {
         Already on the plan?{' '}
         <Link
           to="/login"
-          className="font-condensed font-bold tracking-[0.12em] text-clay-text uppercase"
+          className="relative hit-target-44 rounded-sm font-condensed font-bold uppercase tracking-[0.12em] text-clay-text outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22]"
         >
           Sign in {'\u2192'}
         </Link>

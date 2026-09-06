@@ -89,3 +89,10 @@ STAGE COMPLETE
 
 Codex session ID: 01a076e4-fbe3-7d13-baf7-fd513bb20f50
 Resume in Codex: codex resume 01a076e4-fbe3-7d13-baf7-fd513bb20f50
+
+## Orchestrator addendum (2026-09-06, after the round-1 lenses)
+
+The commit 8aa14029 carries 22 paths, not the 19 the report lists: the 19 frontend paths above plus three orchestrator-added evidence files (`docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-brief.txt`, `build-vars.json`, `build-report.md`), which the recipe commits with the build. A later docs commit added `build-orchestrator-runs.md`.
+
+Host results supersede the E2E and full-suite deviations above (recorded in `build-orchestrator-runs.md`): `npm run test` 1058/1058; `npm run check-contrast` 50/50 (PR-B adds no pair); `npm run codegen:check` exit 0; `npm run build` clean; ESLint exit 0 and Prettier clean on every touched source and e2e file; Playwright 14 passed, 2 failed, both the journeys already red on `main` before this slice (`plan-render.spec.ts:242`, `workout-logging.spec.ts:192`), outside PR-B surfaces. DU-5.13 and DU-6.3 are therefore PASS on the host, not deviations. `dotnet format` is not a PR-B gate: no C# file changed.
+

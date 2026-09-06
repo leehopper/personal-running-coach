@@ -1,0 +1,352 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "major",
+   "claim": "The stage report file list omits three files present in the committed diff.",
+   "evidence": ".stage-report.md:3-10 lists 15 changed and 4 new files. MECHANIZED git diff HEAD~1 --stat reports 22 files, including build-brief.txt, build-report.md, and build-vars.json.",
+   "fix": "List all 22 changed paths in the stage report and evidence report.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "The stage report incorrectly records host E2E as unrunnable and leaves DU-5.13 and DU-6.3 as deviations.",
+   "evidence": ".stage-report.md:44,47,78 says host E2E was unavailable. MECHANIZED build-orchestrator-runs.md:26-37 records 14 passed, two pre-existing failures, and passing auth plus selector journeys.",
+   "fix": "Update the report with the host result and identify the two failures as pre-existing.",
+   "mode": "MECHANIZED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "Remove aria-pressed from PasswordVisibilityToggle.",
+   "expected_red_test": "password-visibility-toggle.component.spec.tsx:36, flips the pressed state and accessible name",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Stop flipping the native password input type.",
+   "expected_red_test": "login.page.spec.tsx:141 and register.page.spec.tsx:150",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Change current-password or new-password autocomplete.",
+   "expected_red_test": "login.page.spec.tsx:124 and register.page.spec.tsx:129",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Add a child to auth-oauth-reserve.",
+   "expected_red_test": "login.page.spec.tsx:155 and register.page.spec.tsx:164",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Revert password lookups to substring matching.",
+   "expected_red_test": "login.page.spec.tsx:60, register.page.spec.tsx:69, and the seven e2e selectors",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "1.A1 PR boundary and disjoint ownership",
+   "status": "SATISFIED",
+   "where": "git diff HEAD~1 --name-only contains the PR-B frontend files and only PR-B evidence files; no PR-A settings or sign-out source is changed."
+  },
+  {
+   "item": "1.A2 no backend, wire, event, prompt, generated-code, or migration change",
+   "status": "SATISFIED",
+   "where": "git diff HEAD~1 --name-only; no backend, generated, prompt, migration, or API files changed."
+  },
+  {
+   "item": "1.A3 register mirror ruling",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/pages/register/register.page.tsx:75-87 mirrors the poster with Start here, helper copy, link, and OAuth reserve."
+  },
+  {
+   "item": "C1-C2 auth frame and poster header",
+   "status": "SATISFIED",
+   "where": "login.page.tsx:61-63, register.page.tsx:75-77, and auth-poster-header.component.tsx:3-9."
+  },
+  {
+   "item": "C3-C4 headings, labels, dimensions, and preserved field wiring",
+   "status": "SATISFIED",
+   "where": "auth-form-shell.component.tsx:40-65, auth-text-field.component.tsx:74-99, login-form.component.tsx:15-39, register-form.component.tsx:15-44."
+  },
+  {
+   "item": "C5 password toggle structure and behavior",
+   "status": "SATISFIED",
+   "where": "auth-text-field.component.tsx:33-66 and password-visibility-toggle.component.tsx:14-25 keep FormControl direct-child semantics and flip only input type."
+  },
+  {
+   "item": "C6 auth copy, links, helper, errors, chaining, and navigation",
+   "status": "SATISFIED",
+   "where": "login.page.tsx:65-72, register.page.tsx:79-86, and preserved page tests in login.page.spec.tsx and register.page.spec.tsx."
+  },
+  {
+   "item": "C7-C10 exact password lookups and e2e realignment",
+   "status": "SATISFIED",
+   "where": "login.page.spec.tsx:60-62, register.page.spec.tsx:69-71, and exact selectors at auth.spec.ts:93, conversation-streaming.spec.ts:233, onboarding.spec.ts:122, plan-render.spec.ts:255, regenerate-plan.spec.ts:386, shell-navigation.spec.ts:56, workout-logging.spec.ts:162."
+  },
+  {
+   "item": "D1-D3 PR-A-owned version, focus, and contrast changes",
+   "status": "NOT_APPLICABLE",
+   "where": "No version, primitive, token, or contrast script file is changed by PR-B. Orchestrator evidence reports 50 existing pairs."
+  },
+  {
+   "item": "D4 copy, escapes, semantic tokens, motion, and target rules",
+   "status": "SATISFIED",
+   "where": "Changed TS/TSX additions contain escaped ellipsis and arrow literals, semantic classes, no raw hex, no VDOT, and use the existing Button motion and target treatment."
+  },
+  {
+   "item": "D5 required sandbox deviations and orchestrator gates",
+   "status": "SATISFIED",
+   "where": "Local e2e, check-contrast, and full test attempts hit sandbox EPERM errors; host results are recorded in build-orchestrator-runs.md:8-21 and 26-37."
+  },
+  {
+   "item": "Rejected alternatives remain rejected",
+   "status": "SATISFIED",
+   "where": "No settings state machine, shared Dialog migration, explicit sign-out navigation, version global, or auth schema change appears in the diff."
+  },
+  {
+   "item": "4.1 copy and character contract",
+   "status": "SATISFIED",
+   "where": "Auth source copy is present in auth-poster-header.component.tsx:7-9, login-form.component.tsx:16-23, register-form.component.tsx:16-42, and page links:65-86."
+  },
+  {
+   "item": "4.2 auth component map",
+   "status": "SATISFIED",
+   "where": "Auth frame, header, fields, toggle, primary button, OAuth reserve, and links match the locked rows in the changed files."
+  },
+  {
+   "item": "Preserved auth specs and contracts",
+   "status": "SATISFIED",
+   "where": "Existing login and register test names remain; focused Vitest runs report 18 and 17 passing. Settings, guard, regenerate component, resume, and unit specs are absent from the diff."
+  },
+  {
+   "item": "Wire and event delta",
+   "status": "NOT_APPLICABLE",
+   "where": "No wire or persisted event change exists, so no nullable-additive delta or upcaster is required."
+  },
+  {
+   "item": "Generated code and codegen pairing",
+   "status": "SATISFIED",
+   "where": "npm run codegen:check exited 0 locally and generated files have no diff."
+  },
+  {
+   "item": "Prompt YAML manifest and eval-cache pairing",
+   "status": "NOT_APPLICABLE",
+   "where": "No prompt YAML, manifest, or eval-cache file is changed."
+  },
+  {
+   "item": "Section 6 password autofill edge case",
+   "status": "SATISFIED",
+   "where": "auth-text-field.component.tsx:43-48 passes autoComplete independently while only inputType changes."
+  },
+  {
+   "item": "Section 8 trademark rule",
+   "status": "SATISFIED",
+   "where": "MECHANIZED added-line scan found no VDOT or raw color token in changed TS/TSX files."
+  },
+  {
+   "item": "Section 8 comment hygiene",
+   "status": "SATISFIED",
+   "where": "Added comments are ASCII and self-contained; no added code comment cites a plan, spec, decision log, or source path."
+  },
+  {
+   "item": "Section 8 logging and migration rules",
+   "status": "NOT_APPLICABLE",
+   "where": "No backend logging or EF migration file is changed."
+  },
+  {
+   "item": "Section 9 PR-B flagged deviations",
+   "status": "SATISFIED",
+   "where": "Exact password lookup amendment is implemented; OAuth remains an empty reserve and no primitive or schema changes were made."
+  },
+  {
+   "item": "DU-5.1 poster header",
+   "status": "SATISFIED",
+   "where": "auth-poster-header.component.tsx:3-9 and its spec:10-37."
+  },
+  {
+   "item": "DU-5.2 login hidden heading",
+   "status": "SATISFIED",
+   "where": "login-form.component.tsx:15-17 and login.page.spec.tsx:90-108."
+  },
+  {
+   "item": "DU-5.3 register visible heading",
+   "status": "SATISFIED",
+   "where": "register-form.component.tsx:15-16 and register.page.spec.tsx:106-114."
+  },
+  {
+   "item": "DU-5.4 fields and autocomplete",
+   "status": "SATISFIED",
+   "where": "auth-text-field.component.tsx:74-99 and both page specs' field assertions."
+  },
+  {
+   "item": "DU-5.5 visibility toggle",
+   "status": "SATISFIED",
+   "where": "password-visibility-toggle.component.tsx:14-25 and its spec:26-46."
+  },
+  {
+   "item": "DU-5.6 page visibility without autocomplete changes",
+   "status": "SATISFIED",
+   "where": "login.page.spec.tsx:141-152 and register.page.spec.tsx:150-161."
+  },
+  {
+   "item": "DU-5.7 exact password helpers",
+   "status": "SATISFIED",
+   "where": "Both Testing Library helpers and all seven e2e password selectors use exact matching."
+  },
+  {
+   "item": "DU-5.8 empty OAuth reserve",
+   "status": "SATISFIED",
+   "where": "auth-form-shell.component.tsx:54-65 and both page specs' reserve assertions."
+  },
+  {
+   "item": "DU-5.9 primary and pending copy",
+   "status": "SATISFIED",
+   "where": "login-form.component.tsx:22-23, register-form.component.tsx:21-22, and pending-copy tests."
+  },
+  {
+   "item": "DU-5.10 auth links",
+   "status": "SATISFIED",
+   "where": "login.page.tsx:65-72 and register.page.tsx:79-86."
+  },
+  {
+   "item": "DU-5.11 register helper",
+   "status": "SATISFIED",
+   "where": "register-form.component.tsx:38-42 and register.page.spec.tsx:144-147."
+  },
+  {
+   "item": "DU-5.12 preserved auth flows",
+   "status": "SATISFIED",
+   "where": "Focused page runs report 18 login tests and 17 register tests passing; existing names remain."
+  },
+  {
+   "item": "DU-5.13 auth E2E poster and eye checks",
+   "status": "SATISFIED",
+   "where": "auth.spec.ts:88-101; host evidence states the realigned auth journey passed."
+  },
+  {
+   "item": "DU-6.1 codegen drift",
+   "status": "SATISFIED",
+   "where": "Host evidence reports codegen rc=0 and local codegen:check exits 0."
+  },
+  {
+   "item": "DU-6.2 lint",
+   "status": "SATISFIED",
+   "where": "ESLint exits 0 on 19 changed TypeScript files, including the four suppressions."
+  },
+  {
+   "item": "DU-6.3 e2e realignment",
+   "status": "SATISFIED",
+   "where": "Host evidence reports 14 passed and identifies only plan-render and workout-logging pre-existing failures; PR-B auth and selector journeys passed."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "git diff HEAD~1 --stat",
+   "result": "VERIFIED: 22 files changed, 630 insertions, 62 deletions."
+  },
+  {
+   "command": "git diff HEAD~1 --name-only | wc -l",
+   "result": "VERIFIED: 22 changed paths; 19 frontend paths and 3 evidence paths."
+  },
+  {
+   "command": ".stage-report.md:3-10 file list",
+   "result": "CONTRADICTED: the report lists 19 paths by category and omits the 3 evidence files."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npm run build",
+   "result": "VERIFIED: exit 0; build completed with only existing Vite chunk warnings."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npx vitest run src/app/pages/login/login.page.spec.tsx",
+   "result": "VERIFIED: Tests 18 passed (18)."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npx vitest run src/app/pages/register/register.page.spec.tsx",
+   "result": "VERIFIED: Tests 17 passed (17)."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npx vitest run src/app/modules/auth/components/auth-poster-header.component.spec.tsx",
+   "result": "VERIFIED: Tests 4 passed (4)."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npx vitest run src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx",
+   "result": "VERIFIED: Tests 3 passed (3)."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npx eslint <19 touched TypeScript files>",
+   "result": "VERIFIED: exit 0 with no output."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npx prettier --check <19 touched source/e2e files>",
+   "result": "VERIFIED: exit 0; All matched files use Prettier code style!"
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npx prettier --check <22 diff files>",
+   "result": "NOT_GREEN: exit 2; build-brief.txt has no inferred parser and build-report.md/build-vars.json were warned. The stage report's literal all-files claim is not verified."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npm run codegen:check",
+   "result": "VERIFIED: exit 0; generated sources and swagger have no diff."
+  },
+  {
+   "command": "git diff HEAD~1 --check",
+   "result": "VERIFIED: no output and exit 0."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npm run e2e",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: exit 1; Error: listen EPERM: operation not permitted ::1:5173. Host evidence later records 14 passed and two pre-existing failures."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npm run check-contrast",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: exit 1; Error: listen EPERM: operation not permitted /tmp/codex-agent-slice-6-auth-r1-conformance/tsx-502/96010.pipe."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice-6-auth-r1-conformance npm run test",
+   "result": "NOT_RUNNABLE_IN_SANDBOX: exit 1; nested check-contrast tests report EPERM on the tsx IPC pipe and the sandbox has no localStorage; 3 files and 22 tests failed."
+  },
+  {
+   "command": "dotnet test --no-restore -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers",
+   "result": "UNVERIFIED: dotnet startup produced no test result and the process did not complete in the sandbox."
+  },
+  {
+   "command": ".stage-report.md:16-26",
+   "result": "VERIFIED for build, focused tests, ESLint, codegen, and diff-check. Backend build and dotnet format claims are UNVERIFIED and are not frontend gates."
+  },
+  {
+   "command": ".stage-report.md:32-47",
+   "result": "DU-5.1 through DU-5.12 are verified. The DU-5.13 and DU-6.3 deviation claims are CONTRADICTED by host evidence."
+  },
+  {
+   "command": ".stage-report.md:51-73",
+   "result": "UNVERIFIED: no mutation command or output was supplied; listed mutation observations remain NOT_RUN."
+  },
+  {
+   "command": ".stage-report.md:75-82",
+   "result": "The local sandbox deviations are observed, but the E2E deviation is contradicted by the host run; dotnet format remains unverified."
+  },
+  {
+   "command": "git status --short",
+   "result": "VERIFIED: only the provided untracked build-orchestrator-runs.md remains."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "npm run e2e",
+   "purpose": "Rerun Playwright against the host stack and attach the measured result."
+  },
+  {
+   "command": "npm run check-contrast",
+   "purpose": "Run the contrast gate outside the sandbox IPC restriction."
+  },
+  {
+   "command": "npm run test",
+   "purpose": "Run the full Vitest suite outside the sandbox IPC and localStorage restrictions."
+  },
+  {
+   "command": "dotnet test",
+   "purpose": "Confirm the spec-recorded backend test non-applicability or sandbox limitation; no backend files changed."
+  }
+ ],
+ "verdict": "REJECT because the implementation conforms to the PR-B acceptance criteria, but the stage report omits three diff files and misreports the host E2E result."
+}
