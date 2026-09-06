@@ -38,13 +38,16 @@ export const SettingsPage = (): ReactElement => {
 
       <section className="flex flex-col gap-3" data-testid="settings-plan-section">
         <SectionRule label="The plan" />
-        <PlanSummary plan={plan} isLoading={isLoading} isError={isError} />
+        <div className="flex flex-col gap-0.5">
+          <MonoLabel tone="muted">Current plan</MonoLabel>
+          <PlanSummary plan={plan} isLoading={isLoading} isError={isError} />
+        </div>
         <div className="flex flex-col gap-1.5">
           <Button
             type="button"
             onClick={() => setIsDialogOpen(true)}
             variant="outline"
-            className="h-12 border-clay-text text-clay-text active:text-secondary-foreground"
+            className="h-12 border-clay-text text-clay-text dark:border-clay-text dark:bg-background active:text-secondary-foreground"
             data-testid="settings-regenerate-button"
           >
             Regenerate plan

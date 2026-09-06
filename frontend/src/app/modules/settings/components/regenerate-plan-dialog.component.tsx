@@ -129,7 +129,7 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
         aria-modal="true"
         aria-labelledby="regenerate-plan-title"
         aria-describedby="regenerate-plan-description"
-        className="w-[calc(100%-40px)] max-w-[350px] rounded-xl border border-border bg-card p-[18px]"
+        className="flex w-[calc(100%-40px)] max-w-[350px] flex-col gap-3 rounded-xl border border-border bg-card p-[18px]"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}
         data-testid="regenerate-plan-dialog"
@@ -160,7 +160,7 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
             maxLength={INTENT_MAX_LENGTH}
             rows={4}
             disabled={isLoading}
-            placeholder={'e.g. coming back from a calf strain, want to focus on long runs \u2026'}
+            placeholder="e.g. coming back from a calf strain, want to focus on long runs…"
             className="min-h-[88px] rounded-md px-[14px] py-[11px]"
             data-testid="regenerate-plan-intent"
           />

@@ -460,6 +460,29 @@ describe('runChecks (against the committed index.css)', () => {
       expect(result.passed).toBe(true)
     }
   })
+
+  it('declares the two muted pairs at 4.5', () => {
+    const mutedPairs = PAIRS.filter(
+      (pair) =>
+        pair.label === '--muted-foreground on --background' ||
+        pair.label === '--muted-foreground on --card',
+    )
+
+    expect(mutedPairs).toEqual([
+      {
+        label: '--muted-foreground on --background',
+        fg: 'muted-foreground',
+        bg: 'background',
+        threshold: 4.5,
+      },
+      {
+        label: '--muted-foreground on --card',
+        fg: 'muted-foreground',
+        bg: 'card',
+        threshold: 4.5,
+      },
+    ])
+  })
 })
 
 describe('check-contrast script (integration)', () => {
@@ -491,7 +514,7 @@ describe('check-contrast script (integration)', () => {
   it('exits 0 and reports all pairs passing against the committed tokens', () => {
     const { status, stdout } = runGate()
     expect(status).toBe(0)
-    expect(stdout).toContain('all 27 pairs pass WCAG thresholds')
+    expect(stdout).toContain('all 54 pairs pass WCAG thresholds')
   }, 30000)
 
   it('exits non-zero and names the failing pair + ratio on stderr when a token regresses', () => {

@@ -161,7 +161,27 @@ describe('SettingsPage', () => {
       expect(view.getByRole('heading', { name: 'Appearance', level: 2 })).toBeInTheDocument()
       expect(view.getByRole('heading', { name: 'Units', level: 2 })).toBeInTheDocument()
       expect(view.getByRole('heading', { name: 'Account', level: 2 })).toBeInTheDocument()
+      expect(
+        Array.from(view.getByTestId('settings-page').querySelectorAll('section'), (section) =>
+          section.getAttribute('data-testid'),
+        ),
+      ).toEqual([
+        'settings-plan-section',
+        'settings-appearance-section',
+        'settings-units-section',
+        'settings-account-section',
+      ])
     }
+  })
+
+  it('renders the current-plan eyebrow', () => {
+    mockLoadedPlan()
+    renderPage()
+    const eyebrow = screen.getByText('Current plan', { exact: true })
+    const summary = screen.getByTestId('settings-plan-generated-at')
+
+    expect(eyebrow).toHaveAttribute('data-testid', 'mono-label')
+    expect(eyebrow.compareDocumentPosition(summary)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
   it('renders the full current-plan line', () => {
@@ -205,6 +225,8 @@ describe('SettingsPage', () => {
     expect(button).toHaveClass(
       'border-clay-text',
       'text-clay-text',
+      'dark:border-clay-text',
+      'dark:bg-background',
       'active:text-secondary-foreground',
     )
     expect(button).toHaveTextContent('Regenerate plan')
@@ -217,6 +239,14 @@ describe('SettingsPage', () => {
     mockLoadedPlan()
     renderPage()
     expect(screen.getByTestId('settings-account-email')).toHaveTextContent('runner@example.com')
+  })
+
+  it('does not render the retired previous-plan placeholder', () => {
+    mockLoadedPlan({ previousPlanId: 'previous-plan' })
+    renderPage()
+
+    expect(screen.queryByTestId('settings-previous-plan-link')).not.toBeInTheDocument()
+    expect(screen.queryByText('View previous plan')).not.toBeInTheDocument()
   })
 
   it('invokes sign out and disables the button while signing out', async () => {

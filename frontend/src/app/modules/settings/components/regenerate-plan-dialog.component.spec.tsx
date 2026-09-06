@@ -55,7 +55,38 @@ describe('RegeneratePlanDialog', () => {
     expect(screen.getByLabelText('Anything I should know? \u2014 optional')).toBeInTheDocument()
     const textarea = screen.getByTestId('regenerate-plan-intent') as HTMLTextAreaElement
     expect(textarea.maxLength).toBe(500)
+    expect(textarea).toHaveAttribute(
+      'placeholder',
+      'e.g. coming back from a calf strain, want to focus on long runs…',
+    )
     expect(screen.getByTestId('regenerate-plan-cancel')).toBeInTheDocument()
+  })
+
+  it('keeps the dialog ARIA wiring and the panel classes', () => {
+    renderDialog(vi.fn())
+    const dialog = screen.getByTestId('regenerate-plan-dialog')
+    const title = screen.getByRole('heading', { name: 'Regenerate plan', level: 2 })
+    const description = document.getElementById('regenerate-plan-description')
+    const backdrop = screen.getByTestId('regenerate-plan-backdrop')
+    const cancel = screen.getByTestId('regenerate-plan-cancel')
+    const submit = screen.getByTestId('regenerate-plan-submit')
+
+    expect(dialog).toHaveAttribute('role', 'dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', 'regenerate-plan-title')
+    expect(dialog).toHaveAttribute('aria-describedby', 'regenerate-plan-description')
+    expect(document.getElementById('regenerate-plan-title')).toBe(title)
+    expect(description).toBeInTheDocument()
+    expect(document.getElementById('regenerate-plan-description')).toBe(description)
+    expect(dialog.className).toBe(
+      'flex w-[calc(100%-40px)] max-w-[350px] flex-col gap-3 rounded-xl border border-border bg-card p-[18px]',
+    )
+    expect(backdrop.className).toBe(
+      'fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 px-4',
+    )
+    expect(cancel).toHaveClass('min-h-11')
+    expect(submit).toHaveClass('min-h-11')
+    expect(cancel.parentElement?.className).toBe('flex items-center justify-end gap-2.5')
   })
 
   it('submits without an intent block when textarea is empty', async () => {
@@ -98,6 +129,7 @@ describe('RegeneratePlanDialog', () => {
     await userEvent.click(screen.getByTestId('regenerate-plan-submit'))
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not regenerate/i)
     expect(onClose).not.toHaveBeenCalled()
+    expect(navigateMock).not.toHaveBeenCalled()
   })
 
   it('shows the building surface while regeneration is in flight', () => {
@@ -119,6 +151,7 @@ describe('RegeneratePlanDialog', () => {
     renderDialog(onClose)
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(onClose).toHaveBeenCalledTimes(1)
+    expect(navigateMock).not.toHaveBeenCalled()
   })
 
   it('closes the dialog when the Escape key is pressed while idle', () => {
@@ -192,6 +225,9 @@ describe('RegeneratePlanDialog', () => {
     await userEvent.click(screen.getByTestId('regenerate-plan-submit'))
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/'))
     expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
+      navigateMock.mock.invocationCallOrder[0],
+    )
   })
 
   it('returns the panel with the same intent and key after failure', async () => {

@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { configureStore } from '@reduxjs/toolkit'
+import { configureStore, type Middleware } from '@reduxjs/toolkit'
 import type { ReactNode } from 'react'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,6 +21,7 @@ vi.mock('~/error-boundary/report-client-error', () => ({
 
 class InMemoryBroadcastChannel {
   private static readonly channels = new Map<string, Set<InMemoryBroadcastChannel>>()
+  private static eventLog: string[] | undefined
   private readonly name: string
   onmessage: ((event: MessageEvent) => void) | null = null
 
@@ -32,6 +33,7 @@ class InMemoryBroadcastChannel {
   }
 
   postMessage(data: unknown): void {
+    InMemoryBroadcastChannel.eventLog?.push('BroadcastChannel.postMessage')
     const channels = InMemoryBroadcastChannel.channels.get(this.name)
     channels?.forEach((channel) => {
       if (channel !== this) channel.onmessage?.(new MessageEvent('message', { data }))
@@ -42,23 +44,49 @@ class InMemoryBroadcastChannel {
     InMemoryBroadcastChannel.channels.get(this.name)?.delete(this)
   }
 
+  static recordEvents(eventLog: string[]): void {
+    InMemoryBroadcastChannel.eventLog = eventLog
+  }
+
   static reset(): void {
     InMemoryBroadcastChannel.channels.clear()
+    InMemoryBroadcastChannel.eventLog = undefined
   }
 }
+
+const resetApiStateType = apiSlice.util.resetApiState().type
+
+const isAction = (value: unknown): value is { type: string } =>
+  typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string'
+
+const actionLogMiddleware =
+  (eventLog: string[]): Middleware =>
+  () =>
+  (next) =>
+  (action) => {
+    if (
+      isAction(action) &&
+      (action.type === authSlice.actions.loggedOut.type || action.type === resetApiStateType)
+    ) {
+      eventLog.push(action.type)
+    }
+    return next(action)
+  }
 
 const makeStore = (
   auth: AuthState = {
     status: 'authenticated',
     user: { userId: 'u1', email: 'runner@example.com' },
   },
+  eventLog: string[] = [],
 ) =>
   configureStore({
     reducer: {
       [authSlice.name]: authSlice.reducer,
       [apiSlice.reducerPath]: apiSlice.reducer,
     },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(apiSlice.middleware),
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware().concat(apiSlice.middleware, actionLogMiddleware(eventLog)),
     preloadedState: {
       [authSlice.name]: auth,
     },
@@ -114,13 +142,18 @@ describe('useSignOut', () => {
   })
 
   it('posts logout before marking the store unauthenticated', async () => {
-    const store = makeStore()
+    const events: string[] = []
+    InMemoryBroadcastChannel.recordEvents(events)
+    const store = makeStore(undefined, events)
     let statusDuringPost: AuthState['status'] | undefined
     fetchMock.mockImplementationOnce((input: RequestInfo | URL) => {
       const url = requestUrl(input)
       if (url.includes('/v1/auth/logout')) {
         statusDuringPost = store.getState().auth.status
-        return Promise.resolve(makeResponse(undefined, 204))
+        return Promise.resolve(makeResponse(undefined, 204)).then((response) => {
+          events.push('logout fetch resolved')
+          return response
+        })
       }
       return Promise.resolve(makeResponse(undefined, 404))
     })
@@ -132,6 +165,12 @@ describe('useSignOut', () => {
 
     expect(statusDuringPost).toBe('authenticated')
     expect(store.getState().auth.status).toBe('unauthenticated')
+    expect(events).toEqual([
+      'logout fetch resolved',
+      authSlice.actions.loggedOut.type,
+      resetApiStateType,
+      'BroadcastChannel.postMessage',
+    ])
   })
 
   it('purges subscribed RTK Query state and refetches on resubscribe', async () => {
@@ -174,7 +213,8 @@ describe('useSignOut', () => {
   })
 
   it('the receiver purges a second store after logout', async () => {
-    const receiverStore = makeStore()
+    const receiverEvents: string[] = []
+    const receiverStore = makeStore(undefined, receiverEvents)
     const subscription = receiverStore.dispatch(authApi.endpoints.me.initiate(undefined))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     expect(Object.keys(receiverStore.getState().api.queries)).not.toHaveLength(0)
@@ -185,18 +225,26 @@ describe('useSignOut', () => {
     postLogoutBroadcast()
     await waitFor(() => expect(receiverStore.getState().auth.status).toBe('unauthenticated'))
     expect(receiverStore.getState().api.queries).toEqual({})
+    expect(receiverEvents).toEqual([authSlice.actions.loggedOut.type, resetApiStateType])
     subscription.unsubscribe()
     unmount()
   })
 
   it('reports a rejected logout while still purging and broadcasting', async () => {
+    const events: string[] = []
+    InMemoryBroadcastChannel.recordEvents(events)
     const observer = new BroadcastChannel('auth')
     const messageMock = vi.fn()
     observer.onmessage = messageMock
-    const store = makeStore()
+    const store = makeStore(undefined, events)
     const subscription = store.dispatch(authApi.endpoints.me.initiate(undefined))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    fetchMock.mockImplementationOnce(() => Promise.resolve(makeResponse({ title: 'failed' }, 500)))
+    fetchMock.mockImplementationOnce(() =>
+      Promise.resolve(makeResponse({ title: 'failed' }, 500)).then((response) => {
+        events.push('logout fetch resolved')
+        return response
+      }),
+    )
     const { result } = renderHook(() => useSignOut(), { wrapper: makeWrapper(store) })
 
     await act(async () => {
@@ -209,6 +257,12 @@ describe('useSignOut', () => {
     expect(store.getState().auth.status).toBe('unauthenticated')
     expect(store.getState().api.queries).toEqual({})
     expect(messageMock).toHaveBeenCalledTimes(1)
+    expect(events).toEqual([
+      'logout fetch resolved',
+      authSlice.actions.loggedOut.type,
+      resetApiStateType,
+      'BroadcastChannel.postMessage',
+    ])
     subscription.unsubscribe()
     observer.close()
   })

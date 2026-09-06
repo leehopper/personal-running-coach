@@ -1,0 +1,75 @@
+F1 (blocker; conformance 1, mutation 1): frontend/scripts/__tests__/check-contrast.spec.ts line 494 expects
+`all 27 pairs pass WCAG thresholds`, but the script prints the result count (`all ${results.length} pairs`, 27 pairs x 2
+modes = 54; host run: `check-contrast: all 54 pairs pass WCAG thresholds.`). Change the literal to
+`all 54 pairs pass WCAG thresholds`. The spec was corrected to the same string. Red: leave the literal at 50.
+
+F2 (blocker; sol red-team finding 4, spec 4.2 and 1.B amended): the regenerate button's outline variant adds
+`dark:border-input dark:bg-input/30` in button.tsx, which hides the clay border in dark mode and drops clay text onto a
+composite fill measured at 3.84:1. In settings.page.tsx the button's className becomes
+`h-12 border-clay-text text-clay-text dark:border-clay-text dark:bg-background active:text-secondary-foreground`.
+Extend the page-spec test `renders the clay-outline regenerate action and warning` to assert both `dark:` classes. Red:
+remove `dark:bg-background`.
+
+F3 (blocker; conformance 2, mutation 3): the regenerate panel omits the locked column layout. In
+regenerate-plan-dialog.component.tsx the panel div's class list becomes
+`flex w-[calc(100%-40px)] max-w-[350px] flex-col gap-3 rounded-xl border border-border bg-card p-[18px]`. Assert the
+class list in the dialog spec (part of F9). Red: remove `gap-3`.
+
+F4 (blocker; mutation 2, spec 4.2 Plan metadata): Settings renders no `Current plan` eyebrow. Above the
+`settings-plan-generated-at` paragraph render `<MonoLabel tone="muted">Current plan</MonoLabel>` (import from
+`~/modules/common/components/mono-label/mono-label.component`), inside the same `flex flex-col gap-0.5` stack as the
+paragraph. Add the page-spec assertion `renders the current-plan eyebrow` (text `Current plan`, the mono-label testid,
+and that it precedes the paragraph in DOM order). Red: remove the label.
+
+F5 (major; mutation 4): section order and exact testids are not pinned. In settings-page.spec.tsx assert, in DOM order,
+the four section testids `settings-plan-section`, `settings-appearance-section`, `settings-units-section`,
+`settings-account-section` (compare `compareDocumentPosition` or the index within `main`), in the existing
+`renders all four rule sections and the title in both themes` test for both theme renders. Red: swap Units and Account.
+
+F6 (major; mutation 5): sign-out ordering is not pinned. In auth.hooks.spec.tsx record an ordered event log in the sender
+tests: the logout fetch resolving (`fetch` mock resolution), then `auth/loggedOut`, then the RTK reset action
+(`apiSlice.util.resetApiState().type`), then the BroadcastChannel `postMessage` (the local fake records posts). Use a
+store listener middleware or a `store.subscribe` action log (a tiny middleware that pushes `action.type` into an array is
+fine). Assert the exact order in `posts logout before marking the store unauthenticated` and in the rejected-POST test,
+and assert `auth/loggedOut` precedes the reset action in `the receiver purges a second store after logout`. Red: swap
+`loggedOut()` and `resetApiState()` in the sender; swap them in the receiver; move the broadcast before the purge.
+
+F7 (major; mutation 6): dialog callback order and failure navigation are not pinned. In
+regenerate-plan-dialog.component.spec.tsx assert in `navigates home after successful regeneration` that `onClose` was
+called before `navigateMock` (record call order with a shared array or `mock.invocationCallOrder`), and assert in the
+failure test and in `invokes onClose when Cancel is clicked` that `navigateMock` was not called. Red: navigate in the
+catch path; swap onClose and navigate.
+
+F8 (major; mutation 7): the placeholder deletion has no negative test. Add `does not render the retired previous-plan
+placeholder` to settings-page.spec.tsx with a plan fixture whose `previousPlanId` is non-null, asserting
+`settings-previous-plan-link` is absent and the text `View previous plan` is absent. Red: render the old placeholder.
+
+F9 (major; mutation 8): the dialog's locked ARIA and class contracts are unasserted. Add `keeps the dialog ARIA wiring and
+the panel classes` to the dialog spec: `role="dialog"`, `aria-modal="true"`, `aria-labelledby="regenerate-plan-title"`
+resolving to the title element, `aria-describedby="regenerate-plan-description"` resolving to the description, the panel
+class list from F3, the backdrop class list (`fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 px-4`),
+and the actions row `flex items-center justify-end gap-2.5` with both buttons carrying `min-h-11`. Red: drop
+`aria-modal`.
+
+F10 (major; mutation 9): the new pairs' thresholds are not pinned. In check-contrast.spec.ts add `declares the two muted
+pairs at 4.5` asserting that PAIRS contains exactly `{ label: '--muted-foreground on --background', fg:
+'muted-foreground', bg: 'background', threshold: 4.5 }` and `{ label: '--muted-foreground on --card', fg:
+'muted-foreground', bg: 'card', threshold: 4.5 }` (import PAIRS or read them the way the count test does). Red: change
+one threshold to 3.0.
+
+F11 (minor; mutation 10): the regenerate textarea placeholder changed bytes (HEAD~1 had `long runs...` with three ASCII
+periods and no space; the build wrote `long runs …`). Restore the exact prior placeholder string from
+`git show HEAD~1:frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx` and assert it in
+the dialog spec's copy test. Red: change one character.
+
+F12 ORCHESTRATOR-DONE (conformance 3 and the stage-report claims): the orchestrator appended an addendum to
+.stage-report.md and build-report.md reconciling the 21-path commit (the report listed 20) and the host results. No
+implementer action.
+
+F13 ORCHESTRATOR-RAN (treat as measured fact; recorded in build-orchestrator-runs.md and round1/orchestrator-runs.md):
+against the clone at 4de63051, `npm run test` 1052/1053 (the one red is F1), `npm run check-contrast` 54/54,
+`npm run codegen:check` 0, `npm run build` clean with `0.9.0` in the bundle, eslint 0 and prettier clean on every touched
+file, Playwright 16 passed with the two pre-existing `main` failures (both sign-out journeys and the realigned regenerate
+journey passed). The three e2e mutation replays the ledger could not run (remove the sign-out handler; remove the
+broadcast; render the panel during loading) are being run by the orchestrator in a separate worktree while this fix
+round runs.
