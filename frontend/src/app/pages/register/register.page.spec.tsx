@@ -155,9 +155,21 @@ describe('RegisterPage', () => {
     expect(screen.getByText('Email', { exact: true })).toHaveClass('t-data-label')
     expect(screen.getByText('Password', { exact: true })).toHaveClass('t-data-label')
     const helper = screen.getByText(
+      (_, element) =>
+        element?.tagName === 'SPAN' &&
+        element.textContent ===
+          '12 characters or more, with an uppercase letter, a lowercase letter, a digit, and a symbol.',
+    )
+    expect(helper).toHaveTextContent(
       '12 characters or more, with an uppercase letter, a lowercase letter, a digit, and a symbol.',
     )
     expect(helper).toHaveClass('font-mono')
+  })
+
+  it('renders the helper numeral in the condensed font', () => {
+    renderRegister()
+
+    expect(screen.getByText('12', { exact: true })).toHaveClass('font-condensed')
   })
 
   it('flips password visibility without changing autocomplete', async () => {

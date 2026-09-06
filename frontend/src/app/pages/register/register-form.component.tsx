@@ -37,8 +37,8 @@ export const RegisterForm = ({ form, onSubmit, isLoading, formAlert }: RegisterF
       autoComplete="new-password"
       description={
         <span className="font-mono">
-          12 characters or more, with an uppercase letter, a lowercase letter, a digit, and a
-          symbol.
+          <span className="font-condensed">12</span> characters or more, with an uppercase letter, a
+          lowercase letter, a digit, and a symbol.
         </span>
       }
     />
