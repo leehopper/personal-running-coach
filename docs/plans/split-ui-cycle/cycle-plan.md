@@ -93,9 +93,9 @@ Each slice ships top-to-bottom (any backend delta + codegen + frontend + tests) 
 | 0 | Alpine Foundation ✅ (2026-07-08, PR #275) | [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) | — (R-086 cleared) |
 | 1 | Shell & Navigation ✅ (2026-07-08, PR #277) | [`./slice-1-shell-navigation.md`](./slice-1-shell-navigation.md) | 0 |
 | 2 | Today ✅ (2026-07-14, PR #285) | [`./slice-2-today.md`](./slice-2-today.md) | 1 |
-| 3 | Coach | [`./slice-3-coach.md`](./slice-3-coach.md) | 1 |
-| 4 | Log & Log Book | [`./slice-4-log-logbook.md`](./slice-4-log-logbook.md) | 1 |
-| 5 | Onboarding | [`./slice-5-onboarding.md`](./slice-5-onboarding.md) | 0 |
+| 3 | Coach ✅ (2026-07-15, PRs #288/#290/#292/#294) | [`./slice-3-coach.md`](./slice-3-coach.md) | 1 |
+| 4 | Log & Log Book ✅ (2026-07-19, PRs #302/#304/#306/#308) | [`./slice-4-log-logbook.md`](./slice-4-log-logbook.md) | 1 |
+| 5 | Onboarding ✅ (2026-09-06, PRs #361/#363) | [`./slice-5-onboarding.md`](./slice-5-onboarding.md) | 0 |
 | 6 | Settings & Auth | [`./slice-6-settings-auth.md`](./slice-6-settings-auth.md) | 1 (Settings), 0 (Auth) |
 | 7 | States, Light Pass & Cycle Close | [`./slice-7-states-close.md`](./slice-7-states-close.md) | 2–6 |
 
