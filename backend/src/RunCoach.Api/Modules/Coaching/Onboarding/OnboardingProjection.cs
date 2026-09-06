@@ -85,6 +85,11 @@ public sealed partial class OnboardingProjection : SingleStreamProjection<Onboar
     /// </summary>
     public static void Apply(AnswerCaptured @event, OnboardingView view)
     {
+        if (@event.Narrative is not null)
+        {
+            view.Narrative = @event.Narrative;
+        }
+
         switch (@event.Topic)
         {
             case OnboardingTopic.PrimaryGoal:

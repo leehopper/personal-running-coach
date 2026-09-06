@@ -27,6 +27,7 @@ namespace RunCoach.Api.Modules.Coaching.Onboarding;
 /// <param name="WeeklySchedule">Validated WeeklySchedule answer, or null.</param>
 /// <param name="InjuryHistory">Validated InjuryHistory answer, or null.</param>
 /// <param name="Preferences">Validated Preferences answer, or null.</param>
+/// <param name="Narrative">Canonical runner narrative, normalized to an empty string when blank.</param>
 public sealed record SubmitStructuredAnswers(
     Guid UserId,
     Guid IdempotencyKey,
@@ -35,4 +36,5 @@ public sealed record SubmitStructuredAnswers(
     CurrentFitnessAnswer? CurrentFitness,
     WeeklyScheduleAnswer? WeeklySchedule,
     InjuryHistoryAnswer? InjuryHistory,
-    PreferencesAnswer? Preferences);
+    PreferencesAnswer? Preferences,
+    string Narrative);

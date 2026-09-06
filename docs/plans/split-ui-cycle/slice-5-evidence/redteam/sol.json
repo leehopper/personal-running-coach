@@ -1,0 +1,143 @@
+{
+ "gates": {
+  "G1": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION: Required event-version work and PR-A compilation fixes are excluded, while the eval command exceeds the targeted scope."
+  },
+  "G2": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION: More than 12 cited sources were checked, but the stub behavior, status-line symbol, touch geometry, and adjudication ranges do not match the claims."
+  },
+  "G3": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION: The eval can skip or waive assertions, one byte-stability test is circular, and several wire, HTTP, and accessibility outcomes lack effective scorers."
+  },
+  "G4": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION: The persisted-event change omits the mandatory version and upcaster chain, while the effective prompt change does not execute its locked manifest consequence."
+  },
+  "G5": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION: The spec reopens DEC-067 event evolution and DEC-089 D7 manifest regeneration without amending either decision."
+  },
+  "G6": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION: The spec guesses same-type event compatibility despite the repository's mandatory research trigger for compatibility and migration questions."
+  }
+ },
+ "findings": [
+  {
+   "severity": "BLOCKER",
+   "gate": "G4",
+   "claim": "The spec changes the persisted AnswerCaptured contract in place while explicitly excluding the event version and upcaster required by the repository, so it cannot satisfy both Slice 5 and the event-evolution contract.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:23 quotes [Add nullable `string? Narrative = null` as the last constructor parameter of `AnswerCaptured`]. The same file at :450 excludes [an upcaster]. backend/REVIEW.md:55-57 quotes [Never modify an existing event record's properties. Add a new event type for schema changes and register upcasters for old events]. docs/decisions/decision-log.md:2427 quotes [Authors must consciously version when changing event fields].",
+   "fix": "Use a versioned AnswerCaptured type, frozen legacy type, registered upcaster, schema-version registration, and real Marten replay test, or formally amend DEC-067 and backend/REVIEW.md with a tested compatible-addition exception before implementation."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G5",
+   "claim": "The spec silently reverses the locked DEC-089 and cycle-plan requirement to regenerate the DEC-074 manifest.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:39 says [the DEC-074 manifest remains unchanged], and :418 only checks that it is unchanged. docs/plans/split-ui-cycle/cycle-plan.md:195 requires [DEC-074 hash-manifest regen + targeted plan-gen fixture re-record]. docs/decisions/decision-log.md:3157 requires [DEC-074 manifest regen + targeted plan-gen fixture re-record]. DEC-074 at decision-log.md:2747 scopes the manifest to [`Prompts/*.yaml`].",
+   "fix": "Reconcile the lock before build: either require `check-prompt-hashes.sh --write` and document the expected no-op as satisfying D7, formally amend DEC-089 and the cycle plan, or research and specify expanded sentinel coverage for C# prompt assembly."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G3",
+   "claim": "The targeted eval gate retries an identical cached response and then permits deleting the failed acceptance assertion, making the criterion both ineffective and self-waiving.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:41 says [record once more. If it fails again, drop assertion (3)], while :155 says [Do not delete the cache]. backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/EvalTestBase.cs:28 says [unchanged prompts serve cached responses], and :610 sets [enableResponseCaching: true]. docs/decisions/decision-log.md:1035 says [Cache keys are deterministic].",
+   "fix": "Document how only the failed new scenario cache is purged before a genuine resample, and make the semantic assertion non-waivable unless the acceptance criterion is formally removed and adjudicated first."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G3",
+   "claim": "A missing funded eval fixture is allowed to produce a skipped green Replay run, so the required fixture cannot serve as a failing-then-passing acceptance gate.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:287 says every test [must fail before the change and pass after it], but :382 allows [the new scenario skips until the funded fixture exists]. The precedent at backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs:486-488 branches on [!SonnetFixtureExists(\"plan.dated-event.macro\")] and calls [Assert.Skip].",
+   "fix": "Do not retain a Replay skip for the new scenario at completion; let ReplayGuard fail on a missing fixture or add a separate mechanized fixture-existence gate that cannot skip."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G1",
+   "claim": "PR-A makes OnboardingStateDto.narrative required but defers the typed fixture update to PR-B, leaving PR-A unable to pass the frontend TypeScript build.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:143 requires [`narrative: string | null`] but assigns tests to [PR-B schema tests]. frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts:303 declares [seededState = (): OnboardingStateDto], and :348 ends the object without narrative. frontend/tsconfig.app.json:16,27 enables [strict] and includes [\"src\"]. frontend/package.json:10 runs [tsc -b && vite build].",
+   "fix": "Move the typed fixture update into PR-A, list the schema spec as a PR-A file, initialize narrative to null, and add `npm run build` to PR-A gates."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G1",
+   "claim": "The prescribed inline-generation test requires capture behavior from StubPlanGenerationService, but that shared stub discards the view and is absent from the exhaustive PR-A file inventory.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:118 says [PR-A changes the following files], and :125 says [the test `StubPlanGenerationService` records the `OnboardingView` it received]. The list at :120-143 omits the stub. backend/tests/RunCoach.Api.Tests/Infrastructure/StubPlanGenerationService.cs:45 currently says [_ = profileSnapshot;].",
+   "fix": "Either add the stub to the inventory with concurrency-safe capture behavior or specify a per-test capturing IPlanGenerationService installed from the endpoint integration test."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The OpenAPI acceptance criterion has no executable scorer for narrative nullability or required-array membership.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:321 requires [optional nullable `narrative` outside `required`], but :323 scores it with [`npm run codegen:check` and the orchestrator's Swagger inspection]. frontend/package.json:24 shows codegen:check only runs [npm run codegen && git diff --exit-code -- src/app/api/generated ../backend/openapi/swagger.json].",
+   "fix": "Add a named OpenAPI regression test or an exact `jq -e` command that fails unless both schemas contain nullable narrative and both required arrays omit it."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The empty-prompt byte test is circular because both compared views have the same empty narrative state, so unconditional new prompt bytes could still pass.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:21 makes the canonical narrative non-null with blank valid, and :27 initializes the view to `string.Empty`. The criterion at :303 says [Given empty narrative composition, when compared with no narrative, then all message bytes match].",
+   "fix": "Compare against a committed pre-change golden message or hash, assert the narrative header is absent, and name full existing-fixture Replay as the byte-compatibility scorer."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The specified HTTP 400 ProblemDetails contract for an overlong narrative is covered only at mapper level, not through the HTTP path that the requirement claims.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:19 requires the exact message [through the existing HTTP 400 `ProblemDetails` path]. Unit 2 at :297 only exercises [when `TryMap` runs], and its scorer list at :299 names only SubmitStructuredAnswersRequestMapperTests methods.",
+   "fix": "Add and name an endpoint integration test that posts 1001 characters and asserts status 400, the exact ProblemDetails detail, and zero staged events."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The edge matrix cites an existing no-topics test for the distinct narrative-only case, but that test does not send a nonblank narrative and therefore cannot catch narrative accidentally satisfying anyTopic.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:370 requires [Narrative only] to remain rejected and scores [`TryMap_NoTopicsProvided_Fails`]. backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapperTests.cs:148-154 constructs the request with only null topic arguments and no narrative value.",
+   "fix": "Add a distinct `TryMap_NarrativeOnly_Fails` test, or explicitly change the cited test to supply nonblank narrative while every topic remains null."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G2",
+   "claim": "The geometry guidance does not preserve the locked 44px hit-target contract and no acceptance test measures that contract.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:266 prescribes [day chips `min-h-10`] and [switches `h-6 w-11`], while :431 requires every interactive target [at least 44px]. The shared Switch deliberately uses [h-11 w-11] at frontend/src/components/ui/switch.tsx:16, and frontend/src/index.css:517-525 provides explicit hit-target expansion. Unit 9 at spec.md:339-341 scores roles, IDs, and mapping but not target size.",
+   "fix": "Specify `min-h-11` or an explicit non-overlapping hit-area expansion for day chips, clarify that h-6 applies only to the switch's decorative track, and add a class or geometry assertion."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G6",
+   "claim": "The no-upcaster conclusion resolves a compatibility and migration conflict by assertion instead of following the repository research protocol.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:25 asserts [old event JSON replayable without an upcaster]. backend/REVIEW.md:55-57 requires a new event and upcaster. CLAUDE.md:78-86 says a [security or compatibility question] or [breaking-change migration path] requires a deep-research prompt and integration into a decision or plan.",
+   "fix": "Follow DEC-067 directly, or create and integrate the required research artifact before adopting a same-type compatible-evolution exception and formally amend the conflicting rule."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G2",
+   "claim": "The locked submit algorithm uses logical OR even though the frontend house rule requires nullish coalescing for defaults.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:275 locks [`narrative: values.narrative || null`]. frontend/CLAUDE.md:92-93 requires [Nullish coalescing (`??`) over logical OR (`||`) for defaults].",
+   "fix": "Use `narrative: values.narrative ?? null`; the schema already maps blank input to undefined."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G2",
+   "claim": "The spec names DEFAULT_STATUS_LINE as a static member of BuildingPlanSurface, but the repository defines it as a file-level constant.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:47 says [`BuildingPlanSurface.DEFAULT_STATUS_LINE`]. frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:12 declares [const DEFAULT_STATUS_LINE], while :30 separately declares [export const BuildingPlanSurface].",
+   "fix": "Refer to the file-level DEFAULT_STATUS_LINE constant, matching the later PR-B file instruction."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G2",
+   "claim": "The frontend adjudication citations are shifted and point at unrelated rulings.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:45 cites [adjudication.md:102-105] for copy. docs/plans/split-ui-cycle/slice-5-evidence/recon/adjudication.md:104-105 discusses Swagger, while B1 copy begins at :109-112. Spec lines :47 and :49 similarly cite :107-112 and :114-116 instead of B2 at :114-119 and B3 at :121-123.",
+   "fix": "Regenerate every adjudication line range in the frontend decision section from the current file."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G1",
+   "claim": "The command labeled targeted runs the entire PlanGenerationEvalTests class rather than the single new scenario.",
+   "evidence": "INSPECTED. docs/specs/slice-5-onboarding/spec.md:154 and :156 use [`--filter-class RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests`]. That class has separate scenarios at PlanGenerationEvalTests.cs:34,125,218,287,393,473. docs/research/artifacts/batch-8b-xunit-v3-mtp-filtering.md:19 confirms [`--filter-method`] is available.",
+   "fix": "Use `--filter-method` for DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf in both Record and targeted Replay commands."
+  }
+ ],
+ "verdict": "REJECT"
+}

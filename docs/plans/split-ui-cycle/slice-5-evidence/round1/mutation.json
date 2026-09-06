@@ -1,0 +1,384 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "blocker",
+   "claim": "Changed documentation adds non-ASCII characters despite the Slice 5 ASCII requirement.",
+   "evidence": "MECHANIZED: added lines in ROADMAP.md:4-5, docs/decisions/decision-log.md:3157, and docs/plans/split-ui-cycle/cycle-plan.md:8,17-18 contain em dashes, checkmarks, arrows, and other Unicode.",
+   "fix": "Convert all newly changed documentation lines to ASCII equivalents.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "The committed eval still skips when its fixture is missing after the fixture was added.",
+   "evidence": "INSPECTED: PlanGenerationEvalTests.cs:559-566 retains the SonnetFixtureExists skip. The fixture exists under backend/tests/eval-cache/sonnet/cache/plan.dated-event-narrative.macro/. The spec requires removing the skip at spec.md:387.",
+   "fix": "Remove the Replay-only skip block. Run targeted Replay and full Replay after the fix.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The stage report is stale and contradicts the committed diff and orchestrator evidence.",
+   "evidence": "INSPECTED: .stage-report.md:3-9 says 16 files changed and no generated files or caches changed, but HEAD~1 contains 28 files including OpenAPI, frontend generated files, and the eval cache. Lines 48-49 and 95 also contradict build-orchestrator-runs.md:81-105 and backend/REVIEW.md:55-63.",
+   "fix": "Regenerate the stage report from current HEAD and reconcile file, gate, mutation, and outstanding-work claims.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "No test covers legacy OnboardingView JSON missing the new property, although the spec pins empty-string hydration.",
+   "evidence": "INSPECTED: OnboardingView.cs:61-62 initializes Narrative, but OnboardingProjectionTests.cs:190-199 only covers legacy AnswerCaptured JSON and never deserializes a legacy OnboardingView.",
+   "fix": "Add a focused serialization test for legacy OnboardingView JSON without narrative and assert Narrative is string.Empty.",
+   "mode": "INSPECTED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "M1 mapper: replace IsNullOrWhiteSpace with null-only normalization.",
+   "expected_red_test": "SubmitStructuredAnswersRequestMapperTests.TryMap_NullNarrative_MapsToEmptyString",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M2 mapper: replace IsNullOrWhiteSpace with null-only normalization.",
+   "expected_red_test": "SubmitStructuredAnswersRequestMapperTests.TryMap_WhitespaceNarrative_MapsToEmptyString",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M3 mapper: trim nonblank narrative before constructing the command.",
+   "expected_red_test": "SubmitStructuredAnswersRequestMapperTests.TryMap_Narrative_PreservesLeadingTrailingSpacesAndInnerNewline",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M4 mapper: change the overlength guard from > 1000 to >= 1000.",
+   "expected_red_test": "SubmitStructuredAnswersRequestMapperTests.TryMap_Narrative_AtMaxLength_Succeeds",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M5 mapper: alter the exact overlength error text.",
+   "expected_red_test": "SubmitStructuredAnswersRequestMapperTests.TryMap_Narrative_OverMaxLength_FailsWithBoundMessage",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M6 mapper: count narrative as a topic in anyTopic.",
+   "expected_red_test": "SubmitStructuredAnswersRequestMapperTests.TryMap_NarrativeOnly_NoTopics_Fails",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M7 projection: replace the assigned event narrative with string.Empty.",
+   "expected_red_test": "OnboardingProjectionTests.OnboardingProjection_Apply_AnswerCaptured_NarrativeText_SetsView",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M8 projection: reverse the null guard so null overwrites the existing view.",
+   "expected_red_test": "OnboardingProjectionTests.OnboardingProjection_Apply_AnswerCaptured_NullNarrative_LeavesView",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M9 projection: update only non-empty narratives, preventing blank clears.",
+   "expected_red_test": "OnboardingProjectionTests.OnboardingProjection_Apply_AnswerCaptured_EmptyNarrative_ClearsView",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M10 projection: coalesce a null event narrative to empty, breaking legacy preservation.",
+   "expected_red_test": "OnboardingProjectionTests.OnboardingProjection_Apply_LegacyAnswerCapturedWithoutNarrative_LeavesView",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M11 handler: initialize pendingNarrative to null so no event receives text.",
+   "expected_red_test": "OnboardingAnswersEndpointIntegrationTests.SubmitAnswers_Narrative_RoundTripsThroughEventAndState",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M12 handler: restore cmd.Narrative after the first append so later AnswerCaptured events duplicate it.",
+   "expected_red_test": "OnboardingAnswersEndpointIntegrationTests.SubmitAnswers_Narrative_AttachesOnlyToFirstAnswerCaptured",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M13 handler: set working.Narrative to empty before inline generation.",
+   "expected_red_test": "OnboardingAnswersEndpointIntegrationTests.SubmitAnswers_Narrative_PassesWorkingViewToInlinePlanGeneration",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M14 projection: prevent empty event narratives from applying, so blank submissions do not clear GET state.",
+   "expected_red_test": "OnboardingAnswersEndpointIntegrationTests.SubmitAnswers_BlankNarrative_ClearsState",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M15 handler: reverse the idempotency prior-result condition.",
+   "expected_red_test": "OnboardingAnswersEndpointIntegrationTests.SubmitAnswers_DuplicateIdempotencyKey_WithNarrative_AppendsNothing",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M16 mapper: alter the overlength error text used by the HTTP path.",
+   "expected_red_test": "OnboardingAnswersEndpointIntegrationTests.SubmitAnswers_OverlongNarrative_Returns400_NothingStaged",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M17 composer: change non-empty detection from > 0 to >= 0.",
+   "expected_red_test": "ContextAssemblerPlanGenerationTests.ComposeForPlanGenerationAsync_EmptyNarrative_EmitsNoNarrativeBlock",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M18 composer: prepend PROFILE SNAPSHOT before the narrative block.",
+   "expected_red_test": "ContextAssemblerPlanGenerationTests.ComposeForPlanGenerationAsync_Narrative_PrecedesProfileSnapshotVerbatim",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M19 composer: append a new GUID to each composed user message.",
+   "expected_red_test": "ContextAssemblerPlanGenerationTests.ComposeForPlanGenerationAsync_Narrative_TwoReplaysAreByteStable",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M20 eval: set the fixed narrative view field to empty before composition.",
+   "expected_red_test": "PlanGenerationEvalTests.DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "M21 missing-fixture guard: remove the committed scenario directory or make SonnetFixtureExists return false.",
+   "expected_red_test": "A post-record Replay run should fail on a missing fixture; the current skip would instead pass by skipping.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "M22 legacy view hydration: replace OnboardingView.Narrative initializer string.Empty with a sentinel.",
+   "expected_red_test": "A focused persisted-view legacy JSON test should fail; no such test exists in the diff.",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "ROADMAP.md",
+   "status": "PARTIAL",
+   "where": "Mutates cycle status and next-step docs. Wrong status misroutes work. Changed lines also violate ASCII. No automated defense."
+  },
+  {
+   "item": "backend/REVIEW.md",
+   "status": "SATISFIED",
+   "where": "Mutates Marten event-evolution guidance. Wrong exception text could reject the additive-nullable event. The intended exception is present."
+  },
+  {
+   "item": "backend/openapi/swagger.json",
+   "status": "PARTIAL",
+   "where": "Mutates request and state wire shapes. Wrong nullable or required values break clients and codegen. jq and codegen checks passed, but Release emission was unavailable locally."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/ContextAssembler.cs",
+   "status": "PARTIAL",
+   "where": "Mutates prompt bytes and ordering. Wrong condition, order, or nondeterminism breaks injection and cache prefixes. Tests exist but backend execution is blocked."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Events/AnswerCaptured.cs",
+   "status": "PARTIAL",
+   "where": "Mutates persisted event shape. Wrong nullable default breaks legacy replay or later-event semantics. Projection tests exist but are blocked."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/OnboardingStateDto.cs",
+   "status": "SATISFIED",
+   "where": "Mutates response wire shape. Wrong optional-nullable placement breaks GET compatibility. Swagger jq and frontend codegen passed."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/Models/SubmitStructuredAnswersRequestDto.cs",
+   "status": "SATISFIED",
+   "where": "Mutates request wire shape. Wrong optional-nullable narrative breaks old clients and binding. Swagger jq and build passed."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingController.cs",
+   "status": "PARTIAL",
+   "where": "Mutates empty-to-null response state. Wrong mapping changes blank narrative wire semantics. Endpoint coverage exists but is blocked."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingProjection.cs",
+   "status": "PARTIAL",
+   "where": "Mutates event-to-view state and tri-state ordering. Wrong null or empty handling breaks legacy preservation or clearing. Tests exist but are unrun."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/OnboardingView.cs",
+   "status": "PARTIAL",
+   "where": "Mutates persisted view state. Wrong initializer breaks old view hydration. The required legacy-view test is missing."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswers.cs",
+   "status": "SATISFIED",
+   "where": "Mutates canonical command state. Wrong non-null narrative loses normalization. Mapper and endpoint coverage exists but is unrun."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersHandler.cs",
+   "status": "PARTIAL",
+   "where": "Mutates event order, first-event-only state, inline plan input, and idempotency. Wrong order duplicates or loses narrative. Endpoint tests exist but are blocked."
+  },
+  {
+   "item": "backend/src/RunCoach.Api/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapper.cs",
+   "status": "PARTIAL",
+   "where": "Mutates validation and canonicalization. Wrong bound, blank handling, or topic gate changes HTTP behavior. Mapper tests exist but are blocked."
+  },
+  {
+   "item": "backend/tests/RunCoach.Api.Tests/Infrastructure/RecordingPlanGenerationService.cs",
+   "status": "SATISFIED",
+   "where": "Mutates test observation and forwarding. Wrong forwarding makes the inline-view assertion meaningless. The endpoint test consumes LastOnboardingView, but execution is blocked."
+  },
+  {
+   "item": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Eval/PlanGenerationEvalTests.cs",
+   "status": "PARTIAL",
+   "where": "Mutates eval prompt and output gates. Wrong prefix, horizon, or prose checks should fail. The fixture exists, but the missing-fixture skip remains."
+  },
+  {
+   "item": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/ContextAssemblerPlanGenerationTests.cs",
+   "status": "PARTIAL",
+   "where": "Mutates empty and nonempty prompt behavior and replay determinism. Assertions attack bytes and order. The class run is blocked."
+  },
+  {
+   "item": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/OnboardingAnswersEndpointIntegrationTests.cs",
+   "status": "PARTIAL",
+   "where": "Mutates event/state round-trip, first-event order, inline working state, clearing, idempotency, and HTTP bound. Assertions attack each value and order. Execution is blocked."
+  },
+  {
+   "item": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/OnboardingProjectionTests.cs",
+   "status": "PARTIAL",
+   "where": "Mutates text, null, empty, and legacy event projection semantics. Assertions attack tri-state behavior. Execution is blocked and legacy view JSON is uncovered."
+  },
+  {
+   "item": "backend/tests/RunCoach.Api.Tests/Modules/Coaching/Onboarding/SubmitStructuredAnswersRequestMapperTests.cs",
+   "status": "PARTIAL",
+   "where": "Mutates null, whitespace, preservation, bound, and topic-only mapper cases. Assertions attack each canonical result. Execution is blocked."
+  },
+  {
+   "item": "backend/tests/eval-cache/.../contents.data",
+   "status": "PARTIAL",
+   "where": "Mutates recorded plan-generation response data. Wrong content breaks structured output and eval guards. Structural jq passed. Replay is orchestrator-owned."
+  },
+  {
+   "item": "backend/tests/eval-cache/.../entry.json",
+   "status": "PARTIAL",
+   "where": "Mutates scenario metadata and expiration. Wrong values break cache lookup or TTL. Metadata jq passed. Replay is orchestrator-owned."
+  },
+  {
+   "item": "docs/decisions/decision-log.md",
+   "status": "PARTIAL",
+   "where": "Mutates durable D7 rationale. Wrong note misstates manifest and eval scope. Changed line contains Unicode."
+  },
+  {
+   "item": "docs/plans/split-ui-cycle/cycle-plan.md",
+   "status": "PARTIAL",
+   "where": "Mutates cycle status and captured decisions. Wrong status misroutes work. Changed lines contain Unicode."
+  },
+  {
+   "item": "docs/plans/split-ui-cycle/slice-5-evidence/build-orchestrator-runs.md",
+   "status": "PARTIAL",
+   "where": "Mutates build evidence. Wrong claimed output can conceal unverified gates. The record conflicts with local sandbox failures."
+  },
+  {
+   "item": "docs/plans/split-ui-cycle/slice-5-evidence/build-report.md",
+   "status": "PARTIAL",
+   "where": "Mutates stage report. Wrong file, gate, or deviation ledger misstates review status. Current file and outstanding-work claims are stale."
+  },
+  {
+   "item": "frontend/src/app/api/generated/rtk/api.ts",
+   "status": "SATISFIED",
+   "where": "Mutates generated request and state types. Wrong optional-nullable property breaks TypeScript consumers. Codegen check and build passed."
+  },
+  {
+   "item": "frontend/src/app/api/generated/zod/onboarding/onboarding.ts",
+   "status": "SATISFIED",
+   "where": "Mutates generated runtime wire schemas. Wrong nullish narrative rejects or misreads requests and responses. Codegen check and build passed."
+  },
+  {
+   "item": "frontend/src/app/modules/onboarding/models/onboarding.model.ts",
+   "status": "SATISFIED",
+   "where": "Mutates hand-written request and state contract. Wrong optional-nullable type breaks PR-B hydration and mapping. Build and onboarding tests passed."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-mutation-ledger DOTNET_CLI_HOME=/tmp/codex-agent-slice5-mutation-ledger/dotnet DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 MSBUILDNODEREUSE=0 dotnet build RunCoach.slnx --no-restore -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers",
+   "result": "exit 0; Build succeeded. Last line: Time Elapsed: 00:00:08.16"
+  },
+  {
+   "command": "npm run build",
+   "result": "exit 0; Vite completed with existing config and chunk warnings. Success line: built in 257ms"
+  },
+  {
+   "command": "npx vitest run src/app/modules/onboarding src/app/api",
+   "result": "exit 0; Test Files 12 passed, Tests 126 passed. Last line: Duration 3.18s"
+  },
+  {
+   "command": "npx eslint src/app/api/generated/rtk/api.ts src/app/api/generated/zod/onboarding/onboarding.ts src/app/modules/onboarding/models/onboarding.model.ts",
+   "result": "exit 0; 0 errors. Generated files were ignored with 2 warnings."
+  },
+  {
+   "command": "npx prettier --check src/app/api/generated/rtk/api.ts src/app/api/generated/zod/onboarding/onboarding.ts src/app/modules/onboarding/models/onboarding.model.ts",
+   "result": "exit 0; All matched files use Prettier code style!"
+  },
+  {
+   "command": "npm run codegen:check",
+   "result": "exit 0; generated output and Swagger diff clean."
+  },
+  {
+   "command": "bash backend/tests/scripts/check-prompt-hashes.sh --write",
+   "result": "exit 0; Wrote prompt-hash manifest."
+  },
+  {
+   "command": "git diff --exit-code -- backend/src/RunCoach.Api/Prompts/.prompt-hashes.sha256",
+   "result": "exit 0; no output, manifest unchanged."
+  },
+  {
+   "command": "jq -e '.components.schemas.SubmitStructuredAnswersRequestDto.properties.narrative.nullable == true and (.components.schemas.SubmitStructuredAnswersRequestDto.required | index(\"narrative\")) == null and .components.schemas.OnboardingStateDto.properties.narrative.nullable == true and (.components.schemas.OnboardingStateDto.required | index(\"narrative\")) == null' backend/openapi/swagger.json",
+   "result": "exit 0; true"
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.SubmitStructuredAnswersRequestMapperTests",
+   "result": "exit 134; Process terminated. System.Net.Sockets.SocketException (13): Permission denied while creating the named pipe."
+  },
+  {
+   "command": "dotnet format RunCoach.slnx --include <all changed .cs files> --no-restore --verify-no-changes",
+   "result": "exit 1; build host could not connect to its pipe. System.Net.Sockets.SocketException (13): Permission denied."
+  },
+  {
+   "command": "dotnet build RunCoach.slnx --no-restore -c Release -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers",
+   "result": "exit 1; EmitOpenApi target could not run dotnet swagger because the swagger tool is unavailable. Output says to run dotnet tool restore, which is prohibited here."
+  },
+  {
+   "command": "git diff HEAD~1 --check",
+   "result": "exit 2; build-report.md:13,16,19,22,25,28,31,34,37 contain Markdown trailing whitespace."
+  },
+  {
+   "command": "git status --short",
+   "result": "exit 0; no workspace changes after all mutations were restored."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.SubmitStructuredAnswersRequestMapperTests",
+   "purpose": "Run mapper mutation probes M1-M6 and focused mapper tests."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.OnboardingProjectionTests",
+   "purpose": "Run projection mutation probes M7-M10 and focused projection tests."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.OnboardingAnswersEndpointIntegrationTests",
+   "purpose": "Run endpoint mutation probes M11-M16 and focused integration tests."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Onboarding.ContextAssemblerPlanGenerationTests",
+   "purpose": "Run composer mutation probes M17-M19 and focused composer tests."
+  },
+  {
+   "command": "dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests",
+   "purpose": "Run eval mutation probe M20 and focused eval tests."
+  },
+  {
+   "command": "EVAL_CACHE_MODE=Replay dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-method RunCoach.Api.Tests.Modules.Coaching.Eval.PlanGenerationEvalTests.DatedEvent_Narrative_Macro_PreservesHorizonAndMentionsCalf",
+   "purpose": "Verify the committed targeted narrative fixture and eval assertions in Replay."
+  },
+  {
+   "command": "EVAL_CACHE_MODE=Replay dotnet test --solution RunCoach.slnx --no-build",
+   "purpose": "Verify full backend Replay and existing-fixture byte stability."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice5-mutation-ledger DOTNET_CLI_HOME=/tmp/codex-agent-slice5-mutation-ledger/dotnet DOTNET_CLI_TELEMETRY_OPTOUT=1 MSBUILDNODEREUSE=0 dotnet build RunCoach.slnx --no-restore -c Release -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers",
+   "purpose": "Run Release EmitOpenApi build with the restored dotnet tool manifest."
+  },
+  {
+   "command": "dotnet format RunCoach.slnx --include $(git diff HEAD~1 --name-only -- '*.cs' | sed 's#^backend/##') --no-restore --verify-no-changes",
+   "purpose": "Run the required changed-.cs formatting gate."
+  }
+ ],
+ "verdict": "REJECT. Changed docs violate the ASCII requirement. The eval missing-fixture skip remains after fixture creation. The stage report is stale. Legacy persisted-view hydration has no focused test. All backend mutation probes and backend tests were attempted but blocked by SocketException (13); frontend, debug build, codegen, Swagger, and prompt-hash checks passed."
+}

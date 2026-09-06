@@ -110,10 +110,12 @@ public sealed partial class SubmitStructuredAnswersHandler
         var working = view ?? CreateBootstrapView(streamId, now);
 
         var topicsCaptured = 0;
+        string? pendingNarrative = cmd.Narrative;
 
         if (cmd.PrimaryGoal is not null)
         {
-            AppendAnswer(session, streamId, OnboardingTopic.PrimaryGoal, cmd.PrimaryGoal, now);
+            AppendAnswer(session, streamId, OnboardingTopic.PrimaryGoal, cmd.PrimaryGoal, now, pendingNarrative);
+            pendingNarrative = null;
             working.PrimaryGoal = cmd.PrimaryGoal;
 
             // Mirror both projections: a non-racing goal clears any stale target event so the working
@@ -129,7 +131,8 @@ public sealed partial class SubmitStructuredAnswersHandler
 
         if (cmd.TargetEvent is not null)
         {
-            AppendAnswer(session, streamId, OnboardingTopic.TargetEvent, cmd.TargetEvent, now);
+            AppendAnswer(session, streamId, OnboardingTopic.TargetEvent, cmd.TargetEvent, now, pendingNarrative);
+            pendingNarrative = null;
             working.TargetEvent = cmd.TargetEvent;
             ClearClarification(working, OnboardingTopic.TargetEvent);
             topicsCaptured++;
@@ -137,7 +140,8 @@ public sealed partial class SubmitStructuredAnswersHandler
 
         if (cmd.CurrentFitness is not null)
         {
-            AppendAnswer(session, streamId, OnboardingTopic.CurrentFitness, cmd.CurrentFitness, now);
+            AppendAnswer(session, streamId, OnboardingTopic.CurrentFitness, cmd.CurrentFitness, now, pendingNarrative);
+            pendingNarrative = null;
             working.CurrentFitness = cmd.CurrentFitness;
             ClearClarification(working, OnboardingTopic.CurrentFitness);
             topicsCaptured++;
@@ -145,7 +149,8 @@ public sealed partial class SubmitStructuredAnswersHandler
 
         if (cmd.WeeklySchedule is not null)
         {
-            AppendAnswer(session, streamId, OnboardingTopic.WeeklySchedule, cmd.WeeklySchedule, now);
+            AppendAnswer(session, streamId, OnboardingTopic.WeeklySchedule, cmd.WeeklySchedule, now, pendingNarrative);
+            pendingNarrative = null;
             working.WeeklySchedule = cmd.WeeklySchedule;
             ClearClarification(working, OnboardingTopic.WeeklySchedule);
             topicsCaptured++;
@@ -153,7 +158,8 @@ public sealed partial class SubmitStructuredAnswersHandler
 
         if (cmd.InjuryHistory is not null)
         {
-            AppendAnswer(session, streamId, OnboardingTopic.InjuryHistory, cmd.InjuryHistory, now);
+            AppendAnswer(session, streamId, OnboardingTopic.InjuryHistory, cmd.InjuryHistory, now, pendingNarrative);
+            pendingNarrative = null;
             working.InjuryHistory = cmd.InjuryHistory;
             ClearClarification(working, OnboardingTopic.InjuryHistory);
             topicsCaptured++;
@@ -161,11 +167,13 @@ public sealed partial class SubmitStructuredAnswersHandler
 
         if (cmd.Preferences is not null)
         {
-            AppendAnswer(session, streamId, OnboardingTopic.Preferences, cmd.Preferences, now);
+            AppendAnswer(session, streamId, OnboardingTopic.Preferences, cmd.Preferences, now, pendingNarrative);
             working.Preferences = cmd.Preferences;
             ClearClarification(working, OnboardingTopic.Preferences);
             topicsCaptured++;
         }
+
+        working.Narrative = cmd.Narrative;
 
         // Terminal branch — the deterministic gate is the sole plan-generation authority (no LLM
         // ReadyForPlan signal in the form flow). Plan generation runs INLINE on this same session.
@@ -196,14 +204,21 @@ public sealed partial class SubmitStructuredAnswersHandler
     }
 
     private static void AppendAnswer<T>(
-        IDocumentSession session, Guid streamId, OnboardingTopic topic, T record, DateTimeOffset now)
+        IDocumentSession session,
+        Guid streamId,
+        OnboardingTopic topic,
+        T record,
+        DateTimeOffset now,
+        string? narrative)
         where T : class
     {
         // Captured-answer payloads stay default-cased (PascalCase) because both inline projections
         // read them back via `JsonDocument.Deserialize<T>()` with the server-default casing; they never
         // reach the wire.
         var payload = JsonSerializer.SerializeToDocument(record);
-        session.Events.Append(streamId, new AnswerCaptured(topic, payload, Confidence: 1.0, CapturedAt: now));
+        session.Events.Append(
+            streamId,
+            new AnswerCaptured(topic, payload, Confidence: 1.0, CapturedAt: now, Narrative: narrative));
     }
 
     private static void ClearClarification(OnboardingView working, OnboardingTopic topic)

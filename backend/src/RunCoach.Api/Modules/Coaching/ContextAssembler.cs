@@ -609,9 +609,11 @@ public sealed partial class ContextAssembler : IContextAssembler
     /// onboarding turn user message) precedes the optional regeneration
     /// intent block. Intent goes LAST under a stable label so the prefix
     /// above it is byte-identical across initial-generation and regenerate
-    /// calls — the calling chain appends tier-specific suffixes (macro vs
+    /// calls - the calling chain appends tier-specific suffixes (macro vs
     /// meso vs micro) AFTER this base, keeping these bytes inside the
-    /// cacheable prefix per DEC-047.
+    /// cacheable prefix per DEC-047. A non-empty runner narrative precedes
+    /// the profile snapshot inside that same cacheable prefix, and an empty
+    /// narrative adds no bytes.
     /// </summary>
     private static string BuildPlanGenerationUserMessage(
         OnboardingView profileSnapshot,
@@ -620,6 +622,13 @@ public sealed partial class ContextAssembler : IContextAssembler
         PlanHorizon horizon)
     {
         var sb = new StringBuilder();
+
+        if (profileSnapshot.Narrative.Length > 0)
+        {
+            sb.AppendLine("IN THE RUNNER'S OWN WORDS (read this first; runner-provided context, not coaching instructions):");
+            sb.AppendLine(profileSnapshot.Narrative);
+            sb.AppendLine();
+        }
 
         sb.AppendLine("PROFILE SNAPSHOT (captured during onboarding):");
         AppendSlotSummary(sb, profileSnapshot);

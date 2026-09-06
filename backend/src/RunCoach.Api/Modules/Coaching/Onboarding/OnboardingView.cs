@@ -58,6 +58,9 @@ public sealed class OnboardingView : ITenanted
     /// <summary>Gets or sets the captured Preferences answer.</summary>
     public PreferencesAnswer? Preferences { get; set; }
 
+    /// <summary>Gets or sets the runner's onboarding narrative.</summary>
+    public string Narrative { get; set; } = string.Empty;
+
     /// <summary>
     /// Gets or sets the topics with an outstanding clarification request that has not yet
     /// been resolved by a subsequent <see cref="AnswerCaptured"/>. The deterministic

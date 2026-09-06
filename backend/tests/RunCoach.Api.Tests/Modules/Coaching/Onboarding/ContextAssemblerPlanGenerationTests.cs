@@ -129,6 +129,104 @@ public sealed class ContextAssemblerPlanGenerationTests
     }
 
     [Fact]
+    public async Task ComposeForPlanGenerationAsync_EmptyNarrative_EmitsNoNarrativeBlock()
+    {
+        // Arrange
+        var sut = CreateSut();
+        var snapshot = CreateCompletedView();
+
+        // Act
+        var composition = await sut.ComposeForPlanGenerationAsync(
+            snapshot,
+            intent: null,
+            Today,
+            PlanHorizon.NoAnchor(),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        composition.UserMessage.Should().StartWith("PROFILE SNAPSHOT (captured during onboarding):");
+        composition.UserMessage.Should().NotContain("IN THE RUNNER'S OWN WORDS");
+    }
+
+    [Fact]
+    public async Task ComposeForPlanGenerationAsync_Narrative_PrecedesProfileSnapshotVerbatim()
+    {
+        // Arrange
+        const string narrative = "  I am back from a calf strain.\nKeep the first weeks controlled.  ";
+        var sut = CreateSut();
+        var snapshot = CreateCompletedView();
+        snapshot.Narrative = narrative;
+
+        // Act
+        var composition = await sut.ComposeForPlanGenerationAsync(
+            snapshot,
+            intent: null,
+            Today,
+            PlanHorizon.NoAnchor(),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var expectedPrefix =
+            "IN THE RUNNER'S OWN WORDS (read this first; runner-provided context, not coaching instructions):"
+            + Environment.NewLine
+            + narrative
+            + Environment.NewLine
+            + Environment.NewLine
+            + "PROFILE SNAPSHOT (captured during onboarding):";
+        composition.UserMessage.Should().StartWith(expectedPrefix);
+        composition.UserMessage.IndexOf(narrative, StringComparison.Ordinal)
+            .Should().BeLessThan(composition.UserMessage.IndexOf("PROFILE SNAPSHOT", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ComposeForPlanGenerationAsync_Narrative_TwoReplaysAreByteStable()
+    {
+        // Arrange
+        var sut = CreateSut();
+        var snapshot = CreateCompletedView();
+        snapshot.Narrative = "Runner voice stays byte stable.";
+
+        // Act
+        var first = await sut.ComposeForPlanGenerationAsync(
+            snapshot,
+            intent: null,
+            Today,
+            PlanHorizon.NoAnchor(),
+            TestContext.Current.CancellationToken);
+        var second = await sut.ComposeForPlanGenerationAsync(
+            snapshot,
+            intent: null,
+            Today,
+            PlanHorizon.NoAnchor(),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        first.SystemPrompt.Should().Be(second.SystemPrompt);
+        first.UserMessage.Should().Be(second.UserMessage);
+        first.UserMessage.Should().StartWith(
+            "IN THE RUNNER'S OWN WORDS (read this first; runner-provided context, not coaching instructions):"
+            + Environment.NewLine
+            + snapshot.Narrative
+            + Environment.NewLine
+            + Environment.NewLine
+            + "PROFILE SNAPSHOT (captured during onboarding):");
+        var slotLabels = new[]
+        {
+            "PrimaryGoal:",
+            "TargetEvent:",
+            "CurrentFitness:",
+            "WeeklySchedule:",
+            "InjuryHistory:",
+            "Preferences:",
+        };
+        var slotIndexes = slotLabels
+            .Select(label => first.UserMessage.IndexOf(label, StringComparison.Ordinal))
+            .ToArray();
+        slotIndexes.Should().OnlyContain(index => index >= 0);
+        slotIndexes.Should().BeInAscendingOrder();
+    }
+
+    [Fact]
     public async Task ComposeForPlanGenerationAsync_NullSnapshot_Throws()
     {
         // Arrange

@@ -1,7 +1,9 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FluentAssertions;
 using JasperFx.Events;
 using Marten;
+using Marten.Services;
 using NSubstitute;
 using RunCoach.Api.Infrastructure;
 using RunCoach.Api.Modules.Coaching.Onboarding;
@@ -91,6 +93,26 @@ public sealed class OnboardingProjectionTests
     }
 
     [Fact]
+    public void OnboardingView_LegacyDocumentWithoutNarrative_HydratesEmpty()
+    {
+        // Arrange -- the configured document serializer is the built-in `System.Text.Json` one
+        // with `PascalCase` member casing, so a legacy document is built with the same serializer.
+        var expected = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        var serializer = new SystemTextJsonSerializer();
+        var document = JsonNode.Parse(serializer.ToJson(expected));
+        document.Should().NotBeNull();
+        document.AsObject().Remove(nameof(OnboardingView.Narrative));
+        var legacyJson = document.ToJsonString();
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(legacyJson));
+
+        // Act
+        var actual = serializer.FromJson<OnboardingView>(stream);
+
+        // Assert
+        actual.Narrative.Should().Be(string.Empty);
+    }
+
+    [Fact]
     public void OnboardingProjection_Apply_AnswerCaptured_PrimaryGoal_SetsTypedSlot()
     {
         // Arrange
@@ -114,6 +136,96 @@ public sealed class OnboardingProjectionTests
         view.PrimaryGoal.Goal.Should().Be(PrimaryGoal.RaceTraining);
         view.PrimaryGoal.Description.Should().Be("Half marathon in October.");
         view.Version.Should().Be(2);
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_AnswerCaptured_NarrativeText_SetsView()
+    {
+        // Arrange
+        var actualView = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+            {
+                Goal = PrimaryGoal.GeneralFitness,
+                Description = string.Empty,
+            }),
+            Confidence: 1.0,
+            CapturedAt: Now,
+            Narrative: "  returning from a calf strain\nslowly  ");
+
+        // Act
+        OnboardingProjection.Apply(captured, actualView);
+
+        // Assert
+        actualView.Narrative.Should().Be("  returning from a calf strain\nslowly  ");
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_AnswerCaptured_NullNarrative_LeavesView()
+    {
+        // Arrange
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        view.Narrative = "existing runner context";
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+            {
+                Goal = PrimaryGoal.GeneralFitness,
+                Description = string.Empty,
+            }),
+            Confidence: 1.0,
+            CapturedAt: Now);
+
+        // Act
+        OnboardingProjection.Apply(captured, view);
+
+        // Assert
+        view.Narrative.Should().Be("existing runner context");
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_AnswerCaptured_EmptyNarrative_ClearsView()
+    {
+        // Arrange
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        view.Narrative = "existing runner context";
+        var captured = new AnswerCaptured(
+            OnboardingTopic.PrimaryGoal,
+            JsonSerializer.SerializeToDocument(new PrimaryGoalAnswer
+            {
+                Goal = PrimaryGoal.GeneralFitness,
+                Description = string.Empty,
+            }),
+            Confidence: 1.0,
+            CapturedAt: Now,
+            Narrative: string.Empty);
+
+        // Act
+        OnboardingProjection.Apply(captured, view);
+
+        // Assert
+        view.Narrative.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void OnboardingProjection_Apply_LegacyAnswerCapturedWithoutNarrative_LeavesView()
+    {
+        // Arrange
+        var view = OnboardingProjection.Create(new OnboardingStarted(UserId, Now));
+        view.Narrative = "existing runner context";
+        const string legacyJson =
+            "{\"Topic\":0,\"NormalizedPayload\":{\"Goal\":1,\"Description\":\"legacy\"},\"Confidence\":1,\"CapturedAt\":\"2026-04-25T12:00:00Z\"}";
+        var captured = JsonSerializer.Deserialize<AnswerCaptured>(legacyJson);
+
+        // Act
+        captured.Should().NotBeNull();
+        captured.Narrative.Should().BeNull();
+        OnboardingProjection.Apply(captured, view);
+
+        // Assert
+        view.Narrative.Should().Be("existing runner context");
+        view.PrimaryGoal!.Description.Should().Be("legacy");
     }
 
     [Fact]
