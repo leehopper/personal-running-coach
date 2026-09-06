@@ -1,0 +1,136 @@
+{
+ "findings": [
+  {
+   "severity": "BLOCKER",
+   "gate": "G2",
+   "claim": "The locked contrast pair `--clay-text on --secondary` measures 4.20:1 in dark mode, below its own 4.5 threshold, so DU-4's \"all 56 results pass\" and the orchestrator's `npm run check-contrast` gate cannot both hold. The B3 fallback (`active:text-secondary-foreground`) changes the component but leaves the declared PAIRS entry failing, so the gate still exits non-zero.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:49 \"all with threshold `4.5` ... 28 pairs and 56 results. If the clay pair fails, use the B3 pressed-text branch.\" Tokens: frontend/src/index.css:96 `--alp-raised: #212819;`, :128 `--alp-clay-text: #d06a3b;`, :269 `--secondary: var(--alp-raised);`. Computed with the script's own formula (frontend/scripts/check-contrast.ts:308-323): dark 4.201:1, light 4.550:1. The other two new pairs pass (dark 7.53/6.87, light 5.97/5.41).",
+   "fix": "Compute the three ratios before locking them. Either drop `--clay-text on --secondary` from PAIRS and specify the pressed state as `active:text-secondary-foreground` unconditionally (that pair is already covered at check-contrast.ts:115-119), or re-point the pressed text token so the pair clears 4.5 in BOTH modes, then restate the count. Do not ship a spec whose gate is measurably red."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G3",
+   "claim": "The new `PasswordVisibilityToggle` carries `aria-label=\"Show password\"`/`\"Hide password\"` in the same tree as the password `Input`, which makes `screen.getByLabelText(/password/i)` ambiguous. Both auth page specs fill the password through exactly that helper, so \"Preserve every existing test by name\" is unsatisfiable for most of the 21 named tests.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:214 \"`aria-label={isVisible ? 'Hide password' : 'Show password'}`\"; frontend/src/app/pages/login/login.page.spec.tsx:55-57 \"const fillPassword = async (user: UserEvent, value: string) => { await user.type(screen.getByLabelText(/password/i), value) }\" (same at register.page.spec.tsx:58). RTL matches aria-label on any element: frontend/node_modules/@testing-library/dom/dist/queries/label-text.js:85 \"concat(queryAllByAttribute('aria-label', container, text, ...\".",
+   "fix": "Name the helper change in the PR-B edit shape: switch `fillPassword` to `getByLabelText('Password', { exact: true })` or `getByLabelText(/^password$/i)` in both page specs, and add a red mutation that proves the toggle is not selected. State the same constraint for any new query the spec adds."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G1",
+   "claim": "Playwright's `getByLabel` is substring and case-insensitive by default and matches `aria-label`, so the eye toggle makes `page.getByLabel('Password')` a strict-mode violation in seven e2e specs. Five of them are in neither PR's file list, so PR-B breaks `main` for journeys it never declares, and the pr-strategy claim that the branches are disjoint and independently mergeable is wrong.",
+   "evidence": "frontend/e2e/shell-navigation.spec.ts:56, onboarding.spec.ts:122, plan-render.spec.ts:255, workout-logging.spec.ts:162, conversation-streaming.spec.ts:233 all `await page.getByLabel('Password').fill(VALID_PASSWORD)`; only auth.spec.ts:90 and regenerate-plan.spec.ts:386 are listed (spec.md:143,170). Playwright builds `\"internal:label=\" + escapeForTextSelector(text, !!options?.exact)` and `getElementLabels` returns `element.getAttribute(\"aria-label\")` (frontend/node_modules/playwright-core/lib/coreBundle.js).",
+   "fix": "Add the five e2e specs to PR-B's file list (or introduce a shared `fillCredentials` helper in PR-B and list every file it touches), and change every `getByLabel('Password')` to `getByLabel('Password', { exact: true })` or a testid. Then re-state the merge-order claim: PR-B now owns e2e files PR-A's new `sign-out.spec.ts` also depends on."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G3",
+   "claim": "Section 4.2/DU-2 replace the panel AND the backdrop while `isLoading`, but section 4.4 simultaneously promises \"The dialog and backdrop testids and ARIA remain stable\" and the file table says \"Preserve all existing named tests\". Two existing dialog tests query `regenerate-plan-submit` and `regenerate-plan-backdrop` with `isLoading = true`; both throw once those nodes are gone, so no implementation satisfies the spec as written.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:209 \"`div data-testid=\\\"settings-regenerate-building\\\"`\" and :248 \"The dialog and backdrop testids and ARIA remain stable.\"; :139 \"Preserve all existing named tests from the current file.\" Existing tests: frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx:91-97 \"disables the submit button and shows progress copy while regenerating\" and :128-134 \"does not close on backdrop click while the mutation is in flight\".",
+   "fix": "Decide one behavior and write it once. If the overlay replaces the panel, list those two tests as deliberately retired or rewritten (the pending-copy assertion has no target, and the backdrop-block assertion must become \"the backdrop testid is absent while loading\"), drop the 4.4 stability sentence, and drop the now-dead `Regenerating...` label from the section 4.1 copy table explicitly."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The check-contrast edit shape names only the unit-count assertion, but a second committed assertion pins the integration output string `all 50 pairs pass WCAG thresholds`. It fails on the count change and is not named anywhere in the spec.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:150 \"Change the count assertion to `reports 56 results (28 pairs x 2 modes), all passing`. Assert all 28 pairs resolve in both modes.\" vs frontend/scripts/__tests__/check-contrast.spec.ts:494 \"expect(stdout).toContain('all 50 pairs pass WCAG thresholds')\" (script source at frontend/scripts/check-contrast.ts:537).",
+   "fix": "Add the second assertion to the edit shape for `check-contrast.spec.ts` (line 494, `all 56 pairs pass WCAG thresholds`) and give it its own Red line, so both the pure and the subprocess path score the pair addition."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The regenerate e2e realignment omits the two label lookups that the locked textarea copy change breaks. The journey opens and fills the intent through the old label string, so it fails before it can reach the new building-overlay assertion.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:143 \"Delay the stubbed POST, assert `settings-regenerate-building`, then assert `/` and fresh Plan B without `page.goto('/')`.\" vs frontend/e2e/regenerate-plan.spec.ts:420 \"await expect(page.getByLabel('Anything we should know? (optional)')).toBeVisible()\" and :427 the matching `.fill(INJURY_INTENT)`. New label is spec.md:212 \"`Anything I should know? \u2014 optional`\".",
+   "fix": "Name both lines in the `e2e/regenerate-plan.spec.ts` edit shape and give the new selector (label text or the `regenerate-plan-intent` testid, which is stable) so the journey's intent round-trip assertion survives."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The settings page spec is told to drop the stubs and use `useAuth`/`useSignOut`, but no test harness is named. The current file has no Redux `Provider` and no `ThemeProvider`; the stubs exist precisely because the page-scoped tree has neither, and `useSignOut` additionally needs `apiSlice.reducer` plus `apiSlice.middleware`.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:133 \"Remove `theme-toggle-stub` and both previous-plan placeholder tests. Query real radio roles and section names.\" vs frontend/src/app/modules/settings/pages/settings-page.spec.tsx:33-48 \"`ThemeToggle` reads `useTheme()` from the app-level `<ThemeProvider>`, which is mounted in `main.tsx` and not in this page-scoped test tree ... `UnitsToggle` drives the `settings.api` RTK hooks\" and :52-57 `renderPage` wraps only `MemoryRouter`.",
+   "fix": "Specify the harness: wrap in `Provider` over a store with `authSlice.reducer` preloaded plus `apiSlice.reducer`/`apiSlice.middleware` (frontend/REVIEW.md:61-63), add `ThemeProvider` and the `matchMedia` stub already used by theme-toggle.component.spec.tsx:13-27, or state that `~/modules/auth/hooks/auth.hooks` and the two toggles stay mocked and drop \"Query real radio roles\"."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The version-footer criterion is circular against the mechanism it is meant to score. The test interpolates the same `import.meta.env.VITE_APP_VERSION` expression the component reads, so deleting the whole D1 mechanism (Vite define, `resolveJsonModule`, the 0.9.0 bump) leaves both sides `undefined` and the test still passes. Only the named Red (hardcode `0.0.0`) can fail it, and that is a component mutation, not a mechanism one.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:333 \"then exact text is `Split ${import.meta.env.VITE_APP_VERSION} \u2014 MVP`. Red: hardcode `0.0.0`.\" and :204 the component renders the same expression. Nothing else pins the value: the two existing consumers both swallow absence, frontend/src/app/error-boundary/report-client-error.ts:58 \"appVersion: import.meta.env.VITE_APP_VERSION ?? 'unknown'\" and frontend/src/app/api/otel.ts:42 \"?? '0.0.0-dev'\".",
+   "fix": "Assert the literal `Split 0.9.0 - MVP` (with the em dash escape) against the bumped `package.json` version, and add a Red of \"remove the `define` entry from vite.config.ts\". Vite's define does reach the Vitest transform (the vitest environment is a server consumer), so a literal assertion is safe."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "Two auth-hook criteria assert \"empty `state.api.queries`\" on a second store without ever seeding a query in it, so their named Red mutations cannot fail. Only test (b) is specified to subscribe a query first.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:324 \"test `the receiver purges a second store after logout`, then the second store becomes unauthenticated and has empty API queries. Red: remove receiver reset.\" and :325 the rejected-logout case asserting \"API queries are empty\". Only :323 (the purge oracle) says a query is subscribed and refetched.",
+   "fix": "Require the second store (and the rejected-logout store) to subscribe and resolve one query BEFORE the broadcast, then assert `Object.keys(state.api.queries)` goes from non-empty to empty. Otherwise state that the receiver's purge oracle is test (b) alone and drop the vacuous assertions."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G5",
+   "claim": "The spec inherits an internal contradiction from the adjudication it cites: B5 promises every current loading-block behavior \"stays pinned by the existing component spec\", while B6 replaces the panel and backdrop during the same phase. The repo refutes B5 because the existing spec's loading-block test resolves the backdrop node by testid.",
+   "evidence": "docs/plans/split-ui-cycle/slice-6-evidence/recon/adjudication.md:92-94 \"Every current behavior in r2 facts 9 to 13 (trim, empty-intent omission, one UUID ... Escape/backdrop/cancel blocked while loading ...) is preserved and stays pinned by the existing component spec.\" vs :96-99 \"the panel and backdrop are replaced (conditional render inside the still-mounted body)\". Repo: frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx:130-133.",
+   "fix": "Amend the ruling (or record a deviation in section 9) that B5's \"stays pinned by the existing spec\" holds only for the idle-phase tests, and enumerate the loading-phase tests that are rewritten. A spec that silently overrides a ruling it cites is not adjudicated."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G2",
+   "claim": "Both e2e journey titles are quoted with ASCII arrows while the committed files use U+2192. A builder told to \"keep the journey title\" will either rename the test (changing the contract the spec says to keep) or diverge from the quoted string.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:143 \"Keep the journey title `register -> settings -> regenerate with intent -> home shows new plan`\" vs frontend/e2e/regenerate-plan.spec.ts:356 \"test('register \u2192 settings \u2192 regenerate with intent \u2192 home shows new plan'\". Same for spec.md:170 and frontend/e2e/auth.spec.ts:79.",
+   "fix": "Quote the titles with the escape (`\u2192`) as the copy table already does for other characters, and say explicitly that the title bytes do not change."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G3",
+   "claim": "The locked date formatter has no `timeZone` option, but DU-1 locks the exact rendered string `Generated Jun 29, 2026`. The result depends on the runner's TZ, so a fixture near a day boundary makes the criterion machine- and CI-dependent.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:110 \"return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(parsed)\" and :336 \"then the p contains `Generated Jun 29, 2026 \u00b7 12 weeks \u00b7 Portland 10K`\". No `timeZone` is set anywhere and vite.config.ts's `test` block sets none.",
+   "fix": "Either pin the fixture `generatedAt` to a mid-day UTC instant and say so, or add `timeZone: 'UTC'` to the formatter and state that the displayed date is UTC-based."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G2",
+   "claim": "The Settings frame class contradicts the ruling it cites. Adjudication B1 says the frame is \"the screen frame the onboarding page uses\", but the onboarding page uses `mx-auto ... max-w-md ... px-[22px]` and never `screen-gutter`; the spec's frame drops the centered max-width column entirely, so Settings would be full-bleed where every other Alpine screen is a column.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:200 \"Native `main data-testid=\\\"settings-page\\\"` with `screen-gutter flex flex-col gap-5 pt-2.5 pb-6.5`\" vs frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:187 \"mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-background px-[22px] py-8\". The shell supplies no column either: frontend/src/app/modules/app/components/shell-layout/shell-layout.component.tsx:15 \"min-h-dvh bg-background\".",
+   "fix": "Add `mx-auto w-full max-w-md` to the Settings frame (matching onboarding and the C1 auth frame), or record in section 9 that Settings deliberately goes full-bleed and why."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G3",
+   "claim": "The edge-case matrix specifies the empty-email branch but not the null-user branch, even though `useAuth().user` is typed `AuthUser | null` and the page must narrow it to compile.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:363 \"| Empty email in store | Render the empty `settings-account-email` value. Do not invent fallback copy. |\" vs frontend/src/app/modules/auth/models/auth.model.ts:10 \"user: AuthUser | null\" and frontend/src/app/modules/auth/hooks/auth.hooks.ts:17-25 which returns it unchanged.",
+   "fix": "Add a matrix row for `user === null` (render the empty value, no fallback copy) so the narrowing is specified rather than invented at build time."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G2",
+   "claim": "Three grounding citations point one to three lines off their symbols. Harmless individually, but they are the ranges a reviewer is told to check.",
+   "evidence": "docs/specs/slice-6-settings-auth/spec.md:37 cites \"frontend/src/components/ui/form.tsx:100-110\" for `FormControl`, which spans 100-112; spec.md:207 cites \"segmented-control.tsx:34-43\" for the item class, which is a single line at frontend/src/components/ui/segmented-control.tsx:37; spec.md:97 cites \"check-contrast.ts:85-104\" for the `Pair` shape, which is at frontend/scripts/check-contrast.ts:84-93.",
+   "fix": "Correct the three ranges. No behavior change."
+  }
+ ],
+ "gates": {
+  "G1": {
+   "result": "fail",
+   "note": "Every requirement maps to Slice 6's D1/D2/D3 and DEC-089 D8 with nothing beyond it, but the declared file lists are not complete: PR-B's password toggle forces edits to five e2e specs (shell-navigation, onboarding, plan-render, workout-logging, conversation-streaming) that neither PR lists, which also falsifies the pr-strategy claim that the two branches are disjoint and independently mergeable."
+  },
+  "G2": {
+   "result": "fail",
+   "note": "About thirty cited paths and symbols check out exactly (SegmentedControl radiogroup semantics, Wordmark 58px/role=img/name Split, FormControl Slot cloning, size=icon 44px before-expansion, 25 pairs and 50 results, VITE_APP_VERSION consumers, logout 204 and __Host-RunCoach, RequireAuth state.next, all t-* utilities and screen-gutter, resetApiState aborting queries and mutations), but the locked pair --clay-text on --secondary is measurably 4.20:1 in dark against a 4.5 threshold, and the adjudication's \"onboarding screen frame\" claim is refuted by onboarding.page.tsx."
+  },
+  "G3": {
+   "result": "fail",
+   "note": "Several named tests cannot be written or cannot go red as specified: two existing dialog loading tests are unsatisfiable once the panel and backdrop are replaced, both auth page specs' password helper becomes ambiguous, the settings page spec has no named harness for the store and ThemeProvider it now needs, the version-footer assertion is circular against the define mechanism, the receiver-purge oracles assert emptiness on stores that were never populated, and two committed assertions (check-contrast integration string, regenerate e2e label) break unnamed."
+  },
+  "G4": {
+   "result": "pass",
+   "note": "The \"no wire change\" claim holds: nothing under backend/, frontend/src/app/api/generated/, or backend/openapi/ is touched, Settings reads fields already on PlanProjectionDto (generatedAt, macro.totalWeeks, macro.goalDescription), sign-out uses the existing POST /api/v1/auth/logout, and the only build-config change is a Vite define whose two consumers already read the key, so npm run codegen:check and the eval cache are genuinely unaffected."
+  },
+  "G5": {
+   "result": "fail",
+   "note": "DEC-089 D8, DEC-092 routing, the canonical 3px ring rule in frontend/CLAUDE.md and the REVIEW.md store rule are all cited correctly and none is reopened, but the spec inherits and silently resolves a contradiction inside adjudication B5/B6 (loading-block behavior \"stays pinned by the existing component spec\" versus replacing the panel and backdrop) without recording the deviation, and its Settings frame departs from B1's stated basis."
+  },
+  "G6": {
+   "result": "pass",
+   "note": "No unknown here needs a research prompt under the repo protocol: every open point is a repo-computable or design-source fact, and the genuinely absent register artboard is correctly labeled an orchestrator ruling rather than a design inference; the one guessed unknown (does the clay pair clear AA) was computable from index.css and should have been measured, which is a groundedness failure rather than a research-protocol one."
+  }
+ },
+ "verdict": "REJECT"
+}

@@ -1,0 +1,97 @@
+<task>
+Draft the Slice 6 (Settings & Auth) implementer's-contract spec (two markdown files) for the RunCoach repo (your cwd; read AGENTS.md first; read-only except the output file). Match the house shape: read docs/specs/slice-4-log-logbook/spec.md (and docs/specs/slice-4-log-logbook/pr-strategy.md for the companion) for the section pattern and register, then write from the brief and the sources below only.
+</task>
+<brief>
+Write the Slice 6 (Settings & Auth) implementer's-contract spec for the SPLIT / Alpine UI redesign cycle as TWO files:
+(1) docs/specs/slice-6-settings-auth/spec.md (the output path below) and (2) docs/specs/slice-6-settings-auth/pr-strategy.md
+(a short companion, 400 words max, modeled on docs/specs/slice-4-log-logbook/pr-strategy.md: principles, the two INDEPENDENT
+branches PR-A feat/slice-6-settings and PR-B feat/slice-6-auth built in parallel off main with disjoint file lists, no stacking,
+PR-B carries no docs edits outside its own evidence folder, and the rule that the user merges in either order).
+
+The spec is a contract for a Codex implementer who will not re-derive anything: every file path, symbol, prop name, class string,
+data-testid, accessible name, copy string, sequence, and algorithm is locked. Both PRs are frontend only; no wire, event, prompt,
+generated-code, or backend change exists (adjudication A2). Follow the Slice 4 spec's section pattern exactly:
+1. Decision record: the rulings in recon/adjudication.md sections A, B, C, D each with its rationale and the alternatives the recon
+   surfaced and the adjudication rejected (section E: lifting the regenerate state machine to the page, migrating the dialog to the
+   shared Dialog primitive, explicit navigate on sign-out, a separate __APP_VERSION__ global, register rules in auth.schema.ts);
+   state plainly that Register has no artboard and its copy is an orchestrator ruling (A3).
+2. References (ground truth): a table of every concern -> file : symbol with line ranges taken from recon/out.json and
+   recon/out-design.json facts, plus a "Confirmed empirically this pass" list of the load-bearing facts (the session is cookie-based
+   with no token; the 401 path already dispatches loggedOut; resetApiState aborts in-flight requests so it runs after the logout POST;
+   the broadcast receiver today clears only auth state; the regenerate POST is synchronous through the whole generation chain; the
+   dialog is a custom div not the shared primitive and returns null when closed; SegmentedControl is radiogroup semantics with
+   min-h-11 items; Wordmark size=poster is 58px with accessible name Split; FormControl is a Slot that clones ids onto its direct
+   child; the login and register specs select by label Email/Password and by role names /sign in/i and /create account/i;
+   VITE_APP_VERSION is already read by telemetry and never set; package version is 0.0.0; check-contrast has 25 pairs / 50 results
+   and no muted-foreground on background or card pair; the four pre-existing sonarjs/no-hardcoded-passwords errors on the three auth
+   spec files and the sibling suppression precedent).
+3. Build stages: PR-A and PR-B, each with the exact file list from adjudication B12 and C10 (new vs changed), the edit shape per
+   file, and the tests to add per file (spec file and test names). Name the orchestrator-only steps (the full npm run test,
+   npm run check-contrast, npm run codegen:check, the Playwright suite against the host stack, eslint on touched files) as
+   "Orchestrator runs". Name the orchestrator-owned docs edits in PR-A (ROADMAP.md, cycle-plan.md, decision-log one-liner if any).
+4. Client contracts (locked): the copy table per screen (Settings, regenerate dialog, Sign in, Register) in reading order with the
+   [EM DASH]/[MIDDLE DOT]/[ARROW]/[ELLIPSIS] character map and the rule that TSX literals use \u2014, \u00B7, \u2192, \u2026 escapes and
+   source strings are sentence case with CSS uppercase; the component map per element (primitive, variant, class strings from
+   recon/design-extract.md and the adjudication, testids, accessible names); the current-plan line algorithm (segment omission,
+   date format, invalid-date passthrough); the regenerate phase behavior (mounted body, conditional panel vs building overlay,
+   success navigate to /, failure return with intent and same key, counter format N left); the sign-out sequence with the reason
+   for each step's position and the finally semantics; the receiver order; the version constant mechanism (define of
+   import.meta.env.VITE_APP_VERSION from package.json with env override, resolveJsonModule, the ImportMetaEnv declaration, the
+   npm version 0.9.0 --no-git-tag-version bump); the three new contrast pairs and the 28/56 count; the password toggle shape
+   (wrapper around FormControl, never inside; pr-12; type flip; autocomplete untouched; aria-label and aria-pressed); the OAuth
+   reserve; the hidden vs visible h1 rule.
+5. Demoable units and BDD acceptance criteria: Given/When/Then per unit, each naming the test file and test name or the command
+   that scores it (vitest spec file and test name; the e2e spec and journey title; the check-contrast run). Cover for PR-A: the
+   four rule sections and the h1 in both themes; the current-plan line full / macro null / blank goal / invalid date; REGENERATE
+   outline and warning; placeholder deletion; dialog restyle and counter values 500/250/0 as N left; building overlay during
+   in-flight; success navigates to / and Today shows the fresh plan (e2e); failure returns the panel with intent and same key;
+   cancel/Escape/backdrop unchanged; APPEARANCE segmented order Dark/Light/System and every preserved theme assertion; UNITS
+   segmented and every preserved units assertion; ACCOUNT email from the store; SIGN OUT sequence (a) to (e) from adjudication B9
+   including the second-store receiver purge and the rejected-POST path; require-auth live flip; footer exact text from
+   import.meta.env.VITE_APP_VERSION in both themes; contrast 56/56; the two e2e journeys in sign-out.spec.ts. For PR-B: poster
+   header (wordmark name Split, rule, tagline) on both pages; hidden h1 Sign in vs visible Start here; 48px fields with mono labels;
+   eye toggle flips type and aria-pressed while autocomplete is unchanged; primary copy and pending copy preserved; OAuth reserve
+   present and empty; secondary link copy and targets; register helper copy in mono; every preserved login/register spec assertion
+   listed by name still passes; e2e auth journey with the three new assertions; per-file eslint clean with the suppression lines.
+6. Edge-case matrix (macro null, goal blank, invalid generatedAt, regenerate 400 intent-length, regenerate network failure, logout
+   POST 401/500, BroadcastChannel undefined, second tab already on /login, theme storage throws, units PUT failure, empty email in
+   store, very long goalDescription, password toggle with autofill).
+7. Test plan (frontend unit, component, e2e realignment list per file, contrast, codegen drift, lint per touched file, the
+   NOT-runnable-in-sandbox list from adjudication D5).
+8. Non-negotiables checklist (HANDOFF section 8, trademark rule, AGENTS.md rules: no doc paths in comments, ASCII in new prose
+   and comments, motion-reduce pairing, semantic tokens only, --alp-faint never on essential text, 44px hit targets, the canonical
+   3px ring per D2, no primitive edits, no generated-file edits).
+9. Open questions / flagged deviations, each with the adjudicated recommendation (mock deviations: muted instead of faint for
+   eyebrows/warning/footer/counter; SIGN OUT min-h-11 not 40px; the eye toggle 44px target; the OAuth reserve height 52px as one
+   primary-button height; register copy as a ruling; the captured items F1-F4).
+10. Out of scope (deferred): OAuth beyond the slot, account management beyond sign-out, backend changes, the Dialog primitive
+    migration, failure copy (Slice 7), e2e helper consolidation (Slice 7), the two known-red host e2e journeys on main.
+
+Ground every claim in recon/out.json or recon/out-design.json facts (cite file:line as the facts do), in recon/design-extract.md, or
+in the adjudication. Where the adjudication and a recon fact conflict, the adjudication wins and you say so in one sentence. Where
+neither settles a detail an implementer needs (for example the exact t-* utility for the dialog title, the Link import path, the
+reportClientError signature, or the check-contrast PAIRS entry shape), read the repo file and lock it, citing the line. Do not
+reopen decisions. Do not invent copy: every UI string comes from recon/design-extract.md's copy tables or from adjudication B/C.
+The design's geometry becomes Tailwind class guidance, not pixel prose. Write the acceptance criteria so each can fail before the
+build and pass after it, and name the one-line mutation that turns each new test red.
+</brief>
+<sources>
+- docs/plans/split-ui-cycle/slice-6-evidence/recon/adjudication.md (the orchestrator's rulings; authoritative)
+- docs/plans/split-ui-cycle/slice-6-evidence/recon/out.json (five luna recon lenses: facts with file:line, config entries, risks, gaps, open questions)
+- docs/plans/split-ui-cycle/slice-6-evidence/recon/out-design.json and recon/design-extract.md (the terra design lens: ordered copy tables, component map, geometry, semantic color map, deviations)
+- docs/plans/split-ui-cycle/slice-6-settings-auth.md (slice design, D1-D3)
+- docs/plans/split-ui-cycle/cycle-plan.md lines 207-219 (Slice 6 acceptance), 238-268 (architecture additions, testing strategy), 27-47 (Captured During Cycle digest)
+- docs/design/split-alpine/HANDOFF.md sections 1, 2, 3, 5.6, 5.7, 6, 7, 8
+- docs/decisions/decision-log.md: DEC-089 (line 3141; D8 at 3158), DEC-086 (3059), DEC-063 (2172), DEC-043 (1208)
+- AGENTS.md, frontend/CLAUDE.md, frontend/REVIEW.md, REVIEW.md (house rules the implementer is judged by)
+- Repo files named in the recon facts, for any detail you must lock yourself
+</sources>
+<grounding_rules>
+Use only the sources listed and the repo files they cite. Every claim of what changed cites a path; every number comes from a source. Where sources disagree or leave a gap, say so in the draft under the affected section; never invent a mechanism, a number, or a decision. Do not name a Codex model, token count, or account detail in a PR body. Never read .env, secrets, or ~/.codex.
+</grounding_rules>
+<style>
+Plain prose; no em dashes (use commas or periods); no filler adjectives (comprehensive, robust, seamless, powerful, elegant, crucial, key, vital, significant); one idea per sentence, 25 words maximum; bullets only for parallel items; no bolded-label bullets; end on the last real fact. ASCII only. Under 9500 words.
+</style>
+<output>
+Write the draft to docs/specs/slice-6-settings-auth/spec.md (and docs/specs/slice-6-settings-auth/pr-strategy.md). Then print a five-line stage report: sections written, word count, sources used, gaps you could not ground, anything you left out because of the word cap.
+</output>

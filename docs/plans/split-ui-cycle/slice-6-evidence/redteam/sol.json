@@ -1,0 +1,122 @@
+{
+ "gates": {
+  "G1": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION. PR ownership is internally contradictory, and required design geometry is omitted."
+  },
+  "G2": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION across more than 30 cited paths and symbols. The contrast output, outline-button state, and password-toggle API are incorrect or incomplete."
+  },
+  "G3": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION. A committed assertion is impossible, several Red mutations stay green, sign-out setup is incomplete, and the build gate is conditional."
+  },
+  "G4": {
+   "result": "pass",
+   "note": "VERIFIED BY INSPECTION. Existing plan fields and logout endpoints suffice. No backend, wire, generated-code, prompt, event-schema, migration, or eval change is required, and codegen drift is named."
+  },
+  "G5": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION. The spec conflicts with adjudication A1, B1, C10, and D4, plus its own accessibility and ASCII checklist."
+  },
+  "G6": {
+   "result": "fail",
+   "note": "VERIFIED BY INSPECTION. The password-manager compatibility claim has no required research prompt or artifact."
+  }
+ },
+ "findings": [
+  {
+   "severity": "BLOCKER",
+   "gate": "G1",
+   "claim": "The declared PR topology is impossible as written: file lists are called disjoint while both PRs edit regenerate-plan.spec.ts, and the cited A1/C10 ruling was not amended.",
+   "evidence": "INSPECTED. docs/specs/slice-6-settings-auth/spec.md:9 says `Their file lists are disjoint`; :39 assigns the same line to both PRs. docs/plans/split-ui-cycle/slice-6-evidence/recon/adjudication.md:13-20,276-288 still locks disjoint B12/C10 lists.",
+   "fix": "Amend A1, C10, and pr-strategy.md to permit the shared file and list every PR-B e2e edit, with merge-order validation. Otherwise stack or combine the PRs."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G5",
+   "claim": "The exact Settings frame contradicts adjudication B1 and the cited design geometry, so an implementer cannot obey both.",
+   "evidence": "INSPECTED. docs/specs/slice-6-settings-auth/spec.md:200 says `screen-gutter is not used` and locks py-8. docs/plans/split-ui-cycle/slice-6-evidence/recon/adjudication.md:34-36 requires screen-gutter and design-extract geometry; recon/design-extract.md:141 locks pt-2.5 pb-6.5.",
+   "fix": "Lock the frame to the centered max-width column plus `screen-gutter pt-2.5 pb-6.5`, remove px-[22px] py-8, and add a class assertion."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G3",
+   "claim": "The locked contrast subprocess assertion cannot pass, and the test plan carries a second contradictory count.",
+   "evidence": "INSPECTED. docs/specs/slice-6-settings-auth/spec.md:152,289 require 54 results but output `all 27 pairs`; frontend/scripts/check-contrast.ts:499-507 returns two results per pair and :544 prints results.length. spec.md:389 instead says 28 pairs and 56 results.",
+   "fix": "Lock main() to print PAIRS.length if `all 27 pairs` is intended, and change line 389 to 27 pairs and 54 mode results. Alternatively expect `all 54` consistently."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G2",
+   "claim": "The exact regenerate-button class fails resting dark-mode text contrast and loses the required clay border.",
+   "evidence": "MECHANIZED. docs/specs/slice-6-settings-auth/spec.md:203 locks the override, but frontend/src/components/ui/button.tsx:16-17 adds `dark:border-input dark:bg-input/30`. Using frontend/src/index.css:94,98,128 produced `composite=#292e25 contrast=3.841:1`.",
+   "fix": "Add dark-mode overrides for `dark:bg-background` and `dark:border-clay-text`, preserve the secondary active fill, and test the final dark classes against the existing clay-text/background pair."
+  },
+  {
+   "severity": "BLOCKER",
+   "gate": "G5",
+   "claim": "The exact auth-link class cannot satisfy the locked 44px target and canonical focus treatment.",
+   "evidence": "INSPECTED. docs/specs/slice-6-settings-auth/spec.md:221 locks a class with no height, hit expansion, outline, or focus utilities. Lines 402-403 and frontend/CLAUDE.md:213-225 require every interactive target to be at least 44px with the canonical focus ring.",
+   "fix": "Add `inline-flex min-h-11 items-center outline-none` and the three canonical focus-visible classes to both links, then score target size and keyboard focus."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "Three prescribed Red mutations do not turn their named checks red.",
+   "evidence": "INSPECTED. docs/specs/slice-6-settings-auth/spec.md:313 adds an unobserved page.goto; :338 lowers a passing threshold from 4.5 to 3.0; :361 deletes the second-page oracle. Each mutation can remain green.",
+   "fix": "Mutate production behavior instead: remove navigate('/'), raise a threshold or regress a token, and remove postLogoutBroadcast(). Keep every test and oracle intact."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "The sign-out E2E sequence omits route stubs required for a newly registered account to reach the home page, so the journey is not self-contained.",
+   "evidence": "INSPECTED. docs/specs/slice-6-settings-auth/spec.md:156 says registration lands on `/`. frontend/src/app/modules/app/app.component.tsx:95-98,173-183 redirects incomplete users to onboarding. frontend/e2e/auth.spec.ts:35-77 installs onboarding and plan stubs for this reason.",
+   "fix": "Lock a sign-out setup helper that installs both stubs on every participating page before registration and navigation, including the second-tab journey."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G3",
+   "claim": "npm run build has no unconditional pass/fail gate for either PR.",
+   "evidence": "INSPECTED. docs/specs/slice-6-settings-auth/spec.md:126,179 omit build from Orchestrator runs; :389 runs it only `if the host workflow includes it`. AGENTS.md:73-75 declares npm run build a frontend gate, and pr-strategy.md:27 says each PR runs it.",
+   "fix": "Add `npm run build` unconditionally to both branch gates and define exit 0 as the required result."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G2",
+   "claim": "The controlled password-toggle API is underspecified despite the promise that every prop is locked.",
+   "evidence": "INSPECTED. docs/specs/slice-6-settings-auth/spec.md:3 promises every prop is locked. Line 217 references isVisible but names no callback, while line 37 requires AuthTextField-owned input state to change.",
+   "fix": "Lock `PasswordVisibilityToggleProps` as `{ isVisible: boolean; onToggle: () => void }`, lock `onClick={onToggle}`, and state that AuthTextField owns the visibility state."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G1",
+   "claim": "The exact component map omits required auth and dialog layout classes, forcing implementers to re-derive design geometry.",
+   "evidence": "INSPECTED. recon/design-extract.md:156 requires form gap-3.5 and 6px field gaps; adjudication.md:79-81 requires a gap-3 panel column. spec.md:170-171,208 omits those classes while :3 says every class is locked. Existing AuthFormShell:51 uses space-y-4 and form.tsx:81 uses gap-2.",
+   "fix": "Lock the auth form to `flex flex-col gap-3.5`, each FormItem to `gap-1.5`, the dialog panel to `flex flex-col gap-3`, and the intent group and action padding from design-extract.md:166-167."
+  },
+  {
+   "severity": "MAJOR",
+   "gate": "G6",
+   "claim": "The assertion that password managers are unaffected is an unresearched compatibility decision.",
+   "evidence": "INSPECTED. docs/plans/split-ui-cycle/slice-6-settings-auth.md:20 locks `password managers unaffected`; spec.md:37 only preserves autocomplete. CLAUDE.md:78-86 requires a prompt and artifact for compatibility questions, but none is cited or present.",
+   "fix": "Queue and complete a password-visibility/password-manager compatibility research artifact, then integrate its tested browser-manager behavior into the spec before PR-B."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G3",
+   "claim": "The exact date assertion remains timezone-dependent.",
+   "evidence": "INSPECTED. docs/specs/slice-6-settings-auth/spec.md:298 only claims stability from UTC-11 through UTC+11. Valid UTC+12 through UTC+14 runners render the fixture as Jun 30, not the required Jun 29.",
+   "fix": "Lock local versus UTC display semantics, then make the test deterministic with an explicit formatter timeZone or an explicit TZ for the test process."
+  },
+  {
+   "severity": "MINOR",
+   "gate": "G5",
+   "claim": "The spec violates its own ASCII prose rule.",
+   "evidence": "MECHANIZED. A non-ASCII scan found literal U+2192 glyphs at docs/specs/slice-6-settings-auth/spec.md:145,172 and U+2026 glyphs at :190,251, while :397 requires new prose to be ASCII.",
+   "fix": "Write those characters as ASCII escape spellings such as `\\u2192` and `\\u2026`, while separately stating the existing test-title byte requirement."
+  }
+ ],
+ "verdict": "REJECT"
+}

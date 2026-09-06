@@ -1,0 +1,44 @@
+<task>
+Draft a pull request body for the RunCoach repo (your cwd; read AGENTS.md first; read-only except the output file). Match the house shape: read docs/plans/split-ui-cycle/slice-6-evidence/pr-body-example-363.md for the section pattern and register, then write from the brief and the sources below only.
+</task>
+<brief>
+Write the pull request body for Slice 6 PR-A (branch feat/slice-6-settings) of the SPLIT / Alpine UI redesign cycle: the Settings screen
+recomposed onto the Alpine rule sections, the regenerate dialog restyled with the plan-building surface, ACCOUNT with the app's first
+SIGN OUT (and the pulled-forward cross-account cache reset), the version footer, and two contrast pairs. It is one of two independent
+Slice 6 PRs built in parallel from main; the sibling PR-B (#364, branch feat/slice-6-auth, the auth poster screens) may merge in either
+order; one line in frontend/e2e/regenerate-plan.spec.ts is byte-identical in both. PR-A also carries the shared Slice 6 evidence (recon,
+red-team) and will carry the ROADMAP, cycle-plan and decision-log status edits. Follow the shape example's sections exactly: a
+one-paragraph lead in bold naming the slice, the PR, and its sibling; a 'Spec' line naming the gitignored spec path and the committed
+evidence path; '## What's here' bullets (THE PLAN current-plan line and its algorithm, REGENERATE PLAN outline with the dark-mode
+overrides and why, the regenerate dialog restyle and the building phase with the mounted body and success navigation, APPEARANCE and
+UNITS as SegmentedControls on unchanged wiring, ACCOUNT and the sign-out sequence with the reason each step sits where it does and the
+receiver purge, the version footer mechanism and the package bump and its telemetry side effect, the two contrast pairs, the removed
+placeholder and helper copy, the retained contracts); '## Decisions and deviations' (muted instead of the mock's faint; SIGN OUT at
+44px; the clay-on-secondary pair dropped after measuring 4.20:1; the dark-mode outline overrides after measuring 3.84:1; the custom dialog
+kept instead of the shared primitive; state.next after sign-out; the generated-date fixture pinned to mid-day UTC); '## Review trail'
+(the two-family spec red-team: the opus blockers and sol findings that shaped this PR; the round-1 mutation and conformance lenses with
+their counts including the seven green order mutations and the missing eyebrow; the fix round F1 to F11; the three e2e mutation replays,
+all red; the verify lens if round2/verify.json is present); '## Green' with the host numbers from the orchestrator-runs records
+(fix-round section: vitest count, check-contrast 54/54, codegen, build with 0.9.0 in the bundle, eslint, prettier, Playwright 16 passed
+with the two journeys already red on main named). Do not mention Codex models, token counts, accounts, or timings. Under 800 words.
+</brief>
+<sources>
+- docs/specs/slice-6-settings-auth/spec.md sections 1 A, 1 B, 1 D, 1 E, 3 PR-A, 4.3 to 4.6, 9
+- docs/specs/slice-6-settings-auth/pr-strategy.md
+- docs/plans/split-ui-cycle/slice-6-evidence/recon/adjudication.md and redteam/adjudication.md (the rulings and the two-family red-team)
+- docs/plans/split-ui-cycle/slice-6-evidence/build-report.md (the build stage report with the orchestrator addendum)
+- docs/plans/split-ui-cycle/slice-6-evidence/build-orchestrator-runs.md (host gates and Playwright at the build commit)
+- docs/plans/split-ui-cycle/slice-6-evidence/round1/conformance.json and mutation.json (the round-1 lenses)
+- docs/plans/split-ui-cycle/slice-6-evidence/round1/fix-list.txt, fix-report.md, orchestrator-runs.md (the fix round, the e2e replays, the fix-round host runs)
+- docs/plans/split-ui-cycle/slice-6-evidence/round2/verify.json if present (the verify lens)
+- git log and git diff main..HEAD for the exact file set
+</sources>
+<grounding_rules>
+Use only the sources listed and the repo files they cite. Every claim of what changed cites a path; every number comes from a source. Where sources disagree or leave a gap, say so in the draft under the affected section; never invent a mechanism, a number, or a decision. Do not name a Codex model, token count, or account detail in a PR body. Never read .env, secrets, or ~/.codex.
+</grounding_rules>
+<style>
+Plain prose; no em dashes (use commas or periods); no filler adjectives (comprehensive, robust, seamless, powerful, elegant, crucial, key, vital, significant); one idea per sentence, 25 words maximum; bullets only for parallel items; no bolded-label bullets; end on the last real fact. ASCII only. Under 800 words.
+</style>
+<output>
+Write the draft to docs/plans/split-ui-cycle/slice-6-evidence/pr-body-draft.md. Then print a five-line stage report: sections written, word count, sources used, gaps you could not ground, anything you left out because of the word cap.
+</output>

@@ -345,6 +345,7 @@ const installStubs = async (page: Page, state: StubState): Promise<void> => {
     state.regenerateRequests += 1
     state.hasRegenerated = true
 
+    await new Promise((r) => setTimeout(r, 500))
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -412,31 +413,24 @@ test('register → settings → regenerate with intent → home shows new plan',
   await expect(page.getByTestId('settings-regenerate-button')).toBeVisible()
 
   // 3. Open the regenerate dialog. The dialog must contain the optional
-  //    intent textarea labeled "Anything we should know? (optional)" plus
+  //    intent textarea plus
   //    a "Regenerate" submit button.
   await page.getByTestId('settings-regenerate-button').click()
   const dialog = page.getByTestId('regenerate-plan-dialog')
   await expect(dialog).toBeVisible()
-  await expect(page.getByLabel('Anything we should know? (optional)')).toBeVisible()
+  await expect(page.getByTestId('regenerate-plan-intent')).toBeVisible()
   const submitButton = page.getByTestId('regenerate-plan-submit')
   await expect(submitButton).toBeVisible()
 
   // 4. Submit with the canonical injury intent. The dialog must (a) pass
   //    the freeText through unchanged on the wire, (b) close on success,
   //    (c) trigger a Plan-tag invalidation that refetches plan B.
-  await page.getByLabel('Anything we should know? (optional)').fill(INJURY_INTENT)
+  await page.getByTestId('regenerate-plan-intent').fill(INJURY_INTENT)
   await submitButton.click()
 
-  // Dialog closes once the mutation resolves. The `regenerate-plan-dialog`
-  // markup unmounts entirely (parent `isOpen` flips false), not just hidden.
+  await expect(page.getByTestId('settings-regenerate-building')).toBeVisible()
+  // The mutation resolves into the app's home route without explicit navigation.
   await expect(dialog).toBeHidden()
-
-  // 5. Navigate back to / — the SPA already fired the invalidation refetch
-  //    when the dialog closed, but we navigate explicitly so the home
-  //    surface re-renders with plan B replacing plan A. After the
-  //    navigation the home surface must reflect plan B's macro composition
-  //    plus workout titles.
-  await page.goto('/')
   await expect(page).toHaveURL('/')
   await expect(page.getByTestId('home-page')).toBeVisible()
 

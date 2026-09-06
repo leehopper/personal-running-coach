@@ -1,0 +1,694 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "blocker",
+   "claim": "The full frontend test gate is red.",
+   "evidence": "`npm run test` fails the changed integration test at frontend/scripts/__tests__/check-contrast.spec.ts:493-494. The test expects `all 27 pairs pass WCAG thresholds`, while frontend/scripts/check-contrast.ts:529-545 emits 54 results. The supplied host evidence also records 1 failed test at docs/plans/split-ui-cycle/slice-6-evidence/build-orchestrator-runs.md:8-12.",
+   "fix": "Change the subprocess assertion to `all 54 pairs pass WCAG thresholds` and rerun the full frontend suite.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "blocker",
+   "claim": "The regenerate dialog panel omits the locked gap-3 class.",
+   "evidence": "The spec requires gap-3 at docs/specs/slice-6-settings-auth/spec.md:208. The panel at frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:127-135 has no gap-3 and is not a flex or grid container.",
+   "fix": "Add the required gap-3 panel layout class.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The stage report file inventory does not equal the committed diff inventory.",
+   "evidence": "`.stage-report.md:5-29` lists 20 files. `git diff HEAD~1 --stat` reports 21 files because docs/plans/split-ui-cycle/slice-6-evidence/build-report.md:1 is committed but omitted from the report.",
+   "fix": "Update the report inventory to include every diff file, or remove the extra committed file if it is outside scope.",
+   "mode": "MECHANIZED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "Restore the contrast subprocess expectation from 54 to 27.",
+   "expected_red_test": "`npx vitest run scripts/__tests__/check-contrast.spec.ts` integration test must fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove resetApiState from the sign-out finally block.",
+   "expected_red_test": "`auth.hooks.spec.tsx` test `purges subscribed RTK Query state and refetches on resubscribe` must fail.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Remove the required regenerate panel gap-3 class.",
+   "expected_red_test": "A locked panel-class assertion should fail; no such mutation was run.",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "1 A - Frontend-only independent PR split",
+   "status": "SATISFIED",
+   "where": "git diff HEAD~1 --name-status shows frontend changes plus shared evidence, with no PR-B implementation files."
+  },
+  {
+   "item": "1 A - No backend, wire, event, prompt, generated-code, or migration change",
+   "status": "SATISFIED",
+   "where": "Read-only diff path checks found none of those paths changed."
+  },
+  {
+   "item": "1 B - Settings four-section recomposition and removed helper/placeholder UI",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/settings/pages/settings.page.tsx:29-100."
+  },
+  {
+   "item": "1 B - Current-plan algorithm and previous-plan removal",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/settings/pages/settings.page.tsx:115-170."
+  },
+  {
+   "item": "1 B - Regenerate trigger and warning",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/settings/pages/settings.page.tsx:39-55."
+  },
+  {
+   "item": "1 B - Custom dialog, mounted body, building state, retry state, and success navigation",
+   "status": "PARTIAL",
+   "where": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:54-110 and 113-200 satisfy behavior; the locked panel gap-3 class is missing at lines 127-135."
+  },
+  {
+   "item": "1 B - Segmented theme and units controls",
+   "status": "SATISFIED",
+   "where": "theme-toggle.component.tsx:8-44 and units-toggle.component.tsx:20-64; focused tests passed."
+  },
+  {
+   "item": "1 B - Account and POST-first sign-out cleanup",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:68-86 and auth.hooks.ts:29-52."
+  },
+  {
+   "item": "1 B/D - Version injection and 0.9.0 package update",
+   "status": "SATISFIED",
+   "where": "vite.config.ts:211-216, tsconfig.node.json:10-14, vite-env.d.ts:3-5, package.json:1-5, package-lock.json:1-10."
+  },
+  {
+   "item": "1 D - Exact Vite define and env precedence",
+   "status": "SATISFIED",
+   "where": "frontend/vite.config.ts:212-216."
+  },
+  {
+   "item": "1 D - Required muted contrast pairs",
+   "status": "PARTIAL",
+   "where": "check-contrast.ts:104-114 adds both pairs and pure runChecks tests pass, but the subprocess expectation at check-contrast.spec.ts:491-495 is red."
+  },
+  {
+   "item": "1 D - Semantic tokens, source copy, escapes, reduced motion, and hit targets",
+   "status": "SATISFIED",
+   "where": "Added frontend diff scans found no raw color utility, VDOT term, TODO/FIXME, new non-ASCII code comment, or primitive edit."
+  },
+  {
+   "item": "1 E - Rejected alternatives",
+   "status": "SATISFIED",
+   "where": "State remains in the dialog, the custom dialog remains, sign-out has no explicit navigation, and no __APP_VERSION__ global exists."
+  },
+  {
+   "item": "3 PR-A exact implementation file list",
+   "status": "PARTIAL",
+   "where": "The listed PR-A files are present, but committed build-report.md is omitted from .stage-report.md:5-29."
+  },
+  {
+   "item": "3 Settings page test harness and required cases",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:40-75 keeps MemoryRouter-only rendering and mocks; cases are at lines 149-247."
+  },
+  {
+   "item": "3 Preserved named tests and preserved files",
+   "status": "SATISFIED",
+   "where": "Read-only diff checks show settings.api.spec.ts, use-preferred-units.hooks.spec.ts, preserved e2e journeys, primitives, schemas, generated auth, and problem-details helper unchanged."
+  },
+  {
+   "item": "3 Regenerate e2e realignment",
+   "status": "SATISFIED",
+   "where": "regenerate-plan.spec.ts:333-354 and 418-470 assert delayed building, home navigation, Plan B, intent, UUID, and refetch without explicit page.goto('/'). Host evidence records this journey passing."
+  },
+  {
+   "item": "3 Auth hook and sign-out tests",
+   "status": "SATISFIED",
+   "where": "auth.hooks.spec.tsx:116-213 contains all five B9 sequence tests; focused PR-A tests passed."
+  },
+  {
+   "item": "4.1 Settings copy contract",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:35-97 contains the locked Settings, section, account, warning, and footer copy."
+  },
+  {
+   "item": "4.1 Regenerate copy contract",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.tsx:137-195 contains the locked description, intent label, counter, actions, alert, and source escapes."
+  },
+  {
+   "item": "4.2 Settings frame and section component map",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:29-88 matches the native main, header rule, four sections, labels, and testids."
+  },
+  {
+   "item": "4.2 Plan metadata and trigger component map",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:39-55 and 132-149."
+  },
+  {
+   "item": "4.2 Regenerate panel component map",
+   "status": "PARTIAL",
+   "where": "regenerate-plan-dialog.component.tsx:127-135 matches geometry except the required gap-3 class."
+  },
+  {
+   "item": "4.2 Existing primitives remain untouched",
+   "status": "SATISFIED",
+   "where": "Diff checks show button.tsx, input.tsx, form.tsx, label.tsx, dialog.tsx, segmented-control.tsx, auth.schema.ts, generated auth, and problem-details.helpers.ts unchanged."
+  },
+  {
+   "item": "4.3 Current-plan algorithm",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:132-169 implements stable en-US formatting, null and blank omission, invalid raw fallback, original dateTime, and verbatim goal text."
+  },
+  {
+   "item": "4.4 Regeneration phase contract",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.tsx:54-110 and 113-200 implement one key, trimmed intent, idle-only dismissal, building replacement, generic failure, state preservation, and home navigation."
+  },
+  {
+   "item": "4.5 Sign-out sender contract",
+   "status": "SATISFIED",
+   "where": "auth.hooks.ts:29-52 performs logout POST first, then finally loggedOut, resetApiState, broadcast, and rejection reporting."
+  },
+  {
+   "item": "4.5 Sign-out receiver contract",
+   "status": "SATISFIED",
+   "where": "auth.hooks.ts:109-121 dispatches loggedOut before resetApiState; broadcast-auth.ts:8-21 remains no-op-safe."
+  },
+  {
+   "item": "4.6 Version contract",
+   "status": "SATISFIED",
+   "where": "vite.config.ts:212-216, vite-env.d.ts:3-5, and package version fields match; local build included 0.9.0."
+  },
+  {
+   "item": "4.6 Contrast contract",
+   "status": "PARTIAL",
+   "where": "Host evidence says check-contrast passes 54/54, but the changed subprocess test fails at check-contrast.spec.ts:493-494."
+  },
+  {
+   "item": "DU-1.1 Four sections and title",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:149-165 and settings.page.tsx:29-88; focused tests passed."
+  },
+  {
+   "item": "DU-1.2 Full current-plan line",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:167-173 and settings.page.tsx:132-149."
+  },
+  {
+   "item": "DU-1.3 Null macro omission",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:175-181 and optional macro access in settings.page.tsx:137-138."
+  },
+  {
+   "item": "DU-1.4 Blank goal omission",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:183-190 and hasMeaningfulValue at settings.page.tsx:153-154."
+  },
+  {
+   "item": "DU-1.5 Invalid generatedAt raw fallback",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:192-199 and formatGeneratedAt at settings.page.tsx:160-169."
+  },
+  {
+   "item": "DU-1.6 Clay outline action and warning",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:201-214 and settings.page.tsx:43-54."
+  },
+  {
+   "item": "DU-1.7 Loading and error branches",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:115-129; focused Settings tests passed."
+  },
+  {
+   "item": "DU-1.8 No helper or previous-plan placeholder",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:29-100 contains no previous-plan testid or placeholder UI."
+  },
+  {
+   "item": "DU-2.1 Replacement dialog copy and controls",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.spec.tsx:47-59 and component.tsx:137-195."
+  },
+  {
+   "item": "DU-2.2 Counter values 500, 250, and 0",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.spec.tsx:173-184 and component.tsx:167-172."
+  },
+  {
+   "item": "DU-2.3 Trimmed intent and empty omission",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.tsx:83-91; focused dialog tests passed."
+  },
+  {
+   "item": "DU-2.4 Same idempotency key on retry",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.tsx:55-60 and spec.tsx:229-264."
+  },
+  {
+   "item": "DU-2.5 Building surface replaces panel",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.tsx:105-110 and spec.tsx:103-115."
+  },
+  {
+   "item": "DU-2.6 Regenerate e2e building and Plan B flow",
+   "status": "SATISFIED",
+   "where": "regenerate-plan.spec.ts:418-470; supplied host evidence records it passing."
+  },
+  {
+   "item": "DU-2.7 Failure preserves panel state",
+   "status": "SATISFIED",
+   "where": "regenerate-plan.component.tsx:94-96 and spec.tsx:197-216."
+  },
+  {
+   "item": "DU-2.8 Idle Cancel, Escape, and backdrop behavior",
+   "status": "SATISFIED",
+   "where": "regenerate-plan.component.tsx:71-81 and 101-103; spec.tsx:117-171."
+  },
+  {
+   "item": "DU-2.9 Loading dismissal is blocked",
+   "status": "SATISFIED",
+   "where": "regenerate-plan.component.tsx:71-81 and 105-110; spec.tsx:131-138."
+  },
+  {
+   "item": "DU-2.10 Generic 400 alert",
+   "status": "SATISFIED",
+   "where": "regenerate-plan.component.tsx:94-96 and spec.tsx:218-227."
+  },
+  {
+   "item": "DU-3.1 Theme preserved tests and Dark/Light/System order",
+   "status": "SATISFIED",
+   "where": "theme-toggle.component.tsx:8-44 and spec.tsx:56-115; focused tests passed."
+  },
+  {
+   "item": "DU-3.2 Units preserved tests and Kilometers/Miles order",
+   "status": "SATISFIED",
+   "where": "units-toggle.component.tsx:20-64 and spec.tsx:46-91; focused tests passed."
+  },
+  {
+   "item": "DU-3.3 Account email from auth state",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:68-75 and settings-page.spec.tsx:216-220."
+  },
+  {
+   "item": "DU-3.4 Logout POST before unauthenticated state",
+   "status": "SATISFIED",
+   "where": "auth.hooks.ts:35-52 and auth.hooks.spec.tsx:116-135."
+  },
+  {
+   "item": "DU-3.5 Local RTK Query purge and refetch",
+   "status": "SATISFIED",
+   "where": "auth.hooks.ts:48-50 and auth.hooks.spec.tsx:137-158."
+  },
+  {
+   "item": "DU-3.6 Exact logout broadcast",
+   "status": "SATISFIED",
+   "where": "broadcast-auth.ts:1-12 and auth.hooks.spec.tsx:160-174."
+  },
+  {
+   "item": "DU-3.7 Receiver purge order",
+   "status": "SATISFIED",
+   "where": "auth.hooks.ts:109-121 and auth.hooks.spec.tsx:176-190."
+  },
+  {
+   "item": "DU-3.8 Rejected logout reporting and cleanup",
+   "status": "SATISFIED",
+   "where": "auth.hooks.ts:37-52 and auth.hooks.spec.tsx:192-214; 500 branch is covered and implementation catches both statuses."
+  },
+  {
+   "item": "DU-3.9 Live RequireAuth redirect with state.next",
+   "status": "SATISFIED",
+   "where": "require-auth.component.tsx:17-35 and require-auth.component.spec.tsx:88-100."
+  },
+  {
+   "item": "DU-3.10 Settings sign-out e2e",
+   "status": "SATISFIED",
+   "where": "e2e/sign-out.spec.ts:77-87; supplied host evidence records both sign-out journeys passing."
+  },
+  {
+   "item": "DU-3.11 Second-tab broadcast e2e",
+   "status": "SATISFIED",
+   "where": "e2e/sign-out.spec.ts:89-103; supplied host evidence records it passing."
+  },
+  {
+   "item": "DU-4.1 Exact version footer in both themes",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:237-247 and settings.page.tsx:92-98."
+  },
+  {
+   "item": "DU-4.2 Contrast count and subprocess assertion",
+   "status": "PARTIAL",
+   "where": "Pure count test at check-contrast.spec.ts:456 passes, but subprocess assertion at lines 491-495 fails because it expects 27 instead of 54."
+  },
+  {
+   "item": "DU-4.3 Real contrast gate",
+   "status": "SATISFIED",
+   "where": "Supplied host evidence at build-orchestrator-runs.md:13-14 reports all 54 pairs pass."
+  },
+  {
+   "item": "DU-4.4 Clay outline pressed-state class",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:46-48 and settings-page.spec.tsx:201-214."
+  },
+  {
+   "item": "DU-6.1 Codegen drift gate",
+   "status": "SATISFIED",
+   "where": "Supplied host evidence at build-orchestrator-runs.md:19-20 reports codegen rc=0; no generated path changed."
+  },
+  {
+   "item": "DU-6.2 Lint gate",
+   "status": "SATISFIED",
+   "where": "Local eslint exited 0 and supplied host evidence reports rc=0."
+  },
+  {
+   "item": "DU-6.3 E2E gate and known-red journeys",
+   "status": "SATISFIED",
+   "where": "Supplied host evidence at build-orchestrator-runs.md:29-40 records 16 passing, the two new PR-A journeys and regenerate passing, and only the two documented pre-existing failures."
+  },
+  {
+   "item": "6.1 Plan macro null",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:137-138 and settings-page.spec.tsx:175-181."
+  },
+  {
+   "item": "6.2 Blank goal",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:138 and 153-154; focused test passes."
+  },
+  {
+   "item": "6.3 Invalid generatedAt",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:160-169 and settings-page.spec.tsx:192-199."
+  },
+  {
+   "item": "6.4 Regenerate 400",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.tsx:94-96 and spec.tsx:218-227."
+  },
+  {
+   "item": "6.5 Regenerate network failure",
+   "status": "SATISFIED",
+   "where": "regenerate-plan.component.tsx:94-96 and 54-60; failure test passes."
+  },
+  {
+   "item": "6.6 Logout 401",
+   "status": "SATISFIED",
+   "where": "auth.hooks.ts:37-52 catches rejection and finally cleans up; base-query.ts:81-84 preserves loggedOut dispatch."
+  },
+  {
+   "item": "6.7 Logout 500",
+   "status": "SATISFIED",
+   "where": "auth.hooks.spec.tsx:192-214 covers report, purge, and broadcast."
+  },
+  {
+   "item": "6.8 BroadcastChannel undefined",
+   "status": "SATISFIED",
+   "where": "broadcast-auth.ts:8-21 no-ops when unavailable; local hook cleanup does not depend on it."
+  },
+  {
+   "item": "6.9 Second tab already on login",
+   "status": "SATISFIED",
+   "where": "No explicit sign-out navigation exists; RequireAuth and public route behavior remain unchanged at require-auth.component.tsx:33-35."
+  },
+  {
+   "item": "6.10 Theme storage throws",
+   "status": "SATISFIED",
+   "where": "theme-provider.tsx and theme-provider tests are unchanged; host full evidence reports non-contrast tests passing."
+  },
+  {
+   "item": "6.11 Units PUT failure",
+   "status": "SATISFIED",
+   "where": "units-toggle.component.tsx:25-38 preserves report, toast, and no local invalidation behavior."
+  },
+  {
+   "item": "6.12 Empty email",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:73-75 renders the stored value without fallback copy."
+  },
+  {
+   "item": "6.13 Null auth user",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:73-75 uses user?.email ?? '' and keeps the button at lines 77-86 enabled unless signing out."
+  },
+  {
+   "item": "6.14 Long goal description",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:138-149 renders the goal without truncation."
+  },
+  {
+   "item": "6.15 Password autofill",
+   "status": "NOT_APPLICABLE",
+   "where": "Password visibility is PR-B-owned and no password implementation is changed in this PR-A diff."
+  },
+  {
+   "item": "8.1 No prohibited file or primitive edits",
+   "status": "SATISFIED",
+   "where": "Diff inventory and preserved-file checks confirm no backend, wire, event, prompt, generated, migration, or primitive edit."
+  },
+  {
+   "item": "8.2 Trademark-clean copy",
+   "status": "SATISFIED",
+   "where": "Added frontend diff scan found no VDOT term."
+  },
+  {
+   "item": "8.3 Comment hygiene and ASCII code comments",
+   "status": "SATISFIED",
+   "where": "Added frontend diff scan found no docs-path, TODO/FIXME, or non-ASCII code-comment violation."
+  },
+  {
+   "item": "8.4 Animation, semantic token, target, focus, form, segmented, purge, and OAuth rules",
+   "status": "SATISFIED",
+   "where": "Changed controls use existing semantic and focus classes; no OAuth implementation or primitive edit was added."
+  },
+  {
+   "item": "9.1 Adjudicated flagged deviations",
+   "status": "SATISFIED",
+   "where": "Implementation follows muted text, 44px sign-out, custom dialog, generic alert, duplicated e2e setup, and exact password lookup decisions."
+  },
+  {
+   "item": "Preserved contracts and no preserved-spec edits",
+   "status": "SATISFIED",
+   "where": "Read-only diff checks show all checked preserved specs and primitives unchanged; focused preserved API/unit/base-query checks passed except sandbox-specific unmodified theme-provider localStorage setup."
+  },
+  {
+   "item": "Wire/event delta and codegen pairing",
+   "status": "SATISFIED",
+   "where": "No wire/event change exists, generated/API paths are unchanged, and supplied codegen:check evidence reports rc=0. Prompt eval-cache pairing is not applicable."
+  },
+  {
+   "item": "AGENTS trademark, logging, migration, and comment rules",
+   "status": "SATISFIED",
+   "where": "No trademark, backend logging, migration, prompt, generated, secret, or new comment-hygiene violation appears in the diff."
+  },
+  {
+   "item": "Stage report file-list claim",
+   "status": "MISSING",
+   "where": ".stage-report.md:5-29 omits build-report.md from the 21-file git diff."
+  },
+  {
+   "item": "Stage report build claim",
+   "status": "SATISFIED",
+   "where": ".stage-report.md:36-39 matches the local successful production build; the exact npm version command itself was not rerun."
+  },
+  {
+   "item": "Stage report focused Vitest claim",
+   "status": "MISSING",
+   "where": ".stage-report.md:41-42 says all changed and added unit specs passed, but the changed contrast spec fails locally at check-contrast.spec.ts:493-494."
+  },
+  {
+   "item": "Stage report lint, prettier, and diff-check claims",
+   "status": "SATISFIED",
+   "where": ".stage-report.md:44-51 match local eslint exit 0, Prettier success, and clean diff check."
+  },
+  {
+   "item": "Stage report backend claims",
+   "status": "PARTIAL",
+   "where": ".stage-report.md:53-57 is outside this frontend-only gate; the reported format timeout is not independently rerun."
+  },
+  {
+   "item": "Stage report contrast deviation claim",
+   "status": "PARTIAL",
+   "where": ".stage-report.md:59-60 correctly records sandbox IPC failure but omits the changed expectation failure."
+  },
+  {
+   "item": "Stage report DU-1 through DU-4 claims",
+   "status": "PARTIAL",
+   "where": ".stage-report.md:64-112 cites most passing checks but overstates DU-4 because the subprocess test is red and omits panel gap-3."
+  },
+  {
+   "item": "Stage report DU-5 scope claim",
+   "status": "SATISFIED",
+   "where": ".stage-report.md:114-116 correctly excludes PR-B-owned auth poster work."
+  },
+  {
+   "item": "Stage report DU-6 claim",
+   "status": "PARTIAL",
+   "where": ".stage-report.md:118-122 accurately reports local limitations, but the supplied host e2e has two known-red tests and full npm test has the changed contrast failure."
+  },
+  {
+   "item": "Stage report mutation inventory",
+   "status": "PARTIAL",
+   "where": ".stage-report.md:124-146 lists mutation ideas but provides no observed RED/GREEN results."
+  },
+  {
+   "item": "Stage report deviations and completion claim",
+   "status": "PARTIAL",
+   "where": ".stage-report.md:148-175 lists appropriate orchestrator commands, but STAGE COMPLETE conflicts with the red changed test and incomplete file list."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "git diff HEAD~1 --stat",
+   "result": "`21 files changed, 1037 insertions(+), 245 deletions(-)`."
+  },
+  {
+   "command": "git diff HEAD~1 --name-status",
+   "result": "Frontend-only files plus `docs/plans/split-ui-cycle/slice-6-evidence/build-report.md`."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice6-settings-r1-conformance npm run build",
+   "result": "`✓ built in 516ms`."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice6-settings-r1-conformance npx vitest run src/app/modules/settings/pages/settings-page.spec.tsx src/app/modules/settings/components/theme-toggle.component.spec.tsx src/app/modules/settings/components/units-toggle.component.spec.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx src/app/modules/auth/components/require-auth.component.spec.tsx src/app/modules/auth/hooks/auth.hooks.spec.tsx",
+   "result": "`Test Files 6 passed (6)` and `Tests 57 passed (57)`."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice6-settings-r1-conformance npx vitest run scripts/__tests__/check-contrast.spec.ts",
+   "result": "`Tests 2 failed | 59 passed (61)`; changed assertion fails at lines 493-494 and the deliberate subprocess test also hits EPERM IPC."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice6-settings-r1-conformance npx vitest run src/app/api/settings.api.spec.ts src/app/modules/settings/hooks/use-preferred-units.hooks.spec.ts src/components/theme-provider.spec.tsx src/components/use-document-theme.hooks.spec.ts src/app/api/base-query.spec.ts",
+   "result": "`4 files/42 tests passed`; unmodified theme-provider standalone invocation had 13 localStorage failures."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice6-settings-r1-conformance npm run test",
+   "result": "`RED`: changed contrast test failed; sandbox also produced `listen EPERM` for tsx IPC and localStorage failures in an unmodified suite."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice6-settings-r1-conformance npm run e2e",
+   "result": "`Error: Process from config.webServer was not able to start. Exit code: 1`; bind to `::1:5173` was EPERM."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice6-settings-r1-conformance npm run check-contrast",
+   "result": "`Error: listen EPERM: operation not permitted .../tsx-502/1002.pipe`."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice6-settings-r1-conformance npx eslint src/app/modules/settings/pages/settings.page.tsx src/app/modules/settings/pages/settings-page.spec.tsx src/app/modules/settings/components/theme-toggle.component.tsx src/app/modules/settings/components/theme-toggle.component.spec.tsx src/app/modules/settings/components/units-toggle.component.tsx src/app/modules/settings/components/units-toggle.component.spec.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx src/app/modules/auth/hooks/auth.hooks.ts src/app/modules/auth/hooks/auth.hooks.spec.tsx src/app/modules/auth/components/require-auth.component.spec.tsx scripts/check-contrast.ts scripts/__tests__/check-contrast.spec.ts e2e/regenerate-plan.spec.ts e2e/sign-out.spec.ts vite.config.ts src/vite-env.d.ts",
+   "result": "`exit code 0` with no output."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-slice6-settings-r1-conformance npx prettier --check src/app/modules/settings/pages/settings.page.tsx src/app/modules/settings/pages/settings-page.spec.tsx src/app/modules/settings/components/theme-toggle.component.tsx src/app/modules/settings/components/theme-toggle.component.spec.tsx src/app/modules/settings/components/units-toggle.component.tsx src/app/modules/settings/components/units-toggle.component.spec.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx src/app/modules/auth/hooks/auth.hooks.ts src/app/modules/auth/hooks/auth.hooks.spec.tsx src/app/modules/auth/components/require-auth.component.spec.tsx scripts/check-contrast.ts scripts/__tests__/check-contrast.spec.ts e2e/regenerate-plan.spec.ts e2e/sign-out.spec.ts vite.config.ts tsconfig.node.json src/vite-env.d.ts package.json package-lock.json",
+   "result": "`All matched files use Prettier code style!`."
+  },
+  {
+   "command": "git diff HEAD~1 --check",
+   "result": "No whitespace errors."
+  },
+  {
+   "command": "read-only diff checks for preserved specs, primitives, schemas, generated paths, migrations, prompts, and secrets",
+   "result": "Preserved files unchanged and no prohibited diff path found."
+  },
+  {
+   "command": "added frontend diff scans for VDOT, raw colors, TODO/FIXME, docs-path comments, and non-ASCII code comments",
+   "result": "No added violation found."
+  },
+  {
+   "command": "nl -ba .stage-report.md | sed -n '1,320p'",
+   "result": "Stage report read last. Claims are marked VERIFIED, UNVERIFIED, or CONTRADICTED in this review."
+  },
+  {
+   "command": "git status --short",
+   "result": "`?? docs/plans/split-ui-cycle/slice-6-evidence/build-orchestrator-runs.md` only."
+  },
+  {
+   "command": "stage report claim: implementation is within permitted file list",
+   "result": "CONTRADICTED by the omitted committed build-report.md."
+  },
+  {
+   "command": "stage report claim: npm version produced v0.9.0",
+   "result": "UNVERIFIED; exact command was not rerun, though version fields are present."
+  },
+  {
+   "command": "stage report claim: npm run build passed and version reached dist",
+   "result": "VERIFIED for the build; exact rg dist assertion was not rerun."
+  },
+  {
+   "command": "stage report claim: focused Vitest all changed and added specs passed",
+   "result": "CONTRADICTED; changed contrast integration test is red."
+  },
+  {
+   "command": "stage report claim: eslint, prettier, and git diff --check passed",
+   "result": "VERIFIED by matching local command results."
+  },
+  {
+   "command": "stage report claim: backend build passed",
+   "result": "UNVERIFIED; frontend-only review did not rerun it."
+  },
+  {
+   "command": "stage report claim: backend format timed out",
+   "result": "UNVERIFIED; frontend-only review did not rerun it."
+  },
+  {
+   "command": "stage report claim: contrast test deviation was only sandbox IPC",
+   "result": "CONTRADICTED; local run also fails the changed output expectation."
+  },
+  {
+   "command": "stage report claim: DU-1 through DU-4 pass",
+   "result": "CONTRADICTED; DU-4 subprocess test is red and DU-2 panel gap-3 is missing."
+  },
+  {
+   "command": "stage report claim: DU-5 is PR-B-owned",
+   "result": "VERIFIED by diff ownership."
+  },
+  {
+   "command": "stage report claim: DU-6 build/codegen/lint pass and e2e needs host stack",
+   "result": "VERIFIED for local limitations and build/lint; host evidence records two known-red journeys and full npm test has one changed failure."
+  },
+  {
+   "command": "stage report claim: mutation inventory is provided",
+   "result": "VERIFIED as an inventory; mutation outcomes are UNVERIFIED."
+  },
+  {
+   "command": "stage report claim: deviations and STAGE COMPLETE",
+   "result": "CONTRADICTED by the red changed test and incomplete file inventory."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "cd frontend && npm run test",
+   "purpose": "Rerun the complete frontend suite after correcting the contrast subprocess expectation."
+  },
+  {
+   "command": "cd frontend && npm run check-contrast",
+   "purpose": "Run the real 27-pair, 54-result contrast gate in the supported orchestrator environment."
+  },
+  {
+   "command": "cd frontend && npm run e2e",
+   "purpose": "Run Playwright against the host stack and verify sign-out and regeneration journeys."
+  },
+  {
+   "command": "cd frontend && npm run codegen:check",
+   "purpose": "Verify generated frontend and backend OpenAPI sources have no drift."
+  },
+  {
+   "command": "cd frontend && VITE_APP_VERSION=0.9.0 npm run build",
+   "purpose": "Verify the injected version reaches the production bundle."
+  },
+  {
+   "command": "cd frontend && npx eslint src/app/modules/settings/pages/settings.page.tsx src/app/modules/settings/pages/settings-page.spec.tsx src/app/modules/settings/components/theme-toggle.component.tsx src/app/modules/settings/components/theme-toggle.component.spec.tsx src/app/modules/settings/components/units-toggle.component.tsx src/app/modules/settings/components/units-toggle.component.spec.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx src/app/modules/auth/hooks/auth.hooks.ts src/app/modules/auth/hooks/auth.hooks.spec.tsx src/app/modules/auth/components/require-auth.component.spec.tsx scripts/check-contrast.ts scripts/__tests__/check-contrast.spec.ts e2e/regenerate-plan.spec.ts e2e/sign-out.spec.ts vite.config.ts src/vite-env.d.ts",
+   "purpose": "Run ESLint over every touched frontend TypeScript file."
+  },
+  {
+   "command": "cd frontend && npx prettier --check src/app/modules/settings/pages/settings.page.tsx src/app/modules/settings/pages/settings-page.spec.tsx src/app/modules/settings/components/theme-toggle.component.tsx src/app/modules/settings/components/theme-toggle.component.spec.tsx src/app/modules/settings/components/units-toggle.component.tsx src/app/modules/settings/components/units-toggle.component.spec.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx src/app/modules/auth/hooks/auth.hooks.ts src/app/modules/auth/hooks/auth.hooks.spec.tsx src/app/modules/auth/components/require-auth.component.spec.tsx scripts/check-contrast.ts scripts/__tests__/check-contrast.spec.ts e2e/regenerate-plan.spec.ts e2e/sign-out.spec.ts vite.config.ts tsconfig.node.json src/vite-env.d.ts package.json package-lock.json",
+   "purpose": "Run Prettier verification over every touched frontend file."
+  }
+ ],
+ "verdict": "REJECT. The changed contrast test is red, the locked regenerate panel gap-3 class is missing, and the stage report omits one committed diff file and overstates completion."
+}

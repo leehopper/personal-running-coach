@@ -1,0 +1,1800 @@
+[
+ {
+  "id": "r1-settings-page",
+  "result": {
+   "id": "r1-settings-page",
+   "facts": [
+    {
+     "claim": "INSPECTED: SettingsPage renders a main with testid settings-page and a header h1 named Settings.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:19-30",
+     "quote": "<main data-testid=\"settings-page\"> ... <h1>Settings</h1>"
+    },
+    {
+     "claim": "INSPECTED: The current page has three Card regions with testids settings-plan-section, settings-appearance-section, and settings-units-section. Their h2 names are Plan, Appearance, and Units.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:32-67",
+     "quote": "settings-plan-section -> Plan; settings-appearance-section -> Appearance; settings-units-section -> Units"
+    },
+    {
+     "claim": "INSPECTED: The Plan region passes only isLoading, isError, generatedAt, and previousPlanId into PlanSummary. It does not currently render macro.totalWeeks or macro.goalDescription.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:20-40",
+     "quote": "generatedAt={plan?.generatedAt}; previousPlanId={plan?.previousPlanId ?? null}"
+    },
+    {
+     "claim": "INSPECTED: The loading branch is a p with role status, aria-live polite, class mt-2 text-sm text-muted-foreground, and copy Loading plan details followed by U+2026.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:92-97",
+     "quote": "role=\"status\" aria-live=\"polite\">Loading plan details[U+2026]"
+    },
+    {
+     "claim": "INSPECTED: The error branch is a plain p with no role or aria attribute and copy We could not load your current plan details right now.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:100-105",
+     "quote": "We could not load your current plan details right now."
+    },
+    {
+     "claim": "INSPECTED: The successful summary has p testid settings-plan-generated-at, visible prefix Current plan generated, and a time with dateTime equal to generatedAt.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:108-112",
+     "quote": "data-testid=\"settings-plan-generated-at\">Current plan generated <time dateTime={generatedAt}>"
+    },
+    {
+     "claim": "REPLACE: When previousPlanId is non-null, the current page renders a button with testid settings-previous-plan-link and exact copy View previous plan. This is the dead placeholder named by the slice brief.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:113-121",
+     "quote": "data-testid=\"settings-previous-plan-link\">View previous plan</button>"
+    },
+    {
+     "claim": "INSPECTED: formatGeneratedAt returns the raw input when Date parsing is invalid; otherwise it returns parsed.toLocaleString().",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:126-136",
+     "quote": "if (Number.isNaN(parsed.getTime())) return generatedAt; return parsed.toLocaleString()"
+    },
+    {
+     "claim": "INSPECTED: The regenerate control is a type=button with testid settings-regenerate-button and copy Regenerate plan. Its click sets isDialogOpen to true.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:42-50",
+     "quote": "onClick={() => setIsDialogOpen(true)} data-testid=\"settings-regenerate-button\">Regenerate plan"
+    },
+    {
+     "claim": "INSPECTED: Appearance currently includes copy Choose how RunCoach looks. System follows your device setting., then ThemeToggle.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:53-59",
+     "quote": "Choose how RunCoach looks. System follows your device setting."
+    },
+    {
+     "claim": "INSPECTED: Units currently includes copy Choose how distances and paces are displayed., then UnitsToggle.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:61-67",
+     "quote": "Choose how distances and paces are displayed."
+    },
+    {
+     "claim": "INSPECTED: The page always mounts RegeneratePlanDialog with isOpen={isDialogOpen} and an onClose callback. No footer or account region is rendered in settings.page.tsx.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:69-70",
+     "quote": "<RegeneratePlanDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />"
+    },
+    {
+     "claim": "INSPECTED: ThemeToggle currently uses a Radix RadioGroup. Its options are Light, Dark, and System with values light, dark, and system.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.tsx:9-13",
+     "quote": "{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'System' }"
+    },
+    {
+     "claim": "INSPECTED: ThemeToggle binds value to theme, calls setTheme(value as Theme), sets aria-label Appearance, and keeps root testid settings-theme-toggle.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.tsx:24-33",
+     "quote": "value={theme}; onValueChange={(value) => setTheme(value as Theme)}; aria-label=\"Appearance\"; data-testid=\"settings-theme-toggle\""
+    },
+    {
+     "claim": "INSPECTED: ThemeToggle creates ids theme-option-light, theme-option-dark, and theme-option-system. Each RadioGroupItem is wrapped by a Label containing its visible option name.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.tsx:35-45",
+     "quote": "htmlFor={`theme-option-${option.value}`}; <RadioGroupItem id={`theme-option-${option.value}`} value={option.value} />"
+    },
+    {
+     "claim": "INSPECTED: UnitsToggle reads GET data, falls back to PreferredUnits.Kilometers, and calls putUnitPreference with the parsed selected value.",
+     "source": "frontend/src/app/modules/settings/components/units-toggle.component.tsx:21-32",
+     "quote": "const current = data?.preferredUnits ?? PreferredUnits.Kilometers; putUnitPreference({ preferredUnits })"
+    },
+    {
+     "claim": "INSPECTED: UnitsToggle sets aria-label Units and root testid settings-units-toggle. Its options use ids units-option-0 and units-option-1 through numeric value interpolation.",
+     "source": "frontend/src/app/modules/settings/components/units-toggle.component.tsx:42-62",
+     "quote": "aria-label=\"Units\" data-testid=\"settings-units-toggle\"; units-option-${option.value}"
+    },
+    {
+     "claim": "INSPECTED: UNIT_OPTIONS contains Kilometers first with value 0 and Miles second with value 1. parsePreferredUnits returns Kilometers for an unknown string.",
+     "source": "frontend/src/app/modules/common/utils/unit-options.ts:7-20",
+     "quote": "Kilometers: 0; Miles: 1; ... ?? PreferredUnits.Kilometers"
+    },
+    {
+     "claim": "PRESERVE: The SettingsPage spec asserts role status with case-insensitive copy matching loading plan details.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:85-89",
+     "quote": "expect(screen.getByRole('status')).toHaveTextContent(/loading plan details/i)"
+    },
+    {
+     "claim": "PRESERVE: The SettingsPage spec asserts testids settings-plan-generated-at and settings-regenerate-button after a successful plan query.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:91-100",
+     "quote": "getByTestId('settings-plan-generated-at'); getByTestId('settings-regenerate-button')"
+    },
+    {
+     "claim": "PRESERVE: The SettingsPage spec asserts settings-appearance-section is present.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:102-110",
+     "quote": "expect(screen.getByTestId('settings-appearance-section')).toBeInTheDocument()"
+    },
+    {
+     "claim": "REPLACE: The SettingsPage spec asserts the mock-only testid theme-toggle-stub. A recomposed page spec should query the real settings-theme-toggle or its radio roles instead.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:33-40,102-110",
+     "quote": "ThemeToggle: () => <div data-testid=\"theme-toggle-stub\">theme toggle</div>"
+    },
+    {
+     "claim": "REPLACE: The SettingsPage spec asserts settings-previous-plan-link is absent when previousPlanId is null.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:113-120",
+     "quote": "queryByTestId('settings-previous-plan-link')).not.toBeInTheDocument()"
+    },
+    {
+     "claim": "REPLACE: The SettingsPage spec asserts settings-previous-plan-link is present for a non-null previousPlanId. Both placeholder assertions should be deleted.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:123-131",
+     "quote": "getByTestId('settings-previous-plan-link')).toBeInTheDocument()"
+    },
+    {
+     "claim": "PRESERVE: The SettingsPage spec clicks settings-regenerate-button and expects the regenerate dialog stub to become present.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:133-143",
+     "quote": "userEvent.click(screen.getByTestId('settings-regenerate-button')); getByTestId('regenerate-plan-dialog-stub')"
+    },
+    {
+     "claim": "PRESERVE: The SettingsPage spec expects error copy matching could not load your current plan and still expects settings-regenerate-button.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:145-150",
+     "quote": "getByText(/could not load your current plan/i); getByTestId('settings-regenerate-button')"
+    },
+    {
+     "claim": "PRESERVE: The SettingsPage spec expects the dialog stub after opening and expects it absent after clicking the close stub.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:153-163",
+     "quote": "getByTestId('regenerate-plan-dialog-stub'); queryByTestId('regenerate-plan-dialog-stub')).not.toBeInTheDocument()"
+    },
+    {
+     "claim": "PRESERVE: The SettingsPage spec pins invalid-date fallback text, a time element, dateTime=definitely-not-a-date, and the same raw text content.",
+     "source": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:166-179",
+     "quote": "toHaveTextContent('definitely-not-a-date'); toHaveAttribute('dateTime', 'definitely-not-a-date'); textContent).toBe('definitely-not-a-date')"
+    },
+    {
+     "claim": "PRESERVE: ThemeToggle tests locate radios named Light, Dark, and System and require all three to render.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx:44-49",
+     "quote": "getByRole('radio', { name: 'Light' }); getByRole('radio', { name: 'Dark' }); getByRole('radio', { name: 'System' })"
+    },
+    {
+     "claim": "PRESERVE: ThemeToggle tests require stored dark to check Dark and uncheck Light, and require System to be checked when storage is empty.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx:51-61",
+     "quote": "getByRole('radio', { name: 'Dark' })).toBeChecked(); getByRole('radio', { name: 'System' })).toBeChecked()"
+    },
+    {
+     "claim": "PRESERVE: ThemeToggle tests require selecting Dark to add html.dark and remove html.light.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx:63-68",
+     "quote": "classList.contains('dark')).toBe(true); classList.contains('light')).toBe(false)"
+    },
+    {
+     "claim": "PRESERVE: ThemeToggle tests require selecting Light to add html.light and remove html.dark.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx:70-76",
+     "quote": "classList.contains('light')).toBe(true); classList.contains('dark')).toBe(false)"
+    },
+    {
+     "claim": "PRESERVE: ThemeToggle tests require selecting Dark to persist the literal dark under runcoach-theme.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx:78-82",
+     "quote": "localStorage.getItem(STORAGE_KEY)).toBe('dark')"
+    },
+    {
+     "claim": "PRESERVE: ThemeToggle tests require selecting System to persist system and resolve to html.dark when the emulated OS prefers dark.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx:84-91",
+     "quote": "localStorage.getItem(STORAGE_KEY)).toBe('system'); classList.contains('dark')).toBe(true)"
+    },
+    {
+     "claim": "PRESERVE: UnitsToggle tests locate radios named Kilometers and Miles, require both to render, and require Kilometers checked for stored value 0.",
+     "source": "frontend/src/app/modules/settings/components/units-toggle.component.spec.tsx:46-52",
+     "quote": "getByRole('radio', { name: 'Kilometers' }); getByRole('radio', { name: 'Miles' }); Kilometers)).toBeChecked()"
+    },
+    {
+     "claim": "PRESERVE: UnitsToggle tests require Miles checked and Kilometers unchecked for stored value 1.",
+     "source": "frontend/src/app/modules/settings/components/units-toggle.component.spec.tsx:54-59",
+     "quote": "getByRole('radio', { name: 'Miles' })).toBeChecked(); getByRole('radio', { name: 'Kilometers' })).not.toBeChecked()"
+    },
+    {
+     "claim": "PRESERVE: UnitsToggle tests require Kilometers checked while the query data is undefined.",
+     "source": "frontend/src/app/modules/settings/components/units-toggle.component.spec.tsx:61-65",
+     "quote": "getQueryRef.data = undefined; getByRole('radio', { name: 'Kilometers' })).toBeChecked()"
+    },
+    {
+     "claim": "PRESERVE: UnitsToggle tests require selecting Miles to call putMock with { preferredUnits: 1 }.",
+     "source": "frontend/src/app/modules/settings/components/units-toggle.component.spec.tsx:67-71",
+     "quote": "putMock).toHaveBeenCalledWith({ preferredUnits: 1 })"
+    },
+    {
+     "claim": "PRESERVE: UnitsToggle tests require a failed save to call toast.error once and reportClientError with kind unhandled-rejection.",
+     "source": "frontend/src/app/modules/settings/components/units-toggle.component.spec.tsx:73-80",
+     "quote": "toastErrorMock).toHaveBeenCalledTimes(1); kind: 'unhandled-rejection'"
+    },
+    {
+     "claim": "PRESERVE: usePreferredUnits tests pin the Kilometers fallback, persisted Miles, and persisted Kilometers results.",
+     "source": "frontend/src/app/modules/settings/hooks/use-preferred-units.hooks.spec.ts:31-59",
+     "quote": "usePreferredUnits returns PreferredUnits.Kilometers for undefined and PreferredUnits.Miles for persisted Miles"
+    },
+    {
+     "claim": "PRESERVE: Resolution-hook tests require unresolved loading state to return Kilometers, isResolved false, and isError false.",
+     "source": "frontend/src/app/modules/settings/hooks/use-preferred-units.hooks.spec.ts:70-78",
+     "quote": "result.current.units).toBe(PreferredUnits.Kilometers); isResolved).toBe(false); isError).toBe(false)"
+    },
+    {
+     "claim": "PRESERVE: Resolution-hook tests require persisted Miles to return isResolved true and isError false.",
+     "source": "frontend/src/app/modules/settings/hooks/use-preferred-units.hooks.spec.ts:80-87",
+     "quote": "units).toBe(PreferredUnits.Miles); isResolved).toBe(true); isError).toBe(false)"
+    },
+    {
+     "claim": "PRESERVE: Resolution-hook tests require a successful empty response to resolve to Kilometers with isResolved true and isError false.",
+     "source": "frontend/src/app/modules/settings/hooks/use-preferred-units.hooks.spec.ts:89-96",
+     "quote": "units).toBe(PreferredUnits.Kilometers); isResolved).toBe(true); isError).toBe(false)"
+    },
+    {
+     "claim": "PRESERVE: Resolution-hook tests require an errored query to remain unresolved, set isError true, and expose Kilometers as the fallback unit.",
+     "source": "frontend/src/app/modules/settings/hooks/use-preferred-units.hooks.spec.ts:98-109",
+     "quote": "isResolved).toBe(false); isError).toBe(true); units).toBe(PreferredUnits.Kilometers)"
+    },
+    {
+     "claim": "PRESERVE: Resolution-hook tests call the returned refetch and require the mock refetch once.",
+     "source": "frontend/src/app/modules/settings/hooks/use-preferred-units.hooks.spec.ts:111-116",
+     "quote": "result.current.refetch(); expect(refetchMock).toHaveBeenCalledTimes(1)"
+    },
+    {
+     "claim": "PRESERVE: settings.api.spec asserts the GET returns preferredUnits 1, uses GET, and targets /api/v1/settings/units.",
+     "source": "frontend/src/app/api/settings.api.spec.ts:44-52",
+     "quote": "result.data).toEqual({ preferredUnits: 1 }); request.method).toBe('GET'); request.url).toContain('/api/v1/settings/units')"
+    },
+    {
+     "claim": "PRESERVE: settings.api.spec asserts the PUT makes one request, uses PUT, targets /api/v1/settings/units, and sends the preferredUnits body.",
+     "source": "frontend/src/app/api/settings.api.spec.ts:54-65",
+     "quote": "fetchMock).toHaveBeenCalledTimes(1); request.method).toBe('PUT'); request.clone().json()).toEqual(body)"
+    },
+    {
+     "claim": "PRESERVE: settings.api.spec requires a subscribed GET to refetch from one call to two after a successful PUT.",
+     "source": "frontend/src/app/api/settings.api.spec.ts:84-98",
+     "quote": "callsTo('GET')).toBe(1); ... await vi.waitFor(() => expect(callsTo('GET')).toBe(2))"
+    },
+    {
+     "claim": "PRESERVE: settings.api.spec requires a failed PUT to produce an error and leave GET call count at one.",
+     "source": "frontend/src/app/api/settings.api.spec.ts:100-125",
+     "quote": "expect('error' in result).toBe(true); expect(callsTo('GET')).toBe(1)"
+    },
+    {
+     "claim": "PRESERVE: e2e/theme.spec asserts stored dark yields html.dark true and html.light false before React behavior matters.",
+     "source": "frontend/e2e/theme.spec.ts:13-25",
+     "quote": "localStorage.setItem(key, 'dark'); classList.contains('dark'); classList.contains('light')"
+    },
+    {
+     "claim": "PRESERVE: e2e/theme.spec asserts stored light yields html.light true and html.dark false.",
+     "source": "frontend/e2e/theme.spec.ts:27-38",
+     "quote": "localStorage.setItem(key, 'light'); expect(isLight).toBe(true); expect(isDark).toBe(false)"
+    },
+    {
+     "claim": "PRESERVE: e2e/theme.spec asserts empty storage follows an emulated dark OS preference.",
+     "source": "frontend/e2e/theme.spec.ts:40-48",
+     "quote": "page.emulateMedia({ colorScheme: 'dark' }); expect(isDark).toBe(true)"
+    },
+    {
+     "claim": "PRESERVE: e2e/theme.spec asserts invalid stored value follows an emulated light OS preference and excludes html.dark.",
+     "source": "frontend/e2e/theme.spec.ts:50-62",
+     "quote": "localStorage.setItem(key, 'not-a-theme'); expect(isLight).toBe(true); expect(isDark).toBe(false)"
+    },
+    {
+     "claim": "PRESERVE: e2e/theme.spec asserts storage errors follow OS dark and OS light branches without a flash.",
+     "source": "frontend/e2e/theme.spec.ts:64-99",
+     "quote": "localStorage getter throws; dark branch expects dark true; light branch expects light true"
+    },
+    {
+     "claim": "INSPECTED: e2e/theme.spec does not select the Settings page. It evaluates html classes at the root document and therefore protects the shared theme bootstrap contract.",
+     "source": "frontend/e2e/theme.spec.ts:4-11,19-24",
+     "quote": "This spec exercises each branch directly against the dev server root document - no auth, no API, no React state."
+    },
+    {
+     "claim": "PRESERVE: e2e/shell-navigation.spec registers using labels Email and Password and a button named Create account, then requires URL / and visible TabBar testid tab-bar.",
+     "source": "frontend/e2e/shell-navigation.spec.ts:51-61",
+     "quote": "getByLabel('Email'); getByLabel('Password'); getByRole('button', { name: /create account/i }); toHaveURL('/'); getByTestId('tab-bar')"
+    },
+    {
+     "claim": "PRESERVE: The shell e2e asserts tab-today aria-current page, tab-coach visible, tab-log accessible name Log a workout, tab-history visible, and tab-settings visible.",
+     "source": "frontend/e2e/shell-navigation.spec.ts:60-66",
+     "quote": "tab-today aria-current=\"page\"; tab-log accessible name Log a workout; tab-settings visible"
+    },
+    {
+     "claim": "PRESERVE: The shell e2e clicks tab-settings, requires URL /settings, keeps tab-bar visible, and requires tab-settings aria-current page.",
+     "source": "frontend/e2e/shell-navigation.spec.ts:68-72",
+     "quote": "getByTestId('tab-settings').click(); toHaveURL('/settings'); toHaveAttribute('aria-current', 'page')"
+    },
+    {
+     "claim": "PRESERVE: The shell e2e clears cookies, navigates to /login, and requires tab-bar not visible.",
+     "source": "frontend/e2e/shell-navigation.spec.ts:74-78",
+     "quote": "page.goto('/login'); getByTestId('tab-bar')).not.toBeVisible()"
+    },
+    {
+     "claim": "INSPECTED: ThemeProviderState is { theme: Theme; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void }. Theme is 'light' | 'dark' | 'system'.",
+     "source": "frontend/src/components/theme-context.ts:8-16",
+     "quote": "export type Theme = 'light' | 'dark' | 'system'; setTheme: (theme: Theme) => void"
+    },
+    {
+     "claim": "INSPECTED: ThemeProvider uses storage key runcoach-theme, validates only light, dark, and system, and defaults the choice to system when nothing valid is stored.",
+     "source": "frontend/src/components/theme-provider.tsx:25-37,48-56",
+     "quote": "STORAGE_KEY = 'runcoach-theme'; defaultTheme = 'system'; isTheme checks light, dark, system"
+    },
+    {
+     "claim": "INSPECTED: resolve maps system to dark when matchMedia('(prefers-color-scheme: dark)').matches and otherwise to light. Explicit light and dark remain unchanged.",
+     "source": "frontend/src/components/theme-provider.tsx:40-45",
+     "quote": "if (theme === 'system') return systemPrefersDark() ? 'dark' : 'light'; return theme"
+    },
+    {
+     "claim": "INSPECTED: ThemeProvider applies exactly one of html.dark or html.light with classList.toggle and listens for OS changes while theme is system.",
+     "source": "frontend/src/components/theme-provider.tsx:58-76",
+     "quote": "root.classList.toggle('dark', mode === 'dark'); root.classList.toggle('light', mode === 'light')"
+    },
+    {
+     "claim": "INSPECTED: setTheme persists the selected literal to localStorage, catches storage errors, and updates in-memory state.",
+     "source": "frontend/src/components/theme-provider.tsx:78-86",
+     "quote": "localStorage.setItem(STORAGE_KEY, next); setThemeState(next)"
+    },
+    {
+     "claim": "INSPECTED: useDocumentTheme does not apply the class. It reads html.dark during initialization, returns dark or light, then observes html class mutations with MutationObserver.",
+     "source": "frontend/src/components/use-document-theme.hooks.ts:10-30",
+     "quote": "classList.contains('dark') ? 'dark' : 'light'; observer.observe(root, { attributes: true, attributeFilter: ['class'] })"
+    },
+    {
+     "claim": "INSPECTED: The settings API exposes useGetUnitPreferenceQuery and usePutUnitPreferenceMutation. GET and PUT both use /v1/settings/units relative to the global /api prefix.",
+     "source": "frontend/src/app/api/settings.api.ts:4-7,18-36",
+     "quote": "getUnitPreference; putUnitPreference; url: '/v1/settings/units'"
+    },
+    {
+     "claim": "INSPECTED: The GET provides UserSettings. The PUT invalidates UserSettings only when error is undefined and returns no tags on failure.",
+     "source": "frontend/src/app/api/settings.api.ts:20-31",
+     "quote": "providesTags: ['UserSettings']; invalidatesTags: (_result, error) => (error === undefined ? ['UserSettings'] : [])"
+    },
+    {
+     "claim": "INSPECTED: There is no optimistic update in settings.api.ts. The file explicitly avoids updateQueryData and relies on successful tag invalidation.",
+     "source": "frontend/src/app/api/settings.api.ts:9-17",
+     "quote": "We deliberately avoid updateQueryData optimism"
+    },
+    {
+     "claim": "INSPECTED: usePreferredUnits returns PreferredUnits and falls back to Kilometers for undefined query data. The resolution hook returns units, isResolved, isError, and refetch.",
+     "source": "frontend/src/app/modules/settings/hooks/use-preferred-units.hooks.ts:20-23,25-44",
+     "quote": "export const usePreferredUnits = (): PreferredUnits; units; isResolved; isError; refetch"
+    },
+    {
+     "claim": "INSPECTED: The resolution hook marks isResolved from query isSuccess, preserves isError, returns a Kilometers fallback, and exposes the query refetch function.",
+     "source": "frontend/src/app/modules/settings/hooks/use-preferred-units.hooks.ts:57-64",
+     "quote": "isResolved: isSuccess; isError; refetch"
+    },
+    {
+     "claim": "INSPECTED: Generated PreferredUnits is numeric on the wire: Kilometers is 0, Miles is 1, and the generated type is 0 | 1.",
+     "source": "frontend/src/app/api/generated/index.ts:181-193; frontend/src/app/api/generated/rtk/api.ts:463-465",
+     "quote": "Kilometers: 0; Miles: 1; export type PreferredUnits = 0 | 1"
+    },
+    {
+     "claim": "INSPECTED: Generated settings Zod schemas are strict objects whose preferredUnits field is a union of literal 0 and literal 1 for GET response, PUT body, and PUT response.",
+     "source": "frontend/src/app/api/generated/zod/settings/settings.ts:9-19",
+     "quote": "preferredUnits: zod.union([zod.literal(0), zod.literal(1)])"
+    },
+    {
+     "claim": "INSPECTED: MacroPlanOutput exposes totalWeeks and goalDescription, while PlanProjectionDto exposes generatedAt and nullable macro in the model used by plan rendering.",
+     "source": "frontend/src/app/api/generated/rtk/api.ts:562-566,603-615; frontend/src/app/modules/plan/models/plan.model.ts:167-170,172-204",
+     "quote": "totalWeeks: number; goalDescription: string; macro: MacroPhaseDto | null"
+    },
+    {
+     "claim": "INSPECTED: SegmentedControl accepts React.ComponentProps<typeof RadioGroupPrimitive.Root>, defaults orientation to horizontal, adds data-slot segmented-control, and merges a default root class.",
+     "source": "frontend/src/components/ui/segmented-control.tsx:13-25",
+     "quote": "orientation = 'horizontal'; data-slot=\"segmented-control\"; className={cn('inline-flex w-full ...', className)}"
+    },
+    {
+     "claim": "INSPECTED: Radix RadioGroup root types define value as string or null, defaultValue as string, and onValueChange as (value: string) => void. Item value is string.",
+     "source": "frontend/node_modules/@radix-ui/react-radio-group/dist/index.d.ts:57-83",
+     "quote": "defaultValue?: string; value?: string | null; onValueChange?: RadioGroupContextValue['onValueChange']; value: string"
+    },
+    {
+     "claim": "INSPECTED: SegmentedControl is radiogroup/radio semantics, not tablist semantics. Its wrapper comment and tests pin role radio plus aria-checked true or false.",
+     "source": "frontend/src/components/ui/segmented-control.tsx:6-12; frontend/src/components/ui/segmented-control.spec.tsx:6-17",
+     "quote": "role=\"radiogroup\" / role=\"radio\"; aria-checked=\"true\""
+    },
+    {
+     "claim": "INSPECTED: SegmentedControl has no custom size prop. Root sizing is inline-flex w-full with muted background and p-0.5; each item has min-h-11, flex-1, font-condensed, 13px text, bold weight, and uppercase CSS.",
+     "source": "frontend/src/components/ui/segmented-control.tsx:13-43",
+     "quote": "inline-flex w-full ... bg-muted p-0.5; min-h-11 ... text-[13px] font-bold ... uppercase"
+    },
+    {
+     "claim": "INSPECTED: SegmentedControl item motion and focus classes include transition duration 150, motion-reduce:transition-none, active scale .98, and a 3px ring with ring token.",
+     "source": "frontend/src/components/ui/segmented-control.tsx:34-40",
+     "quote": "transition-[transform,background-color,color,opacity] duration-150 ... motion-reduce:transition-none ... focus-visible:ring-[3px]"
+    },
+    {
+     "claim": "INSPECTED: The onboarding usage passes String(units), parses onValueChange, supports disabled, uses aria-label Units and testid onboarding-units-field, and maps UNIT_OPTIONS.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-units-field.component.tsx:21-41",
+     "quote": "value={String(units)}; onValueChange={(value) => onChange(parsePreferredUnits(value))}; data-testid=\"onboarding-units-field\""
+    },
+    {
+     "claim": "INSPECTED: The logging usage passes field.value and field.onChange, maps stringified CompletionStatus values, and gives items testids completion-completed, completion-partial, and completion-skipped.",
+     "source": "frontend/src/app/modules/logging/components/completion-status-field.component.tsx:11-15,29-50",
+     "quote": "value={field.value} onValueChange={field.onChange}; data-testid={option.testId}"
+    },
+    {
+     "claim": "INSPECTED: SectionRule props are label, optional as h2 or h3, optional children slot, and className. It renders testid section-rule with a 2px border-rule top border and t-section-label heading.",
+     "source": "frontend/src/app/modules/common/components/section-rule/section-rule.component.tsx:4-20,28-44",
+     "quote": "as?: 'h2' | 'h3'; data-testid=\"section-rule\"; border-t-2 border-rule; t-section-label"
+    },
+    {
+     "claim": "INSPECTED: MonoLabel props are children, optional tone muted, clay, or positive, and className. It renders testid mono-label with t-data-label and tone classes.",
+     "source": "frontend/src/app/modules/common/components/mono-label/mono-label.component.tsx:4-19,27-35",
+     "quote": "tone?: 'muted' | 'clay' | 'positive'; data-testid=\"mono-label\"; className={cn('t-data-label', toneClassName[tone], className)}"
+    },
+    {
+     "claim": "INSPECTED: The onboarding page uses t-screen-title for its h1 and t-body for its intro copy. OnboardingSection composes each topic as a section containing SectionRule label={title} and an optional t-body description.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:190-195; frontend/src/app/modules/onboarding/components/onboarding-section.component.tsx:18-31",
+     "quote": "<h1 className=\"t-screen-title\">Tell me what we're working with</h1>; <SectionRule label={title} />"
+    },
+    {
+     "claim": "INSPECTED: The coaching digest composes section headers with SectionRule as h2 label From your coach. Its tap-through variant adds an Open -> slot and its adaptation content uses MonoLabel tone clay.",
+     "source": "frontend/src/app/modules/coaching/components/coach-digest.component.tsx:102-105,118-123,134-180,181-193",
+     "quote": "<SectionRule as=\"h2\" label=\"From your coach\">; <span>Open -></span>; <MonoLabel tone=\"clay\">Plan adjusted</MonoLabel>"
+    },
+    {
+     "claim": "INSPECTED: CLAUDE.md lists t-display, t-screen-title, t-section-label, t-numeral, t-body, t-row-title, t-data-label, t-data-value, and t-button as shared typography utilities.",
+     "source": "frontend/CLAUDE.md:187-205",
+     "quote": ".t-display, .t-screen-title, .t-section-label, .t-numeral, .t-body, .t-row-title, .t-data-label, .t-data-value, .t-button"
+    },
+    {
+     "claim": "INSPECTED: frontend/package.json currently declares version 0.0.0. Existing appVersion consumers use VITE_APP_VERSION with unknown or 0.0.0-dev fallbacks.",
+     "source": "frontend/package.json:1-5; frontend/src/app/error-boundary/report-client-error.ts:56-59; frontend/src/app/api/otel.ts:39-43",
+     "quote": "\"version\": \"0.0.0\"; import.meta.env.VITE_APP_VERSION ?? 'unknown'; import.meta.env.VITE_APP_VERSION ?? '0.0.0-dev'"
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "ThemeProviderState",
+     "value": "{ theme: 'light' | 'dark' | 'system'; resolvedTheme: 'light' | 'dark'; setTheme: (theme: Theme) => void }",
+     "source": "frontend/src/components/theme-context.ts:8-16"
+    },
+    {
+     "name": "Theme storage key",
+     "value": "runcoach-theme",
+     "source": "frontend/src/components/theme-provider.tsx:22-28"
+    },
+    {
+     "name": "Theme choices",
+     "value": "light, dark, system",
+     "source": "frontend/src/components/theme-provider.tsx:27-35"
+    },
+    {
+     "name": "Theme settings root testid",
+     "value": "settings-theme-toggle",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.tsx:27-33"
+    },
+    {
+     "name": "Units settings root testid",
+     "value": "settings-units-toggle",
+     "source": "frontend/src/app/modules/settings/components/units-toggle.component.tsx:42-50"
+    },
+    {
+     "name": "PreferredUnits wire values",
+     "value": "Kilometers=0; Miles=1; type=0 | 1",
+     "source": "frontend/src/app/api/generated/index.ts:188-193; frontend/src/app/api/generated/rtk/api.ts:463-465"
+    },
+    {
+     "name": "PreferredUnits Zod values",
+     "value": "zod.union([zod.literal(0), zod.literal(1)])",
+     "source": "frontend/src/app/api/generated/zod/settings/settings.ts:9-19"
+    },
+    {
+     "name": "Settings GET",
+     "value": "GET /api/v1/settings/units",
+     "source": "frontend/src/app/api/settings.api.ts:20-23; frontend/src/app/api/settings.api.spec.ts:44-52"
+    },
+    {
+     "name": "Settings PUT",
+     "value": "PUT /api/v1/settings/units with body { preferredUnits: 0 | 1 }",
+     "source": "frontend/src/app/api/settings.api.ts:24-30; frontend/src/app/api/settings.api.spec.ts:54-65"
+    },
+    {
+     "name": "Settings hooks",
+     "value": "useGetUnitPreferenceQuery; usePutUnitPreferenceMutation",
+     "source": "frontend/src/app/api/settings.api.ts:35-36"
+    },
+    {
+     "name": "Settings cache tag",
+     "value": "UserSettings on successful PUT; no invalidation on error",
+     "source": "frontend/src/app/api/settings.api.ts:20-31"
+    },
+    {
+     "name": "SegmentedControl callback",
+     "value": "value: string; onValueChange: (value: string) => void; defaultValue?: string; value?: string | null",
+     "source": "frontend/node_modules/@radix-ui/react-radio-group/dist/index.d.ts:57-68"
+    },
+    {
+     "name": "SegmentedControl semantics",
+     "value": "role=radiogroup with role=radio items and aria-checked state",
+     "source": "frontend/src/components/ui/segmented-control.tsx:6-12; frontend/src/components/ui/segmented-control.spec.tsx:7-17"
+    },
+    {
+     "name": "SegmentedControl hit target",
+     "value": "min-h-11 on items, equivalent to 44px",
+     "source": "frontend/src/components/ui/segmented-control.tsx:36-40"
+    },
+    {
+     "name": "Recommended Appearance map",
+     "value": "dark=Dark; light=Light; system=System; aria-label=Appearance; testid=settings-theme-toggle",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.tsx:9-33; task brief"
+    },
+    {
+     "name": "Recommended Units map",
+     "value": "Kilometers=0 label Kilometers; Miles=1 label Miles; aria-label=Units; testid=settings-units-toggle",
+     "source": "frontend/src/app/modules/settings/components/units-toggle.component.tsx:42-60; frontend/src/app/modules/common/utils/unit-options.ts:7-20"
+    },
+    {
+     "name": "PR-A settings files excluding regenerate and account",
+     "value": "frontend/src/app/modules/settings/pages/settings.page.tsx; frontend/src/app/modules/settings/pages/settings-page.spec.tsx; frontend/src/app/modules/settings/components/theme-toggle.component.tsx; frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx; frontend/src/app/modules/settings/components/units-toggle.component.tsx; frontend/src/app/modules/settings/components/units-toggle.component.spec.tsx",
+     "source": "Current Settings imports and component/spec locations: frontend/src/app/modules/settings/pages/settings.page.tsx:1-7; frontend/src/app/modules/settings/pages/settings-page.spec.tsx:1-180"
+    },
+    {
+     "name": "Footer version status",
+     "value": "Current package version is 0.0.0; package-derived footer version source is unresolved",
+     "source": "frontend/package.json:1-5; frontend/src/app/error-boundary/report-client-error.ts:58; frontend/src/app/api/otel.ts:42"
+    }
+   ],
+   "gaps": [
+    "The current SettingsPage spec does not assert h1 Settings, h2 section names, settings-units-section, visible Appearance or Units copy, or the real segmented-control root. Source: frontend/src/app/modules/settings/pages/settings-page.spec.tsx:76-180.",
+    "The page-level dialog subtree is external to settings.page.tsx, so its current fields, roles, testids, and copy were not mapped here. Source: frontend/src/app/modules/settings/pages/settings.page.tsx:4-5,69.",
+    "The requested footer target is SPLIT 0.9.0, but the inspected frontend package version is 0.0.0 and no package-derived version module was observed. Source: frontend/package.json:4; frontend/src/app/error-boundary/report-client-error.ts:58; frontend/src/app/api/otel.ts:42."
+   ],
+   "risks": [
+    {
+     "risk": "Macro data may be null on the plan model even though the new line needs totalWeeks and goalDescription.",
+     "evidence": "frontend/src/app/modules/plan/models/plan.model.ts:167-170,204 allows macro null; frontend/src/app/modules/settings/pages/settings.page.tsx:35-40 currently reads neither macro field."
+    },
+    {
+     "risk": "The shared SegmentedControl focus ring is 3px and uses ring, while the slice brief calls for a 2px clay focus ring.",
+     "evidence": "frontend/src/components/ui/segmented-control.tsx:37 uses focus-visible:ring-[3px] focus-visible:ring-ring/[0.22]; frontend/CLAUDE.md:211-223 defines the shared focus rule."
+    },
+    {
+     "risk": "Reordering ThemeToggle options to Dark, Light, System changes source order from the current Light, Dark, System, although existing tests do not assert order.",
+     "evidence": "frontend/src/app/modules/settings/components/theme-toggle.component.tsx:9-13; frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx:44-49."
+    },
+    {
+     "risk": "The current page spec tests a mock testid for ThemeToggle, so it can pass without verifying the actual segmented-control semantics.",
+     "evidence": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx:33-40,102-110."
+    }
+   ],
+   "recommendation": "Use SectionRule and MonoLabel in settings.page.tsx. Keep settings-page, section, settings-theme-toggle, and settings-units-toggle testids. Rewrite both toggle components in place to SegmentedControl, keeping radio names and unit wire strings. Order theme items Dark, Light, System. Update the three listed specs and remove previous-link assertions. Leave API, hooks, zod, unit-options, and shared primitives unchanged; resolve footer version first.",
+   "draft_artifacts": [],
+   "open_questions": [
+    "What should PR-A render when plan.macro is null: loading/error text, an unavailable current-plan row, or no summary? Source: frontend/src/app/modules/plan/models/plan.model.ts:167-170,204.",
+    "Should PR-A change the shared SegmentedControl ring to satisfy the 2px clay requirement, or should Settings use the existing 3px semantic ring? Source: frontend/src/components/ui/segmented-control.tsx:34-40; frontend/CLAUDE.md:211-223.",
+    "What build-time mechanism and package version should supply the required SPLIT 0.9.0 footer? Current evidence is package version 0.0.0 and VITE_APP_VERSION telemetry only. Source: frontend/package.json:4; frontend/src/app/error-boundary/report-client-error.ts:58; frontend/src/app/api/otel.ts:42."
+   ]
+  }
+ },
+ {
+  "id": "r2-regenerate-building",
+  "result": {
+   "id": "r2-regenerate-building",
+   "facts": [
+    {
+     "claim": "SettingsPage owns dialog open state and opens it from settings-regenerate-button.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:19-21,42-49,69-70",
+     "quote": "setIsDialogOpen(true); <RegeneratePlanDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />"
+    },
+    {
+     "claim": "The dialog returns null when closed, so its textarea, error, and mutation state reset on unmount.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:41-49,55-59",
+     "quote": "if (!isOpen) return null"
+    },
+    {
+     "claim": "The current regenerate UI is a custom positioned div, not the shared Dialog primitive.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:38-40,110-132",
+     "quote": "Uses a positioned div rather than the native <dialog> element."
+    },
+    {
+     "claim": "Current dialog testids are regenerate-plan-backdrop, regenerate-plan-dialog, regenerate-plan-intent, and regenerate-plan-submit. Cancel has no testid.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:122-132,145-156,170-176",
+     "quote": "data-testid=\"regenerate-plan-dialog\"; data-testid=\"regenerate-plan-intent\"; data-testid=\"regenerate-plan-submit\""
+    },
+    {
+     "claim": "ARIA includes presentation and tabindex -1 on the backdrop, dialog role with aria-modal, labelledby, describedby, polite counter live region, and alert error.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:111-132,157-167",
+     "quote": "role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"regenerate-plan-title\" aria-describedby=\"regenerate-plan-description\""
+    },
+    {
+     "claim": "Current copy is Regenerate plan, This replaces your current plan, Anything we should know? (optional), Cancel, Regenerate, and a generic retry error.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:134-176",
+     "quote": "This replaces your current plan.; Anything we should know? (optional); We could not regenerate your plan. Please try again in a moment."
+    },
+    {
+     "claim": "The textarea has maxLength 500, four rows, a calf-strain placeholder, and is disabled while the mutation loads.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:145-156",
+     "quote": "maxLength={INTENT_MAX_LENGTH}; rows={4}; disabled={isLoading}"
+    },
+    {
+     "claim": "The counter is formatted as N characters remaining. Unit tests pin 500, 250, and 0.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:104-105,157-159; frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx:162-173",
+     "quote": "{remaining} characters remaining"
+    },
+    {
+     "claim": "Submit trims intent and omits the intent block when the trimmed value is empty. There is no separate client validation branch beyond maxLength.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:89-104,145-150",
+     "quote": "const trimmed = intent.trim(); ...(trimmed.length > 0 ? { intent: { freeText: trimmed } } : {})"
+    },
+    {
+     "claim": "One UUID is created per mounted dialog body and reused across retries.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:61-66; frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx:175-210",
+     "quote": "const idempotencyKey = useMemo(() => crypto.randomUUID(), [])"
+    },
+    {
+     "claim": "Success awaits unwrap and calls onClose only. Refetch, navigation, and toast are not called in the dialog.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:89-100; frontend/src/app/api/plan.api.ts:52-59",
+     "quote": "await regenerate(...).unwrap(); onClose()"
+    },
+    {
+     "claim": "Failure keeps the dialog open and renders the generic message with role alert.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:99-101,161-168; frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx:80-89",
+     "quote": "shows an error message when the mutation fails and keeps the dialog open"
+    },
+    {
+     "claim": "Cancel, Escape, backdrop click, Enter, and Space close only while idle. Submit, textarea, Cancel, Escape, and backdrop close are blocked while loading.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:74-87,106-121,152,170-176; frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx:91-160",
+     "quote": "if (!isLoading) onClose()"
+    },
+    {
+     "claim": "Component specs cover closed rendering, copy and max length, empty and trimmed bodies, success, failure, loading state, cancel, Escape, backdrop keyboard and click behavior, counter values, and retry key stability.",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx:35-210",
+     "quote": "submits the trimmed intent free-text and closes on success; shows an error message when the mutation fails and keeps the dialog open"
+    },
+    {
+     "claim": "The mutation posts to /v1/plan/regenerate with idempotencyKey and optional intent.freeText, returns planId and status, and invalidates the Plan tag.",
+     "source": "frontend/src/app/api/plan.api.ts:10-35,46-59",
+     "quote": "url: '/v1/plan/regenerate'; method: 'POST'; invalidatesTags: ['Plan']"
+    },
+    {
+     "claim": "GET current plan provides the same Plan tag. API specs assert the POST body, generated response shape, and GET URL, but do not directly assert tag invalidation.",
+     "source": "frontend/src/app/api/plan.api.ts:46-51; frontend/src/app/api/plan.api.spec.ts:45-78,107-116",
+     "quote": "providesTags: ['Plan']; expect(result.data).toEqual({ planId: 'plan-1', status: 'generated' })"
+    },
+    {
+     "claim": "The backend controller awaits tenant bus invocation, and the handler awaits GeneratePlanAsync before staging events and returning generated.",
+     "source": "backend/src/RunCoach.Api/Modules/Training/Plan/PlanRenderingController.cs:241-248; backend/src/RunCoach.Api/Modules/Training/Plan/RegeneratePlanHandler.cs:125-154",
+     "quote": "var response = await bus.InvokeForTenantAsync<RegeneratePlanResponse>(...);"
+    },
+    {
+     "claim": "Generation is synchronous through the six-call macro, four meso, and micro chain. No queued response or polling path is defined in the plan API.",
+     "source": "backend/src/RunCoach.Api/Modules/Training/Plan/IPlanGenerationService.cs:18-30,48-52; frontend/src/app/api/plan.api.ts:46-64",
+     "quote": "six on the happy path; it returns the resulting events as a PlanEventSequence"
+    },
+    {
+     "claim": "The controller rejects raw intent longer than the server cap with 400 before sanitization. Any generation exception rolls back the new stream and leaves the prior current plan linked.",
+     "source": "backend/src/RunCoach.Api/Modules/Training/Plan/PlanRenderingController.cs:208-235; backend/src/RunCoach.Api/Modules/Training/Plan/RegeneratePlanHandler.cs:42-46",
+     "quote": "intent.freeText must be at most ... characters; Failure of any LLM call rolls back the whole transaction"
+    },
+    {
+     "claim": "usePlan wraps GET current and HomePage consumes its plan. Home renders macro data through TheBlock and week/workout data through the plan layout.",
+     "source": "frontend/src/app/modules/plan/hooks/use-plan.hooks.ts:29-48; frontend/src/app/modules/plan/pages/home.page.tsx:59-60,202-248",
+     "quote": "Top-level hook the home page uses to fetch the current plan"
+    },
+    {
+     "claim": "Settings currently renders generatedAt and an optional previousPlanId placeholder, but not macro.totalWeeks or macro.goalDescription.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:32-40,108-121; frontend/src/app/modules/plan/models/plan.model.ts:172-205",
+     "quote": "Current plan generated <time dateTime={generatedAt}>{formatGeneratedAt(generatedAt)}</time>"
+    },
+    {
+     "claim": "The current e2e flow asserts settings plan summary and dialog controls, submits intent, expects the dialog hidden, then explicitly navigates to / and verifies Plan B replaces Plan A.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:404-459",
+     "quote": "await expect(dialog).toBeHidden(); await page.goto('/'); expect(planBHomeHtml).toContain('Plan-B')"
+    },
+    {
+     "claim": "The e2e also asserts one POST, a UUID-shaped key, unchanged intent, and a following GET current. It has one happy-path test and no failure, cancel, counter, or building-overlay assertion.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:356-378,461-476",
+     "quote": "the network sequence showed POST regenerate followed by at least one GET plan/current"
+    },
+    {
+     "claim": "BuildingPlanSurface accepts optional statusLine and className. Its default status is The coach drafts your starting plan in about 30 seconds.",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:3-12",
+     "quote": "statusLine?: string; className?: string; const DEFAULT_STATUS_LINE = 'The coach drafts your starting plan in about 30 seconds.'"
+    },
+    {
+     "claim": "BuildingPlanSurface has data-slot building-plan-surface but no data-testid. It exposes role status, aria-live polite, BUILDING YOUR PLAN, a decorative bar, and the status line.",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:35-53",
+     "quote": "data-slot=\"building-plan-surface\"; role=\"status\"; aria-live=\"polite\""
+    },
+    {
+     "claim": "Its indeterminate bar already pairs animation with motion-reduce behavior and uses semantic background tokens.",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx:39-50",
+     "quote": "animate-indeterminate ... motion-reduce:animate-pulse"
+    },
+    {
+     "claim": "OnboardingPage delegates to OnboardingForm. OnboardingForm marks the form inert while loading or after completion and mounts the surface in onboarding-building with fixed inset-0 z-50.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:104-111; frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:115-125,165-169",
+     "quote": "<div data-testid=\"onboarding-building\"><BuildingPlanSurface className=\"fixed inset-0 z-50\" /></div>"
+    },
+    {
+     "claim": "Onboarding specs pin the fixed overlay classes, form inert attribute, status heading, and persistence of the building surface after complete until redirect.",
+     "source": "frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:271-283,548-562",
+     "quote": "shows the fixed building surface and makes the form inert while loading"
+    },
+    {
+     "claim": "The shared Dialog exports Root, Trigger, Portal, Close, Overlay, Content, Header, Footer, Title, and Description.",
+     "source": "frontend/src/components/ui/dialog.tsx:8-23,24-133,135-146",
+     "quote": "DialogOverlay; DialogContent; DialogHeader; DialogFooter; DialogTitle; DialogDescription"
+    },
+    {
+     "claim": "DialogContent itself renders DialogOverlay and centered content in one portal. DialogOverlay is fixed inset-0 z-50, so the primitive supports an overlay while content remains open; this file does not define external-surface focus behavior.",
+     "source": "frontend/src/components/ui/dialog.tsx:33-39,52-75",
+     "quote": "<DialogOverlay /><DialogPrimitive.Content className=\"fixed ... z-50 ...\""
+    },
+    {
+     "claim": "Button variant outline is the available outline treatment, but it is not clay-specific. Secondary is the existing secondary treatment. Default and lg have min-h-11, while smaller sizes use before hit-area expansion.",
+     "source": "frontend/src/components/ui/button.tsx:7-32",
+     "quote": "outline: 'border bg-background ...'; secondary: 'bg-secondary ...'; default: 'h-9 min-h-11'; lg: 'h-10 min-h-11'"
+    },
+    {
+     "claim": "The strongest current meaning of fresh plan rendered is Home content changing from Plan A to Plan B after the invalidation GET. Settings alone currently proves only refreshed generatedAt text.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:443-476; frontend/src/app/modules/settings/pages/settings.page.tsx:108-112",
+     "quote": "expect(planBHomeHtml).not.toContain('Plan-A')"
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "INTENT_MAX_LENGTH",
+     "value": "500",
+     "source": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:12"
+    },
+    {
+     "name": "planApi.getCurrentPlan.providesTags",
+     "value": "['Plan']",
+     "source": "frontend/src/app/api/plan.api.ts:48-51"
+    },
+    {
+     "name": "planApi.regeneratePlan.query",
+     "value": "{ url: '/v1/plan/regenerate', method: 'POST' }",
+     "source": "frontend/src/app/api/plan.api.ts:52-57"
+    },
+    {
+     "name": "planApi.regeneratePlan.invalidatesTags",
+     "value": "['Plan']",
+     "source": "frontend/src/app/api/plan.api.ts:52-59"
+    },
+    {
+     "name": "BuildingPlanSurface.statusLine",
+     "value": "Reworking your plan from the log book.",
+     "source": "frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.spec.tsx:24-29"
+    },
+    {
+     "name": "regenerateButton.variant",
+     "value": "outline",
+     "source": "frontend/src/components/ui/button.tsx:11-18"
+    },
+    {
+     "name": "signOutButton.variant",
+     "value": "secondary",
+     "source": "frontend/src/components/ui/button.tsx:18-20"
+    },
+    {
+     "name": "SettingsPage.regenerationPhase",
+     "value": "idle | dialog | building | failure",
+     "source": "Recommended state machine based on frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:61-101"
+    },
+    {
+     "name": "settingsBuilding.testId",
+     "value": "settings-regenerate-building",
+     "source": "Recommended wrapper naming based on frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:165-169"
+    },
+    {
+     "name": "settingsBuilding.className",
+     "value": "fixed inset-0 z-50",
+     "source": "Recommended adoption based on frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx:165-169"
+    },
+    {
+     "name": "Slice6.PR-A.files",
+     "value": "frontend/src/app/modules/settings/pages/settings.page.tsx; frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx; frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx; frontend/src/app/modules/settings/pages/settings-page.spec.tsx; frontend/e2e/regenerate-plan.spec.ts",
+     "source": "Recommended file set based on current ownership in frontend/src/app/modules/settings/pages/settings.page.tsx:19-70"
+    },
+    {
+     "name": "vitest.building",
+     "value": "shows the building surface while regeneration is in flight",
+     "source": "Recommended test name based on frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx:271-283"
+    },
+    {
+     "name": "vitest.failure",
+     "value": "keeps the dialog open and preserves intent after regeneration failure",
+     "source": "Recommended test name based on frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx:80-89"
+    },
+    {
+     "name": "vitest.success",
+     "value": "navigates home after successful regeneration",
+     "source": "Recommended test name based on frontend/e2e/regenerate-plan.spec.ts:430-459"
+    }
+   ],
+   "gaps": [
+    "The requested design sheet 5h is not among the readable files, so exact new clay-outline classes, warning typography, and settings section copy cannot be verified.",
+    "BuildingPlanSurface has no settings-specific testid. The exact wrapper name for PR-A is a design choice.",
+    "The current e2e does not control POST latency, so it cannot currently pin an in-flight building state.",
+    "No runtime tests or builds were run because the brief explicitly forbids them."
+   ],
+   "risks": [
+    {
+     "risk": "A page-level building overlay requires lifting or coordinating mutation state because the current dialog owns isLoading, intent, error, and idempotency state.",
+     "evidence": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:61-67,89-101; frontend/src/app/modules/settings/pages/settings.page.tsx:19-21"
+    },
+    {
+     "risk": "Keeping the dialog open beneath a new full-screen surface could create competing modal and focus semantics.",
+     "evidence": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:110-132; frontend/src/components/ui/dialog.tsx:52-75"
+    },
+    {
+     "risk": "The current client maps server 400 intent-length failures to the same generic retry alert as every other rejection.",
+     "evidence": "backend/src/RunCoach.Api/Modules/Training/Plan/PlanRenderingController.cs:208-223; frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:99-101"
+    },
+    {
+     "risk": "The synchronous backend call can span the complete LLM generation chain, so hiding the surface on POST dispatch would expose stale settings or home data.",
+     "evidence": "backend/src/RunCoach.Api/Modules/Training/Plan/RegeneratePlanHandler.cs:133-154; backend/src/RunCoach.Api/Modules/Training/Plan/IPlanGenerationService.cs:18-24"
+    },
+    {
+     "risk": "The e2e route fulfills POST immediately, making a transient overlay easy to miss without a controlled delay.",
+     "evidence": "frontend/e2e/regenerate-plan.spec.ts:336-352,424-432"
+    }
+   ],
+   "recommendation": "Edit SettingsPage, RegeneratePlanDialog, their specs, and e2e/regenerate-plan.spec.ts. Lift mutation, intent, key, error, and phase: idle -> dialog -> building -> idle/failure. Confirm closes dialog, mounts a sibling fixed inset-0 z-50 BuildingPlanSurface, and sets main inert. Success navigates to /; failure reopens with text, role=alert, same key; cancel clears.",
+   "draft_artifacts": [],
+   "open_questions": [
+    "Should success stay on /settings with refreshed generatedAt, or navigate to /? The existing e2e explicitly navigates to / before asserting fresh Plan B content.",
+    "What exact settings wrapper testid and design-sheet-5h status line should PR-A standardize?",
+    "Should the current custom dialog remain, or should PR-A migrate it to the shared Dialog primitive before adding the page-level surface?"
+   ]
+  }
+ },
+ {
+  "id": "r3-signout",
+  "result": {
+   "id": "r3-signout",
+   "facts": [
+    {
+     "claim": "AuthState stores status plus user {userId,email}; initial state is unknown with no user.",
+     "source": "frontend/src/app/modules/auth/models/auth.model.ts:1-11; frontend/src/app/modules/auth/store/auth.slice.ts:4-7",
+     "quote": "status: 'unknown', user: null"
+    },
+    {
+     "claim": "The auth slice has two actions: sessionVerified sets authenticated and user; loggedOut sets unauthenticated and clears user.",
+     "source": "frontend/src/app/modules/auth/store/auth.slice.ts:9-25",
+     "quote": "export const { sessionVerified, loggedOut } = authSlice.actions"
+    },
+    {
+     "claim": "The slice exports no selectors. useAuth selects state.auth inline and derives four boolean/status fields.",
+     "source": "frontend/src/app/modules/auth/hooks/auth.hooks.ts:9-25",
+     "quote": "useSelector((state: RootState) => state.auth)"
+    },
+    {
+     "claim": "Login stores email from the login response through sessionVerified, then navigates to the next path.",
+     "source": "frontend/src/app/pages/login/login.page.tsx:28-47",
+     "quote": "dispatch(sessionVerified({ userId: response.userId, email: response.email }))"
+    },
+    {
+     "claim": "Register ignores its register response, then logs in with the same credentials and stores the login response.",
+     "source": "frontend/src/app/pages/register/register.page.tsx:24-28; frontend/src/app/pages/register/register.page.tsx:42-61",
+     "quote": "const response = await login(values).unwrap()"
+    },
+    {
+     "claim": "App bootstrap stores email from GET /v1/auth/me. No refresh endpoint or refresh flow exists in auth.api.ts.",
+     "source": "frontend/src/app/modules/auth/hooks/auth.hooks.ts:54-66; frontend/src/app/api/auth.api.ts:13-35",
+     "quote": "const me = await mePromise.unwrap()"
+    },
+    {
+     "claim": "No access or refresh token is stored. The backend response contract has no token field and identifies the session as the application cookie.",
+     "source": "backend/src/RunCoach.Api/Modules/Identity/Contracts/AuthResponseDto.cs:3-8; frontend/src/app/modules/auth/store/auth.slice.spec.ts:50-84",
+     "quote": "No token field"
+    },
+    {
+     "claim": "authApi defines xsrf and me queries plus register, login, and logout mutations. Hooks exported are useXsrfQuery, useMeQuery, lazy variants, and the three mutation hooks.",
+     "source": "frontend/src/app/api/auth.api.ts:13-45",
+     "quote": "useLogoutMutation"
+    },
+    {
+     "claim": "The logout mutation is an undefined-result POST to /v1/auth/logout and invalidates only the Auth tag. No endpoint side-effect callbacks appear in the file.",
+     "source": "frontend/src/app/api/auth.api.ts:30-33",
+     "quote": "query: () => ({ url: '/v1/auth/logout', method: 'POST' })"
+    },
+    {
+     "claim": "Requests use the session cookie via credentials include. Mutation requests copy __Host-Xsrf-Request into X-XSRF-TOKEN; no bearer token is read or attached.",
+     "source": "frontend/src/app/api/base-query.ts:15-16; frontend/src/app/api/base-query.ts:41-51",
+     "quote": "credentials: 'include'"
+    },
+    {
+     "claim": "The wrapper lazily seeds XSRF before a mutation when the readable cookie is absent, then performs the requested mutation.",
+     "source": "frontend/src/app/api/base-query.ts:70-85",
+     "quote": "if (api.type === 'mutation' && readXsrfCookie() === null)"
+    },
+    {
+     "claim": "A 401 dispatches loggedOut. There is no mutex, refresh, or retry loop; 401 is treated as a gone session.",
+     "source": "frontend/src/app/api/base-query.ts:53-64; frontend/src/app/api/base-query.ts:81-85",
+     "quote": "No `baseQueryWithReauth` mutex / refresh-retry"
+    },
+    {
+     "claim": "Backend logout is POST /api/v1/auth/logout, requires CookieOrBearer authorization and antiforgery, calls SignOutAsync, reissues antiforgery tokens, and returns 204.",
+     "source": "backend/src/RunCoach.Api/Modules/Identity/AuthController.cs:164-173; backend/src/RunCoach.Api/Infrastructure/AuthPolicies.cs:11-17",
+     "quote": "await signInManager.SignOutAsync();"
+    },
+    {
+     "claim": "CookieOrBearer accepts either the Identity application cookie or a JWT bearer token. The SPA need not send an Authorization header when its cookie is valid.",
+     "source": "backend/src/RunCoach.Api/Infrastructure/AuthPolicies.cs:11-17; frontend/src/app/api/base-query.ts:41-49",
+     "quote": "Accepts either the ASP.NET Core Identity application cookie"
+    },
+    {
+     "claim": "The session cookie is __Host-RunCoach, HttpOnly, and documented as expired on logout. No refresh-token revocation call exists in Logout.",
+     "source": "backend/src/RunCoach.Api/Infrastructure/AuthCookieNames.cs:18-25; backend/src/RunCoach.Api/Modules/Identity/AuthController.cs:164-173",
+     "quote": "cleared (expired) on logout"
+    },
+    {
+     "claim": "The shared API object is apiSlice with reducerPath api and six tag types. The app store includes its reducer and middleware and calls setupListeners.",
+     "source": "frontend/src/app/api/api-slice.ts:4-12; frontend/src/app/modules/app/app.store.ts:6-19",
+     "quote": "reducerPath: 'api'"
+    },
+    {
+     "claim": "@reduxjs/toolkit is declared as ^2.12.0 and installed as 2.12.0. The installed API exposes api.util.resetApiState(), documented to remove cache entries and mark queries uninitialized.",
+     "source": "frontend/package.json:40; frontend/node_modules/@reduxjs/toolkit/package.json:1-4; frontend/node_modules/@reduxjs/toolkit/src/query/core/module.ts:334-343",
+     "quote": "resetApiState: SliceActions['resetApiState']"
+    },
+    {
+     "claim": "No current frontend caller of resetApiState was observed. The only useLogoutMutation occurrence is its export from auth.api.ts, with no consumer call site.",
+     "source": "frontend/src/app/api/auth.api.ts:37-45; rg search of frontend/src",
+     "quote": "useLogoutMutation"
+    },
+    {
+     "claim": "BroadcastChannel uses channel auth and the exact string message logout. The poster creates, posts, and closes a channel; subscribers match that string and return cleanup.",
+     "source": "frontend/src/app/modules/auth/lib/broadcast-auth.ts:1-22",
+     "quote": "const CHANNEL_NAME = 'auth'"
+    },
+    {
+     "claim": "The existing receiver hook dispatches only loggedOut. It does not reset RTK Query state or navigate directly.",
+     "source": "frontend/src/app/modules/auth/hooks/auth.hooks.ts:77-84",
+     "quote": "subscribeLogoutBroadcast(() => dispatch(loggedOut()))"
+    },
+    {
+     "claim": "AppShell mounts both auth bootstrap and the broadcast listener. App uses the singleton store and BrowserRouter.",
+     "source": "frontend/src/app/modules/app/app.component.tsx:136-153; frontend/src/app/modules/app/app.component.tsx:240-253",
+     "quote": "useAuthBroadcastListener()"
+    },
+    {
+     "claim": "The route table is inline in app.component.tsx. Login and register are public; settings is inside the RequireAuth-wrapped ShellLayout route.",
+     "source": "frontend/src/app/modules/app/app.component.tsx:153-223",
+     "quote": "<Route path=\"/settings\" element={<SettingsPage />} />"
+    },
+    {
+     "claim": "RequireAuth redirects unauthenticated state to /login with state.next and replace. Existing tests cover initial unauthenticated redirect and deep-link preservation.",
+     "source": "frontend/src/app/modules/auth/components/require-auth.component.tsx:17-38; frontend/src/app/modules/auth/components/require-auth.component.spec.tsx:69-81",
+     "quote": "return <Navigate to=\"/login\" state={{ next }} replace />"
+    },
+    {
+     "claim": "Settings currently has Plan, Appearance, and Units only. It has no Account section, auth selector, or sign-out control.",
+     "source": "frontend/src/app/modules/settings/pages/settings.page.tsx:19-70",
+     "quote": "<Card className=\"gap-2 p-6\" data-testid=\"settings-units-section\">"
+    },
+    {
+     "claim": "Generated auth schemas define userId and email responses for register, login, and me, and a void logout response.",
+     "source": "frontend/src/app/api/generated/zod/auth/auth.ts:24-44",
+     "quote": "export const PostApiV1AuthLogoutResponse = zod.void()"
+    },
+    {
+     "claim": "The shared test helpers provide PatchedRequest plus XSRF cookie seed and clear helpers. They do not provide a renderWithProviders helper.",
+     "source": "frontend/src/app/api/test-helpers.ts:23-46",
+     "quote": "export const seedXsrfCookie"
+    },
+    {
+     "claim": "base-query.spec.ts does not build a Redux store; it uses makeApi with mocked dispatch and direct base-query calls. auth.slice.spec.ts tests authReducer directly.",
+     "source": "frontend/src/app/api/base-query.spec.ts:9-21; frontend/src/app/modules/auth/store/auth.slice.spec.ts:5-19",
+     "quote": "const makeApi = (type: 'query' | 'mutation', dispatch = vi.fn())"
+    },
+    {
+     "claim": "Component tests build small stores with configureStore and render Provider plus MemoryRouter. The guard spec is the closest store-backed pattern.",
+     "source": "frontend/src/app/modules/auth/components/require-auth.component.spec.tsx:10-49",
+     "quote": "reducer: { [authSlice.name]: authSlice.reducer }"
+    },
+    {
+     "claim": "Vitest uses jsdom at https://localhost:5173/ and src/test-setup.ts. test-setup.ts only stubs ResizeObserver; it does not mock BroadcastChannel.",
+     "source": "frontend/vite.config.ts:269-280; frontend/src/test-setup.ts:1-13",
+     "quote": "environment: 'jsdom'"
+    },
+    {
+     "claim": "Frontend guidance assigns HTTP to RTK Query, global auth to Redux, and side-effect composition to custom hooks. Tests should be colocated and focus on hooks, reducers, and logic.",
+     "source": "frontend/CLAUDE.md:95-102; frontend/CLAUDE.md:263-269; frontend/CLAUDE.md:315-320",
+     "quote": "RTK Query for all HTTP interactions"
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "authApi.logout.url",
+     "value": "/v1/auth/logout",
+     "source": "frontend/src/app/api/auth.api.ts:30-33"
+    },
+    {
+     "name": "authApi.logout.method",
+     "value": "POST",
+     "source": "frontend/src/app/api/auth.api.ts:30-33"
+    },
+    {
+     "name": "apiSlice.reducerPath",
+     "value": "api",
+     "source": "frontend/src/app/api/api-slice.ts:7-10"
+    },
+    {
+     "name": "apiSlice.tagTypes",
+     "value": "['Auth', 'Onboarding', 'Plan', 'WorkoutLog', 'Conversation', 'UserSettings']",
+     "source": "frontend/src/app/api/api-slice.ts:7-11"
+    },
+    {
+     "name": "baseQuery.credentials",
+     "value": "include",
+     "source": "frontend/src/app/api/base-query.ts:41-44"
+    },
+    {
+     "name": "baseQuery.xsrfCookie",
+     "value": "__Host-Xsrf-Request",
+     "source": "frontend/src/app/api/base-query.ts:15-16"
+    },
+    {
+     "name": "baseQuery.xsrfHeader",
+     "value": "X-XSRF-TOKEN",
+     "source": "frontend/src/app/api/base-query.ts:15-16"
+    },
+    {
+     "name": "broadcast.channel",
+     "value": "auth",
+     "source": "frontend/src/app/modules/auth/lib/broadcast-auth.ts:1-2"
+    },
+    {
+     "name": "broadcast.message",
+     "value": "logout",
+     "source": "frontend/src/app/modules/auth/lib/broadcast-auth.ts:1-2"
+    },
+    {
+     "name": "guard.redirect",
+     "value": "/login",
+     "source": "frontend/src/app/modules/auth/components/require-auth.component.tsx:33-35"
+    },
+    {
+     "name": "rtkToolkit.package",
+     "value": "@reduxjs/toolkit ^2.12.0; installed 2.12.0",
+     "source": "frontend/package.json:40; frontend/node_modules/@reduxjs/toolkit/package.json:2-4"
+    }
+   ],
+   "gaps": [
+    "Sign-out wiring is absent: auth.hooks.ts has no sign-out hook, auth.api.ts only exports the unused mutation hook, and settings has no Account controls (frontend/src/app/modules/auth/hooks/auth.hooks.ts:37-84; frontend/src/app/api/auth.api.ts:37-45; frontend/src/app/modules/settings/pages/settings.page.tsx:19-70).",
+    "The broadcast receiver currently clears only auth state, so second-tab RTK Query caches are not purged (frontend/src/app/modules/auth/hooks/auth.hooks.ts:77-84).",
+    "No auth.hooks.spec.ts or direct sign-out test was observed. Existing guard coverage only tests an initially unauthenticated store, not a live auth-state flip (frontend/src/app/modules/auth/components/require-auth.component.spec.tsx:52-81).",
+    "Tests and builds were intentionally not run because the brief requires a read-only recon."
+   ],
+   "risks": [
+    {
+     "risk": "Call resetApiState only after the logout request settles. RTK Query reset aborts all running queries and mutations.",
+     "evidence": "frontend/node_modules/@reduxjs/toolkit/src/query/core/buildMiddleware/cacheCollection.ts:116-124"
+    },
+    {
+     "risk": "If the receiver does not dispatch resetApiState, a second tab can retain per-user query data after it becomes unauthenticated.",
+     "evidence": "frontend/src/app/modules/auth/hooks/auth.hooks.ts:77-84; frontend/src/app/modules/app/app.store.ts:6-12"
+    },
+    {
+     "risk": "A failed logout needs an explicit policy. base-query dispatches loggedOut on 401, but no existing caller performs cache reset or broadcast on mutation failure.",
+     "evidence": "frontend/src/app/api/base-query.ts:81-85; frontend/src/app/api/auth.api.ts:30-33"
+    },
+    {
+     "risk": "The logout mutation invalidates Auth only. That does not replace a full api.util.resetApiState purge for Plan, Settings, WorkoutLog, Conversation, and other tags.",
+     "evidence": "frontend/src/app/api/auth.api.ts:30-33; frontend/src/app/api/api-slice.ts:7-11"
+    }
+   ],
+   "recommendation": "Add useSignOut to auth.hooks.ts. In try/finally, await logout(undefined).unwrap(), then dispatch(loggedOut()), dispatch(apiSlice.util.resetApiState()), and postLogoutBroadcast(). Update the receiver to dispatch loggedOut plus resetApiState. Wire SettingsPage to useAuth/useSignOut. Add auth.hooks.spec.ts and a live-flip test in require-auth.component.spec.tsx.",
+   "draft_artifacts": [
+    {
+     "path": "frontend/src/app/modules/auth/hooks/auth.hooks.ts",
+     "content": "import { useEffect } from 'react'\nimport { useDispatch, useSelector } from 'react-redux'\nimport { apiSlice } from '~/api/api-slice'\nimport { useLogoutMutation, authApi } from '~/api/auth.api'\nimport { postLogoutBroadcast, subscribeLogoutBroadcast } from '~/modules/auth/lib/broadcast-auth'\nimport type { AuthState } from '~/modules/auth/models/auth.model'\nimport { loggedOut, sessionVerified } from '~/modules/auth/store/auth.slice'\nimport type { AppDispatch, RootState } from '~/modules/app/app.store'\n\nexport interface UseAuthReturn {\n  status: AuthState['status']\n  user: AuthState['user']\n  isAuthenticated: boolean\n  isUnknown: boolean\n  isUnauthenticated: boolean\n}\n\nexport const useAuth = (): UseAuthReturn => {\n  const { status, user } = useSelector((state: RootState) => state.auth)\n  return {\n    status,\n    user,\n    isAuthenticated: status === 'authenticated',\n    isUnknown: status === 'unknown',\n    isUnauthenticated: status === 'unauthenticated',\n  }\n}\n\nexport interface UseSignOutReturn {\n  signOut: () => Promise<void>\n  isSigningOut: boolean\n}\n\nexport const useSignOut = (): UseSignOutReturn => {\n  const dispatch = useDispatch<AppDispatch>()\n  const [logout, { isLoading }] = useLogoutMutation()\n\n  const signOut = async (): Promise<void> => {\n    try {\n      await logout(undefined).unwrap()\n    } finally {\n      dispatch(loggedOut())\n      dispatch(apiSlice.util.resetApiState())\n      postLogoutBroadcast()\n    }\n  }\n\n  return { signOut, isSigningOut: isLoading }\n}\n\nexport const useAuthBootstrap = (): void => {\n  const dispatch = useDispatch<AppDispatch>()\n\n  useEffect(() => {\n    let cancelled = false\n\n    const bootstrap = async (): Promise<void> => {\n      const xsrfPromise = dispatch(authApi.endpoints.xsrf.initiate(undefined))\n      try {\n        await xsrfPromise.unwrap()\n      } catch {\n      } finally {\n        xsrfPromise.unsubscribe()\n      }\n\n      if (cancelled) return\n\n      const mePromise = dispatch(authApi.endpoints.me.initiate(undefined))\n      try {\n        const me = await mePromise.unwrap()\n        if (!cancelled) {\n          dispatch(sessionVerified({ userId: me.userId, email: me.email }))\n        }\n      } catch {\n        if (!cancelled) dispatch(loggedOut())\n      } finally {\n        mePromise.unsubscribe()\n      }\n    }\n\n    void bootstrap()\n\n    return () => {\n      cancelled = true\n    }\n  }, [dispatch])\n}\n\nexport const useAuthBroadcastListener = (): void => {\n  const dispatch = useDispatch<AppDispatch>()\n  useEffect(\n    () =>\n      subscribeLogoutBroadcast(() => {\n        dispatch(loggedOut())\n        dispatch(apiSlice.util.resetApiState())\n      }),\n    [dispatch],\n  )\n}\n"
+    }
+   ],
+   "open_questions": [
+    "Should local cleanup and broadcast always run in finally when logout returns 401 or 500, or only after a successful 204? The current code defines no failure policy (frontend/src/app/api/auth.api.ts:30-33; frontend/src/app/api/base-query.ts:81-85).",
+    "Should SettingsPage show a retry/error message if signOut rejects after cleanup? The current settings page has no account or auth error UI (frontend/src/app/modules/settings/pages/settings.page.tsx:19-70).",
+    "Should the second-tab receiver dispatch loggedOut before resetApiState, matching the sender sequence? The current receiver has no reset ordering to preserve (frontend/src/app/modules/auth/hooks/auth.hooks.ts:77-84)."
+   ]
+  }
+ },
+ {
+  "id": "r4-auth-pages",
+  "result": {
+   "id": "r4-auth-pages",
+   "facts": [
+    {
+     "claim": "The current login page centers a max-sm Card, renders LoginForm, then offers a registration link. The page has no page testid or placeholder.",
+     "source": "frontend/src/app/pages/login/login.page.tsx:60-71",
+     "quote": "<main className=\"flex min-h-screen items-center justify-center bg-background px-4\"><Card className=\"w-full max-w-sm gap-0 p-6\">; Need an account?; <Link to=\"/register\">Create one</Link>"
+    },
+    {
+     "claim": "Login currently uses the heading \"Sign in to RunCoach\", submit text \"Sign in\", pending text \"Signing in...\", and Email and Password fields.",
+     "source": "frontend/src/app/pages/login/login-form.component.tsx:14-38",
+     "quote": "heading=\"Sign in to RunCoach\"; submitLabel=\"Sign in\"; pendingLabel=\"Signing in\\u2026\"; label=\"Email\"; label=\"Password\""
+    },
+    {
+     "claim": "Login Email uses type=email, autocomplete=email, and autofocus. Login Password uses type=password and autocomplete=current-password.",
+     "source": "frontend/src/app/pages/login/login-form.component.tsx:24-38",
+     "quote": "type=\"email\" autoComplete=\"email\" autoFocus; type=\"password\" autoComplete=\"current-password\""
+    },
+    {
+     "claim": "The current register page centers a max-sm Card, renders RegisterForm, then offers a login link. It has no page testid or placeholder.",
+     "source": "frontend/src/app/pages/register/register.page.tsx:74-85",
+     "quote": "<main className=\"flex min-h-screen items-center justify-center bg-background px-4\"><Card className=\"w-full max-w-sm gap-0 p-6\">; Already have an account?; <Link to=\"/login\">Sign in</Link>"
+    },
+    {
+     "claim": "Register currently uses the heading \"Create your account\", submit text \"Create account\", pending text \"Creating account...\", and the same Email and Password labels.",
+     "source": "frontend/src/app/pages/register/register-form.component.tsx:14-37",
+     "quote": "heading=\"Create your account\"; submitLabel=\"Create account\"; pendingLabel=\"Creating account\\u2026\"; label=\"Email\"; label=\"Password\""
+    },
+    {
+     "claim": "Register Email uses type=email, autocomplete=email, and autofocus. Register Password uses type=password and autocomplete=new-password.",
+     "source": "frontend/src/app/pages/register/register-form.component.tsx:24-37",
+     "quote": "type=\"email\" autoComplete=\"email\" autoFocus; type=\"password\" autoComplete=\"new-password\""
+    },
+    {
+     "claim": "The current register helper is one description string. Its content says 12 characters, uppercase, lowercase, digit, non-alphanumeric, and server-side rejection.",
+     "source": "frontend/src/app/pages/register/register-form.component.tsx:32-39",
+     "quote": "At least 12 characters. The server also requires an uppercase letter, a lowercase letter, a digit, and a non-alphanumeric character; a weaker password is rejected at submit with a server-side error."
+    },
+    {
+     "claim": "AuthFormShell renders the supplied heading as h1, conditionally renders form-alert with role=alert, wraps a native noValidate form, and renders a submit Button.",
+     "source": "frontend/src/app/modules/auth/components/auth-form-shell.component.tsx:36-57",
+     "quote": "<h1 className=\"mb-4 text-2xl font-semibold\">{heading}</h1>; role=\"alert\" data-testid=\"form-alert\"; <form noValidate ...>; <Button type=\"submit\" disabled={isSubmitDisabled}>"
+    },
+    {
+     "claim": "The submit button is disabled when the form is invalid, submitting, or loading. It displays pendingLabel only while isLoading is true.",
+     "source": "frontend/src/app/modules/auth/components/auth-form-shell.component.tsx:34-55",
+     "quote": "const isSubmitDisabled = !form.formState.isValid || form.formState.isSubmitting || isLoading; {isLoading ? pendingLabel : submitLabel}"
+    },
+    {
+     "claim": "AuthTextField renders FormItem, FormLabel, FormControl, optional FormDescription, and FormMessage. It passes type, autocomplete, autofocus, and RHF field props directly to Input.",
+     "source": "frontend/src/app/modules/auth/components/auth-text-field.component.tsx:38-50",
+     "quote": "<FormItem><FormLabel>{label}</FormLabel><FormControl><Input type={type} autoComplete={autoComplete} autoFocus={autoFocus} {...field} /></FormControl>; {description !== undefined && <FormDescription>}; <FormMessage />"
+    },
+    {
+     "claim": "There is no placeholder prop in AuthTextField and no data-testid on the auth Input. The only auth form testid is form-alert.",
+     "source": "frontend/src/app/modules/auth/components/auth-text-field.component.tsx:14-22; frontend/src/app/modules/auth/components/auth-form-shell.component.tsx:40-47",
+     "quote": "AuthTextFieldProps has control, name, label, type, autoComplete, autoFocus, and description; data-testid=\"form-alert\""
+    },
+    {
+     "claim": "FormControl supplies the input id, aria-describedby, and aria-invalid. It references the description id always, and appends the message id when an error exists.",
+     "source": "frontend/src/components/ui/form.tsx:100-110",
+     "quote": "id={formItemId}; aria-describedby={!error ? `${formDescriptionId}` : `${formDescriptionId} ${formMessageId}`}; aria-invalid={!!error}"
+    },
+    {
+     "claim": "FormLabel sets htmlFor to the generated form item id. FormMessage renders the error message and uses role=alert only when a field error exists.",
+     "source": "frontend/src/components/ui/form.tsx:86-97; frontend/src/components/ui/form.tsx:127-148",
+     "quote": "htmlFor={formItemId}; role={error ? 'alert' : undefined}; body = error ? String(error?.message ?? '') : props.children"
+    },
+    {
+     "claim": "Input is a native input with no trailing adornment or slot API. Its default height classes are h-9 min-h-11, with the canonical focus and invalid rings.",
+     "source": "frontend/src/components/ui/input.tsx:5-17",
+     "quote": "<input type={type} data-slot=\"input\" className={cn('flex h-9 min-h-11 ...', 'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22]', 'aria-invalid:border-destructive aria-invalid:ring-destructive/[0.22]')}"
+    },
+    {
+     "claim": "Button has the canonical focus ring, disabled opacity, invalid ring, and Alpine pressed treatment. The default size has h-9 min-h-11, lg has h-10 min-h-11, and icon has size-9 with before:inset-[-4px].",
+     "source": "frontend/src/components/ui/button.tsx:7-32",
+     "quote": "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22]; default: h-9 min-h-11; lg: h-10 min-h-11; icon: size-9 before:inset-[-4px]"
+    },
+    {
+     "claim": "Wordmark accepts only header or poster size, defaults to header, and maps poster to text-[58px]. Its accessible wrapper is role=img with aria-label=Split and two aria-hidden inner spans.",
+     "source": "frontend/src/app/modules/common/components/wordmark/wordmark.component.tsx:3-16; frontend/src/app/modules/common/components/wordmark/wordmark.component.tsx:30-47",
+     "quote": "export type WordmarkSize = 'header' | 'poster'; poster: 'text-[58px]'; aria-label=\"Split\" role=\"img\"; inner spans aria-hidden=\"true\""
+    },
+    {
+     "claim": "The Wordmark spec already verifies the SPLIT text, slash, single accessible name, two hidden inner runs, header default, and poster size.",
+     "source": "frontend/src/app/modules/common/components/wordmark/wordmark.component.spec.tsx:5-32",
+     "quote": "renders the SPLIT text and the trailing slash; exposes a single accessible name of \"Split\"; accepts a poster size for the auth screen"
+    },
+    {
+     "claim": "Onboarding mounts Wordmark size=header before its header. Its layout is a full-height max-md column with gap-5, 22px horizontal padding, and py-8.",
+     "source": "frontend/src/app/modules/onboarding/pages/onboarding.page.tsx:185-195",
+     "quote": "className=\"mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-background px-[22px] py-8\"; <Wordmark size=\"header\" />"
+    },
+    {
+     "claim": "The login schema trims email and requires a non-empty email with message \"Email is required.\". Password requires non-empty input with message \"Password is required.\".",
+     "source": "frontend/src/app/modules/auth/schemas/auth.schema.ts:16-21",
+     "quote": "email: z.string().trim().min(1, 'Email is required.'); password: z.string().min(1, 'Password is required.')"
+    },
+    {
+     "claim": "auth.schema.ts has no register schema. Its comments explicitly say login does not duplicate registration complexity and that registerRequestSchema is generated elsewhere.",
+     "source": "frontend/src/app/modules/auth/schemas/auth.schema.ts:3-15",
+     "quote": "Login deliberately does NOT duplicate the registration password rules; ... registerRequestSchema exported by ~/api/generated"
+    },
+    {
+     "claim": "The generated register schema validates email with zod.email().max(254) and password with string min 12 and max 128. It has no explicit custom messages and no character-class refinements.",
+     "source": "frontend/src/app/api/generated/zod/auth/auth.ts:11-22",
+     "quote": "postApiV1AuthRegisterBodyEmailMax = 254; password min = 12; password max = 128; email: zod.email().max(...); password: zod.string().min(...).max(...)"
+    },
+    {
+     "claim": "Login and register pages map only the first server message for email or password into RHF setError. They always set a form alert using ProblemDetails.title or a page-specific generic fallback.",
+     "source": "frontend/src/app/pages/login/login.page.tsx:48-56; frontend/src/app/pages/register/register.page.tsx:47-55",
+     "quote": "if ((field === 'email' || field === 'password') && firstMessage !== undefined) form.setError(field, { type: 'server', message: firstMessage }); setFormAlert(parsed.title ?? '...')"
+    },
+    {
+     "claim": "parseProblem accepts only an HTTP-shaped error with numeric status and data. It preserves string titles, normalizes PascalCase error keys by lowercasing the first character, and skips invalid or empty message arrays.",
+     "source": "frontend/src/app/modules/auth/helpers/problem-details.helpers.ts:31-71",
+     "quote": "typeof candidate.status === 'number' && 'data' in candidate; normalized = rawKey.charAt(0).toLowerCase() + rawKey.slice(1); if (!isStringArray(rawValue) || rawValue.length === 0) continue"
+    },
+    {
+     "claim": "useAuth exposes status, user, and authenticated/unknown/unauthenticated booleans. The bootstrap sequence seeds XSRF, queries me, and dispatches sessionVerified or loggedOut.",
+     "source": "frontend/src/app/modules/auth/hooks/auth.hooks.ts:9-25; frontend/src/app/modules/auth/hooks/auth.hooks.ts:37-74",
+     "quote": "isAuthenticated: status === 'authenticated'; xsrf; me; dispatch(sessionVerified(...)); dispatch(loggedOut())"
+    },
+    {
+     "claim": "The cross-tab listener subscribes to the auth BroadcastChannel and dispatches loggedOut when it receives the logout message. auth.api exports useLogoutMutation for POST /v1/auth/logout.",
+     "source": "frontend/src/app/modules/auth/hooks/auth.hooks.ts:77-84; frontend/src/app/api/auth.api.ts:30-45",
+     "quote": "subscribeLogoutBroadcast(() => dispatch(loggedOut())); logout: builder.mutation... query: () => ({ url: '/v1/auth/logout', method: 'POST' }); useLogoutMutation"
+    },
+    {
+     "claim": "Login test helpers select fields with getByLabelText(/email/i) and getByLabelText(/password/i), submit through document.querySelector('form'), and select the primary with getByRole('button', { name: /sign in/i }).",
+     "source": "frontend/src/app/pages/login/login.page.spec.tsx:51-67; frontend/src/app/pages/login/login.page.spec.tsx:103-105",
+     "quote": "screen.getByLabelText(/email/i); screen.getByLabelText(/password/i); document.querySelector('form'); getByRole('button', { name: /sign in/i })"
+    },
+    {
+     "claim": "PRESERVE: login empty validation asserts exact Email is required., Password is required., and no login mutation.",
+     "source": "frontend/src/app/pages/login/login.page.spec.tsx:83-90",
+     "quote": "findByText('Email is required.'); findByText('Password is required.'); expect(loginTrigger).not.toHaveBeenCalled()"
+    },
+    {
+     "claim": "PRESERVE: login accepts legacy@example and any-non-empty, enables the sign-in button, forwards both values, and shows no valid-address error.",
+     "source": "frontend/src/app/pages/login/login.page.spec.tsx:98-114",
+     "quote": "loginTrigger.toHaveBeenCalledWith({ email: 'legacy@example', password: 'any-non-empty' }); queryByText(/email must be a valid address/i).not.toBeInTheDocument()"
+    },
+    {
+     "claim": "PRESERVE: login accepts a one-character non-empty password without a password-rule error, keeps the empty form button disabled, and enables it after both fields are filled.",
+     "source": "frontend/src/app/pages/login/login.page.spec.tsx:121-145",
+     "quote": "queryByText(/password must/i).not.toBeInTheDocument(); getByRole('button', { name: /sign in/i }).toBeDisabled(); ... not.toBeDisabled()"
+    },
+    {
+     "claim": "PRESERVE: successful login asserts the mutation payload, navigate('/', { replace: true }), authenticated status, and the returned user object.",
+     "source": "frontend/src/app/pages/login/login.page.spec.tsx:148-171",
+     "quote": "loginTrigger.toHaveBeenCalledWith({ email: VALID_EMAIL, password: VALID_PASSWORD }); navigateMock.toHaveBeenCalledWith('/', { replace: true }); status authenticated"
+    },
+    {
+     "claim": "PRESERVE: login restores /dashboard from state.next and rejects //evil.example.com by navigating to /.",
+     "source": "frontend/src/app/pages/login/login.page.spec.tsx:173-205",
+     "quote": "state: { next: '/dashboard' }; navigateMock.toHaveBeenCalledWith('/dashboard', { replace: true }); state: { next: '//evil.example.com' }; navigateMock.toHaveBeenCalledWith('/', { replace: true })"
+    },
+    {
+     "claim": "PRESERVE: login server errors assert field messages Email is malformed. and Password cannot be blank., form-alert title Invalid email or password., and generic text matching /login failed/i.",
+     "source": "frontend/src/app/pages/login/login.page.spec.tsx:208-270",
+     "quote": "Email is malformed.; Password cannot be blank.; form-alert; Invalid email or password.; /login failed/i"
+    },
+    {
+     "claim": "Register tests use the same label selectors and native form submission, then select the primary with getByRole('button', { name: /create account/i }).",
+     "source": "frontend/src/app/pages/register/register.page.spec.tsx:53-67; frontend/src/app/pages/register/register.page.spec.tsx:133-145",
+     "quote": "getByLabelText(/email/i); getByLabelText(/password/i); document.querySelector('form'); getByRole('button', { name: /create account/i })"
+    },
+    {
+     "claim": "PRESERVE: register empty and malformed-email tests assert /invalid email/i, no register mutation, and the generated password message matching />=\\s*12 characters/i.",
+     "source": "frontend/src/app/pages/register/register.page.spec.tsx:91-130",
+     "quote": "findByText(/invalid email/i); findByText(/>=\\s*12 characters/i); registerTrigger.not.toHaveBeenCalled()"
+    },
+    {
+     "claim": "PRESERVE: register keeps the submit button disabled for empty values and enables it after runner@example.com and StrongPassw0rd! are entered.",
+     "source": "frontend/src/app/pages/register/register.page.spec.tsx:133-146",
+     "quote": "getByRole('button', { name: /create account/i }).toBeDisabled(); ... not.toBeDisabled()"
+    },
+    {
+     "claim": "PRESERVE: successful register chains register then login with the same payload, dispatches the session, navigates to / with replace, and stores the returned user.",
+     "source": "frontend/src/app/pages/register/register.page.spec.tsx:149-180",
+     "quote": "registerTrigger.toHaveBeenCalledWith({ email: VALID_EMAIL, password: VALID_PASSWORD }); loginTrigger.toHaveBeenCalledWith(...); navigateMock.toHaveBeenCalledWith('/', { replace: true })"
+    },
+    {
+     "claim": "PRESERVE: register server errors assert field messages, title alerts, no auto-login after register failure, no navigation after auto-login failure, unknown auth state, null user, and generic registration failure.",
+     "source": "frontend/src/app/pages/register/register.page.spec.tsx:182-265",
+     "quote": "Email is already in use.; Password does not meet the policy.; This email is already registered.; /temporary sign-in failure/i; status unknown; user null; /registration failed/i"
+    },
+    {
+     "claim": "The existing e2e test stubs onboarding and plan reads, fills register Email and Password, clicks the create-account role, verifies home, reload persistence, posts logout directly, verifies 204, then verifies /login and an absent or expired session cookie.",
+     "source": "frontend/e2e/auth.spec.ts:35-128",
+     "quote": "getByLabel('Email'); getByLabel('Password'); getByRole('button', { name: /create account/i }); toHaveURL('/'); getByTestId('home-page'); logoutResponse.status()).toBe(204); toHaveURL('/login')"
+    },
+    {
+     "claim": "PRESERVE: the e2e journey name and backend-cookie assertions remain valid for PR-B. REPLACE only selectors or copy if the primary control name changes; no current e2e assertion covers the poster header or password toggle.",
+     "source": "frontend/e2e/auth.spec.ts:79-128",
+     "quote": "test('register -> authenticated home -> reload -> logout clears session', ...); no assertion here selects a heading, link, tagline, or visibility control"
+    },
+    {
+     "claim": "REPLACE: current Card layouts and the login heading/link copy. PRESERVE: Email, Password, autocomplete values, form-alert testid, role=alert behavior, submit flow, and link targets /register and /login.",
+     "source": "frontend/src/app/pages/login/login.page.tsx:60-71; frontend/src/app/pages/register/register.page.tsx:74-85",
+     "quote": "Current Card max-sm layout; current login link target /register; current register link target /login; current labels and form structure"
+    },
+    {
+     "claim": "REPLACE: the register h1 with START HERE. PRESERVE the existing password-rules content while restyling it in mono, because the current text is the only source in these files for the server character classes.",
+     "source": "frontend/src/app/pages/register/register-form.component.tsx:15-39",
+     "quote": "heading=\"Create your account\"; description=\"At least 12 characters. The server also requires an uppercase letter, a lowercase letter, a digit, and a non-alphanumeric character...\""
+    },
+    {
+     "claim": "A safe toggle shape keeps FormControl directly around the native Input, places a relative sibling wrapper around FormControl and toggle, adds input right padding, and changes only the password type state. Autocomplete remains the existing prop.",
+     "source": "frontend/src/app/modules/auth/components/auth-text-field.component.tsx:38-48; frontend/src/components/ui/form.tsx:100-110",
+     "quote": "FormControl currently clones id and ARIA props onto Input; Input currently has no adornment slot; autoComplete is a dedicated AuthTextField prop"
+    },
+    {
+     "claim": "The toggle should be a type=button Button size=icon with aria-label Show password or Hide password, aria-pressed matching visibility, and a 44px hit target from size-9 plus before inset expansion.",
+     "source": "frontend/src/components/ui/button.tsx:7-32",
+     "quote": "size icon: size-9 before:inset-[-4px]; Button accepts native props including type, aria-label, and aria-pressed"
+    },
+    {
+     "claim": "Use semantic tokens, Tailwind classes, the existing Wordmark poster size, a 64px w-16 2px border-rule opener, motion-reduce pairing, and no new animation. The existing Alpine rules require 44px hits and the canonical 3px focus ring.",
+     "source": "frontend/CLAUDE.md:123-129; frontend/CLAUDE.md:163-176; frontend/CLAUDE.md:211-226",
+     "quote": "semantic tokens; 22px screen gutter; focus-visible:ring-[3px]; hit targets >=44px; every animation pairs a motion-reduce variant"
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "Input.current_height",
+     "value": "h-9 min-h-11",
+     "source": "frontend/src/components/ui/input.tsx:10-12"
+    },
+    {
+     "name": "Button.current_default_height",
+     "value": "h-9 min-h-11",
+     "source": "frontend/src/components/ui/button.tsx:24-29"
+    },
+    {
+     "name": "Button.toggle_size",
+     "value": "size=\"icon\" => size-9 before:inset-[-4px]",
+     "source": "frontend/src/components/ui/button.tsx:24-32"
+    },
+    {
+     "name": "Auth.login_password_autocomplete",
+     "value": "current-password",
+     "source": "frontend/src/app/pages/login/login-form.component.tsx:32-38"
+    },
+    {
+     "name": "Auth.register_password_autocomplete",
+     "value": "new-password",
+     "source": "frontend/src/app/pages/register/register-form.component.tsx:32-38"
+    },
+    {
+     "name": "Auth.form_alert_testid",
+     "value": "form-alert",
+     "source": "frontend/src/app/modules/auth/components/auth-form-shell.component.tsx:40-47"
+    },
+    {
+     "name": "Auth.poster_rule_class",
+     "value": "w-16 border-t-2 border-rule",
+     "source": "Requested 64px-wide 2px rule; semantic token rule is documented in frontend/CLAUDE.md:142-162"
+    },
+    {
+     "name": "PR-B.changed_files",
+     "value": "frontend/src/app/pages/login/login.page.tsx; login-form.component.tsx; register.page.tsx; register-form.component.tsx; auth-form-shell.component.tsx; auth-text-field.component.tsx",
+     "source": "Current render tree: login/register pages and auth components cited above"
+    },
+    {
+     "name": "PR-B.new_files",
+     "value": "frontend/src/app/modules/auth/components/auth-poster-header.component.tsx; auth-poster-header.component.spec.tsx; password-visibility-toggle.component.tsx; password-visibility-toggle.component.spec.tsx",
+     "source": "Recommended component map and co-located testing rule in frontend/CLAUDE.md:315-320"
+    },
+    {
+     "name": "PR-B.test_files",
+     "value": "frontend/src/app/pages/login/login.page.spec.tsx; register.page.spec.tsx; frontend/e2e/auth.spec.ts",
+     "source": "Existing assertions: login.page.spec.tsx:83-270; register.page.spec.tsx:91-265; e2e/auth.spec.ts:79-128"
+    },
+    {
+     "name": "PR-B.untouched_contract_files",
+     "value": "frontend/src/app/modules/auth/schemas/auth.schema.ts; frontend/src/app/api/generated/zod/auth/auth.ts; frontend/src/app/modules/auth/helpers/problem-details.helpers.ts; frontend/src/app/modules/auth/hooks/auth.hooks.ts; frontend/src/components/ui/input.tsx; frontend/src/components/ui/button.tsx; frontend/src/components/ui/form.tsx; frontend/src/components/ui/label.tsx",
+     "source": "No wire, schema, error-mapping, hook, or primitive contract change is needed for the poster composition"
+    }
+   ],
+   "gaps": [
+    "No exact OAuth spacer height is present in the requested files. The existing auth layout has no spacer, and onboarding only documents max-md, gap-5, px-[22px], and py-8.",
+    "No current auth test asserts heading text, link text or target, tagline, wordmark mount, 48px height, mono helper styling, or password toggle behavior.",
+    "Builds and tests were not run because the brief explicitly prohibited them."
+   ],
+   "risks": [
+    {
+     "risk": "Wrapping Input and Button in FormControl would move id and ARIA props to the wrapper instead of the native input.",
+     "evidence": "FormControl is a Radix Slot that clones props onto its direct child at frontend/src/components/ui/form.tsx:100-110."
+    },
+    {
+     "risk": "Adding registration complexity refinements to auth.schema.ts would change the deliberate login-only client validation boundary.",
+     "evidence": "frontend/src/app/modules/auth/schemas/auth.schema.ts:3-18 says login accepts non-empty values and register uses generated schema."
+    },
+    {
+     "risk": "Changing button copy can invalidate the current role-name selectors and e2e journey.",
+     "evidence": "login.page.spec.tsx:103-105, register.page.spec.tsx:133-145, and e2e/auth.spec.ts:88-94 select buttons by sign in or create account names."
+    },
+    {
+     "risk": "The current FormControl always references a description id even when no FormDescription is rendered.",
+     "evidence": "frontend/src/components/ui/form.tsx:101-108 and auth-text-field.component.tsx:47-48."
+    }
+   ],
+   "recommendation": "Implement a flat max-md poster using mx-auto, min-h-screen, px-[22px], py-8, and a centered column. Compose AuthPosterHeader, AuthFormShell, two AuthTextFields, primary Button, fixed empty OAuth reserve, then the page-level secondary Link. Keep schemas, parseProblem, alerts, labels, autocomplete, and submit flows unchanged. Add the sibling Button toggle through the draft below.",
+   "draft_artifacts": [
+    {
+     "path": "frontend/src/app/modules/auth/components/password-visibility-toggle.component.tsx",
+     "content": "import { Eye, EyeOff } from 'lucide-react'\n\nimport { Button } from '@/components/ui/button'\nimport { cn } from '@/lib/utils'\n\nexport interface PasswordVisibilityToggleProps {\n  isVisible: boolean\n  onToggle: () => void\n  className?: string\n}\n\nexport const PasswordVisibilityToggle = ({\n  isVisible,\n  onToggle,\n  className,\n}: PasswordVisibilityToggleProps) => (\n  <Button\n    type=\"button\"\n    variant=\"ghost\"\n    size=\"icon\"\n    aria-label={isVisible ? 'Hide password' : 'Show password'}\n    aria-pressed={isVisible}\n    onClick={onToggle}\n    className={cn('absolute top-1/2 right-1 -translate-y-1/2', className)}\n  >\n    {isVisible ? <EyeOff aria-hidden=\"true\" /> : <Eye aria-hidden=\"true\" />}\n  </Button>\n)"
+    }
+   ],
+   "open_questions": [
+    "Should the poster retain a visible sign-in h1, or should the poster header own the accessible h1 while AuthFormShell receives a non-heading label?",
+    "What exact fixed height or spacing token should reserve the future OAuth area?",
+    "Should the secondary register link use the exact same arrow glyph and casing as the sign-in link?",
+    "Should the new poster header have its own co-located spec, or should its assertions live in both page specs?"
+   ]
+  }
+ },
+ {
+  "id": "r6-version-tests-lint",
+  "result": {
+   "id": "r6-version-tests-lint",
+   "facts": [
+    {
+     "claim": "[INSPECTED] frontend/package.json version is 0.0.0. Build runs tsc and Vite; tests use Vitest; lint uses ESLint.",
+     "source": "frontend/package.json:1-24",
+     "quote": "\"version\": \"0.0.0\""
+    },
+    {
+     "claim": "[INSPECTED] vite.config.ts has no define property. Its exported config contains plugins, resolve, build, server, and test settings.",
+     "source": "frontend/vite.config.ts:210-305",
+     "quote": "export default defineConfig({; plugins: [...]; test: {"
+    },
+    {
+     "claim": "[INSPECTED] Existing code reads VITE_APP_VERSION for error telemetry and OpenTelemetry, with fallbacks when unset.",
+     "source": "frontend/src/app/error-boundary/report-client-error.ts:53-59; frontend/src/app/api/otel.ts:39-43",
+     "quote": "import.meta.env.VITE_APP_VERSION ?? 'unknown';"
+    },
+    {
+     "claim": "[INSPECTED] vite-env.d.ts only references vite/client and declares no custom environment field or global constant.",
+     "source": "frontend/src/vite-env.d.ts:1",
+     "quote": "/// <reference types=\"vite/client\" />"
+    },
+    {
+     "claim": "[INSPECTED] tsconfig.node includes vite.config.ts and scripts, but resolveJsonModule is not configured.",
+     "source": "frontend/tsconfig.node.json:1-26",
+     "quote": "include: [\"vite.config.ts\", \"scripts/**/*.ts\"]"
+    },
+    {
+     "claim": "[INSPECTED] Vitest uses the same Vite config export. The file imports defineConfig from vitest/config and places test settings in that export.",
+     "source": "frontend/vite.config.ts:1,210,269-283",
+     "quote": "import { configDefaults, defineConfig } from 'vitest/config'; test: {"
+    },
+    {
+     "claim": "[INSPECTED] js.configs.recommended supplies no-undef as an error, while the project ESLint config does not add a globals block.",
+     "source": "frontend/eslint.config.js:8-29; frontend/node_modules/@eslint/js/src/configs/eslint-recommended.js:59-63",
+     "quote": "js.configs.recommended; \"no-undef\": \"error\""
+    },
+    {
+     "claim": "[INSPECTED] TypeScript ESLint disables core no-undef for TS and TSX because TypeScript reports those unresolved names.",
+     "source": "frontend/node_modules/@typescript-eslint/eslint-plugin/dist/configs/eslint-recommended-raw.js:8-14,33-40",
+     "quote": "'no-undef': 'off' // ts(2304) & ts(2552)"
+    },
+    {
+     "claim": "[INSPECTED] test-setup imports jest-dom and installs only a no-op ResizeObserver when absent. It does not install matchMedia or BroadcastChannel.",
+     "source": "frontend/src/test-setup.ts:1-13",
+     "quote": "if (typeof globalThis.ResizeObserver === 'undefined')"
+    },
+    {
+     "claim": "[INSPECTED] matchMedia is mocked locally in theme-provider.spec.tsx with controllable OS preference and listener tracking.",
+     "source": "frontend/src/components/theme-provider.spec.tsx:9-35",
+     "quote": "vi.stubGlobal('matchMedia', vi.fn((query: string) => ({ matches: ... })))"
+    },
+    {
+     "claim": "[INSPECTED] theme-toggle.component.spec.tsx duplicates a simpler local matchMedia mock and restores globals after each test.",
+     "source": "frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx:10-42",
+     "quote": "installMatchMedia(); vi.unstubAllGlobals()"
+    },
+    {
+     "claim": "[INSPECTED] BroadcastChannel has no shared test fake. Production broadcast code no-ops when BroadcastChannel is unavailable, otherwise posts or handles the exact logout message on channel auth.",
+     "source": "frontend/src/app/modules/auth/lib/broadcast-auth.ts:1-21",
+     "quote": "const CHANNEL_NAME = 'auth'; const LOGOUT_MESSAGE = 'logout'"
+    },
+    {
+     "claim": "[INSPECTED] renderInBothThemes returns dark and light RenderResult values, mounts separate containers, toggles the document light class, then restores the original class.",
+     "source": "frontend/src/app/modules/common/test-utils/render-in-both-themes.tsx:21-75",
+     "quote": "export const renderInBothThemes = (ui: ReactElement): ThemeRenderResult"
+    },
+    {
+     "claim": "[INSPECTED] testidsIn sorts data-testid values. expectDualThemeParity checks a test id, rejects raw hex colors, and requires equal test-id sets.",
+     "source": "frontend/src/app/modules/common/test-utils/render-in-both-themes.tsx:78-99",
+     "quote": "expect(result.container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\\\\b/)"
+    },
+    {
+     "claim": "[INSPECTED] The helper spec covers dark and light render state, independent queries, class restoration, and restoration of a prior light class.",
+     "source": "frontend/src/app/modules/common/test-utils/render-in-both-themes.spec.tsx:11-44",
+     "quote": "renders once with the default (dark) class state and once with .light added"
+    },
+    {
+     "claim": "[INSPECTED] API test helpers provide PatchedRequest for relative URLs and seedXsrfCookie and clearXsrfCookie for the secure XSRF cookie.",
+     "source": "frontend/src/app/api/test-helpers.ts:23-46",
+     "quote": "export class PatchedRequest extends OriginalRequest; seedXsrfCookie; clearXsrfCookie"
+    },
+    {
+     "claim": "[INSPECTED] The canonical RTK Query store shape includes apiSlice.reducerPath, apiSlice.reducer, and apiSlice.middleware. The production store also includes auth and setupListeners.",
+     "source": "frontend/src/app/api/plan.api.spec.ts:21-25; frontend/src/app/modules/app/app.store.ts:6-16",
+     "quote": "middleware: getDefaultMiddleware => getDefaultMiddleware().concat(apiSlice.middleware)"
+    },
+    {
+     "claim": "[INSPECTED] Login, register, guard, and app component specs use smaller auth-only stores. Those stores do not include the RTK Query reducer or middleware.",
+     "source": "frontend/src/app/pages/login/login.page.spec.tsx:31-46; frontend/src/app/pages/register/register.page.spec.tsx:35-48; frontend/src/app/modules/auth/components/require-auth.component.spec.tsx:10-14",
+     "quote": "configureStore({ reducer: { [authSlice.name]: authSlice.reducer } })"
+    },
+    {
+     "claim": "[INSPECTED] auth.spec.ts creates a UUID email and uses a fixed valid password, then navigates to register, fills Email and Password, and clicks the Create account button.",
+     "source": "frontend/e2e/auth.spec.ts:20-26,79-93",
+     "quote": "page.goto('/register'); getByLabel('Email'); getByLabel('Password'); getByRole('button', { name: /create account/i })"
+    },
+    {
+     "claim": "[INSPECTED] auth.spec.ts reloads the authenticated home, logs out only through page.request.post('/api/v1/auth/logout'), expects 204, then checks the guard redirects / to /login.",
+     "source": "frontend/e2e/auth.spec.ts:96-115",
+     "quote": "const logoutResponse = await page.request.post('/api/v1/auth/logout'); expect(logoutResponse.status()).toBe(204)"
+    },
+    {
+     "claim": "[INSPECTED] auth.spec.ts checks the __Host-RunCoach cookie after logout for absence or expiry.",
+     "source": "frontend/e2e/auth.spec.ts:117-128",
+     "quote": "const sessionCookie = cookies.find((cookie) => cookie.name === SESSION_COOKIE)"
+    },
+    {
+     "claim": "[INSPECTED] theme.spec.ts dark branch seeds runcoach-theme as dark, loads /, and evaluates html dark and light classes.",
+     "source": "frontend/e2e/theme.spec.ts:13-25",
+     "quote": "localStorage.setItem(key, 'dark'); document.documentElement.classList.contains('dark')"
+    },
+    {
+     "claim": "[INSPECTED] theme.spec.ts light branch seeds runcoach-theme as light, loads /, and evaluates html light and dark classes.",
+     "source": "frontend/e2e/theme.spec.ts:27-38",
+     "quote": "localStorage.setItem(key, 'light'); document.documentElement.classList.contains('light')"
+    },
+    {
+     "claim": "[INSPECTED] theme.spec.ts tests system fallback from OS dark, invalid storage with OS light, and both OS outcomes when localStorage throws.",
+     "source": "frontend/e2e/theme.spec.ts:40-99",
+     "quote": "page.emulateMedia({ colorScheme: 'dark' }); localStorage.setItem(key, 'not-a-theme')"
+    },
+    {
+     "claim": "[INSPECTED] shell-navigation.spec.ts stubs onboarding and plan routes, then registers through /register using Email, Password, and Create account.",
+     "source": "frontend/e2e/shell-navigation.spec.ts:16-49,51-58",
+     "quote": "page.goto('/register'); getByLabel('Email'); getByLabel('Password'); getByRole('button', { name: /create account/i })"
+    },
+    {
+     "claim": "[INSPECTED] shell-navigation.spec.ts asserts tab-bar, tab-today, tab-coach, tab-log, tab-history, and tab-settings on the shell home route.",
+     "source": "frontend/e2e/shell-navigation.spec.ts:60-66",
+     "quote": "page.getByTestId('tab-settings').toBeVisible()"
+    },
+    {
+     "claim": "[INSPECTED] shell-navigation.spec.ts clicks tab-settings, expects /settings, and checks the settings tab aria-current value.",
+     "source": "frontend/e2e/shell-navigation.spec.ts:68-72",
+     "quote": "getByTestId('tab-settings').click(); expect(page).toHaveURL('/settings')"
+    },
+    {
+     "claim": "[INSPECTED] shell-navigation.spec.ts loads /login and asserts tab-bar is not visible, covering auth outside the shell.",
+     "source": "frontend/e2e/shell-navigation.spec.ts:74-79",
+     "quote": "await page.goto('/login'); await expect(page.getByTestId('tab-bar')).not.toBeVisible()"
+    },
+    {
+     "claim": "[INSPECTED] regenerate-plan.spec.ts stubs onboarding, plan/current, and plan/regenerate. It captures idempotency keys and intent text, and flips plan A to plan B.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:276-353",
+     "quote": "await page.route('**/api/v1/plan/regenerate', async (route: Route) => {"
+    },
+    {
+     "claim": "[INSPECTED] regenerate-plan.spec.ts registers through /register with Email, Password, and Create account, then asserts home and Plan-A content.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:356-403",
+     "quote": "getByRole('button', { name: /create account/i }); expect(planAHomeHtml).toContain('Plan-A')"
+    },
+    {
+     "claim": "[INSPECTED] regenerate-plan.spec.ts navigates to /settings and requires settings-page, settings-plan-section, settings-plan-generated-at, and settings-regenerate-button.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:404-412",
+     "quote": "getByTestId('settings-plan-section'); getByTestId('settings-regenerate-button')"
+    },
+    {
+     "claim": "[INSPECTED] regenerate-plan.spec.ts opens regenerate-plan-dialog, locates the optional intent label, and locates regenerate-plan-submit.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:414-421",
+     "quote": "getByTestId('regenerate-plan-dialog'); getByLabel('Anything we should know? (optional)')"
+    },
+    {
+     "claim": "[INSPECTED] regenerate-plan.spec.ts fills the intent, clicks submit, and expects the dialog to be hidden.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:424-432",
+     "quote": "fill(INJURY_INTENT); submitButton.click(); expect(dialog).toBeHidden()"
+    },
+    {
+     "claim": "[INSPECTED] regenerate-plan.spec.ts returns to /, checks home-page, compares the-block-phase-label values, and requires Plan-B while rejecting Plan-A.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:434-459",
+     "quote": "getByTestId('the-block-phase-label'); expect(planBHomeHtml).not.toContain('Plan-A')"
+    },
+    {
+     "claim": "[INSPECTED] regenerate-plan.spec.ts checks one regenerate POST, a following plan/current GET, and retained session cookie.",
+     "source": "frontend/e2e/regenerate-plan.spec.ts:461-483",
+     "quote": "POST /api/v1/plan/regenerate; GET /api/v1/plan/current"
+    },
+    {
+     "claim": "[INSPECTED] Across the four requested E2E specs, no units or miles/kilometers selector is present. Theme E2E covers the no-flash script, not the Settings segmented control.",
+     "source": "frontend/e2e/auth.spec.ts:79-129; frontend/e2e/theme.spec.ts:13-99; frontend/e2e/regenerate-plan.spec.ts:356-483; frontend/e2e/shell-navigation.spec.ts:51-79",
+     "quote": "The only Settings selector in shell-navigation.spec.ts is tab-settings."
+    },
+    {
+     "claim": "[INSPECTED] Across the four requested E2E specs, sign-out is covered only by the auth API request. There is no Settings UI sign-out journey or second-tab assertion.",
+     "source": "frontend/e2e/auth.spec.ts:101-115; frontend/e2e/regenerate-plan.spec.ts:404-483",
+     "quote": "logout via API; no UI sign-out control exists yet"
+    },
+    {
+     "claim": "[INSPECTED] Account setup is duplicated locally in auth, shell-navigation, and regenerate-plan. Each uses uniqueEmail and registration; the files state registration chains login automatically. No shared auth helper is listed under frontend/e2e.",
+     "source": "frontend/e2e/auth.spec.ts:20-26,86-93; frontend/e2e/shell-navigation.spec.ts:8-10,51-58; frontend/e2e/regenerate-plan.spec.ts:33-41,380-389; frontend/e2e/: directory listing",
+     "quote": "The register page chains login on success."
+    },
+    {
+     "claim": "[INSPECTED] DEC-089 D8 requires the footer version to come from the frontend package version and requires resetApiState on logout.",
+     "source": "docs/decisions/decision-log.md:3158",
+     "quote": "Settings footer version is a build-time constant from the frontend package version; SIGN OUT must call resetApiState()"
+    },
+    {
+     "claim": "[INSPECTED] check-contrast PAIRS covers six text pairs: foreground/background, card-foreground/card, popover-foreground/popover, secondary-foreground/secondary, muted-foreground/muted, and accent-foreground/accent, all at 4.5.",
+     "source": "frontend/scripts/check-contrast.ts:104-126",
+     "quote": "{ label: '--secondary-foreground on --secondary', ... threshold: 4.5 }"
+    },
+    {
+     "claim": "[INSPECTED] PAIRS covers primary-foreground/primary, destructive-foreground/destructive, sidebar-foreground/sidebar, sidebar-accent-foreground/sidebar-accent, and sidebar-primary-foreground/sidebar-primary at 4.5.",
+     "source": "frontend/scripts/check-contrast.ts:128-155",
+     "quote": "{ label: '--primary-foreground on --primary', ... threshold: 4.5 }"
+    },
+    {
+     "claim": "[INSPECTED] PAIRS covers positive/card, clay-text/background, primary-foreground/clay-pressed, foreground/input-fill, and muted-foreground/input-fill at 4.5.",
+     "source": "frontend/scripts/check-contrast.ts:157-178",
+     "quote": "{ label: '--clay-text on --background', ... threshold: 4.5 }"
+    },
+    {
+     "claim": "[INSPECTED] PAIRS covers foreground/danger-surface, danger-text/danger-surface, warning-text/card, positive/background, warning-text/background, and danger-text/background at 4.5.",
+     "source": "frontend/scripts/check-contrast.ts:179-217",
+     "quote": "{ label: '--warning-text on --card', ... threshold: 4.5 }"
+    },
+    {
+     "claim": "[INSPECTED] PAIRS covers ring/background, input/background, and sidebar-ring/sidebar at 3.0 for non-text UI boundaries.",
+     "source": "frontend/scripts/check-contrast.ts:218-230",
+     "quote": "{ label: '--input on --background', ... threshold: 3.0 }"
+    },
+    {
+     "claim": "[INSPECTED] runChecks resolves each pair in dark :root and light .light modes. The committed spec expects 25 pairs times two modes, or 50 results.",
+     "source": "frontend/scripts/check-contrast.ts:487-500; frontend/scripts/__tests__/check-contrast.spec.ts:444-462",
+     "quote": "checkMode(extractTokens(source, ':root'), 'dark', PAIRS); 50 results"
+    },
+    {
+     "claim": "[INSPECTED] Button secondary uses bg-secondary with text-secondary-foreground, so its resting text pair is already covered.",
+     "source": "frontend/src/components/ui/button.tsx:16-20; frontend/scripts/check-contrast.ts:115-120",
+     "quote": "bg-secondary text-secondary-foreground"
+    },
+    {
+     "claim": "[INSPECTED] An outline control using text-clay-text on bg-background is covered by clay-text/background. Its active secondary fill is not covered if clay text remains unchanged.",
+     "source": "frontend/src/components/ui/button.tsx:16-18; frontend/scripts/check-contrast.ts:157-159",
+     "quote": "border bg-background ... active:bg-secondary"
+    },
+    {
+     "claim": "[INSPECTED] The checker has no muted-foreground/background or muted-foreground/card pair. New muted mono copy on either fill needs the matching 4.5 pair, subject to the final surface.",
+     "source": "frontend/scripts/check-contrast.ts:104-230; frontend/src/components/ui/card.tsx:5-15; frontend/src/app/modules/settings/pages/settings.page.tsx:24-25",
+     "quote": "The matrix contains muted-foreground on muted and input-fill, but not background or card."
+    },
+    {
+     "claim": "[INSPECTED] The exact lint ids are sonarjs/void-use, react-hooks/set-state-in-effect, sonarjs/cognitive-complexity, and sonarjs/no-hardcoded-passwords.",
+     "source": "frontend/eslint.config.js:15-24; frontend/node_modules/eslint-plugin-sonarjs/cjs/S3735/meta.js:20-21; frontend/node_modules/eslint-plugin-sonarjs/cjs/S3776/meta.js:34-35; frontend/node_modules/eslint-plugin-sonarjs/cjs/S2068/meta.js:34-35; frontend/node_modules/eslint-plugin-react-hooks/cjs/eslint-plugin-react-hooks.development.js:18137-18145",
+     "quote": "name: 'set-state-in-effect'; exports.eslintId = 'void-use'"
+    },
+    {
+     "claim": "[INSPECTED] Sonar recommended rules resolve to error severity, including void-use, cognitive-complexity, and no-hardcoded-passwords.",
+     "source": "frontend/node_modules/eslint-plugin-sonarjs/cjs/plugin.js:20-22; frontend/node_modules/eslint-plugin-sonarjs/cjs/S3735/generated-meta.js:40; frontend/node_modules/eslint-plugin-sonarjs/cjs/S3776/generated-meta.js:40; frontend/node_modules/eslint-plugin-sonarjs/cjs/S2068/generated-meta.js:40",
+     "quote": "recommendedConfig.rules[`sonarjs/${key}`] = recommended ? 'error' : 'off'"
+    },
+    {
+     "claim": "[INSPECTED] react-hooks recommended rules include rules-of-hooks as error, exhaustive-deps as warn, and set-state-in-effect as error.",
+     "source": "frontend/node_modules/eslint-plugin-react-hooks/cjs/eslint-plugin-react-hooks.development.js:55415-55418; frontend/node_modules/eslint-plugin-react-hooks/cjs/eslint-plugin-react-hooks.development.js:18137-18145",
+     "quote": "'react-hooks/rules-of-hooks': 'error'; 'react-hooks/exhaustive-deps': 'warn'"
+    },
+    {
+     "claim": "[INSPECTED] Existing auth bootstrap uses void bootstrap(), and the coach code comments explicitly identify react-hooks/set-state-in-effect as a trap for synchronous state updates in effects.",
+     "source": "frontend/src/app/modules/auth/hooks/auth.hooks.ts:69; frontend/src/app/modules/coaching/components/coach-composer.component.tsx:40-41",
+     "quote": "void bootstrap(); react-hooks/set-state-in-effect"
+    },
+    {
+     "claim": "[INSPECTED] auth.spec.ts has a hardcoded password at line 26 without the sibling suppression used by shell-navigation and regenerate-plan.",
+     "source": "frontend/e2e/auth.spec.ts:24-26; frontend/e2e/shell-navigation.spec.ts:8-10; frontend/e2e/regenerate-plan.spec.ts:33-37",
+     "quote": "const VALID_PASSWORD = 'Correct-Horse-9!'"
+    },
+    {
+     "claim": "[INSPECTED] Frontend rules require semantic tokens, 44px hit targets, the canonical focus ring, and motion-reduce pairing. REVIEW requires API middleware, setupListeners, accessible queries, userEvent, and effect cleanup.",
+     "source": "frontend/CLAUDE.md:123-185,213-226; frontend/REVIEW.md:26-42,55-66,123-133",
+     "quote": "All themed colour flows through semantic tokens; hit targets >=44px; API middleware must be in the store."
+    }
+   ],
+   "config_entries": [
+    {
+     "name": "frontend/vite.config.ts: package import",
+     "value": "import packageJson from './package.json'",
+     "source": "frontend/vite.config.ts:1-9"
+    },
+    {
+     "name": "frontend/vite.config.ts: define['import.meta.env.VITE_APP_VERSION']",
+     "value": "JSON.stringify(packageJson.version)",
+     "source": "frontend/vite.config.ts:210-217"
+    },
+    {
+     "name": "frontend/tsconfig.node.json: compilerOptions.resolveJsonModule",
+     "value": "true",
+     "source": "frontend/tsconfig.node.json:1-26"
+    },
+    {
+     "name": "frontend/src/vite-env.d.ts: ImportMetaEnv.VITE_APP_VERSION",
+     "value": "readonly VITE_APP_VERSION: string",
+     "source": "frontend/src/vite-env.d.ts:1"
+    },
+    {
+     "name": "frontend/package.json: version",
+     "value": "0.9.0",
+     "source": "frontend/package.json:1-5"
+    },
+    {
+     "name": "frontend/package-lock.json: top-level version and packages[''].version",
+     "value": "0.9.0",
+     "source": "frontend/package-lock.json:1-10"
+    },
+    {
+     "name": "frontend/scripts/check-contrast.ts: PAIRS muted text on page background",
+     "value": "{ label: '--muted-foreground on --background', fg: 'muted-foreground', bg: 'background', threshold: 4.5 }",
+     "source": "frontend/scripts/check-contrast.ts:95-104"
+    },
+    {
+     "name": "frontend/scripts/check-contrast.ts: PAIRS muted text on card",
+     "value": "{ label: '--muted-foreground on --card', fg: 'muted-foreground', bg: 'card', threshold: 4.5 }",
+     "source": "frontend/scripts/check-contrast.ts:95-104"
+    },
+    {
+     "name": "frontend/eslint.config.js: sonarjs/void-use",
+     "value": "error",
+     "source": "frontend/eslint.config.js:15-17; frontend/node_modules/eslint-plugin-sonarjs/cjs/plugin.js:20-22"
+    },
+    {
+     "name": "frontend/eslint.config.js: sonarjs/cognitive-complexity",
+     "value": "error",
+     "source": "frontend/eslint.config.js:15-17; frontend/node_modules/eslint-plugin-sonarjs/cjs/plugin.js:20-22"
+    },
+    {
+     "name": "frontend/eslint.config.js: sonarjs/no-hardcoded-passwords",
+     "value": "error",
+     "source": "frontend/eslint.config.js:15-17; frontend/node_modules/eslint-plugin-sonarjs/cjs/plugin.js:20-22"
+    },
+    {
+     "name": "frontend/eslint.config.js: react-hooks/set-state-in-effect",
+     "value": "error",
+     "source": "frontend/eslint.config.js:23-25; frontend/node_modules/eslint-plugin-react-hooks/cjs/eslint-plugin-react-hooks.development.js:18137-18145"
+    },
+    {
+     "name": "frontend/eslint.config.js: react-hooks/rules-of-hooks",
+     "value": "error",
+     "source": "frontend/eslint.config.js:23-25; frontend/node_modules/eslint-plugin-react-hooks/cjs/eslint-plugin-react-hooks.development.js:55415-55418"
+    },
+    {
+     "name": "frontend/eslint.config.js: react-hooks/exhaustive-deps",
+     "value": "warn",
+     "source": "frontend/eslint.config.js:23-25; frontend/node_modules/eslint-plugin-react-hooks/cjs/eslint-plugin-react-hooks.development.js:55415-55418"
+    }
+   ],
+   "gaps": [
+    "[INSPECTED] No version define, custom VITE_APP_VERSION declaration, or package version 0.9.0 exists today.",
+    "[INSPECTED] test-setup has no reusable matchMedia or BroadcastChannel fake. A second-tab sign-out unit test must install a local deterministic fake.",
+    "[INSPECTED] The requested E2E inventory has no units selector coverage and no UI sign-out or cross-tab journey.",
+    "[INSPECTED] Account creation and login setup is duplicated inside E2E specs; no shared helper or fixture directory is listed.",
+    "[INSPECTED] The contrast script was inspected only. Build, test, lint, and contrast gates were not run because the task forbids them.",
+    "[INSPECTED] The final background for new muted mono text is not specified, so the correct missing contrast pair cannot be selected from files alone."
+   ],
+   "risks": [
+    {
+     "risk": "[INSPECTED] If the footer reads the package-derived constant without bumping metadata, it will display 0.0.0 rather than the designed 0.9.0.",
+     "evidence": "frontend/package.json:4; frontend/package-lock.json:3,9; docs/decisions/decision-log.md:3158"
+    },
+    {
+     "risk": "[INSPECTED] An outline button with clay text that keeps clay text over active secondary fill creates an unguarded clay-text/secondary pair.",
+     "evidence": "frontend/src/components/ui/button.tsx:17; frontend/scripts/check-contrast.ts:157-159"
+    },
+    {
+     "risk": "[INSPECTED] Muted mono text on page or card surfaces is not represented in PAIRS, even though Settings currently uses muted text inside a card and on a page-background parent.",
+     "evidence": "frontend/scripts/check-contrast.ts:104-230; frontend/src/app/modules/settings/pages/settings.page.tsx:24-25,53-65"
+    },
+    {
+     "risk": "[INSPECTED] auth.spec.ts may trigger sonarjs/no-hardcoded-passwords because its fixture password lacks the local suppression present in sibling E2E specs.",
+     "evidence": "frontend/e2e/auth.spec.ts:24-26; frontend/e2e/shell-navigation.spec.ts:8; frontend/e2e/regenerate-plan.spec.ts:34-37"
+    },
+    {
+     "risk": "[INSPECTED] A sign-out component spec based on the existing auth-only store cannot exercise resetApiState or RTK Query refetch behavior without adding apiSlice reducer and middleware.",
+     "evidence": "frontend/src/app/modules/app/app.component.spec.tsx:104-108; frontend/REVIEW.md:55-63"
+    },
+    {
+     "risk": "[INSPECTED] New fire-and-forget mutation calls written with void and synchronous effect state wiring are directly exposed to sonarjs/void-use and react-hooks/set-state-in-effect.",
+     "evidence": "frontend/src/app/modules/auth/hooks/auth.hooks.ts:69; frontend/src/app/modules/coaching/components/coach-composer.component.tsx:40-41"
+    }
+   ],
+   "recommendation": "Reuse existing import.meta.env.VITE_APP_VERSION. Import package.json in vite.config.ts, define it with JSON.stringify(packageJson.version), enable resolveJsonModule in tsconfig.node.json, and declare readonly VITE_APP_VERSION: string in vite-env.d.ts. Bump package.json and package-lock root metadata to 0.9.0. Test exact footer copy in both themes.",
+   "draft_artifacts": [],
+   "open_questions": [
+    "[INSPECTED] Should package-lock root metadata be updated in the same Slice 6 change as package.json, given both currently say 0.0.0?",
+    "[INSPECTED] Should new muted mono copy sit on bg-background or bg-card? The checker needs the matching semantic pair.",
+    "[INSPECTED] Vitest define injection was not executed because the task forbids tests and builds. CI should verify the footer test sees the package-derived value."
+   ]
+  }
+ }
+]

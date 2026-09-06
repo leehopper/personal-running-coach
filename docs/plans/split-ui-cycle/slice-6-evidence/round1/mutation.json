@@ -1,0 +1,486 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "blocker",
+   "claim": "The committed frontend test suite is red on the contrast subprocess assertion.",
+   "evidence": "MECHANIZED: npx vitest run scripts/__tests__/check-contrast.spec.ts reported 59 passed and 2 failed locally. Host evidence records failure at frontend/scripts/__tests__/check-contrast.spec.ts:494 because it expects 'all 27 pairs...', while frontend/scripts/check-contrast.ts:544 prints 54.",
+   "fix": "Change line 494 to expect 'all 54 pairs pass WCAG thresholds', then rerun npm run test.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "blocker",
+   "claim": "Settings omits the locked Current plan metadata label.",
+   "evidence": "INSPECTED: spec.md:189,202 require a muted MonoLabel with 'Current plan'. settings.page.tsx:39-42 and :115-149 render no such label.",
+   "fix": "Render the required muted Current plan label above the generated-at paragraph and add a test.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "blocker",
+   "claim": "The regenerate panel omits the locked gap-3 class.",
+   "evidence": "INSPECTED: spec.md:208 requires gap-3. regenerate-plan-dialog.component.tsx:127-135 ends at p-[18px] and has no gap-3.",
+   "fix": "Add the locked gap-3 panel styling and assert the class.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "Settings section order and exact section testids are not pinned.",
+   "evidence": "MECHANIZED: swapping Units and Account left settings-page.spec.tsx GREEN with 15 passed. Changing settings-account-section to another testid also left 15 passed. The test at :149-164 checks headings only. The stage report overstates order coverage at .stage-report.md:66.",
+   "fix": "Assert the four required section testids in order.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "Sign-out cleanup order is not tested.",
+   "evidence": "MECHANIZED: swapping sender loggedOut/resetApiState, swapping receiver order, and broadcasting before local purge each left auth.hooks.spec.tsx GREEN with 5 passed.",
+   "fix": "Add ordered dispatch and broadcast assertions for POST, loggedOut, resetApiState, and broadcast.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "Regeneration callback ordering and failure navigation are not tested.",
+   "evidence": "MECHANIZED: moving navigate('/') before onClose and adding navigate('/') in the failure catch each left regenerate-plan-dialog.component.spec.tsx GREEN with 18 passed.",
+   "fix": "Assert onClose then navigate on success, and assert navigateMock is not called after failure or Cancel.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "Previous-plan placeholder deletion has no negative test.",
+   "evidence": "INSPECTED: spec.md:19,304 require no settings-previous-plan-link. settings-page.spec.tsx:149-164 contains no previous-plan assertion after removing the old tests.",
+   "fix": "Use a non-null previousPlanId fixture and assert the old placeholder remains absent.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "Locked dialog ARIA and styling contracts are largely unasserted.",
+   "evidence": "INSPECTED: regenerate-plan-dialog.component.spec.tsx:47-59 checks copy and maxLength, while spec.md:208-212 locks panel, backdrop, ARIA, and action classes. No test checks aria-modal, aria-labelledby, aria-describedby, or the panel class list.",
+   "fix": "Add focused class and ARIA assertions with red mutations.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The exact 4.5 contrast thresholds are not tested.",
+   "evidence": "INSPECTED: check-contrast.spec.ts:444-462 checks result count and pass status but not each new Pair.threshold. Changing a new threshold to 3.0 would remain passing.",
+   "fix": "Assert both new labels, slots, and threshold values are exactly 4.5.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "minor",
+   "claim": "The preserved regenerate placeholder changed without a test.",
+   "evidence": "INSPECTED: HEAD~1 used 'long runs...' with no space before the ellipsis; regenerate-plan-dialog.component.tsx:163 uses 'long runs \\u2026'. The current dialog spec has no placeholder assertion.",
+   "fix": "Preserve the prior placeholder bytes and add an exact placeholder assertion.",
+   "mode": "INSPECTED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "Keep the changed contrast subprocess assertion at 27 pairs.",
+   "expected_red_test": "check-contrast.spec.ts integration success test.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Swap Settings Units and Account sections.",
+   "expected_red_test": "settings-page.spec.tsx locked section order.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Change settings-account-section to another testid.",
+   "expected_red_test": "settings-page.spec.tsx exact section testids.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Replace stable date formatter with toLocaleString().",
+   "expected_red_test": "settings-page.spec.tsx full current-plan line.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Render undefined weeks for null macro.",
+   "expected_red_test": "settings-page.spec.tsx null macro omission.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Pass blank goal as a segment.",
+   "expected_red_test": "settings-page.spec.tsx blank goal omission.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Return empty invalid-date text.",
+   "expected_red_test": "settings-page.spec.tsx raw invalid date.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove regenerate border-clay-text.",
+   "expected_red_test": "settings-page.spec.tsx clay outline action.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Hardcode wrong account email.",
+   "expected_red_test": "settings-page.spec.tsx auth email.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove sign-out onClick.",
+   "expected_red_test": "settings-page.spec.tsx sign-out click.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Ignore isSigningOut in disabled prop.",
+   "expected_red_test": "settings-page.spec.tsx disabled state.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove Vite version define.",
+   "expected_red_test": "settings-page.spec.tsx exact footer.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Swap Dark and Light options.",
+   "expected_red_test": "theme-toggle.component.spec.tsx option order.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Send raw unit string instead of numeric enum.",
+   "expected_red_test": "units-toggle.component.spec.tsx numeric PUT body.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove intent.trim().",
+   "expected_red_test": "regenerate dialog trimmed intent.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Always send empty intent block.",
+   "expected_red_test": "regenerate dialog empty intent omission.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Generate idempotency key on every render.",
+   "expected_red_test": "regenerate dialog retry key reuse.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Suppress building branch.",
+   "expected_red_test": "regenerate dialog building-only loading state.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove Escape loading guard.",
+   "expected_red_test": "regenerate dialog in-flight dismissal block.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove success navigate('/').",
+   "expected_red_test": "regenerate dialog success navigation.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Clear intent in catch.",
+   "expected_red_test": "regenerate dialog failure state retention.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change generic failure alert.",
+   "expected_red_test": "regenerate dialog generic error text.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Subtract one from remaining counter.",
+   "expected_red_test": "regenerate dialog counter values.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Make Cancel a no-op.",
+   "expected_red_test": "regenerate dialog Cancel behavior.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Swap success onClose and navigate event order.",
+   "expected_red_test": "Success callback order assertion.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Navigate in failure catch.",
+   "expected_red_test": "No navigation after failure assertion.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Move loggedOut before logout POST.",
+   "expected_red_test": "auth hook POST-first sequence.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove sender resetApiState.",
+   "expected_red_test": "auth hook local purge and refetch.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove sender broadcast.",
+   "expected_red_test": "auth hook exact broadcast.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove receiver resetApiState.",
+   "expected_red_test": "auth hook receiver purge.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove loggedOut from finally.",
+   "expected_red_test": "auth hook rejected POST cleanup.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change report kind to error.",
+   "expected_red_test": "auth hook rejected POST report.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Swap sender loggedOut and resetApiState.",
+   "expected_red_test": "auth hook sender cleanup order.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Swap receiver loggedOut and resetApiState.",
+   "expected_red_test": "auth hook receiver cleanup order.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Move broadcast before local cache purge.",
+   "expected_red_test": "auth hook post-cleanup ordering.",
+   "observed": "GREEN"
+  },
+  {
+   "mutation": "Snapshot RequireAuth status at mount.",
+   "expected_red_test": "require-auth live auth flip.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove one new contrast pair.",
+   "expected_red_test": "check-contrast.spec.ts 54-result assertion.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove required Current plan label from a corrected implementation.",
+   "expected_red_test": "No page test asserts the required label.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Render the old previous-plan placeholder for a non-null previousPlanId.",
+   "expected_red_test": "No page test asserts placeholder absence.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Change a new contrast threshold from 4.5 to 3.0.",
+   "expected_red_test": "No test asserts exact threshold values.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Remove locked dialog ARIA and panel class assertions.",
+   "expected_red_test": "No current dialog test asserts those contracts.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Remove Settings button handler and run sign-out E2E.",
+   "expected_red_test": "e2e/sign-out.spec.ts first journey should fail.",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Remove postLogoutBroadcast and run sign-out E2E.",
+   "expected_red_test": "e2e/sign-out.spec.ts second-tab journey should fail.",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Suppress building branch and run regenerate E2E.",
+   "expected_red_test": "e2e/regenerate-plan.spec.ts building assertion should fail.",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "frontend/src/app/modules/settings/pages/settings.page.tsx",
+   "status": "PARTIAL",
+   "where": "State, routes, account, sign-out, footer, and most tokens match; Current plan label is missing."
+  },
+  {
+   "item": "frontend/src/app/modules/settings/pages/settings-page.spec.tsx",
+   "status": "PARTIAL",
+   "where": "Plan edge cases, account email, sign-out button, footer, and parity are covered; order, exact testids, and placeholder deletion are not."
+  },
+  {
+   "item": "frontend/src/app/modules/settings/components/theme-toggle.component.tsx",
+   "status": "SATISFIED",
+   "where": "Dark, Light, System order and theme persistence behavior at lines 8-44."
+  },
+  {
+   "item": "frontend/src/app/modules/settings/components/theme-toggle.component.spec.tsx",
+   "status": "SATISFIED",
+   "where": "Order and preserved theme behavior at lines 56-115."
+  },
+  {
+   "item": "frontend/src/app/modules/settings/components/units-toggle.component.tsx",
+   "status": "SATISFIED",
+   "where": "Numeric PUT shape, parser, fallback, toast, and reporting at lines 20-63."
+  },
+  {
+   "item": "frontend/src/app/modules/settings/components/units-toggle.component.spec.tsx",
+   "status": "SATISFIED",
+   "where": "Order, selection, numeric wire, and failure tests at lines 46-91."
+  },
+  {
+   "item": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx",
+   "status": "PARTIAL",
+   "where": "State, wire shape, key reuse, overlay, and route mostly match; gap-3 is missing and callback ordering is unpinned."
+  },
+  {
+   "item": "frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx",
+   "status": "PARTIAL",
+   "where": "18 tests cover state, wire, overlay, counter, and idle events; success ordering and failure navigation are missing."
+  },
+  {
+   "item": "frontend/src/app/modules/auth/hooks/auth.hooks.ts",
+   "status": "PARTIAL",
+   "where": "POST, auth state, cache purge, broadcast, reporting, and receiver events match; required order lacks tests."
+  },
+  {
+   "item": "frontend/src/app/modules/auth/hooks/auth.hooks.spec.tsx",
+   "status": "PARTIAL",
+   "where": "Five tests cover state, wire, cache, broadcast, receiver, and error; cleanup order remains unpinned."
+  },
+  {
+   "item": "frontend/src/app/modules/auth/components/require-auth.component.spec.tsx",
+   "status": "SATISFIED",
+   "where": "Live loggedOut redirect test at lines 88-101; snapshot mutation was RED."
+  },
+  {
+   "item": "frontend/e2e/regenerate-plan.spec.ts",
+   "status": "PARTIAL",
+   "where": "Building delay, exact password lookup, intent testid, and route outcome; mutation run failed before tests because Vite could not bind ::1:5173."
+  },
+  {
+   "item": "frontend/e2e/sign-out.spec.ts",
+   "status": "PARTIAL",
+   "where": "Session cookie, guard route, tab-bar, account email, and second-tab route; mutation run failed before tests because Vite could not bind ::1:5173."
+  },
+  {
+   "item": "frontend/scripts/check-contrast.ts",
+   "status": "SATISFIED",
+   "where": "Required muted pairs and 4.5 values exist at lines 104-127."
+  },
+  {
+   "item": "frontend/scripts/__tests__/check-contrast.spec.ts",
+   "status": "MISSING",
+   "where": "The 54-result unit assertion is correct, but line 494 expects 27 and the host full suite is red."
+  },
+  {
+   "item": "frontend/vite.config.ts",
+   "status": "SATISFIED",
+   "where": "Package-derived VITE_APP_VERSION define at lines 211-216; removal mutation was RED."
+  },
+  {
+   "item": "frontend/tsconfig.node.json",
+   "status": "SATISFIED",
+   "where": "resolveJsonModule is true at line 12; build passes."
+  },
+  {
+   "item": "frontend/src/vite-env.d.ts",
+   "status": "SATISFIED",
+   "where": "ImportMetaEnv declaration at lines 3-4; build passes."
+  },
+  {
+   "item": "frontend/package.json",
+   "status": "SATISFIED",
+   "where": "Root version is 0.9.0 at line 4."
+  },
+  {
+   "item": "frontend/package-lock.json",
+   "status": "SATISFIED",
+   "where": "Root versions are 0.9.0 at lines 3 and 9."
+  },
+  {
+   "item": "docs/plans/split-ui-cycle/slice-6-evidence/build-report.md",
+   "status": "PARTIAL",
+   "where": "Host run records are useful, but lines 66 and 94-98 overstate unverified order coverage."
+  },
+  {
+   "item": "Backend files and gates",
+   "status": "NOT_APPLICABLE",
+   "where": "git diff HEAD~1 contains no backend or C# changes."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "npx vitest run src/app/modules/settings/pages/settings-page.spec.tsx",
+   "result": "Final run: 15 passed."
+  },
+  {
+   "command": "npx vitest run src/app/modules/settings/components/theme-toggle.component.spec.tsx",
+   "result": "Final run: 8 passed."
+  },
+  {
+   "command": "npx vitest run src/app/modules/settings/components/units-toggle.component.spec.tsx",
+   "result": "Final run: 6 passed."
+  },
+  {
+   "command": "npx vitest run src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx",
+   "result": "Final run: 18 passed."
+  },
+  {
+   "command": "npx vitest run src/app/modules/auth/components/require-auth.component.spec.tsx",
+   "result": "Final run: 5 passed."
+  },
+  {
+   "command": "npx vitest run src/app/modules/auth/hooks/auth.hooks.spec.tsx",
+   "result": "Final run: 5 passed."
+  },
+  {
+   "command": "npx vitest run scripts/__tests__/check-contrast.spec.ts",
+   "result": "59 passed and 2 failed locally. Failures include tsx IPC EPERM; host evidence also shows the incorrect line-494 expectation."
+  },
+  {
+   "command": "npm run check-contrast",
+   "result": "Not runnable: tsx failed with Error: listen EPERM operation not permitted /var/folders/dn/lbs14ltd7x77tk_cds6wrzx80000gp/T/tsx-502/8886.pipe."
+  },
+  {
+   "command": "npm run build",
+   "result": "Exit 0; last output: Adjust chunk size limit for this warning via build.chunkSizeWarningLimit."
+  },
+  {
+   "command": "npx eslint e2e/regenerate-plan.spec.ts e2e/sign-out.spec.ts scripts/__tests__/check-contrast.spec.ts scripts/check-contrast.ts src/app/modules/auth/components/require-auth.component.spec.tsx src/app/modules/auth/hooks/auth.hooks.spec.tsx src/app/modules/auth/hooks/auth.hooks.ts src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.tsx src/app/modules/settings/components/theme-toggle.component.spec.tsx src/app/modules/settings/components/theme-toggle.component.tsx src/app/modules/settings/components/units-toggle.component.spec.tsx src/app/modules/settings/components/units-toggle.component.tsx src/app/modules/settings/pages/settings-page.spec.tsx src/app/modules/settings/pages/settings.page.tsx src/vite-env.d.ts vite.config.ts",
+   "result": "Exit 0; no output."
+  },
+  {
+   "command": "npx prettier --check ../docs/plans/split-ui-cycle/slice-6-evidence/build-report.md e2e/regenerate-plan.spec.ts e2e/sign-out.spec.ts package-lock.json package.json scripts/__tests__/check-contrast.spec.ts scripts/check-contrast.ts src/app/modules/auth/components/require-auth.component.spec.tsx src/app/modules/auth/hooks/auth.hooks.spec.tsx src/app/modules/auth/hooks/auth.hooks.ts src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.tsx src/app/modules/settings/components/theme-toggle.component.spec.tsx src/app/modules/settings/components/theme-toggle.component.tsx src/app/modules/settings/components/units-toggle.component.spec.tsx src/app/modules/settings/components/units-toggle.component.tsx src/app/modules/settings/pages/settings-page.spec.tsx src/app/modules/settings/pages/settings.page.tsx src/vite-env.d.ts tsconfig.node.json vite.config.ts",
+   "result": "Exit 0; All matched files use Prettier code style!"
+  },
+  {
+   "command": "git diff --check",
+   "result": "Exit 0; no output."
+  },
+  {
+   "command": "git status --short",
+   "result": "Only untracked docs/plans/split-ui-cycle/slice-6-evidence/build-orchestrator-runs.md remains."
+  },
+  {
+   "command": "dotnet build and dotnet format",
+   "result": "NOT_APPLICABLE; no backend or changed C# files in this frontend-only PR."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "npm run test",
+   "purpose": "Rerun the full frontend suite after correcting the line-494 contrast expectation."
+  },
+  {
+   "command": "npm run check-contrast",
+   "purpose": "Rerun the contrast subprocess gate after correcting the test expectation."
+  },
+  {
+   "command": "npm run e2e -- e2e/sign-out.spec.ts",
+   "purpose": "Run sign-out mutation ledger after a bindable Vite server and host stack are available."
+  },
+  {
+   "command": "npm run e2e -- e2e/regenerate-plan.spec.ts",
+   "purpose": "Run regenerate mutation ledger after a bindable Vite server and host stack are available."
+  }
+ ],
+ "verdict": "REJECT. The host frontend suite is red, two locked UI requirements are missing, and multiple changed behaviors have tests that remain GREEN under order or negative-path mutations."
+}

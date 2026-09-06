@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react'
 import { toast } from 'sonner'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Label } from '@/components/ui/label'
+import { SegmentedControl, SegmentedControlItem } from '@/components/ui/segmented-control'
 import { PreferredUnits } from '~/api/generated'
 import { useGetUnitPreferenceQuery, usePutUnitPreferenceMutation } from '~/api/settings.api'
 import { reportClientError } from '~/error-boundary/report-client-error'
@@ -40,25 +39,24 @@ export const UnitsToggle = (): ReactElement => {
   }
 
   return (
-    <RadioGroup
+    <SegmentedControl
       value={String(current)}
       onValueChange={(value) => {
         void persistPreference(parsePreferredUnits(value))
       }}
       aria-label="Units"
       data-testid="settings-units-toggle"
-      className="mt-2 grid-cols-2 gap-2"
+      className="grid grid-cols-2 gap-2"
     >
       {UNIT_OPTIONS.map((option) => (
-        <Label
+        <SegmentedControlItem
           key={option.value}
-          htmlFor={`units-option-${option.value}`}
-          className="flex cursor-pointer items-center gap-2 rounded-md border border-input p-3 transition-colors has-[:checked]:border-primary has-[:checked]:bg-accent motion-reduce:transition-none"
+          value={String(option.value)}
+          data-testid={`units-option-${option.value}`}
         >
-          <RadioGroupItem id={`units-option-${option.value}`} value={String(option.value)} />
           {option.label}
-        </Label>
+        </SegmentedControlItem>
       ))}
-    </RadioGroup>
+    </SegmentedControl>
   )
 }
