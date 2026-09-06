@@ -7,9 +7,9 @@ Both round-1 lenses (`round1/mutation.json`, `round1/conformance.json`) marked t
 Each replay applies one production mutation, runs the single spec, records the outcome, and restores the file from HEAD.
 
 ```text
-MUTATION remove the SIGN OUT click handler -> Error: expect(page).toHaveURL(expected) failed Error: expect(page).toHaveURL(expected) failed 2 failed 
-MUTATION remove postLogoutBroadcast() from the sender -> Error: expect(page).toHaveURL(expected) failed 1 failed 1 passed (7.1s) 
-MUTATION render the panel instead of the building overlay while loading -> Error: expect(locator).toBeVisible() failed Error: element(s) not found 1 failed 
+MUTATION remove the SIGN OUT click handler -> Error: expect(page).toHaveURL(expected) failed Error: expect(page).toHaveURL(expected) failed 2 failed
+MUTATION remove postLogoutBroadcast() from the sender -> Error: expect(page).toHaveURL(expected) failed 1 failed 1 passed (7.1s)
+MUTATION render the panel instead of the building overlay while loading -> Error: expect(locator).toBeVisible() failed Error: element(s) not found 1 failed
 RESTORED: 0 tracked dirty paths
 ```
 
@@ -26,6 +26,9 @@ All three replays are RED with the expected shape: removing the SIGN OUT click h
 ## Fix-round host runs (clone at 96a10650, the round-1 fix commit)
 
 ```text
+=== npm run test
+ Test Files  87 passed (87)
+      Tests  1057 passed (1057)
 check-contrast: all 54 pairs pass WCAG thresholds.
 === eslint touched
 eslint rc=0
@@ -36,8 +39,8 @@ All matched files use Prettier code style!
 === codegen
 codegen rc=0
 === playwright
-1) [chromium] › e2e/plan-render.spec.ts:242:1 › register → land on / → plan renders → reload → identical content + no vdot in DOM 
-2) [chromium] › e2e/workout-logging.spec.ts:192:1 › register → log a minimum + a rich workout → both appear in week-grouped history 
+1) [chromium] › e2e/plan-render.spec.ts:242:1 › register → land on / → plan renders → reload → identical content + no vdot in DOM
+2) [chromium] › e2e/workout-logging.spec.ts:192:1 › register → log a minimum + a rich workout → both appear in week-grouped history
 2 failed
 16 passed (5.8s)
 ```

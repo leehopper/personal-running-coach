@@ -29,8 +29,8 @@ The one vitest failure is `check-contrast.spec.ts` > `exits 0 and reports all pa
 ## Playwright e2e (host stack: Compose Postgres + Redis on Colima, host API from the main tree at 87718f5f on https://localhost:5001, Vite started by Playwright from this clone)
 
 ```text
-1) [chromium] › e2e/plan-render.spec.ts:242:1 › register → land on / → plan renders → reload → identical content + no vdot in DOM 
-2) [chromium] › e2e/workout-logging.spec.ts:192:1 › register → log a minimum + a rich workout → both appear in week-grouped history 
+1) [chromium] › e2e/plan-render.spec.ts:242:1 › register → land on / → plan renders → reload → identical content + no vdot in DOM
+2) [chromium] › e2e/workout-logging.spec.ts:192:1 › register → log a minimum + a rich workout → both appear in week-grouped history
 Error: expect(locator).toBeVisible() failed
 Error: strict mode violation: getByText('8.0 km') resolved to 2 elements:
 2 failed

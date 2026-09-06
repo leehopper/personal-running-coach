@@ -1,0 +1,237 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "major",
+   "claim": "F11 does not restore the exact prior placeholder bytes.",
+   "evidence": "INSPECTED: frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx:163 uses U+2026 with no preceding space. fix-brief.txt:65-68 requires the exact HEAD~1 value, which is `placeholder={'... long runs \\u2026'}` with a preceding space. The new assertion only ratifies the changed value.",
+   "fix": "Restore the exact HEAD~1 placeholder and update the assertion.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "F12's claimed .stage-report.md addendum is absent.",
+   "evidence": "INSPECTED: .stage-report.md:10 claims an addendum at lines 177-181, but `wc -l .stage-report.md` reports 38 lines. The corresponding build-report addendum exists at docs/plans/split-ui-cycle/slice-6-evidence/build-report.md:177-181.",
+   "fix": "Add the missing .stage-report.md addendum or correct the F12 claim.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The fix-round diff fails the claimed git diff check.",
+   "evidence": "MECHANIZED: `git diff HEAD~1..HEAD --check` exits 2 with trailing whitespace at docs/plans/split-ui-cycle/slice-6-evidence/round1/orchestrator-runs.md:10-12 and :42-43. .stage-report.md:23 claims this gate passed.",
+   "fix": "Trim trailing whitespace and rerun the check.",
+   "mode": "MECHANIZED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "F1 changed the expected count from 54 to 50.",
+   "expected_red_test": "`npx vitest run scripts/__tests__/check-contrast.spec.ts -t 'exits 0 and reports all pairs passing against the committed tokens'`",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "F2 removed dark:bg-background.",
+   "expected_red_test": "Clay outline settings test",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F3 removed panel gap-3.",
+   "expected_red_test": "Dialog panel class test",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F4 removed the Current plan MonoLabel.",
+   "expected_red_test": "Current-plan eyebrow test",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F5 swapped Units and Account sections.",
+   "expected_red_test": "Dual-theme section order test",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F6 swapped sender order, receiver order, and broadcast-before-purge in separate replays.",
+   "expected_red_test": "Auth hook event-order tests",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F7 swapped callbacks and added failure or Cancel navigation in separate replays.",
+   "expected_red_test": "Dialog callback and no-navigation tests",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F8 reintroduced the previous-plan button.",
+   "expected_red_test": "Retired placeholder negative test",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F9 removed aria-modal=true.",
+   "expected_red_test": "Dialog ARIA test",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F10 changed a muted pair threshold from 4.5 to 3.0.",
+   "expected_red_test": "Muted threshold test",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F11 changed the placeholder to the prior-space variant.",
+   "expected_red_test": "Exact placeholder test",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F12 is documentation-only.",
+   "expected_red_test": "No runtime mutation applies.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "F13 host ledger records the three e2e mutation replays as red.",
+   "expected_red_test": "Host Playwright mutation replay ledger",
+   "observed": "RED"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "F1",
+   "status": "SATISFIED",
+   "where": "frontend/scripts/__tests__/check-contrast.spec.ts:517; fixed-tree host suite is recorded at round1/orchestrator-runs.md:29-32."
+  },
+  {
+   "item": "F2",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:50 and settings-page.spec.tsx:225-230."
+  },
+  {
+   "item": "F3",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.tsx:132 and its spec:81-83."
+  },
+  {
+   "item": "F4",
+   "status": "SATISFIED",
+   "where": "settings.page.tsx:41-44 and settings-page.spec.tsx:177-185."
+  },
+  {
+   "item": "F5",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:164-173."
+  },
+  {
+   "item": "F6",
+   "status": "SATISFIED",
+   "where": "auth.hooks.ts:47-51, :114-117 and auth.hooks.spec.tsx:168-173, 228, 260-265."
+  },
+  {
+   "item": "F7",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.tsx:87-96, :183-189 and its spec:132, 154, 226-230."
+  },
+  {
+   "item": "F8",
+   "status": "SATISFIED",
+   "where": "settings-page.spec.tsx:244-249."
+  },
+  {
+   "item": "F9",
+   "status": "SATISFIED",
+   "where": "regenerate-plan-dialog.component.tsx:128-132 and its spec:65-89."
+  },
+  {
+   "item": "F10",
+   "status": "SATISFIED",
+   "where": "check-contrast.ts:108-114 and check-contrast.spec.ts:464-484."
+  },
+  {
+   "item": "F11",
+   "status": "PARTIAL",
+   "where": "Component and spec agree, but the value differs from the exact HEAD~1 placeholder required by fix-brief.txt:65-68."
+  },
+  {
+   "item": "F12",
+   "status": "PARTIAL",
+   "where": "build-report.md:177-181 has the addendum; .stage-report.md lacks it."
+  },
+  {
+   "item": "F13",
+   "status": "SATISFIED",
+   "where": "round1/orchestrator-runs.md:9-16 and :26-48 record host mutation and gate results."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "cd frontend && npx vitest run src/app/modules/settings/pages/settings-page.spec.tsx src/app/modules/settings/components/regenerate-plan-dialog.component.spec.tsx src/app/modules/auth/hooks/auth.hooks.spec.tsx",
+   "result": "Exit 0; 3 files and 41 tests passed."
+  },
+  {
+   "command": "cd frontend && npx vitest run scripts/__tests__/check-contrast.spec.ts -t 'runChecks'",
+   "result": "Exit 0; 3 tests passed, 59 skipped."
+  },
+  {
+   "command": "cd frontend && npm run build",
+   "result": "Exit 0; vite built successfully with the existing chunk-size warning."
+  },
+  {
+   "command": "cd frontend && npx eslint <fix-round frontend files>",
+   "result": "Exit 0; no output."
+  },
+  {
+   "command": "cd frontend && npx prettier --check <fix-round frontend files>",
+   "result": "Exit 0; All matched files use Prettier code style!"
+  },
+  {
+   "command": "cd frontend && npm run codegen:check",
+   "result": "Exit 0."
+  },
+  {
+   "command": "cd frontend && npm run check-contrast",
+   "result": "Exit 1; Error: listen EPERM: operation not permitted /tmp/codex-agent-slice-6-settings-r2-verify/tsx-502/52985.pipe."
+  },
+  {
+   "command": "git diff HEAD~1..HEAD --check",
+   "result": "Exit 2; trailing whitespace at orchestrator-runs.md:10-12 and :42-43."
+  },
+  {
+   "command": "git diff -- frontend/scripts/check-contrast.ts frontend/src/app/modules/settings/pages/settings.page.tsx frontend/src/app/modules/settings/components/regenerate-plan-dialog.component.tsx frontend/src/app/modules/auth/hooks/auth.hooks.ts",
+   "result": "Exit 0; temporary mutations restored."
+  },
+  {
+   "command": "git status --short",
+   "result": "Only the pre-existing modified orchestrator-runs.md remains."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "cd frontend && npx vitest run scripts/__tests__/check-contrast.spec.ts -t 'exits 0 and reports all pairs passing against the committed tokens'",
+   "purpose": "Replay F1 on the host because local tsx is blocked by EPERM."
+  },
+  {
+   "command": "cd frontend && npm run test",
+   "purpose": "Host full frontend suite, recorded as 1057/1057."
+  },
+  {
+   "command": "cd frontend && npm run check-contrast",
+   "purpose": "Host contrast gate, recorded as 54 pairs passing."
+  },
+  {
+   "command": "cd frontend && npm run codegen:check",
+   "purpose": "Host codegen freshness gate."
+  },
+  {
+   "command": "cd frontend && npm run build",
+   "purpose": "Host production build and version gate."
+  },
+  {
+   "command": "cd frontend && npx eslint <touched files>",
+   "purpose": "Host lint gate."
+  },
+  {
+   "command": "cd frontend && npx prettier --check <touched files>",
+   "purpose": "Host formatting gate."
+  },
+  {
+   "command": "cd frontend && npm run e2e",
+   "purpose": "Host Playwright suite and e2e mutation replays."
+  }
+ ],
+ "verdict": "REJECT. F2-F10 are present and their mutation tests are RED. F11 and F12 are partial, and the fix-round diff fails git diff --check."
+}
