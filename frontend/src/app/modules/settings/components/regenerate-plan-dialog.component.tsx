@@ -160,7 +160,7 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
             maxLength={INTENT_MAX_LENGTH}
             rows={4}
             disabled={isLoading}
-            placeholder="e.g. coming back from a calf strain, want to focus on long runs…"
+            placeholder={'e.g. coming back from a calf strain, want to focus on long runs\u2026'}
             className="min-h-[88px] rounded-md px-[14px] py-[11px]"
             data-testid="regenerate-plan-intent"
           />

@@ -57,7 +57,7 @@ describe('RegeneratePlanDialog', () => {
     expect(textarea.maxLength).toBe(500)
     expect(textarea).toHaveAttribute(
       'placeholder',
-      'e.g. coming back from a calf strain, want to focus on long runs…',
+      'e.g. coming back from a calf strain, want to focus on long runs\u2026',
     )
     expect(screen.getByTestId('regenerate-plan-cancel')).toBeInTheDocument()
   })
@@ -246,9 +246,11 @@ describe('RegeneratePlanDialog', () => {
       'keep the first week conservative',
     )
     await userEvent.click(screen.getByTestId('regenerate-plan-submit'))
-    const firstKey = regenerateMock.mock.calls[0][0] as { idempotencyKey: string }
-    const secondKey = regenerateMock.mock.calls[1][0] as { idempotencyKey: string }
-    expect(secondKey.idempotencyKey).toBe(firstKey.idempotencyKey)
+    const [firstPayload] = regenerateMock.mock.calls[0] as [{ idempotencyKey: string }]
+    const [secondPayload] = regenerateMock.mock.calls[1] as [{ idempotencyKey: string }]
+    expect(firstPayload).toEqual(expect.objectContaining({ idempotencyKey: expect.any(String) }))
+    expect(secondPayload).toEqual(expect.objectContaining({ idempotencyKey: expect.any(String) }))
+    expect(secondPayload.idempotencyKey).toBe(firstPayload.idempotencyKey)
   })
 
   it('keeps the generic alert for a 400 intent-length response', async () => {
