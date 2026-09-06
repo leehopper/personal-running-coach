@@ -1,20 +1,20 @@
 ## Fixes
 
-- F1 - MECHANIZED: Added locked hit-target and focus classes to both auth links. See [login.page.tsx:69](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/pages/login/login.page.tsx:69) and [register.page.tsx:83](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/pages/register/register.page.tsx:83). Regression assertions are at [login.page.spec.tsx:185](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/pages/login/login.page.spec.tsx:185) and [register.page.spec.tsx:194](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/pages/register/register.page.spec.tsx:194). Removing `hit-target-44` or the ring classes makes these assertions red.
+- F1 - MECHANIZED: Added locked hit-target and focus classes to both auth links. See [login.page.tsx:69](frontend/src/app/pages/login/login.page.tsx:69) and [register.page.tsx:83](frontend/src/app/pages/register/register.page.tsx:83). Regression assertions are at [login.page.spec.tsx:185](frontend/src/app/pages/login/login.page.spec.tsx:185) and [register.page.spec.tsx:194](frontend/src/app/pages/register/register.page.spec.tsx:194). Removing `hit-target-44` or the ring classes makes these assertions red.
 
-- F2 - MECHANIZED: Changed the form stack to `flex flex-col gap-3.5` and each `FormItem` to `gap-1.5`. See [auth-form-shell.component.tsx:55](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/modules/auth/components/auth-form-shell.component.tsx:55) and [auth-text-field.component.tsx:87](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/modules/auth/components/auth-text-field.component.tsx:87). The regression assertion is at [login.page.spec.tsx:205](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/pages/login/login.page.spec.tsx:205).
+- F2 - MECHANIZED: Changed the form stack to `flex flex-col gap-3.5` and each `FormItem` to `gap-1.5`. See [auth-form-shell.component.tsx:55](frontend/src/app/modules/auth/components/auth-form-shell.component.tsx:55) and [auth-text-field.component.tsx:87](frontend/src/app/modules/auth/components/auth-text-field.component.tsx:87). The regression assertion is at [login.page.spec.tsx:205](frontend/src/app/pages/login/login.page.spec.tsx:205).
 
-- F3 - MECHANIZED: Added locked poster-frame assertions to both page specs at [login.page.spec.tsx:111](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/pages/login/login.page.spec.tsx:111) and [register.page.spec.tsx:116](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/pages/register/register.page.spec.tsx:116). Changing `max-w-md` to `max-w-sm` makes them red.
+- F3 - MECHANIZED: Added locked poster-frame assertions to both page specs at [login.page.spec.tsx:111](frontend/src/app/pages/login/login.page.spec.tsx:111) and [register.page.spec.tsx:116](frontend/src/app/pages/register/register.page.spec.tsx:116). Changing `max-w-md` to `max-w-sm` makes them red.
 
-- F4 - MECHANIZED: Added toggle size and position assertions at [password-visibility-toggle.component.spec.tsx:48](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx:48). Changing `size="icon"` to `size="sm"` makes the geometry assertion red.
+- F4 - MECHANIZED: Added toggle size and position assertions at [password-visibility-toggle.component.spec.tsx:48](frontend/src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx:48). Changing `size="icon"` to `size="sm"` makes the geometry assertion red.
 
-- F5 - MECHANIZED: Added the poster-primary geometry assertion at [login.page.spec.tsx:212](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/frontend/src/app/pages/login/login.page.spec.tsx:212). Changing `h-[52px]` to `h-9` makes it red.
+- F5 - MECHANIZED: Added the poster-primary geometry assertion at [login.page.spec.tsx:212](frontend/src/app/pages/login/login.page.spec.tsx:212). Changing `h-[52px]` to `h-9` makes it red.
 
 - F6 - INSPECTED, VERIFIED BY INSPECTION: Dropped per adjudication. No file changed.
 
-- F7 - INSPECTED, VERIFIED BY INSPECTION: Orchestrator addendum is present at [.stage-report.md:93](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/.stage-report.md:93). No implementer action.
+- F7 - INSPECTED, VERIFIED BY INSPECTION: Orchestrator addendum is present at [.stage-report.md:93](.stage-report.md:93). No implementer action.
 
-- F8 - INSPECTED, VERIFIED BY INSPECTION: Host results are recorded at [build-orchestrator-runs.md:8](/Users/lee/.claude/codex-jobs/clones/feat/slice-6-auth/docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-orchestrator-runs.md:8).
+- F8 - INSPECTED, VERIFIED BY INSPECTION: Host results are recorded at [build-orchestrator-runs.md:8](docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-orchestrator-runs.md:8).
 
 ## Gates
 

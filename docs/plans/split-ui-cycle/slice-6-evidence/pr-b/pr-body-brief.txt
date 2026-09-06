@@ -1,0 +1,41 @@
+<task>
+Draft a pull request body for the RunCoach repo (your cwd; read AGENTS.md first; read-only except the output file). Match the house shape: read docs/plans/split-ui-cycle/slice-6-evidence/pr-b/pr-body-example-363.md for the section pattern and register, then write from the brief and the sources below only.
+</task>
+<brief>
+Write the pull request body for Slice 6 PR-B (branch feat/slice-6-auth) of the SPLIT / Alpine UI redesign cycle: the sign-in and register screens
+recomposed as the SPLIT poster, plus the password visibility toggle. It is one of two independent Slice 6 PRs built in parallel from main; the
+other (PR-A, branch feat/slice-6-settings, Settings and sign-out) is separate and may merge in either order; one line in
+frontend/e2e/regenerate-plan.spec.ts is byte-identical in both. Follow the shape example's sections exactly: a one-paragraph lead in bold
+naming the slice, the PR, and its sibling; a 'Spec' line naming the gitignored spec path and the committed evidence path
+(docs/plans/split-ui-cycle/slice-6-evidence/pr-b/); '## What's here' bullets (screen composition, the poster header, fields and labels,
+the toggle and its FormControl placement and autocomplete guarantee, headings, primary and the OAuth reserve, secondary links with the 44px
+target and canonical ring, the register helper, the exact password lookups and WHY they were needed, the retained contracts: schemas, error
+mapping, chaining, navigation, cookies); '## Decisions and deviations' (register has no artboard so its copy is an orchestrator ruling;
+the OAuth reserve is one primary-button height; the eye toggle's 44px target; the sign-in h1 visually hidden; the two lint suppressions
+precedent); '## Review trail' (the two-family spec red-team findings that shaped this PR: ambiguous password queries in unit and e2e specs,
+link hit targets and focus ring, form rhythm; the round-1 mutation and conformance lenses with their counts; the fix round F1 to F5; the
+eight e2e mutation replays, all red; the verify lens if its report is present in round2/); '## Green' with the host numbers from the
+orchestrator-runs records (vitest, check-contrast 50/50 with the note that PR-B adds no pair, codegen, build, eslint, prettier, Playwright
+14 passed with the two journeys already red on main named). Do not mention Codex models, token counts, accounts, or timings. Use the
+project's names for things (SPLIT, Alpine, SectionRule, Wordmark, FormControl). Under 700 words.
+</brief>
+<sources>
+- docs/specs/slice-6-settings-auth/spec.md sections 1 A, 1 C, 3 PR-B, 4.2 auth rows, 9
+- docs/specs/slice-6-settings-auth/pr-strategy.md
+- docs/plans/split-ui-cycle/slice-6-evidence/redteam/adjudication.md (the two-family red-team, orchestrator rulings)
+- docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-report.md (the build stage report with the orchestrator addendum)
+- docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-orchestrator-runs.md (host gates and Playwright)
+- docs/plans/split-ui-cycle/slice-6-evidence/pr-b/round1/conformance.json and mutation.json (the round-1 lenses)
+- docs/plans/split-ui-cycle/slice-6-evidence/pr-b/round1/fix-list.txt, fix-report.md, orchestrator-runs.md (the fix round and the e2e replays)
+- docs/plans/split-ui-cycle/slice-6-evidence/pr-b/round2/verify.json if present (the verify lens)
+- git log and git diff main..HEAD for the exact file set
+</sources>
+<grounding_rules>
+Use only the sources listed and the repo files they cite. Every claim of what changed cites a path; every number comes from a source. Where sources disagree or leave a gap, say so in the draft under the affected section; never invent a mechanism, a number, or a decision. Do not name a Codex model, token count, or account detail in a PR body. Never read .env, secrets, or ~/.codex.
+</grounding_rules>
+<style>
+Plain prose; no em dashes (use commas or periods); no filler adjectives (comprehensive, robust, seamless, powerful, elegant, crucial, key, vital, significant); one idea per sentence, 25 words maximum; bullets only for parallel items; no bolded-label bullets; end on the last real fact. ASCII only. Under 700 words.
+</style>
+<output>
+Write the draft to docs/plans/split-ui-cycle/slice-6-evidence/pr-b/pr-body-draft.md. Then print a five-line stage report: sections written, word count, sources used, gaps you could not ground, anything you left out because of the word cap.
+</output>
