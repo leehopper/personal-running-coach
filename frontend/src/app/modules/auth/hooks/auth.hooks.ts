@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { authApi } from '~/api/auth.api'
-import { subscribeLogoutBroadcast } from '~/modules/auth/lib/broadcast-auth'
+import { apiSlice } from '~/api/api-slice'
+import { authApi, useLogoutMutation } from '~/api/auth.api'
+import { reportClientError } from '~/error-boundary/report-client-error'
+import { postLogoutBroadcast, subscribeLogoutBroadcast } from '~/modules/auth/lib/broadcast-auth'
 import type { AuthState } from '~/modules/auth/models/auth.model'
 import { loggedOut, sessionVerified } from '~/modules/auth/store/auth.slice'
 import type { AppDispatch, RootState } from '~/modules/app/app.store'
@@ -23,6 +25,33 @@ export const useAuth = (): UseAuthReturn => {
     isUnknown: status === 'unknown',
     isUnauthenticated: status === 'unauthenticated',
   }
+}
+
+export interface UseSignOutReturn {
+  signOut: () => Promise<void>
+  isSigningOut: boolean
+}
+
+export const useSignOut = (): UseSignOutReturn => {
+  const dispatch = useDispatch<AppDispatch>()
+  const [logout, { isLoading: isSigningOut }] = useLogoutMutation()
+
+  const signOut = async (): Promise<void> => {
+    try {
+      await logout(undefined).unwrap()
+    } catch (error) {
+      reportClientError({
+        kind: 'unhandled-rejection',
+        error: error instanceof Error ? error : new Error(String(error)),
+      })
+    } finally {
+      dispatch(loggedOut())
+      dispatch(apiSlice.util.resetApiState())
+      postLogoutBroadcast()
+    }
+  }
+
+  return { signOut, isSigningOut }
 }
 
 // App-boot sequence (spec §Unit 3 lines 114–115):
@@ -80,5 +109,12 @@ export const useAuthBootstrap = (): void => {
 // waiting for its next network call to 401.
 export const useAuthBroadcastListener = (): void => {
   const dispatch = useDispatch<AppDispatch>()
-  useEffect(() => subscribeLogoutBroadcast(() => dispatch(loggedOut())), [dispatch])
+  useEffect(
+    () =>
+      subscribeLogoutBroadcast(() => {
+        dispatch(loggedOut())
+        dispatch(apiSlice.util.resetApiState())
+      }),
+    [dispatch],
+  )
 }

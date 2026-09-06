@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { Plugin } from 'vite'
 import { FONT_FALLBACK_SPECS, matchPreloadFiles } from './scripts/font-build.helpers'
+import packageJson from './package.json'
 
 // Vite dev server runs on HTTPS (port 5173) and proxies `/api/*` to the
 // ASP.NET Core API on https://localhost:5001.
@@ -208,6 +209,11 @@ function preloadFontLinks(): Plugin {
 }
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(
+      process.env.VITE_APP_VERSION ?? packageJson.version,
+    ),
+  },
   plugins: [
     react(),
     ...(mkcertPresent ? [] : [basicSsl()]),

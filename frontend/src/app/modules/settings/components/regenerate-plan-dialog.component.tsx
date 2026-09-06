@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement, type SubmitEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useRegeneratePlanMutation } from '~/api/plan.api'
+import { BuildingPlanSurface } from '~/modules/common/components/building-plan-surface/building-plan-surface.component'
 
 /**
  * Maximum length of the optional regeneration-intent free-text. Mirrors
@@ -12,18 +14,9 @@ import { useRegeneratePlanMutation } from '~/api/plan.api'
 const INTENT_MAX_LENGTH = 500
 
 export interface RegeneratePlanDialogProps {
-  /**
-   * Whether the dialog is visible. The Settings page owns this state so
-   * the trigger button + dialog can be tested in isolation and so the
-   * dialog can fully unmount when closed (resets the textarea + any
-   * transient mutation state).
-   */
+  /** Whether the dialog is visible. The Settings page owns this state. */
   isOpen: boolean
-  /**
-   * Called when the dialog requests close — Cancel button, backdrop click,
-   * Escape key, or successful regeneration. The parent flips `isOpen` to
-   * `false` in response.
-   */
+  /** Called when the dialog requests close. */
   onClose: () => void
 }
 
@@ -64,6 +57,7 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
   const [intent, setIntent] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [regenerate, { isLoading }] = useRegeneratePlanMutation()
+  const navigate = useNavigate()
 
   // Move focus to the textarea on first paint so screen-reader users land
   // inside the form immediately.
@@ -96,6 +90,7 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
         ...(trimmed.length > 0 ? { intent: { freeText: trimmed } } : {}),
       }).unwrap()
       onClose()
+      navigate('/')
     } catch {
       setErrorMessage('We could not regenerate your plan. Please try again in a moment.')
     }
@@ -105,6 +100,14 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
 
   const closeIfIdle = (): void => {
     if (!isLoading) onClose()
+  }
+
+  if (isLoading) {
+    return (
+      <div data-testid="settings-regenerate-building" className="fixed inset-0 z-50">
+        <BuildingPlanSurface statusLine="Reworking your plan from the log book." />
+      </div>
+    )
   }
 
   return (
@@ -126,21 +129,28 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
         aria-modal="true"
         aria-labelledby="regenerate-plan-title"
         aria-describedby="regenerate-plan-description"
-        className="w-full max-w-md rounded-lg border bg-popover p-6 text-popover-foreground shadow-xl"
+        className="w-[calc(100%-40px)] max-w-[350px] rounded-xl border border-border bg-card p-[18px]"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}
         data-testid="regenerate-plan-dialog"
       >
-        <h2 id="regenerate-plan-title" className="text-lg font-semibold text-foreground">
+        <h2
+          id="regenerate-plan-title"
+          className="font-condensed text-[20px] leading-tight font-bold tracking-[0.06em] text-foreground"
+        >
           Regenerate plan
         </h2>
-        <p id="regenerate-plan-description" className="mt-2 text-sm text-muted-foreground">
-          This replaces your current plan.
+        <p
+          id="regenerate-plan-description"
+          className="text-[13.5px] leading-[1.55] text-muted-foreground"
+        >
+          This replaces your current plan. The coach starts fresh from your log book {'\u2014'}{' '}
+          nothing you've logged is lost.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
-          <label htmlFor="regenerate-plan-intent" className="text-sm font-medium text-foreground">
-            Anything we should know? (optional)
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <label htmlFor="regenerate-plan-intent" className="t-data-label">
+            Anything I should know? {'\u2014'} optional
           </label>
           <Textarea
             id="regenerate-plan-intent"
@@ -150,12 +160,15 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
             maxLength={INTENT_MAX_LENGTH}
             rows={4}
             disabled={isLoading}
-            placeholder="e.g. coming back from a calf strain, want to focus on long runs…"
-            className="w-full resize-none"
+            placeholder={'e.g. coming back from a calf strain, want to focus on long runs \u2026'}
+            className="min-h-[88px] rounded-md px-[14px] py-[11px]"
             data-testid="regenerate-plan-intent"
           />
-          <div className="flex justify-end text-xs text-muted-foreground" aria-live="polite">
-            {remaining} characters remaining
+          <div
+            className="self-end font-mono text-[9.5px] tracking-[0.06em] text-muted-foreground"
+            aria-live="polite"
+          >
+            {remaining} left
           </div>
 
           {errorMessage !== null ? (
@@ -167,12 +180,18 @@ const RegeneratePlanDialogBody = ({ onClose }: RegeneratePlanDialogBodyProps): R
             </p>
           ) : null}
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
+          <div className="flex items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-11"
+              onClick={onClose}
+              data-testid="regenerate-plan-cancel"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading} data-testid="regenerate-plan-submit">
-              {isLoading ? 'Regenerating…' : 'Regenerate'}
+            <Button type="submit" className="min-h-11" data-testid="regenerate-plan-submit">
+              Regenerate
             </Button>
           </div>
         </form>

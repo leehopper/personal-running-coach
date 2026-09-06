@@ -104,7 +104,14 @@ export interface Pair {
 export const PAIRS: readonly Pair[] = [
   // Text-role pairs — WCAG AA normal text, 4.5:1.
   { label: '--foreground on --background', fg: 'foreground', bg: 'background', threshold: 4.5 },
+  {
+    label: '--muted-foreground on --background',
+    fg: 'muted-foreground',
+    bg: 'background',
+    threshold: 4.5,
+  },
   { label: '--card-foreground on --card', fg: 'card-foreground', bg: 'card', threshold: 4.5 },
+  { label: '--muted-foreground on --card', fg: 'muted-foreground', bg: 'card', threshold: 4.5 },
   {
     label: '--popover-foreground on --popover',
     fg: 'popover-foreground',

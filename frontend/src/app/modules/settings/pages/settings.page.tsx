@@ -1,81 +1,110 @@
 import { useState, type ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { useGetCurrentPlanQuery } from '~/api/plan.api'
+import { MonoLabel } from '~/modules/common/components/mono-label/mono-label.component'
+import { SectionRule } from '~/modules/common/components/section-rule/section-rule.component'
+import { useAuth, useSignOut } from '~/modules/auth/hooks/auth.hooks'
+import type { PlanProjectionDto } from '~/modules/plan/models/plan.model'
 import { RegeneratePlanDialog } from '~/modules/settings/components/regenerate-plan-dialog.component'
 import { ThemeToggle } from '~/modules/settings/components/theme-toggle.component'
 import { UnitsToggle } from '~/modules/settings/components/units-toggle.component'
 
 /**
- * `/settings` route surface. Renders the "Plan" section: current plan's
- * `generatedAt` timestamp, an optional previous-plan button when
- * `previousPlanId` is non-null (currently a placeholder with no destination
- * route; spec 13 § Unit 5 R05.6 tracks the destination route), and a
- * "Regenerate plan" button that opens `RegeneratePlanDialog`.
- *
- * The page is gated by `<RequireAuth>` at the route table level (spec 13
- * § Unit 5 R05.6 / R05.7 / R05.8).
+ * `/settings` route surface. The route guard supplies the authenticated user;
+ * this page owns the settings sections and the regenerate dialog trigger.
  */
 export const SettingsPage = (): ReactElement => {
   const { data: plan, isLoading, isError } = useGetCurrentPlanQuery(undefined)
+  const { user } = useAuth()
+  const { signOut, isSigningOut } = useSignOut()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  const handleSignOut = (): void => {
+    const signOutRequest = async (): Promise<void> => {
+      await signOut()
+    }
+    void signOutRequest()
+  }
 
   return (
     <main
-      className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-8 bg-background px-4 py-8"
+      className="mx-auto flex min-h-full w-full max-w-md flex-col gap-5 bg-background px-[22px] py-8"
       data-testid="settings-page"
     >
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+      <header className="flex flex-col gap-2.5">
+        <h1 className="t-screen-title text-foreground">Settings</h1>
+        <div className="h-0.5 w-full bg-rule" />
       </header>
 
-      <Card className="gap-2 p-6" data-testid="settings-plan-section">
-        <h2 className="text-lg font-semibold text-foreground">Plan</h2>
-
-        <PlanSummary
-          isLoading={isLoading}
-          isError={isError}
-          generatedAt={plan?.generatedAt}
-          previousPlanId={plan?.previousPlanId ?? null}
-        />
-
-        <div className="mt-4">
+      <section className="flex flex-col gap-3" data-testid="settings-plan-section">
+        <SectionRule label="The plan" />
+        <PlanSummary plan={plan} isLoading={isLoading} isError={isError} />
+        <div className="flex flex-col gap-1.5">
           <Button
             type="button"
             onClick={() => setIsDialogOpen(true)}
+            variant="outline"
+            className="h-12 border-clay-text text-clay-text active:text-secondary-foreground"
             data-testid="settings-regenerate-button"
           >
             Regenerate plan
           </Button>
+          <p className="t-data-label text-muted-foreground">
+            Replaces your current plan. The coach starts fresh from your log book.
+          </p>
         </div>
-      </Card>
+      </section>
 
-      <Card className="gap-2 p-6" data-testid="settings-appearance-section">
-        <h2 className="text-lg font-semibold text-foreground">Appearance</h2>
-        <p className="text-sm text-muted-foreground">
-          Choose how RunCoach looks. System follows your device setting.
-        </p>
+      <section className="flex flex-col gap-3" data-testid="settings-appearance-section">
+        <SectionRule label="Appearance" />
         <ThemeToggle />
-      </Card>
+      </section>
 
-      <Card className="gap-2 p-6" data-testid="settings-units-section">
-        <h2 className="text-lg font-semibold text-foreground">Units</h2>
-        <p className="text-sm text-muted-foreground">
-          Choose how distances and paces are displayed.
-        </p>
+      <section className="flex flex-col gap-3" data-testid="settings-units-section">
+        <SectionRule label="Units" />
         <UnitsToggle />
-      </Card>
+      </section>
+
+      <section className="flex flex-col gap-3" data-testid="settings-account-section">
+        <SectionRule label="Account" />
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <MonoLabel tone="muted">Signed in as</MonoLabel>
+            <p data-testid="settings-account-email" className="t-body text-foreground">
+              {user?.email ?? ''}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            data-testid="settings-sign-out-button"
+            disabled={isSigningOut}
+            onClick={handleSignOut}
+          >
+            Sign out
+          </Button>
+        </div>
+      </section>
 
       <RegeneratePlanDialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
+
+      <footer>
+        <p
+          data-testid="settings-version"
+          className="t-data-label pt-2 text-center text-muted-foreground"
+        >
+          Split {import.meta.env.VITE_APP_VERSION} {'\u2014'} MVP
+        </p>
+      </footer>
     </main>
   )
 }
 
 interface PlanSummaryProps {
+  plan: PlanProjectionDto | undefined
   isLoading: boolean
   isError: boolean
-  generatedAt: string | undefined
-  previousPlanId: string | null
 }
 
 /**
@@ -83,21 +112,16 @@ interface PlanSummaryProps {
  * the Regenerate button. Extracted so the page-level component stays under
  * the 100-line guideline.
  */
-const PlanSummary = ({
-  isLoading,
-  isError,
-  generatedAt,
-  previousPlanId,
-}: PlanSummaryProps): ReactElement => {
+const PlanSummary = ({ plan, isLoading, isError }: PlanSummaryProps): ReactElement => {
   if (isLoading) {
     return (
       <p className="mt-2 text-sm text-muted-foreground" role="status" aria-live="polite">
-        Loading plan details…
+        Loading plan details{'\u2026'}
       </p>
     )
   }
 
-  if (isError || generatedAt === undefined) {
+  if (isError || plan?.generatedAt === undefined) {
     return (
       <p className="mt-2 text-sm text-muted-foreground">
         We could not load your current plan details right now.
@@ -105,35 +129,44 @@ const PlanSummary = ({
     )
   }
 
+  const { generatedAt, macro } = plan
+  const segments = [
+    <span key="generated">
+      Generated <time dateTime={generatedAt}>{formatGeneratedAt(generatedAt)}</time>
+    </span>,
+    hasMeaningfulValue(macro?.totalWeeks) ? `${macro.totalWeeks} weeks` : null,
+    hasMeaningfulValue(macro?.goalDescription) ? macro.goalDescription : null,
+  ].filter((segment): segment is ReactElement | string => segment !== null)
+
   return (
-    <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
-      <p data-testid="settings-plan-generated-at">
-        Current plan generated <time dateTime={generatedAt}>{formatGeneratedAt(generatedAt)}</time>
-      </p>
-      {previousPlanId !== null ? (
-        <button
-          type="button"
-          className="text-left text-sm text-muted-foreground underline-offset-2 hover:underline"
-          data-testid="settings-previous-plan-link"
-        >
-          View previous plan
-        </button>
-      ) : null}
-    </div>
+    <p data-testid="settings-plan-generated-at" className="t-body text-muted-foreground">
+      {segments.map((segment, index) => (
+        <span key={typeof segment === 'string' ? segment : 'generated-segment'}>
+          {index > 0 ? ' \u00B7 ' : null}
+          {segment}
+        </span>
+      ))}
+    </p>
   )
 }
 
+const hasMeaningfulValue = (value: number | string | null | undefined): value is number | string =>
+  typeof value === 'number' || (typeof value === 'string' && value.trim().length > 0)
+
 /**
- * Render the ISO-8601 `generatedAt` string in the user's locale. Falls back
- * to the raw string if `Date` parsing fails (e.g. a future schema bump
- * sneaks a non-ISO value through).
+ * Render the ISO-8601 `generatedAt` string in a stable en-US calendar format.
+ * Falls back to the raw string if `Date` parsing fails.
  */
 const formatGeneratedAt = (generatedAt: string): string => {
   const parsed = new Date(generatedAt)
   if (Number.isNaN(parsed.getTime())) {
     return generatedAt
   }
-  return parsed.toLocaleString()
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(parsed)
 }
 
 export default SettingsPage

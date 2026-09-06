@@ -51,6 +51,16 @@ describe('UnitsToggle', () => {
     expect(screen.getByRole('radio', { name: 'Miles' })).not.toBeChecked()
   })
 
+  it('renders options in Kilometers, Miles order', () => {
+    render(<UnitsToggle />)
+    expect(screen.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'Kilometers',
+      'Miles',
+    ])
+    expect(screen.getByTestId('units-option-0')).toBeInTheDocument()
+    expect(screen.getByTestId('units-option-1')).toBeInTheDocument()
+  })
+
   it('reflects Miles as selected when the stored preference is Miles', () => {
     getQueryRef.data = { preferredUnits: 1 }
     render(<UnitsToggle />)

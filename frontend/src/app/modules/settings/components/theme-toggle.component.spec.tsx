@@ -10,6 +10,17 @@ const STORAGE_KEY = 'runcoach-theme'
 // jsdom ships no `matchMedia`; ThemeProvider needs it to resolve `system`.
 let prefersDark = false
 
+const ensureLocalStorage = (): void => {
+  if (typeof globalThis.localStorage !== 'undefined') return
+  const values = new Map<string, string>()
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key),
+    clear: () => values.clear(),
+  })
+}
+
 const installMatchMedia = () => {
   vi.stubGlobal(
     'matchMedia',
@@ -32,6 +43,7 @@ const renderToggle = (children: ReactNode = <ThemeToggle />) =>
 describe('ThemeToggle', () => {
   beforeEach(() => {
     prefersDark = false
+    ensureLocalStorage()
     localStorage.clear()
     document.documentElement.className = ''
     installMatchMedia()
@@ -46,6 +58,18 @@ describe('ThemeToggle', () => {
     expect(screen.getByRole('radio', { name: 'Light' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'Dark' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument()
+  })
+
+  it('renders options in Dark, Light, System order', () => {
+    renderToggle()
+    expect(screen.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'Dark',
+      'Light',
+      'System',
+    ])
+    expect(screen.getByTestId('theme-option-dark')).toBeInTheDocument()
+    expect(screen.getByTestId('theme-option-light')).toBeInTheDocument()
+    expect(screen.getByTestId('theme-option-system')).toBeInTheDocument()
   })
 
   it('highlights the active option from the stored preference', () => {

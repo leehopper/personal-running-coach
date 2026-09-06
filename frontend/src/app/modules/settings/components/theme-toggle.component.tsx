@@ -1,16 +1,18 @@
 import type { ReactElement } from 'react'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Label } from '@/components/ui/label'
+import { SegmentedControl, SegmentedControlItem } from '@/components/ui/segmented-control'
 import { useTheme, type Theme } from '@/components/theme-context'
 
 // The three selectable options, in display order. `value` is the literal
 // stored to localStorage by `ThemeProvider.setTheme`; `label` is the
 // user-facing copy.
-const THEME_OPTIONS: ReadonlyArray<{ value: Theme; label: string }> = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'system', label: 'System' },
+const THEME_OPTIONS: ReadonlyArray<{ value: Theme; label: string; testId: string }> = [
+  { value: 'dark', label: 'Dark', testId: 'theme-option-dark' },
+  { value: 'light', label: 'Light', testId: 'theme-option-light' },
+  { value: 'system', label: 'System', testId: 'theme-option-system' },
 ]
+
+const isTheme = (value: string): value is Theme =>
+  THEME_OPTIONS.some((option) => option.value === value)
 
 /**
  * 3-state appearance control for the Settings page (DEC-070). Reads and
@@ -25,23 +27,20 @@ export const ThemeToggle = (): ReactElement => {
   const { theme, setTheme } = useTheme()
 
   return (
-    <RadioGroup
+    <SegmentedControl
       value={theme}
-      onValueChange={(value) => setTheme(value as Theme)}
+      onValueChange={(value) => {
+        if (isTheme(value)) setTheme(value)
+      }}
       aria-label="Appearance"
       data-testid="settings-theme-toggle"
-      className="mt-2 grid-cols-3 gap-2"
+      className="grid grid-cols-3 gap-2"
     >
       {THEME_OPTIONS.map((option) => (
-        <Label
-          key={option.value}
-          htmlFor={`theme-option-${option.value}`}
-          className="flex cursor-pointer items-center gap-2 rounded-md border border-input p-3 transition-colors has-[:checked]:border-primary has-[:checked]:bg-accent motion-reduce:transition-none"
-        >
-          <RadioGroupItem id={`theme-option-${option.value}`} value={option.value} />
+        <SegmentedControlItem key={option.value} value={option.value} data-testid={option.testId}>
           {option.label}
-        </Label>
+        </SegmentedControlItem>
       ))}
-    </RadioGroup>
+    </SegmentedControl>
   )
 }

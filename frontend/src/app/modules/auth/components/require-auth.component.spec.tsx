@@ -1,10 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import type { AuthState } from '~/modules/auth/models/auth.model'
-import { authSlice } from '~/modules/auth/store/auth.slice'
+import { authSlice, loggedOut } from '~/modules/auth/store/auth.slice'
 import { RequireAuth } from './require-auth.component'
 
 const makeStore = (preloadedAuth: AuthState) =>
@@ -30,24 +30,29 @@ const LoginLocationProbe = () => {
 const renderGuarded = (
   auth: AuthState,
   startingEntry: string | { pathname: string; search?: string; hash?: string },
-) =>
-  render(
-    <Provider store={makeStore(auth)}>
-      <MemoryRouter initialEntries={[startingEntry]}>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <RequireAuth>
-                <div data-testid="protected">protected content</div>
-              </RequireAuth>
-            }
-          />
-          <Route path="/login" element={<LoginLocationProbe />} />
-        </Routes>
-      </MemoryRouter>
-    </Provider>,
-  )
+) => {
+  const store = makeStore(auth)
+  return {
+    store,
+    ...render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={[startingEntry]}>
+          <Routes>
+            <Route
+              path="*"
+              element={
+                <RequireAuth>
+                  <div data-testid="protected">protected content</div>
+                </RequireAuth>
+              }
+            />
+            <Route path="/login" element={<LoginLocationProbe />} />
+          </Routes>
+        </MemoryRouter>
+      </Provider>,
+    ),
+  }
+}
 
 describe('RequireAuth', () => {
   it('renders the loading fallback while auth status is unknown', () => {
@@ -78,5 +83,20 @@ describe('RequireAuth', () => {
       { pathname: '/', search: '?tab=plan', hash: '#week-3' },
     )
     expect(screen.getByTestId('login-next')).toHaveTextContent('/?tab=plan#week-3')
+  })
+
+  it('redirects after an authenticated store flips to logged out', () => {
+    const { store } = renderGuarded(
+      { status: 'authenticated', user: { userId: 'usr_abc', email: 'runner@example.com' } },
+      '/settings',
+    )
+    expect(screen.getByTestId('protected')).toBeInTheDocument()
+
+    act(() => {
+      store.dispatch(loggedOut())
+    })
+
+    expect(screen.getByTestId('login-path')).toHaveTextContent('/login')
+    expect(screen.getByTestId('login-next')).toHaveTextContent('/settings')
   })
 })

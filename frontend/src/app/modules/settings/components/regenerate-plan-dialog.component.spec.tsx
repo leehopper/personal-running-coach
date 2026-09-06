@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -6,14 +6,20 @@ interface MutationResult {
   unwrap: () => Promise<{ planId: string; status: string }>
 }
 
-const { regenerateMock, mutationStateRef } = vi.hoisted(() => ({
+const { regenerateMock, mutationStateRef, navigateMock } = vi.hoisted(() => ({
   regenerateMock: vi.fn<(arg: unknown) => MutationResult>(),
   mutationStateRef: { isLoading: false },
+  navigateMock: vi.fn(),
 }))
 
 vi.mock('~/api/plan.api', () => ({
   useRegeneratePlanMutation: () => [regenerateMock, mutationStateRef],
 }))
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return { ...actual, useNavigate: () => navigateMock }
+})
 
 import { RegeneratePlanDialog } from './regenerate-plan-dialog.component'
 
@@ -24,6 +30,7 @@ describe('RegeneratePlanDialog', () => {
   beforeEach(() => {
     regenerateMock.mockReset()
     mutationStateRef.isLoading = false
+    navigateMock.mockReset()
     // Stable idempotency key so we can assert exact body shape.
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-00000000abcd')
   })
@@ -40,10 +47,15 @@ describe('RegeneratePlanDialog', () => {
   it('renders the dialog with replacement copy and an optional intent textarea', () => {
     renderDialog(vi.fn())
     expect(screen.getByTestId('regenerate-plan-dialog')).toBeInTheDocument()
-    expect(screen.getByText('This replaces your current plan.')).toBeInTheDocument()
-    expect(screen.getByLabelText(/anything we should know/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "This replaces your current plan. The coach starts fresh from your log book \u2014 nothing you've logged is lost.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Anything I should know? \u2014 optional')).toBeInTheDocument()
     const textarea = screen.getByTestId('regenerate-plan-intent') as HTMLTextAreaElement
     expect(textarea.maxLength).toBe(500)
+    expect(screen.getByTestId('regenerate-plan-cancel')).toBeInTheDocument()
   })
 
   it('submits without an intent block when textarea is empty', async () => {
@@ -88,12 +100,18 @@ describe('RegeneratePlanDialog', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('disables the submit button and shows progress copy while regenerating', () => {
+  it('shows the building surface while regeneration is in flight', () => {
     mutationStateRef.isLoading = true
     renderDialog(vi.fn())
-    const submit = screen.getByTestId('regenerate-plan-submit')
-    expect(submit).toBeDisabled()
-    expect(submit).toHaveTextContent(/regenerating/i)
+    expect(screen.getByTestId('settings-regenerate-building')).toHaveClass(
+      'fixed',
+      'inset-0',
+      'z-50',
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('BUILDING YOUR PLAN')
+    expect(screen.getByRole('status')).toHaveTextContent('Reworking your plan from the log book.')
+    expect(screen.queryByTestId('regenerate-plan-dialog')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('regenerate-plan-backdrop')).not.toBeInTheDocument()
   })
 
   it('invokes onClose when Cancel is clicked', async () => {
@@ -110,10 +128,11 @@ describe('RegeneratePlanDialog', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('does not close on Escape while the regenerate mutation is in flight', () => {
+  it('cannot be dismissed while the mutation is in flight', () => {
     mutationStateRef.isLoading = true
     const onClose = vi.fn()
     renderDialog(onClose)
+    expect(screen.queryByTestId('regenerate-plan-backdrop')).not.toBeInTheDocument()
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
   })
@@ -123,14 +142,6 @@ describe('RegeneratePlanDialog', () => {
     renderDialog(onClose)
     await userEvent.click(screen.getByTestId('regenerate-plan-backdrop'))
     expect(onClose).toHaveBeenCalledTimes(1)
-  })
-
-  it('does not close on backdrop click while the mutation is in flight', async () => {
-    mutationStateRef.isLoading = true
-    const onClose = vi.fn()
-    renderDialog(onClose)
-    await userEvent.click(screen.getByTestId('regenerate-plan-backdrop'))
-    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('closes the dialog when Enter is pressed on the backdrop', () => {
@@ -163,13 +174,56 @@ describe('RegeneratePlanDialog', () => {
     renderDialog(vi.fn())
     const textarea = screen.getByTestId('regenerate-plan-intent')
 
-    expect(screen.getByText('500 characters remaining')).toBeInTheDocument()
+    expect(screen.getByText('500 left')).toBeInTheDocument()
 
     fireEvent.change(textarea, { target: { value: 'a'.repeat(250) } })
-    expect(screen.getByText('250 characters remaining')).toBeInTheDocument()
+    expect(screen.getByText('250 left')).toBeInTheDocument()
 
     fireEvent.change(textarea, { target: { value: 'a'.repeat(500) } })
-    expect(screen.getByText('0 characters remaining')).toBeInTheDocument()
+    expect(screen.getByText('0 left')).toBeInTheDocument()
+  })
+
+  it('navigates home after successful regeneration', async () => {
+    const onClose = vi.fn()
+    regenerateMock.mockReturnValue({
+      unwrap: () => Promise.resolve({ planId: 'plan-2', status: 'generated' }),
+    })
+    renderDialog(onClose)
+    await userEvent.click(screen.getByTestId('regenerate-plan-submit'))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns the panel with the same intent and key after failure', async () => {
+    const onClose = vi.fn()
+    regenerateMock
+      .mockReturnValueOnce({ unwrap: () => Promise.reject(new Error('transient')) })
+      .mockReturnValue({
+        unwrap: () => Promise.resolve({ planId: 'plan-retry', status: 'generated' }),
+      })
+    renderDialog(onClose)
+    const textarea = screen.getByTestId('regenerate-plan-intent')
+    await userEvent.type(textarea, 'keep the first week conservative')
+    await userEvent.click(screen.getByTestId('regenerate-plan-submit'))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not regenerate/i)
+    expect(screen.getByTestId('regenerate-plan-intent')).toHaveValue(
+      'keep the first week conservative',
+    )
+    await userEvent.click(screen.getByTestId('regenerate-plan-submit'))
+    const firstKey = regenerateMock.mock.calls[0][0] as { idempotencyKey: string }
+    const secondKey = regenerateMock.mock.calls[1][0] as { idempotencyKey: string }
+    expect(secondKey.idempotencyKey).toBe(firstKey.idempotencyKey)
+  })
+
+  it('keeps the generic alert for a 400 intent-length response', async () => {
+    regenerateMock.mockReturnValue({
+      unwrap: () => Promise.reject({ status: 400 }),
+    })
+    renderDialog(vi.fn())
+    await userEvent.click(screen.getByTestId('regenerate-plan-submit'))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'We could not regenerate your plan. Please try again in a moment.',
+    )
   })
 
   it('uses the same idempotency key on retry after a transient failure', async () => {
