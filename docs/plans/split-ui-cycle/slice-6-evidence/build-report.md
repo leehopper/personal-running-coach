@@ -173,3 +173,10 @@ STAGE COMPLETE
 
 Codex session ID: 01a076e5-225f-7451-b2b7-d56a72ac28db
 Resume in Codex: codex resume 01a076e5-225f-7451-b2b7-d56a72ac28db
+
+## Orchestrator addendum (2026-09-06, after the host runs)
+
+The commit 4de63051 carries 21 paths, not the 20 the report lists: the 20 frontend paths above plus the orchestrator-added `docs/plans/split-ui-cycle/slice-6-evidence/build-report.md` (the build brief and vars were committed earlier with the recon evidence at ee90fcfd). Later docs commits added `build-orchestrator-runs.md` (edc8caff) and the red-team adjudication with the sol report.
+
+Host results supersede the deviations above (recorded in `build-orchestrator-runs.md`): `npm run test` 1052/1053, the one red being `check-contrast.spec.ts` subprocess assertion whose literal the spec had locked wrongly (`all 27 pairs`; the script prints the result count `all 54 pairs`), fixed in round 1 as F1; `npm run check-contrast` 54/54 on the host; `npm run codegen:check` exit 0; `npm run build` clean with `0.9.0` present in the bundle; ESLint exit 0 and Prettier clean on every touched file; Playwright 16 passed, 2 failed, both the journeys already red on `main` before this slice (`plan-render.spec.ts:242`, `workout-logging.spec.ts:192`), outside PR-A surfaces; the two new `sign-out.spec.ts` journeys and the realigned `regenerate-plan.spec.ts` journey passed. `dotnet format` is not a PR-A gate: no C# file changed.
+

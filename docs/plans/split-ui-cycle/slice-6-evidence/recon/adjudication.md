@@ -14,7 +14,10 @@ A1. Two independent PRs on two branches off `main`, built in parallel in two clo
 stacking. PR-A `feat/slice-6-settings` (Settings recomposition, regenerate building surface,
 ACCOUNT and the first SIGN OUT, version footer, the contrast-pair additions). PR-B
 `feat/slice-6-auth` (auth poster screens, register mirror, password visibility toggle, e2e
-realignment). Their file lists are disjoint (B12 and C10 below). PR-B touches no file under
+realignment). Their file lists are disjoint except one byte-identical line (amended after the red-team: the
+password toggle's accessible name forces `exact: true` on every password lookup, so PR-B also
+changes one line in six other e2e specs, and `regenerate-plan.spec.ts:386` carries the identical
+change in both PRs; identical hunks merge cleanly in either order). PR-B touches no file under
 `docs/` except `docs/plans/split-ui-cycle/slice-6-evidence/pr-b/`; every roadmap, cycle-plan,
 and decision-log edit rides PR-A, and PR-A's status text describes both PRs so the merge order
 does not matter. Shared evidence (recon, red-team, spec-draft) is committed in PR-A only.
@@ -32,8 +35,9 @@ inference, and the spec says so.
 ## B. PR-A rulings (Settings)
 
 B1. Page frame. `settings.page.tsx` drops the three `Card`s. `<main data-testid="settings-page">`
-uses the screen frame the onboarding page uses (`screen-gutter`, column, `gap-5`, top and
-bottom padding per design-extract geometry). Header: `<h1 className="t-screen-title">Settings</h1>`
+uses the Log page's centered column with the design's 22px gutter:
+`mx-auto flex min-h-full w-full max-w-md flex-col gap-5 bg-background px-[22px] py-8` (amended
+after the red-team: `screen-gutter` is unused anywhere and the shell supplies no column). Header: `<h1 className="t-screen-title">Settings</h1>`
 followed by a full-width 2px `bg-rule` divider (the design's title rule). Four sections in this
 order, each `<section>` with the existing testid kept (`settings-plan-section`,
 `settings-appearance-section`, `settings-units-section`) plus the new
@@ -281,7 +285,10 @@ C10. PR-B file list. Changed: `frontend/src/app/pages/login/login.page.tsx`,
 `frontend/src/app/pages/register/register.page.spec.tsx`,
 `frontend/src/app/modules/auth/components/auth-form-shell.component.tsx`,
 `frontend/src/app/modules/auth/components/auth-text-field.component.tsx`,
-`frontend/e2e/auth.spec.ts`. New: `auth-poster-header.component.tsx` and `.spec.tsx`,
+`frontend/e2e/auth.spec.ts`, plus one line each in `frontend/e2e/shell-navigation.spec.ts`,
+`onboarding.spec.ts`, `plan-render.spec.ts`, `workout-logging.spec.ts`,
+`conversation-streaming.spec.ts`, and `regenerate-plan.spec.ts` (`exact: true` on the password
+lookup; amended after the red-team). New: `auth-poster-header.component.tsx` and `.spec.tsx`,
 `password-visibility-toggle.component.tsx` and `.spec.tsx` (all under
 `frontend/src/app/modules/auth/components/`). Untouched contracts: `auth.schema.ts`, the
 generated zod, `problem-details.helpers.ts`, `auth.hooks.ts`, `input.tsx`, `button.tsx`,
