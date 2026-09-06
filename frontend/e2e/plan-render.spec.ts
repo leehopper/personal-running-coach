@@ -252,7 +252,7 @@ test('register → land on / → plan renders → reload → identical content +
   //    state, and the route is allowed through to `HomePage`.
   await page.goto('/register')
   await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(VALID_PASSWORD)
+  await page.getByLabel('Password', { exact: true }).fill(VALID_PASSWORD)
   await page.getByRole('button', { name: /create account/i }).click()
   await expect(page).toHaveURL('/')
 

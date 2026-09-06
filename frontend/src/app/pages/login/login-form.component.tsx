@@ -13,13 +13,14 @@ export interface LoginFormProps {
 
 export const LoginForm = ({ form, onSubmit, isLoading, formAlert }: LoginFormProps) => (
   <AuthFormShell
-    heading="Sign in to RunCoach"
+    heading="Sign in"
+    headingVisuallyHidden
     formAlert={formAlert}
     form={form}
     onSubmit={onSubmit}
     isLoading={isLoading}
     submitLabel="Sign in"
-    pendingLabel="Signing in…"
+    pendingLabel={'Signing in\u2026'}
   >
     <AuthTextField
       control={form.control}

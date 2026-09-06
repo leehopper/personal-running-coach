@@ -119,7 +119,7 @@ test('register -> fill the form once -> single submit -> navigate to /', async (
   // 1. Register -> real session cookie -> guard bounces to /onboarding.
   await page.goto('/register')
   await page.getByLabel('Email').fill(uniqueEmail())
-  await page.getByLabel('Password').fill(VALID_PASSWORD)
+  await page.getByLabel('Password', { exact: true }).fill(VALID_PASSWORD)
   await page.getByRole('button', { name: /create account/i }).click()
   await expect(page).toHaveURL('/onboarding')
 

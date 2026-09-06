@@ -53,7 +53,7 @@ test('the TabBar renders on a shell route and is absent on /login', async ({ pag
 
   await page.goto('/register')
   await page.getByLabel('Email').fill(uniqueEmail())
-  await page.getByLabel('Password').fill(VALID_PASSWORD)
+  await page.getByLabel('Password', { exact: true }).fill(VALID_PASSWORD)
   await page.getByRole('button', { name: /create account/i }).click()
   await expect(page).toHaveURL('/')
 

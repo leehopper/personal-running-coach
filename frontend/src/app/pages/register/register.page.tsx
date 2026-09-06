@@ -5,9 +5,9 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { zodResolver } from '@hookform/resolvers/zod'
 
-import { Card } from '@/components/ui/card'
 import { registerRequestSchema, type RegisterRequest } from '~/api/generated'
 import { useLoginMutation, useRegisterMutation } from '~/api/auth.api'
+import { AuthPosterHeader } from '~/modules/auth/components/auth-poster-header.component'
 import { parseProblem } from '~/modules/auth/helpers/problem-details.helpers'
 import { sessionVerified } from '~/modules/auth/store/auth.slice'
 import type { AppDispatch } from '~/modules/app/app.store'
@@ -72,17 +72,19 @@ const RegisterPage = () => {
   const isLoading = registerState.isLoading || loginState.isLoading
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm gap-0 p-6">
-        <RegisterForm form={form} onSubmit={onSubmit} isLoading={isLoading} formAlert={formAlert} />
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-[26px] bg-background px-[26px] pb-10">
+      <AuthPosterHeader />
+      <RegisterForm form={form} onSubmit={onSubmit} isLoading={isLoading} formAlert={formAlert} />
 
-        <p className="mt-4 text-sm text-muted-foreground">
-          Already have an account?{' '}
-          <Link to="/login" className="font-medium text-foreground underline">
-            Sign in
-          </Link>
-        </p>
-      </Card>
+      <p className="font-body text-sm text-muted-foreground">
+        Already on the plan?{' '}
+        <Link
+          to="/login"
+          className="font-condensed font-bold tracking-[0.12em] text-clay-text uppercase"
+        >
+          Sign in {'\u2192'}
+        </Link>
+      </p>
     </main>
   )
 }

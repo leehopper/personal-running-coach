@@ -383,7 +383,7 @@ test('register → settings → regenerate with intent → home shows new plan',
   //    onboarding shape, and `HomePage` renders plan A.
   await page.goto('/register')
   await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(VALID_PASSWORD)
+  await page.getByLabel('Password', { exact: true }).fill(VALID_PASSWORD)
   await page.getByRole('button', { name: /create account/i }).click()
   await expect(page).toHaveURL('/')
   await expect(page.getByTestId('home-page')).toBeVisible()

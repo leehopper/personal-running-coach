@@ -1,0 +1,67 @@
+<task>
+You are the implementer for Slice 6 PR-B (auth poster screens: sign-in and register onto the Alpine poster, password visibility toggle, auth e2e realignment) in the RunCoach repo. Your cwd is a local git clone on branch feat/slice-6-auth. Read AGENTS.md first (sandbox facts, blocked git, house rules), then in this order before touching anything:
+1. docs/specs/slice-6-settings-auth/spec.md (sections 1 A, C, D, E; 2; 3 PR-B; 4.1, 4.2 auth rows; 5 DU-5 and DU-6; 6; 7; 8; 9; 10) and docs/specs/slice-6-settings-auth/pr-strategy.md  (the spec: its Given/When/Then acceptance criteria are your definition of done)
+2. docs/plans/split-ui-cycle/cycle-plan.md lines 207-219 and 238-268; docs/plans/split-ui-cycle/slice-6-settings-auth.md (D3); docs/plans/split-ui-cycle/slice-6-evidence/recon/adjudication.md sections A, C, D (the rulings the spec encodes; this clone carries the shared evidence read-only under docs/plans/split-ui-cycle/slice-6-evidence/)  (the cycle plan section and the slice design; the spec wins where they differ)
+3. The CLAUDE.md and REVIEW.md files covering the trees you touch (reviewers judge by them)
+4. frontend/CLAUDE.md (Forms, State Management, Styling, Design tokens, Typography, Alpine components, Animation baseline, Accessibility, Testing) and frontend/REVIEW.md (React 19 patterns, RTK Query, React Hook Form, Testing)
+5. docs/plans/split-ui-cycle/slice-6-evidence/recon/design-extract.md (the copy tables, component map, geometry, semantic color map)
+6. frontend/src/app/modules/onboarding/pages/onboarding.page.tsx (the Wordmark mount and screen frame precedent) and frontend/src/app/modules/common/components/wordmark/wordmark.component.tsx
+7. frontend/src/components/ui/form.tsx lines 86-148 (FormControl is a Slot that clones ids and ARIA onto its direct child: the native input stays that child; the toggle wrapper goes around FormControl, never inside)
+8. frontend/e2e/plan-render.spec.ts lines 25-32 and frontend/e2e/shell-navigation.spec.ts lines 6-12 (the sonarjs/no-hardcoded-passwords suppression precedent for fixture lines)
+
+Deliver every acceptance criterion in the spec. Files you will create or change (this is the stage-explicit list the orchestrator commits; keep it exact):
+CHANGED:
+frontend/src/app/pages/login/login.page.tsx
+frontend/src/app/pages/login/login-form.component.tsx
+frontend/src/app/pages/login/login.page.spec.tsx
+frontend/src/app/pages/register/register.page.tsx
+frontend/src/app/pages/register/register-form.component.tsx
+frontend/src/app/pages/register/register.page.spec.tsx
+frontend/src/app/modules/auth/components/auth-form-shell.component.tsx
+frontend/src/app/modules/auth/components/auth-text-field.component.tsx
+frontend/e2e/auth.spec.ts
+frontend/e2e/shell-navigation.spec.ts (one line: 56)
+frontend/e2e/onboarding.spec.ts (one line: 122)
+frontend/e2e/plan-render.spec.ts (one line: 255)
+frontend/e2e/workout-logging.spec.ts (one line: 162)
+frontend/e2e/conversation-streaming.spec.ts (one line: 233)
+frontend/e2e/regenerate-plan.spec.ts (one line: 386; the parallel PR-A makes the identical change, keep the bytes identical)
+NEW:
+frontend/src/app/modules/auth/components/auth-poster-header.component.tsx
+frontend/src/app/modules/auth/components/auth-poster-header.component.spec.tsx
+frontend/src/app/modules/auth/components/password-visibility-toggle.component.tsx
+frontend/src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx
+Do not touch any other file. If an acceptance criterion forces another file, stop and say so in the report instead.
+</task>
+
+<environment_and_gates>
+- Scratch: create `/tmp/codex-agent-feat/slice-6-auth` once and set `TMPDIR=/tmp/codex-agent-feat/slice-6-auth` inline on every command that needs it; each command runs in a fresh shell, so an export does not persist. Everything under that directory (backups, the plan in step 1) is scratch, not a deliverable, and is outside the file list.
+- Gates, run before you report: from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format RunCoach.slnx --include <changed .cs> --no-restore --verify-no-changes`; from frontend/ `npm run build`, `npx vitest run <each changed or added spec>`, `npx eslint <changed .ts/.tsx>`, `npx prettier --check <changed>`. No backend test runs in this sandbox: the test host cannot create its named pipe (SocketException 13). For every test you add or change, name the exact `dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class <FullName>` command for the orchestrator under Deviations, with that error as the reason; never claim a test result.
+- Git is blocked (leave changes in the working tree). Never delete or move a tracked file unless the file list says so. Backups go to that scratch directory via `/bin/cp -f`; the command policy rejects `rm -f`, so delete scratch with plain `rm <path>`.
+- ASCII only in new prose and comments; no em dashes. Comments never cite a plan, spec, or decision path.
+- Sandbox limits you must report as Deviations instead of working around: `npm run e2e` (needs the running stack), `npm run check-contrast` and the full `npm run test` (the `tsx` runner cannot open its IPC pipe here), `dotnet test`. Run `npx vitest run <file>` per touched or added spec instead, plus `npm run build`, `npx eslint <files>`, `npx prettier --check <files>` on every touched file. Hand the orchestrator the exact e2e, check-contrast, and full-suite commands.
+- Evidence files under docs/plans/ are the orchestrator's; do not create or edit anything under docs/ or under backend/, frontend/src/app/api/generated/, backend/openapi/, or frontend/src/components/ui/.
+- Every copy string comes from spec section 4.1; source strings are sentence case (CSS uppercases); write U+2014, U+00B7, U+2192, U+2026 as `\u2014`, `\u00B7`, `\u2192`, `\u2026` escapes in TSX and in tests; never bake uppercase into a stored string.
+- Semantic tokens only (no raw hex, no `--alp-faint` on essential text); every animation pairs a `motion-reduce:` variant; 44px targets on every interactive element; the canonical 3px ring comes from the primitives, do not restyle it.
+- Every test you add must be able to fail against the gap it names; for each, write in the Mutations section the one-line mutation that turns it red (spec section 5 lists the expected red line per criterion). Never loosen or delete a preserved test; the preserved test names are enumerated in spec section 3.
+- Dual-theme tests use `renderInBothThemes` and `expectDualThemeParity` from frontend/src/app/modules/common/test-utils/render-in-both-themes.tsx.
+- Lint traps measured in this repo: `sonarjs/void-use` (wrap a discarded member-promise in a local `Promise<void>` arrow, never `void obj.method()`), `react-hooks/set-state-in-effect` (no synchronous setState inside an effect), `sonarjs/cognitive-complexity` (extract helpers), `sonarjs/no-hardcoded-passwords` (fixture lines take the sibling `// eslint-disable-next-line sonarjs/no-hardcoded-passwords` comment).
+- Preserved contracts (spec 1.C and 3 PR-B): labels `Email` and `Password`; autocomplete `email`, `current-password`, `new-password`; `autoFocus` on email; `form-alert` testid and `role="alert"`; primary copy `Sign in` / `Create account` and pending copy with the ellipsis escape; register-then-login chaining; `parseProblem` mapping; navigation; every existing login and register spec test by name. No change to auth.schema.ts, the generated zod, problem-details.helpers.ts, auth.hooks.ts, or any primitive under frontend/src/components/ui/.
+- The three touched spec files carry four pre-existing `sonarjs/no-hardcoded-passwords` errors on their fixture constants; add the sibling suppression comment above each so per-file eslint is clean; do not rename or restructure the fixtures.
+- Password toggle (spec 4.2): a `relative` wrapper around FormControl plus the toggle button, only when `type === "password"`; the input gets `pr-12`; only the input `type` flips; `aria-label` Show password / Hide password and `aria-pressed`; lucide `Eye` / `EyeOff` with `aria-hidden`; the 44px target comes from the icon size's `before:` expansion in button.tsx (do not edit the primitive).
+- Headings: `AuthFormShell` gains `headingVisuallyHidden`; login renders its `Sign in` h1 with `sr-only`; register renders `Start here` visibly with `t-screen-title`. The OAuth reserve is an empty `aria-hidden` div with `min-h-[52px]` and testid `auth-oauth-reserve`; build nothing else for OAuth.
+- Do not touch frontend/src/app/modules/settings/, frontend/src/app/modules/auth/hooks/, frontend/src/app/modules/auth/components/require-auth.component.spec.tsx, frontend/e2e/regenerate-plan.spec.ts, frontend/vite.config.ts, frontend/package.json, or frontend/scripts/: those belong to the parallel PR-A branch.
+- Password lookups (spec 1.C amendment): the toggle's accessible name contains `password`, and both Testing Library and Playwright match `aria-label` by substring. Change the `fillPassword` helpers in login.page.spec.tsx (lines 55-57) and register.page.spec.tsx (line 58) to `screen.getByLabelText('Password', { exact: true })`, and every `page.getByLabel('Password')` in the seven e2e files to `page.getByLabel('Password', { exact: true })`; nothing else changes in the six one-line e2e files. Journey titles keep their U+2192 arrows byte for byte.
+- Do not touch frontend/e2e/sign-out.spec.ts (it does not exist on this branch; PR-A creates it).
+</environment_and_gates>
+
+<method>
+1. Read everything listed. Write `/tmp/codex-agent-feat/slice-6-auth/plan.md` with the exact edit list and the tests you will add per acceptance criterion, then implement.
+2. Tests first where the spec pins a behavior: each new test must fail against the bug or gap it names; note that red in the report.
+3. Keep every change inside the file list. Prefer the smallest diff that satisfies the criterion; match the surrounding code's conventions rather than introducing new patterns.
+4. Run every gate above; paste each command's last output line.
+</method>
+
+<completeness_contract>
+Every acceptance criterion gets a line: PASS with the command and its last output line, or DEVIATION with what and why. No criterion may be silently skipped. The report is your final message, markdown, sections: Files (exact paths, new vs changed), Gates (each command and its last line), Acceptance table, Mutations (each new test and the bug it fails against), Deviations (including every command the orchestrator must run for you), Open questions. Finish with the line STAGE COMPLETE.
+</completeness_contract>
