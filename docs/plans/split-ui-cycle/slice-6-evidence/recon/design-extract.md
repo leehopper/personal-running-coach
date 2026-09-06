@@ -48,7 +48,7 @@ The table includes visible application-frame strings. Design-document labels suc
 | 14 | `MILES` | Unselected segment. |
 | 15 | `ACCOUNT` | Rule-section heading. |
 | 16 | `SIGNED IN AS` | Mono eyebrow. |
-| 17 | `lee@example.com` | Decoded from the source HTML email protection data. |
+| 17 | `<signed-in email>` | Decoded from the source HTML email protection data. |
 | 18 | `SIGN OUT` | Outline control. |
 | 19 | `SPLIT 0.9.0 [EM DASH] MVP` | Build-version footer shape. |
 | 20 | `TODAY` | Tab-bar label. |
@@ -74,7 +74,7 @@ Visible source-only labels are `5e` and `DAYLIGHT [MIDDLE DOT] /settings [EM DAS
 | 2 | `SPLIT/` | Wordmark, accessible name must remain `Split`. |
 | 3 | `THE PLAN ADAPTS. YOU DO THE WORK.` | Mono tagline. |
 | 4 | `EMAIL` | Input label. |
-| 5 | `lee@example.com` | Example field value decoded from source data. |
+| 5 | `<signed-in email>` | Example field value decoded from source data. |
 | 6 | `PASSWORD` | Input label. |
 | 7 | `[BULLET]` repeated 12 times | Masked password display in mock. |
 | 8 | `SIGN IN` | Filled primary CTA. |
