@@ -1,3 +1,4 @@
+import { MonoLabel } from '~/modules/common/components/mono-label/mono-label.component'
 import type { OnboardingFormControl } from '~/modules/onboarding/schemas/onboarding-form.schema'
 import { OnboardingNuanceSection } from './onboarding-nuance-section.component'
 import { OnboardingSection } from './onboarding-section.component'
@@ -10,47 +11,47 @@ export interface OnboardingFitnessSectionProps {
 }
 
 /**
- * CurrentFitness topic: recent volume + longest run (both required, they anchor
- * the pace/volume model) and an optional recent race result that sharpens the
- * pace zones, plus a free-text note. Distances are entered in the runner's unit.
+ * Current-fitness fields and an optional recent race result. Distances are
+ * entered in the runner's selected unit.
  */
 export const OnboardingFitnessSection = ({ control, unitLabel }: OnboardingFitnessSectionProps) => (
-  <OnboardingSection
-    title="Where you're at"
-    description="Your recent running, so the plan starts from the right place."
-    testId="onboarding-section-fitness"
-  >
-    <OnboardingTextField
-      control={control}
-      name="typicalWeekly"
-      label={`Typical weekly volume (${unitLabel})`}
-      inputMode="decimal"
-      placeholder="e.g. 40"
-    />
-    <OnboardingTextField
-      control={control}
-      name="longestRecentRun"
-      label={`Longest recent run (${unitLabel})`}
-      inputMode="decimal"
-      placeholder="e.g. 18"
-    />
-    <OnboardingTextField
-      control={control}
-      name="recentRaceDistance"
-      label={`Recent race distance (${unitLabel}, optional)`}
-      inputMode="decimal"
-      placeholder="e.g. 10"
-    />
-    <OnboardingTextField
-      control={control}
-      name="recentRaceTime"
-      label="Recent race time (optional)"
-      placeholder="H:MM:SS"
-    />
+  <OnboardingSection title={"03 \u2014 Where you're at"} testId="onboarding-section-fitness">
+    <div className="grid grid-cols-2 gap-3">
+      <OnboardingTextField
+        control={control}
+        name="typicalWeekly"
+        label={`Weekly volume \u00B7 ${unitLabel}`}
+        inputMode="decimal"
+        placeholder="e.g. 40"
+      />
+      <OnboardingTextField
+        control={control}
+        name="longestRecentRun"
+        label={`Longest recent \u00B7 ${unitLabel}`}
+        inputMode="decimal"
+        placeholder="e.g. 18"
+      />
+      <OnboardingTextField
+        control={control}
+        name="recentRaceDistance"
+        label={`Recent race \u00B7 ${unitLabel}`}
+        inputMode="decimal"
+        placeholder="e.g. 10"
+        description="Optional"
+      />
+      <OnboardingTextField
+        control={control}
+        name="recentRaceTime"
+        label="Race time"
+        placeholder="H:MM:SS"
+      />
+    </div>
+    <MonoLabel>{'A recent race sharpens your pace zones. No race \u2014 no problem.'}</MonoLabel>
     <OnboardingNuanceSection
       control={control}
       name="fitnessDescription"
-      label="Add detail"
+      label="+ Add detail"
+      fieldLabel="+ Add detail"
       placeholder="Anything else about your recent running?"
     />
   </OnboardingSection>

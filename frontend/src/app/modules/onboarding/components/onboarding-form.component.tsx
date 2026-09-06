@@ -7,6 +7,7 @@ import { Form } from '@/components/ui/form'
 import { PreferredUnits } from '~/api/generated'
 import { useSubmitStructuredAnswersMutation } from '~/api/onboarding.api'
 import { reportClientError } from '~/error-boundary/report-client-error'
+import { BuildingPlanSurface } from '~/modules/common/components/building-plan-surface/building-plan-surface.component'
 import { distanceUnitLabel } from '~/modules/common/utils/unit-format.helpers'
 import { PrimaryGoal } from '~/modules/onboarding/models/onboarding.model'
 import {
@@ -17,9 +18,10 @@ import {
 } from '~/modules/onboarding/schemas/onboarding-form.schema'
 import { OnboardingFitnessSection } from './onboarding-fitness-section.component'
 import { OnboardingGoalSection } from './onboarding-goal-section.component'
-import { OnboardingInjurySection } from './onboarding-injury-section.component'
-import { OnboardingPreferencesSection } from './onboarding-preferences-section.component'
+import { OnboardingFinePrintSection } from './onboarding-fine-print-section.component'
+import { OnboardingNarrativeField } from './onboarding-narrative-field.component'
 import { OnboardingScheduleSection } from './onboarding-schedule-section.component'
+import { OnboardingSection } from './onboarding-section.component'
 import { OnboardingTargetEventSection } from './onboarding-target-event-section.component'
 import { OnboardingUnitsField } from './onboarding-units-field.component'
 
@@ -46,6 +48,8 @@ export interface OnboardingFormProps {
  * remounts it against the re-seeded (unit-converted) values — the schema, the
  * distance labels, and the km write-conversion are all computed once against the
  * correct unit (the shipped `/log` pattern), never a mid-form schema swap.
+ * While the building overlay is visible, the form remains mounted and inert until
+ * the route guard redirects.
  */
 export const OnboardingForm = ({
   units,
@@ -108,36 +112,35 @@ export const OnboardingForm = ({
     onUnitsChange(nextUnits, form.getValues())
   }
 
-  if (isBuilding) {
-    return (
-      <p
-        role="status"
-        aria-live="polite"
-        className="text-sm text-muted-foreground"
-        data-testid="onboarding-building"
-      >
-        Building your plan…
-      </p>
-    )
-  }
+  const isBuildingVisible = isLoading || isBuilding
 
   return (
     <Form {...form}>
       {/* noValidate: validation is Zod's, surfaced via FormMessage, not the browser's. */}
-      <form onSubmit={form.handleSubmit(onValid)} className="flex flex-col gap-6" noValidate>
+      <form
+        onSubmit={form.handleSubmit(onValid)}
+        className="flex flex-col gap-5"
+        noValidate
+        inert={isBuildingVisible}
+      >
         <OnboardingUnitsField
           units={units}
           onChange={handleUnitsChange}
           disabled={unitsChangePending}
         />
+        <OnboardingSection
+          title={'00 \u2014 In your own words'}
+          testId="onboarding-section-narrative"
+        >
+          <OnboardingNarrativeField control={form.control} />
+        </OnboardingSection>
         <OnboardingGoalSection control={form.control} />
         {isRaceGoal ? (
           <OnboardingTargetEventSection control={form.control} unitLabel={unitLabel} />
         ) : null}
         <OnboardingFitnessSection control={form.control} unitLabel={unitLabel} />
         <OnboardingScheduleSection control={form.control} />
-        <OnboardingInjurySection control={form.control} />
-        <OnboardingPreferencesSection control={form.control} />
+        <OnboardingFinePrintSection control={form.control} />
 
         {formAlert !== null ? (
           <p role="alert" className="text-sm text-destructive" data-testid="onboarding-form-alert">
@@ -153,11 +156,17 @@ export const OnboardingForm = ({
           type="submit"
           size="lg"
           disabled={isLoading || !form.formState.isValid || unitsChangePending}
+          className="h-[54px] motion-reduce:active:scale-100"
           data-testid="onboarding-submit"
         >
-          {isLoading ? 'Building your plan…' : 'Create my plan'}
+          {isLoading ? 'Building your plan\u2026' : 'Build my plan'}
         </Button>
       </form>
+      {isBuildingVisible ? (
+        <div data-testid="onboarding-building">
+          <BuildingPlanSurface className="fixed inset-0 z-50" />
+        </div>
+      ) : null}
     </Form>
   )
 }

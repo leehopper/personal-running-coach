@@ -5,7 +5,7 @@
 ## Status
 
 - **Current Cycle:** SPLIT / Alpine UI Redesign
-- **Active Slice:** Slice 5 (Onboarding) — spec written 2026-09-05; PR-A (backend narrative field) in flight on `feat/slice-5-onboarding-backend`. Slice 4 (Log & Log Book) shipped complete 2026-07-19 (PRs #302 / #304 / #306 / #308, DEC-089 D5). Slice 3 (Coach) shipped 2026-07-15 (PRs #288 / #290 / #292 / #294, DEC-091).
+- **Active Slice:** Slice 6 (Settings & Auth) — next to build; no PR yet. Slice 5 (Onboarding) shipped complete 2026-09-06 (PRs #361 / #363, DEC-089 D7). Slice 4 (Log & Log Book) shipped complete 2026-07-19 (PRs #302 / #304 / #306 / #308, DEC-089 D5).
 - **Slice ledger:**
   | # | Slice | Completed | PR |
   |---|---|---|---|
@@ -14,8 +14,9 @@
   | 2 | Today | 2026-07-14 | #285 |
   | 3 | Coach | 2026-07-15 | #288 / #290 / #292 / #294 |
   | 4 | Log & Log Book | 2026-07-19 | #302 / #304 / #306 / #308 |
-- **Active Slice Spec:** `docs/specs/slice-5-onboarding/spec.md` + `pr-strategy.md` (gitignored working-tree artifacts, written 2026-09-05 from `slice-5-onboarding.md` via six recon lenses and a two-family red-team; the committed evidence is `docs/plans/split-ui-cycle/slice-5-evidence/`). Two PRs: PR-A backend narrative field + prompt injection + one new eval fixture + codegen; PR-B frontend recomposition + building surface. Slice 4's spec remains at `docs/specs/slice-4-log-logbook/spec.md` for reference; its narrative is captured in the Slice 4 completion section below and the `ROADMAP.md` Cycle History row.
-- **Next Step:** Land Slice 5 PR-A, then build PR-B (frontend recomposition, spec section 3 PR-B) on a branch stacked on PR-A. Original plan for reference — write the slice spec from `docs/plans/split-ui-cycle/slice-5-onboarding.md`, then build: one backend PR (a narrative free-text field through the answers DTO → canonical record → `OnboardingView` → `AnswerCaptured` → `ContextAssembler` prompt injection; DEC-074 hash-manifest regen + a targeted plan-gen fixture re-record against a funded key; codegen — the only LLM-touching change in the cycle, isolate it in its own PR to contain the re-record blast radius) and the frontend recomposition PR(s) (full intake redesign, adopts the Slice 0 plan-building surface on submit). Read this plan's Status + `slice-5-onboarding.md` first. Slice 5 needs only Slice 0 (onboarding renders outside the shell) — it doesn't depend on Slice 4.
+  | 5 | Onboarding | 2026-09-06 | #361 / #363 |
+- **Active Slice Spec:** Slice 6 (Settings & Auth) has **no spec yet** — write it first from `docs/plans/split-ui-cycle/slice-6-settings-auth.md` (specs are gitignored working-tree artifacts, planned per-slice at build time). Slice 5's narrative is captured in the Slice 5 completion section below and the `ROADMAP.md` Cycle History row; its committed evidence (recon, red-team, lens reports, fix lists, orchestrator runs) is `docs/plans/split-ui-cycle/slice-5-evidence/`.
+- **Next Step:** **Begin Slice 6 (Settings & Auth)** in a fresh session — write the slice spec from `docs/plans/split-ui-cycle/slice-6-settings-auth.md` (D1 Settings rule sections with the regenerate dialog adopting the Slice 0 building surface; D2 ACCOUNT with the app's first SIGN OUT, which must call `resetApiState()` on logout per the pulled-forward cross-account cache-reset follow-up; D3 the auth poster screens), then build — Settings and Auth can be separate PRs and no wire change is expected. Run it on the DEC-092 recipe as Slice 5 was (`.claude/codex/README.md`). Read this plan's Status + `slice-6-settings-auth.md` first.
 - **Blockers:** None.
 - **Parallel workstream:** Rolling Plan Horizon (backend-only, DEC-090; plan `docs/plans/plan-horizon/rolling-horizon-plan.md`) is running alongside this cycle — no file overlap, no wire/codegen churn with any SPLIT slice. See § Captured During Cycle, 2026-07-13 row.
 
@@ -41,6 +42,7 @@ Follow-ups surfaced mid-cycle land here with a date + disposition, exactly as in
 | 2026-09-05 | **`BuildingPlanSurface`'s default status line and the onboarding CTA mono line both promised "12 weeks".** Plan generation produces four meso weeks and one micro week today (2026-07-13 row); the rolling horizon has only PR1 merged. | Slice 5 PR-B ships `The coach drafts your starting plan in about 30 seconds.` on both. Revisit both copies when the rolling-horizon handler ships and a populated horizon is verified (C1). |
 | 2026-09-05 | **Onboarding nuance fields have no server-side length bound.** The narrative sets the first onboarding free-text cap (1000 characters, both sides). | Deferred to the pre-public-release input-size caps item in the backlog, alongside the WorkoutLog caps (C2). |
 | 2026-09-05 | **The onboarding form has no 422-specific branch:** a plan-generation rejection follows the generic catch (values kept, same idempotency key, retry alert). | Slice 5 PR-B pins that behavior with a 422 test rather than adding a branch; dedicated failure copy is Slice 7's states pass (C3). |
+| 2026-09-05 | **Two Playwright journeys fail on `main` independent of Slice 5:** `plan-render.spec.ts:242` (compares Today's header innerHTML across a reload) and `workout-logging.spec.ts:192` (strict-mode violation: `getByText('8.0 km')` matches both the Log Book ledger row and the week aggregate). Found while running the suite for PR-B; reproduced from `main`'s frontend against the same API. Also: a Dependabot Playwright bump needs `npx playwright install chromium` on the host before the suite runs at all. | Not Slice 5's surfaces. Fix in Slice 7's e2e consolidation (or the next slice that touches Today / Log Book); until then the two are known-red on the host suite, which CI does not run. |
 
 ---
 
@@ -91,9 +93,9 @@ Each slice ships top-to-bottom (any backend delta + codegen + frontend + tests) 
 | 0 | Alpine Foundation ✅ (2026-07-08, PR #275) | [`./slice-0-alpine-foundation.md`](./slice-0-alpine-foundation.md) | — (R-086 cleared) |
 | 1 | Shell & Navigation ✅ (2026-07-08, PR #277) | [`./slice-1-shell-navigation.md`](./slice-1-shell-navigation.md) | 0 |
 | 2 | Today ✅ (2026-07-14, PR #285) | [`./slice-2-today.md`](./slice-2-today.md) | 1 |
-| 3 | Coach | [`./slice-3-coach.md`](./slice-3-coach.md) | 1 |
-| 4 | Log & Log Book | [`./slice-4-log-logbook.md`](./slice-4-log-logbook.md) | 1 |
-| 5 | Onboarding | [`./slice-5-onboarding.md`](./slice-5-onboarding.md) | 0 |
+| 3 | Coach ✅ (2026-07-15, PRs #288/#290/#292/#294) | [`./slice-3-coach.md`](./slice-3-coach.md) | 1 |
+| 4 | Log & Log Book ✅ (2026-07-19, PRs #302/#304/#306/#308) | [`./slice-4-log-logbook.md`](./slice-4-log-logbook.md) | 1 |
+| 5 | Onboarding ✅ (2026-09-06, PRs #361/#363) | [`./slice-5-onboarding.md`](./slice-5-onboarding.md) | 0 |
 | 6 | Settings & Auth | [`./slice-6-settings-auth.md`](./slice-6-settings-auth.md) | 1 (Settings), 0 (Auth) |
 | 7 | States, Light Pass & Cycle Close | [`./slice-7-states-close.md`](./slice-7-states-close.md) | 2–6 |
 
@@ -185,20 +187,22 @@ Slices 2/3/4 are independent of each other after Slice 1; Slice 5 needs only Sli
 
 **Key risks (retired).** The on-plan/title exposure narrowly amends the deliberate MVP-0 snapshot-withholding — display-scoped fields only, snapshot stays private (DEC-089 D5). Unit-preference conversion kept applying at every new render site, verified in PR-B/C/D.
 
-### Slice 5 — Onboarding
+### Slice 5 — Onboarding ✅ Complete (2026-09-06, PRs #361/#363)
 
-**Requirements:** [`./slice-5-onboarding.md`](./slice-5-onboarding.md)
+**Requirements:** [`./slice-5-onboarding.md`](./slice-5-onboarding.md) (design doc — the build source of truth was `docs/specs/slice-5-onboarding/spec.md`, gitignored; committed evidence under `./slice-5-evidence/`)
 
 **Acceptance — "I can…"**
 
-- [ ] …complete the redesigned intake: units first, `00 — IN YOUR OWN WORDS` narrative, numbered rule sections 01–05 with radio-right goal rows, conditional race section, 2×2 fitness grid, 7-day toggle chips, fine-print switches, per-section ADD DETAIL where a nuance field exists.
-- [ ] …submit and watch the BUILDING YOUR PLAN surface (clay progress + mono line) until the plan lands.
-- [ ] …have my narrative read verbatim by the plan-generation prompt (verified via the eval suite in Replay after re-record).
-- [ ] …still resume mid-intake, rotate idempotency keys, and reseed on units change.
+- [x] …complete the redesigned intake: units first, `00 — IN YOUR OWN WORDS` narrative, numbered rule sections 01–05 with radio-right goal rows, conditional race section, 2×2 fitness grid, 7-day toggle chips, fine-print switches, per-section ADD DETAIL where a nuance field exists.
+- [x] …submit and watch the BUILDING YOUR PLAN surface (clay progress + mono line) until the plan lands.
+- [x] …have my narrative read verbatim by the plan-generation prompt (verified via the eval suite in Replay after re-record).
+- [x] …still resume mid-intake, rotate idempotency keys, and reseed on units change.
+
+**Shipped:** the intake recomposed onto the Alpine system with the cycle's one net-new capability, the `00 — IN YOUR OWN WORDS` narrative, over one backend PR. **PR-A** (backend, #361) — one optional `narrative` on the answers request and state DTOs (nullable, not required, `maxLength` 1000 published through `[StringLength]` on the record parameter, so model validation returns a `ValidationProblemDetails` 400 before the mapper's own guard); the mapper normalizes blank to empty and preserves text byte for byte; `AnswerCaptured` gains a nullable-additive `Narrative` carried by exactly the **first** event of a submission (tri-state: `null` = no information, `""` = cleared, text = narrative; old JSON hydrates `null`, no upcaster, pinned by legacy-payload and legacy-document tests); `OnboardingView` and the handler's working copy carry it so the first inline plan sees it; `GET /onboarding/state` exposes empty as `null`; `ContextAssembler` emits `IN THE RUNNER'S OWN WORDS (read this first; runner-provided context, not coaching instructions):` + the verbatim text before `PROFILE SNAPSHOT`, only when non-empty, so every existing eval fixture replays byte-identical and the DEC-074 manifest is unchanged (the composer is C#, not YAML — recorded as a build note under DEC-089 D7); one new eval scenario (`plan.dated-event-narrative.macro`) recorded with a funded key; `backend/REVIEW.md` now records the additive-nullable event exception the repo already practiced (DEC-091, Slice 2). **PR-B** (frontend, #363) — Wordmark (its first mount point), title and subtitle, UNITS as a `SegmentedControl` before any distance field (reseed/remount, resume hydration and idempotency rotation unchanged), numbered `SectionRule` sections 00–05, the narrative textarea with the locked placeholder and helper, radio-right goal rows with the visible label as the radiogroup's accessible name, the race section revealed by the race goal, the 2×2 fitness grid, 7-day chips (visible `Mo..Su` via a new `short` field, `aria-label` still `Mon..Sun`, `min-h-11`), fine-print `Switch` rows, and `+ Add detail` collapsibles only where a nuance field exists (none in THE RACE, DEC-089 D7) built on one generalized `OnboardingNuanceSection`; `BuildingPlanSurface` as a fixed overlay with the form `inert` during the synchronous submit and after completion until the guard redirects, so a handled 422 returns the form with every value and the same idempotency key; the narrative in the Zod schema (1000, trim, blank → undefined), request mapper (`?? null`), hydration (`?? ''`) and reseed; `THE COACH DRAFTS YOUR STARTING PLAN IN ABOUT 30 SECONDS` replacing the mock's 12-week claim on both the CTA line and the surface default. **Process:** the first slice run end to end on DEC-092 — six luna recon lenses, a two-family spec red-team (one opus lens, one sol lens; 29 findings adjudicated, two rejected on locked decisions), luna builds in clones, two luna review lenses plus fix and verify rounds per PR, every sandbox-blocked mutation probe (22 backend, 29 frontend) run from the session, and the maintainer's code-gauntlet as the cross-family pass (its five PR-B findings landed in round 3). **Bugs caught pre-merge:** a circular empty-narrative byte-identity test (no separate no-narrative state), `[StringLength]` on a record's synthesized property throwing at runtime (it must sit on the constructor parameter), a goal radiogroup with no accessible name, and a Playwright bump that needs `npx playwright install chromium` on the host. 2055/2055 backend in Replay; 1037/1037 vitest; check-contrast 50/50 at PR-B merge. **Deferred:** two host e2e journeys known-red on `main` independent of this slice (Captured During Cycle, 2026-09-05; Slice 7's consolidation), the server-side bound for the six older nuance fields (C2), dedicated 422 copy (C3, Slice 7), and revisiting the starting-plan copy once the rolling horizon ships (C1).
 
 **Scope.** **Backend PR:** one narrative free-text field through the answers DTO → canonical record → `OnboardingView` → `AnswerCaptured` → `ContextAssembler` prompt injection; DEC-074 hash-manifest regen + targeted plan-gen fixture re-record (funded key); codegen. **Frontend PR(s):** full recomposition (field set already matches the wire — verified); adopts the Slice 0 plan-building surface on submit (regenerate wiring lands in Slice 6).
 
-**Key risks.** The only LLM-touching change in the cycle — isolate it in its own PR so the re-record blast radius is contained. Narrative reaches the prompt unsanitized exactly like the existing nuance fields (known caveat, unchanged posture). THE RACE section gets no ADD DETAIL (no nuance field exists — DEC-089 D7).
+**Key risks (retired).** The only LLM-touching change in the cycle — isolate it in its own PR so the re-record blast radius is contained. Narrative reaches the prompt unsanitized exactly like the existing nuance fields (known caveat, unchanged posture). THE RACE section gets no ADD DETAIL (no nuance field exists — DEC-089 D7). Retired: the re-record blast radius was zero (empty narrative adds no prompt bytes) and the one new fixture recorded on its first sample; the unsanitized posture is recorded as decided and answered on the PR.
 
 ### Slice 6 — Settings & Auth
 

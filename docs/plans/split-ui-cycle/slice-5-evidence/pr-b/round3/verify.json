@@ -1,0 +1,111 @@
+{
+ "gate": "ACCEPT",
+ "findings": [],
+ "mutations": [
+  {
+   "mutation": "F14: restored the pre-fix hand-rolled fine-print disclosure.",
+   "expected_red_test": "Targeted OnboardingForm spec rejects size=sm.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F15: made OnboardingNuanceSection ignore triggerTestId.",
+   "expected_red_test": "Targeted OnboardingForm spec cannot find fine-print-detail-trigger.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F13: documentation-only rationale mutation.",
+   "expected_red_test": "No executable assertion exists.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "F16: documentation-only rationale mutation.",
+   "expected_red_test": "No executable assertion exists.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "F17: no implementer-owned code to mutate.",
+   "expected_red_test": "No code mutation exists.",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "F13",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-target-event-section.component.tsx:11-15"
+  },
+  {
+   "item": "F14",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-fine-print-section.component.tsx:46-65"
+  },
+  {
+   "item": "F15",
+   "status": "SATISFIED",
+   "where": "frontend/src/app/modules/onboarding/components/onboarding-nuance-section.component.tsx:23-25,76"
+  },
+  {
+   "item": "F16",
+   "status": "SATISFIED",
+   "where": "The three restored JSDocs are at schedule:11-16, units:13-20, and text field:29-35."
+  },
+  {
+   "item": "F17",
+   "status": "SATISFIED",
+   "where": "docs/plans/split-ui-cycle/slice-5-evidence/pr-b/round3/fix-list.txt:32-34"
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx",
+   "result": "1 file passed; 26 tests passed."
+  },
+  {
+   "command": "npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx (F14 mutation)",
+   "result": "RED: 1 failed, 25 passed; received data-size sm."
+  },
+  {
+   "command": "npx vitest run src/app/modules/onboarding/components/onboarding-form.component.spec.tsx (F15 mutation)",
+   "result": "RED: 1 failed, 25 passed; fine-print-detail-trigger missing."
+  },
+  {
+   "command": "npm run build",
+   "result": "exit 0; built in 521ms."
+  },
+  {
+   "command": "npx eslint <7 changed frontend files>",
+   "result": "exit 0; no output."
+  },
+  {
+   "command": "npx prettier --check <7 changed frontend files>",
+   "result": "All matched files use Prettier code style!"
+  },
+  {
+   "command": "git diff --check HEAD~1",
+   "result": "exit 0; no output."
+  },
+  {
+   "command": "git status --short",
+   "result": "No output; mutations and generated outputs are restored or unchanged."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "npm run test",
+   "purpose": "Supplied orchestrator measurement: 1037/1037."
+  },
+  {
+   "command": "npm run check-contrast",
+   "purpose": "Supplied orchestrator measurement: 50/50; fixer reported IPC EPERM locally."
+  },
+  {
+   "command": "npm run codegen:check",
+   "purpose": "Supplied orchestrator measurement: rc=0."
+  },
+  {
+   "command": "npm run e2e",
+   "purpose": "Supplied orchestrator measurement: 14 passed, 2 pre-existing failures."
+  }
+ ],
+ "verdict": "ACCEPT. All fixes are satisfied. F14 and F15 kill their original bugs under mutation. No regressions were found."
+}

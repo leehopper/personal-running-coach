@@ -3,13 +3,13 @@ import { cn } from '@/lib/utils'
 export interface BuildingPlanSurfaceProps {
   /**
    * Mono status line under the progress indicator, e.g. "The coach drafts
-   * 12 weeks in about 30 seconds."
+   * your starting plan in about 30 seconds."
    */
   statusLine?: string
   className?: string
 }
 
-const DEFAULT_STATUS_LINE = 'The coach drafts 12 weeks in about 30 seconds.'
+const DEFAULT_STATUS_LINE = 'The coach drafts your starting plan in about 30 seconds.'
 
 /**
  * Full-surface "plan is building" state. Replaces the whole screen while the
@@ -20,7 +20,7 @@ const DEFAULT_STATUS_LINE = 'The coach drafts 12 weeks in about 30 seconds.'
  * The progress indicator is deliberately indeterminate: plan generation has
  * no real percent-complete signal to report, so a partial-width clay bar
  * travels the length of its track on a loop (`animate-indeterminate`,
- * index.css) instead of sitting at a fixed position — a fixed bar that only
+ * index.css) instead of sitting at a fixed position - a fixed bar that only
  * pulses opacity reads as "stalled," not "working." Reduced motion swaps
  * the travel for a stationary opacity pulse (no positional movement).
  * `role="status"`/`aria-live="polite"` on the wrapper means the heading and

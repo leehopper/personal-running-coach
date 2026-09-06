@@ -1,33 +1,32 @@
 import type { ReactNode } from 'react'
 
+import { cn } from '@/lib/utils'
+import { SectionRule } from '~/modules/common/components/section-rule/section-rule.component'
+
 export interface OnboardingSectionProps {
   title: string
   description?: string
   children: ReactNode
   testId?: string
+  className?: string
 }
 
 /**
- * A titled card grouping one onboarding topic's fields. Presentational shell
- * shared by every section so headings, spacing, and surface styling stay
- * consistent across the single-page form.
+ * A numbered Alpine section opener grouping one onboarding topic's fields.
+ * Presentational shell shared by every section so spacing stays consistent.
  */
 export const OnboardingSection = ({
   title,
   description,
   children,
   testId,
+  className,
 }: OnboardingSectionProps) => (
-  <section
-    className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4"
-    data-testid={testId}
-  >
-    <div className="flex flex-col gap-1">
-      <h2 className="text-base font-semibold text-foreground">{title}</h2>
-      {description !== undefined ? (
-        <p className="text-sm text-muted-foreground">{description}</p>
-      ) : null}
-    </div>
+  <section className={cn('flex flex-col gap-4', className)} data-testid={testId}>
+    <SectionRule label={title} />
+    {description !== undefined ? (
+      <p className="t-body text-muted-foreground">{description}</p>
+    ) : null}
     {children}
   </section>
 )

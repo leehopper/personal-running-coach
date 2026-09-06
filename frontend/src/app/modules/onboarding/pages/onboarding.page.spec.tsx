@@ -58,6 +58,7 @@ vi.mock('~/modules/onboarding/components/onboarding-form.component', () => ({
       data-testid="onboarding-form-stub"
       data-units={units}
       data-goal={initialFields.goal}
+      data-narrative={initialFields.narrative}
       data-typical-weekly={initialFields.typicalWeekly}
       data-pending={String(unitsChangePending)}
     >
@@ -146,6 +147,23 @@ describe('OnboardingPage gating', () => {
     expect(form).toHaveAttribute('data-goal', '')
   })
 
+  it('renders the Alpine onboarding page identity before the form gate', () => {
+    render(<OnboardingPage />)
+
+    const wordmark = screen.getByRole('img', { name: 'Split' })
+    const pageHeader = screen.getByRole('banner')
+    expect(wordmark).toBeInTheDocument()
+    expect(
+      Boolean(wordmark.compareDocumentPosition(pageHeader) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true)
+    expect(
+      screen.getByRole('heading', { level: 1, name: "Tell me what we're working with" }),
+    ).toHaveClass('t-screen-title')
+    expect(screen.getByText('Answer straight. The plan is only as honest as you are.')).toHaveClass(
+      't-body',
+    )
+  })
+
   it('hydrates the form from a resumed onboarding state', () => {
     getOnboardingStateMock.mockReturnValue(
       stateQuery({
@@ -158,6 +176,7 @@ describe('OnboardingPage gating', () => {
           isComplete: false,
           outstandingClarifications: [],
           primaryGoal: { goal: PrimaryGoal.GeneralFitness, description: '' },
+          narrative: 'Steady return after a calf strain.',
           targetEvent: null,
           currentFitness: null,
           weeklySchedule: null,
@@ -171,6 +190,10 @@ describe('OnboardingPage gating', () => {
     expect(screen.getByTestId('onboarding-form-stub')).toHaveAttribute(
       'data-goal',
       String(PrimaryGoal.GeneralFitness),
+    )
+    expect(screen.getByTestId('onboarding-form-stub')).toHaveAttribute(
+      'data-narrative',
+      'Steady return after a calf strain.',
     )
   })
 
@@ -222,7 +245,7 @@ describe('OnboardingPage gating', () => {
 
     // The stub reports the runner edited weekly volume to 20 km, then switched to miles.
     await user.click(screen.getByRole('button', { name: 'change-units' }))
-    // Once the PUT resolves, setSeed applies the reseeded (20 km → 12.4 mi) values;
+    // Once the PUT resolves, setSeed applies the reseeded (20 km -> 12.4 mi) values;
     // the form is still keyed on km here, so it re-renders (not remounts) with the seed.
     await waitFor(() =>
       expect(screen.getByTestId('onboarding-form-stub')).toHaveAttribute(
@@ -238,8 +261,8 @@ describe('OnboardingPage gating', () => {
 
     const after = screen.getByTestId('onboarding-form-stub')
     expect(after).toHaveAttribute('data-units', String(PreferredUnits.Miles))
-    // 20 km ÷ 1.609344 ≈ 12.4 mi — the reseeded (edited) value, NOT the hydrated
-    // 10 km → 6.2 mi. This guards the `initialFields={seed ?? hydrated}` wiring:
+    // 20 km / 1.609344 is about 12.4 mi - the reseeded (edited) value, NOT the hydrated
+    // 10 km -> 6.2 mi. This guards the `initialFields={seed ?? hydrated}` wiring:
     // switching it to `{hydrated}` (or dropping setSeed) would show '6.2' and fail.
     expect(after).toHaveAttribute('data-typical-weekly', '12.4')
     // The resolved unit has now caught up to the pending target, so the pending flag clears.
@@ -252,7 +275,7 @@ describe('OnboardingPage gating', () => {
     expect(screen.getByTestId('onboarding-form-stub')).toHaveAttribute('data-pending', 'false')
     await user.click(screen.getByRole('button', { name: 'change-units' }))
     // The resolved preference stays Kilometers in this mock, so `pendingUnits`
-    // never clears — the control is marked pending after the change is issued.
+    // never clears - the control is marked pending after the change is issued.
     await waitFor(() =>
       expect(screen.getByTestId('onboarding-form-stub')).toHaveAttribute('data-pending', 'true'),
     )

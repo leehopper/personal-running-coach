@@ -6,6 +6,7 @@ import type { PreferredUnits } from '~/api/generated'
 import { useGetOnboardingStateQuery } from '~/api/onboarding.api'
 import { usePutUnitPreferenceMutation } from '~/api/settings.api'
 import { reportClientError } from '~/error-boundary/report-client-error'
+import { Wordmark } from '~/modules/common/components/wordmark/wordmark.component'
 import { usePreferredUnitsResolution } from '~/modules/settings/hooks/use-preferred-units.hooks'
 import { OnboardingForm } from '~/modules/onboarding/components/onboarding-form.component'
 import {
@@ -75,7 +76,7 @@ const OnboardingContent = ({
   if (unitsError) {
     return (
       <RetryPanel
-        message="We couldn’t load your unit preference. Check your connection and try again."
+        message={'We couldn\u2019t load your unit preference. Check your connection and try again.'}
         testId="onboarding-units-error"
         onRetry={refetchUnits}
       />
@@ -84,7 +85,9 @@ const OnboardingContent = ({
   if (stateFatalError) {
     return (
       <RetryPanel
-        message="We couldn’t reach the onboarding service. Check your connection and try again."
+        message={
+          'We couldn\u2019t reach the onboarding service. Check your connection and try again.'
+        }
         testId="onboarding-state-error"
         onRetry={refetchState}
       />
@@ -93,7 +96,7 @@ const OnboardingContent = ({
   if (!isResolved || stateLoading) {
     return (
       <p role="status" className="text-sm text-muted-foreground" data-testid="onboarding-loading">
-        Loading…
+        {'Loading\u2026'}
       </p>
     )
   }
@@ -110,10 +113,10 @@ const OnboardingContent = ({
 }
 
 /**
- * The `/onboarding` route — a single-page, mobile-first structured form
+ * The `/onboarding` route - a single-page, mobile-first structured form
  * (DEC-086). It defers the form until the unit preference has resolved (the
  * numeric write interprets distances in the runner's unit, so it must never fall
- * through to the loading-time km default — the `/log` posture), hydrates the
+ * through to the loading-time km default - the `/log` posture), hydrates the
  * form from `GET /state` on resume, and re-seeds the distances when the runner
  * changes units. Completion + the redirect to `/` are owned by the
  * `OnboardingRedirectGuard` (this route is wrapped by it) once the submit
@@ -172,7 +175,7 @@ export const OnboardingPage = (): ReactElement => {
   const stateIs404 = stateIsError && isErrorStatus(stateError, 404)
   const stateFatalError = stateIsError && !stateIs404
 
-  // 404 → no stream yet → a fresh, blank form; 200 → hydrate the resumed answers.
+  // 404 -> no stream yet -> a fresh, blank form; 200 -> hydrate the resumed answers.
   // A units change overrides with the re-seeded (unit-converted) values.
   const hydrated =
     stateDto !== undefined
@@ -181,13 +184,14 @@ export const OnboardingPage = (): ReactElement => {
 
   return (
     <main
-      className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 bg-background px-4 py-8"
+      className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-background px-[22px] py-8"
       data-testid="onboarding-page"
     >
+      <Wordmark size="header" />
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-foreground">Let's build your plan</h1>
-        <p className="text-sm text-muted-foreground">
-          Answer a few questions and your coach will draft a training plan.
+        <h1 className="t-screen-title text-foreground">Tell me what we're working with</h1>
+        <p className="t-body text-muted-foreground">
+          Answer straight. The plan is only as honest as you are.
         </p>
       </header>
       <OnboardingContent

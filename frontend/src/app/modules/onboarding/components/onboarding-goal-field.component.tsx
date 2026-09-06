@@ -1,6 +1,6 @@
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   GOAL_OPTIONS,
   type OnboardingFormControl,
@@ -11,10 +11,8 @@ export interface OnboardingGoalFieldProps {
 }
 
 /**
- * The primary-goal single-select, rendered as labelled `RadioGroup` cards
- * (Radix values are strings, so the enum is mapped at the group boundary — the
- * same `String(value)` convention as the Settings units toggle). Selecting
- * "Train for a race" reveals the TargetEvent section via the form's `useWatch`.
+ * The primary-goal single-select, rendered as radio-right rows. Radix values
+ * are strings, so the enum is mapped at the group boundary.
  */
 export const OnboardingGoalField = ({ control }: OnboardingGoalFieldProps) => (
   <FormField
@@ -22,22 +20,23 @@ export const OnboardingGoalField = ({ control }: OnboardingGoalFieldProps) => (
     name="goal"
     render={({ field }) => (
       <FormItem>
-        <FormLabel>What's your primary goal?</FormLabel>
+        <FormLabel id="goal-field-label">What's your primary goal?</FormLabel>
         <FormControl>
           <RadioGroup
             value={field.value}
             onValueChange={field.onChange}
-            className="gap-2"
+            className="gap-0"
+            aria-labelledby="goal-field-label"
             data-testid="goal-field"
           >
             {GOAL_OPTIONS.map((option) => (
               <Label
                 key={option.value}
                 htmlFor={`goal-option-${option.value}`}
-                className="flex cursor-pointer items-center gap-3 rounded-md border border-input p-3 font-normal transition-colors has-[:checked]:border-primary has-[:checked]:bg-accent motion-reduce:transition-none"
+                className="flex min-h-11 cursor-pointer items-center justify-between gap-3 border-b border-border py-2 font-normal transition-colors first:pt-0 last:border-b-0 last:pb-0 has-[:checked]:text-primary motion-reduce:transition-none"
               >
-                <RadioGroupItem id={`goal-option-${option.value}`} value={String(option.value)} />
                 {option.label}
+                <RadioGroupItem id={`goal-option-${option.value}`} value={String(option.value)} />
               </Label>
             ))}
           </RadioGroup>

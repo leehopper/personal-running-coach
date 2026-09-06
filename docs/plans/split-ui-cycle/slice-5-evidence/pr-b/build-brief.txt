@@ -1,0 +1,66 @@
+<task>
+You are the implementer for Slice 5 PR-B (frontend onboarding recomposition onto the Alpine system, narrative field, building surface adoption) in the RunCoach repo. Your cwd is a local git clone on branch feat/slice-5-onboarding-frontend. Read AGENTS.md first (sandbox facts, blocked git, house rules), then in this order before touching anything:
+1. docs/specs/slice-5-onboarding/spec.md (sections 1.B, 2, 3 PR-B, 4, 5 Units 7-12, 6, 7, 8, 9) and docs/specs/slice-5-onboarding/pr-strategy.md  (the spec: its Given/When/Then acceptance criteria are your definition of done)
+2. docs/plans/split-ui-cycle/cycle-plan.md lines 184-197 and 230-260; docs/plans/split-ui-cycle/slice-5-onboarding.md; docs/design/split-alpine/HANDOFF.md sections 5.5, 6, 7, 8; docs/plans/split-ui-cycle/slice-5-evidence/recon/adjudication.md section B  (the cycle plan section and the slice design; the spec wins where they differ)
+3. The CLAUDE.md and REVIEW.md files covering the trees you touch (reviewers judge by them)
+4. frontend/CLAUDE.md (Forms, Styling, Design tokens, Typography, Alpine components, Animation baseline, Accessibility, Testing) and frontend/REVIEW.md
+5. The Slice 4 log form as the recomposition precedent: frontend/src/app/modules/logging/pages/log.page.tsx, frontend/src/app/modules/logging/components/log-form.component.tsx, and the completion segmented control and date chip components beside it
+6. The Alpine primitives you compose: frontend/src/components/ui/{segmented-control,switch,radio-group,collapsible,textarea,input,label,form,button}.tsx and frontend/src/app/modules/common/components/{section-rule,mono-label,wordmark,building-plan-surface}/
+
+Deliver every acceptance criterion in the spec. Files you will create or change (this is the stage-explicit list the orchestrator commits; keep it exact):
+NEW:
+frontend/src/app/modules/onboarding/components/onboarding-narrative-field.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-fine-print-section.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-switch-field.component.tsx
+CHANGED:
+frontend/src/app/modules/onboarding/pages/onboarding.page.tsx
+frontend/src/app/modules/onboarding/components/onboarding-form.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-section.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-goal-field.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-goal-section.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-target-event-section.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-fitness-section.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-schedule-section.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-nuance-section.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-text-field.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-day-toggle-field.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-units-field.component.tsx
+frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.ts
+frontend/src/app/modules/onboarding/components/onboarding-form.component.spec.tsx
+frontend/src/app/modules/onboarding/pages/onboarding.page.spec.tsx
+frontend/src/app/modules/onboarding/schemas/onboarding-form.schema.spec.ts
+frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.tsx
+frontend/src/app/modules/common/components/building-plan-surface/building-plan-surface.component.spec.tsx
+frontend/e2e/onboarding.spec.ts
+DELETED (the file list authorizes these three deletions; delete with plain `rm <path>`):
+frontend/src/app/modules/onboarding/components/onboarding-checkbox-field.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-injury-section.component.tsx
+frontend/src/app/modules/onboarding/components/onboarding-preferences-section.component.tsx
+Do not touch any other file. If an acceptance criterion forces another file, stop and say so in the report instead.
+</task>
+
+<environment_and_gates>
+- Scratch: create `/tmp/codex-agent-feat/slice-5-onboarding-frontend` once and set `TMPDIR=/tmp/codex-agent-feat/slice-5-onboarding-frontend` inline on every command that needs it; each command runs in a fresh shell, so an export does not persist. Everything under that directory (backups, the plan in step 1) is scratch, not a deliverable, and is outside the file list.
+- Gates, run before you report: from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format RunCoach.slnx --include <changed .cs> --no-restore --verify-no-changes`; from frontend/ `npm run build`, `npx vitest run <each changed or added spec>`, `npx eslint <changed .ts/.tsx>`, `npx prettier --check <changed>`. No backend test runs in this sandbox: the test host cannot create its named pipe (SocketException 13). For every test you add or change, name the exact `dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class <FullName>` command for the orchestrator under Deviations, with that error as the reason; never claim a test result.
+- Git is blocked (leave changes in the working tree). Never delete or move a tracked file unless the file list says so. Backups go to that scratch directory via `/bin/cp -f`; the command policy rejects `rm -f`, so delete scratch with plain `rm <path>`.
+- ASCII only in new prose and comments; no em dashes. Comments never cite a plan, spec, or decision path.
+- PR-A is already on this branch (HEAD): the generated clients and the hand-written onboarding models carry `narrative?: string | null`. Do not touch generated files, swagger, or anything under backend/.
+- Every copy string comes from spec section 4 (the component map is the source of source strings: sentence case; CSS uppercases). Write U+2014, U+00B7, U+2026 as `\u2014`, `\u00B7`, `\u2026` escapes in TSX and in tests. Never bake uppercase into a stored string.
+- Preserved contracts (spec section 1.B and 3 PR-B): the page spec, schema spec, helpers spec, and API spec keep passing without loosening; field `name`s and `{name}-field` testids are unchanged; `onboarding-units-field`, `onboarding-submit`, `onboarding-building`, `onboarding-form-alert`, `goal-field`, `days-field` stay; idempotency behavior (fresh UUID per mount, same key across retries and after a 422, rotation on incomplete success) is unchanged and now pinned by the 422 test.
+- Day chips: add a `short` field to `DAY_OPTIONS` for the visible text (`Mo`..`Su`); `aria-label` keeps `label` (`Mon`..`Sun`). Chips are `min-h-11`. The e2e day-chip clicks by name `Mon`/`Wed` must keep working.
+- Building overlay: `BuildingPlanSurface` with `className="fixed inset-0 z-50"` inside `<div data-testid="onboarding-building">`, shown while `isLoading || isBuilding`; the `<form>` gets React 19's boolean `inert` prop while the overlay shows; the form stays mounted so a 422 returns it with values intact.
+- Semantic tokens only (no raw hex, no `--alp-faint` on essential text); every animation pairs a `motion-reduce:` variant; 44px targets on every interactive element; keep FormLabel/FormControl/FormDescription/FormMessage wiring and `role="alert"` messages.
+- Sandbox limits you must report as Deviations instead of working around: `npm run e2e` (needs the running stack), `npm run check-contrast` and the full `npm run test` (the `tsx` runner cannot open its IPC pipe here). Run `npx vitest run <file>` per touched spec instead, plus `npm run build`, `npx eslint`, `npx prettier --check` on every touched file. Hand the orchestrator the exact e2e and check-contrast commands.
+- Dual-theme test: use `renderInBothThemes` from `frontend/src/app/modules/common/test-utils/render-in-both-themes.tsx` for the new form tests, as the Slice 2 and 3 component specs do.
+</environment_and_gates>
+
+<method>
+1. Read everything listed. Write `/tmp/codex-agent-feat/slice-5-onboarding-frontend/plan.md` with the exact edit list and the tests you will add per acceptance criterion, then implement.
+2. Tests first where the spec pins a behavior: each new test must fail against the bug or gap it names; note that red in the report.
+3. Keep every change inside the file list. Prefer the smallest diff that satisfies the criterion; match the surrounding code's conventions rather than introducing new patterns.
+4. Run every gate above; paste each command's last output line.
+</method>
+
+<completeness_contract>
+Every acceptance criterion gets a line: PASS with the command and its last output line, or DEVIATION with what and why. No criterion may be silently skipped. The report is your final message, markdown, sections: Files (exact paths, new vs changed), Gates (each command and its last line), Acceptance table, Mutations (each new test and the bug it fails against), Deviations (including every command the orchestrator must run for you), Open questions. Finish with the line STAGE COMPLETE.
+</completeness_contract>
