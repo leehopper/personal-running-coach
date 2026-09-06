@@ -13,13 +13,13 @@ export interface RegisterFormProps {
 
 export const RegisterForm = ({ form, onSubmit, isLoading, formAlert }: RegisterFormProps) => (
   <AuthFormShell
-    heading="Create your account"
+    heading="Start here"
     formAlert={formAlert}
     form={form}
     onSubmit={onSubmit}
     isLoading={isLoading}
     submitLabel="Create account"
-    pendingLabel="Creating account…"
+    pendingLabel={'Creating account\u2026'}
   >
     <AuthTextField
       control={form.control}
@@ -35,7 +35,12 @@ export const RegisterForm = ({ form, onSubmit, isLoading, formAlert }: RegisterF
       label="Password"
       type="password"
       autoComplete="new-password"
-      description="At least 12 characters. The server also requires an uppercase letter, a lowercase letter, a digit, and a non-alphanumeric character; a weaker password is rejected at submit with a server-side error."
+      description={
+        <span className="font-mono">
+          <span className="font-condensed">12</span> characters or more, with an uppercase letter, a
+          lowercase letter, a digit, and a symbol.
+        </span>
+      }
     />
   </AuthFormShell>
 )

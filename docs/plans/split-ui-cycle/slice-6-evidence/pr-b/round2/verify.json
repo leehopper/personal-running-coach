@@ -1,0 +1,128 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "major",
+   "claim": "F7's claimed stage-report reconciliation is missing in this worktree.",
+   "evidence": "INSPECTED .stage-report.md:15 claims an addendum at .stage-report.md:93, but wc -l reports 48 lines. The stale deviation remains at .stage-report.md:36. build-report.md:93-98 has the addendum, but .stage-report.md does not.",
+   "fix": "Append the promised orchestrator addendum to .stage-report.md with the evidence paths, host results, E2E disposition, and corrected deviations.",
+   "mode": "INSPECTED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "F1: remove hit-target-44 from both page secondary links",
+   "expected_red_test": "Both secondary-link class assertions fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F2: restore space-y-4 on the AuthFormShell form",
+   "expected_red_test": "The login form-rhythm assertion fails.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F3: change max-w-md to max-w-sm on both auth page mains",
+   "expected_red_test": "Both poster-frame assertions fail.",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F4: change PasswordVisibilityToggle size from icon to sm",
+   "expected_red_test": "The toggle geometry assertion fails on size-9 and before:inset-[-4px].",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F5: change the auth primary height from h-[52px] to h-9",
+   "expected_red_test": "The login primary geometry assertion fails on h-[52px].",
+   "observed": "RED"
+  },
+  {
+   "mutation": "F6: no mutation; the adjudication explicitly dropped the evidence-formatting item",
+   "expected_red_test": "No implementation behavior exists to mutate.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "F7: no mutation; report reconciliation is documentation-only",
+   "expected_red_test": "No implementation behavior exists to mutate.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "F8: no local mutation; host gates and E2E replays are orchestrator evidence",
+   "expected_red_test": "No safe local implementation mutation is associated with this evidence-only item.",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "F1 secondary link target and focus ring",
+   "status": "SATISFIED",
+   "where": "login.page.tsx:69 and register.page.tsx:83; assertions at login.page.spec.tsx:185 and register.page.spec.tsx:194."
+  },
+  {
+   "item": "F2 auth form rhythm",
+   "status": "SATISFIED",
+   "where": "auth-form-shell.component.tsx:55 uses flex flex-col gap-3.5; auth-text-field.component.tsx:87 uses gap-1.5; login.page.spec.tsx:205 pins both."
+  },
+  {
+   "item": "F3 poster frame",
+   "status": "SATISFIED",
+   "where": "login.page.tsx:61 and register.page.tsx:75 use the locked max-w-md frame; assertions at login.page.spec.tsx:111 and register.page.spec.tsx:116."
+  },
+  {
+   "item": "F4 toggle geometry",
+   "status": "SATISFIED",
+   "where": "password-visibility-toggle.component.tsx:17 uses size=icon; size-9 and before:inset-[-4px] are pinned at password-visibility-toggle.component.spec.tsx:52."
+  },
+  {
+   "item": "F5 primary geometry",
+   "status": "SATISFIED",
+   "where": "auth-form-shell.component.tsx:60 and login.page.spec.tsx:215 pin w-full, h-[52px], text-[17px], and tracking-[0.14em]."
+  },
+  {
+   "item": "F6 dropped evidence-formatting finding",
+   "status": "SATISFIED",
+   "where": "No action is required per .fix-brief.txt F6."
+  },
+  {
+   "item": "F7 orchestrator report reconciliation",
+   "status": "PARTIAL",
+   "where": "build-report.md:93-98 contains the addendum, but .stage-report.md:15 falsely claims an addendum at line 93 and the file ends at line 48."
+  },
+  {
+   "item": "F8 host gates and E2E mutation evidence",
+   "status": "SATISFIED",
+   "where": "round1/orchestrator-runs.md:31-52 records fixed-tree host runs and :9-21 records eight red E2E replays."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "TMPDIR=/tmp/codex-agent-auth-r2-verify npx vitest run src/app/pages/login/login.page.spec.tsx src/app/pages/register/register.page.spec.tsx src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx",
+   "result": "GREEN: Test Files 3 passed (3); Tests 45 passed (45)."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-auth-r2-verify npm run build",
+   "result": "GREEN: vite build exit 0; built in 540ms."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-auth-r2-verify npx eslint src/app/modules/auth/components/auth-form-shell.component.tsx src/app/modules/auth/components/auth-text-field.component.tsx src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx src/app/pages/login/login.page.spec.tsx src/app/pages/login/login.page.tsx src/app/pages/register/register.page.spec.tsx src/app/pages/register/register.page.tsx",
+   "result": "GREEN: exit 0 with no output."
+  },
+  {
+   "command": "TMPDIR=/tmp/codex-agent-auth-r2-verify npx prettier --check src/app/modules/auth/components/auth-form-shell.component.tsx src/app/modules/auth/components/auth-text-field.component.tsx src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx src/app/pages/login/login.page.spec.tsx src/app/pages/login/login.page.tsx src/app/pages/register/register.page.spec.tsx src/app/pages/register/register.page.tsx",
+   "result": "GREEN: All matched files use Prettier code style!"
+  },
+  {
+   "command": "git diff --check HEAD~1 -- frontend/src/app/modules/auth/components/auth-form-shell.component.tsx frontend/src/app/modules/auth/components/auth-text-field.component.tsx frontend/src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx frontend/src/app/pages/login/login.page.spec.tsx frontend/src/app/pages/login/login.page.tsx frontend/src/app/pages/register/register.page.spec.tsx frontend/src/app/pages/register/register.page.tsx",
+   "result": "GREEN: exit 0 with no output."
+  },
+  {
+   "command": "wc -l .stage-report.md && rg -n 'Orchestrator addendum|three orchestrator-added evidence|Host results supersede|Full `npm run test`|host E2E was not runnable' .stage-report.md || true",
+   "result": "F7 evidence: .stage-report.md has 48 lines, retains the stale deviation at line 36, and has no addendum."
+  },
+  {
+   "command": "git status --short",
+   "result": "Pre-existing orchestrator edit remains; no mutation residue."
+  }
+ ],
+ "orchestrator_runs": [],
+ "verdict": "REJECT: F1-F5 are present, focused gates pass, and all five implementation mutations are red and restored. F7 is only partially satisfied because the promised .stage-report.md addendum is absent."
+}

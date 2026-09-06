@@ -4,25 +4,37 @@ import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  expectDualThemeParity,
+  renderInBothThemes,
+} from '~/modules/common/test-utils/render-in-both-themes'
 import { authSlice } from '~/modules/auth/store/auth.slice'
 
-const { registerUnwrap, registerTrigger, loginUnwrap, loginTrigger, navigateMock } = vi.hoisted(
-  () => {
-    const rUnwrap = vi.fn()
-    const lUnwrap = vi.fn()
-    return {
-      registerUnwrap: rUnwrap,
-      registerTrigger: vi.fn(() => ({ unwrap: rUnwrap })),
-      loginUnwrap: lUnwrap,
-      loginTrigger: vi.fn(() => ({ unwrap: lUnwrap })),
-      navigateMock: vi.fn(),
-    }
-  },
-)
+const {
+  registerUnwrap,
+  registerTrigger,
+  registerMutationState,
+  loginUnwrap,
+  loginTrigger,
+  loginMutationState,
+  navigateMock,
+} = vi.hoisted(() => {
+  const rUnwrap = vi.fn()
+  const lUnwrap = vi.fn()
+  return {
+    registerUnwrap: rUnwrap,
+    registerTrigger: vi.fn(() => ({ unwrap: rUnwrap })),
+    registerMutationState: { isLoading: false },
+    loginUnwrap: lUnwrap,
+    loginTrigger: vi.fn(() => ({ unwrap: lUnwrap })),
+    loginMutationState: { isLoading: false },
+    navigateMock: vi.fn(),
+  }
+})
 
 vi.mock('~/api/auth.api', () => ({
-  useRegisterMutation: () => [registerTrigger, { isLoading: false }],
-  useLoginMutation: () => [loginTrigger, { isLoading: false }],
+  useRegisterMutation: () => [registerTrigger, registerMutationState],
+  useLoginMutation: () => [loginTrigger, loginMutationState],
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -55,7 +67,7 @@ const fillEmail = async (user: UserEvent, value: string): Promise<void> => {
 }
 
 const fillPassword = async (user: UserEvent, value: string): Promise<void> => {
-  await user.type(screen.getByLabelText(/password/i), value)
+  await user.type(screen.getByLabelText('Password', { exact: true }), value)
 }
 
 // See login.page.spec.tsx — native form submit is the only way to trigger
@@ -73,19 +85,149 @@ const VALID_EMAIL = 'runner@example.com'
 // R-071) which carry only the length + email-format constraints; the
 // character-class rules are enforced server-side at submit time and the
 // 400 / 409 ProblemDetails responses are surfaced via parseProblem.
+// eslint-disable-next-line sonarjs/no-hardcoded-passwords
 const VALID_PASSWORD = 'StrongPassw0rd!'
 
 describe('RegisterPage', () => {
   beforeEach(() => {
     registerUnwrap.mockReset()
     registerTrigger.mockClear()
+    registerMutationState.isLoading = false
     loginUnwrap.mockReset()
     loginTrigger.mockClear()
+    loginMutationState.isLoading = false
     navigateMock.mockReset()
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('renders the poster header and a visible Start here h1', () => {
+    renderRegister()
+
+    expect(screen.getByTestId('auth-poster-header')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Split' })).toBeInTheDocument()
+    const heading = screen.getByRole('heading', { name: 'Start here' })
+    expect(heading).toBeVisible()
+    expect(heading).toHaveClass('t-screen-title')
+  })
+
+  it('renders the poster frame', () => {
+    renderRegister()
+
+    expect(screen.getByRole('main')).toHaveClass(
+      'mx-auto',
+      'min-h-dvh',
+      'max-w-md',
+      'gap-[26px]',
+      'px-[26px]',
+      'pb-10',
+    )
+  })
+
+  // eslint-disable-next-line sonarjs/assertions-in-tests
+  it('keeps the poster surface in both themes', () => {
+    const result = renderInBothThemes(
+      <Provider store={makeStore()}>
+        <MemoryRouter initialEntries={['/register']}>
+          <RegisterPage />
+        </MemoryRouter>
+      </Provider>,
+    )
+
+    expectDualThemeParity(result, 'auth-poster-header')
+  })
+
+  it('preserves auth field semantics and autocomplete values', () => {
+    renderRegister()
+
+    const email = screen.getByLabelText('Email', { exact: true })
+    const password = screen.getByLabelText('Password', { exact: true })
+    expect(email).toHaveAttribute('autocomplete', 'email')
+    expect(email).toHaveFocus()
+    expect(password).toHaveAttribute('autocomplete', 'new-password')
+    expect(email).toHaveClass('h-12', 'px-[14px]')
+    expect(password).toHaveClass('h-12', 'px-[14px]', 'pr-12')
+    expect(email.parentElement).not.toHaveClass('relative')
+    expect(password.parentElement).toHaveClass('relative')
+    expect(password.parentElement?.querySelector('[data-slot="form-control"]')).toBe(password)
+    expect(screen.getByText('Email', { exact: true })).toHaveClass('t-data-label')
+    expect(screen.getByText('Password', { exact: true })).toHaveClass('t-data-label')
+    const helper = screen.getByText(
+      (_, element) =>
+        element?.tagName === 'SPAN' &&
+        element.textContent ===
+          '12 characters or more, with an uppercase letter, a lowercase letter, a digit, and a symbol.',
+    )
+    expect(helper).toHaveTextContent(
+      '12 characters or more, with an uppercase letter, a lowercase letter, a digit, and a symbol.',
+    )
+    expect(helper).toHaveClass('font-mono')
+  })
+
+  it('renders the helper numeral in the condensed font', () => {
+    renderRegister()
+
+    expect(screen.getByText('12', { exact: true })).toHaveClass('font-condensed')
+  })
+
+  it('flips password visibility without changing autocomplete', async () => {
+    const { user } = renderRegister()
+    const password = screen.getByLabelText('Password', { exact: true })
+    const toggle = screen.getByTestId('password-visibility-toggle')
+
+    expect(password).toHaveAttribute('type', 'password')
+    expect(password).toHaveAttribute('autocomplete', 'new-password')
+    await user.click(toggle)
+    expect(password).toHaveAttribute('type', 'text')
+    expect(password).toHaveAttribute('autocomplete', 'new-password')
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle).toHaveAccessibleName('Hide password')
+  })
+
+  it('renders an empty OAuth reserve', () => {
+    renderRegister()
+    const reserve = screen.getByTestId('auth-oauth-reserve')
+
+    expect(reserve).toHaveClass('min-h-[52px]')
+    expect(reserve).toHaveAttribute('aria-hidden', 'true')
+    expect(reserve).toBeEmptyDOMElement()
+  })
+
+  it('renders the Sign in link to /login', () => {
+    renderRegister()
+    const link = screen.getByRole('link', { name: /sign in/i })
+
+    expect(link).toHaveTextContent('Sign in \u2192')
+    expect(link).toHaveAttribute('href', '/login')
+  })
+
+  it('renders the secondary link with a 44px target and the canonical focus ring', () => {
+    renderRegister()
+    const link = screen.getByRole('link', { name: /sign in/i })
+
+    expect(link).toHaveClass(
+      'relative',
+      'hit-target-44',
+      'rounded-sm',
+      'font-condensed',
+      'font-bold',
+      'uppercase',
+      'tracking-[0.12em]',
+      'text-clay-text',
+      'outline-none',
+      'focus-visible:border-ring',
+      'focus-visible:ring-[3px]',
+      'focus-visible:ring-ring/[0.22]',
+    )
+  })
+
+  it('renders the pending create-account copy', () => {
+    registerMutationState.isLoading = true
+    renderRegister()
+
+    expect(screen.getByRole('button', { name: 'Creating account\u2026' })).toBeDisabled()
   })
 
   describe('client-side validation mirrors the generated Zod schema (DataAnnotations only)', () => {
@@ -228,7 +370,7 @@ describe('RegisterPage', () => {
       registerUnwrap.mockResolvedValue({ userId: 'usr_abc', email: VALID_EMAIL })
       loginUnwrap.mockRejectedValue({
         status: 500,
-        data: { title: 'Temporary sign-in failure — please sign in manually.', status: 500 },
+        data: { title: 'Temporary sign-in failure \u2014 please sign in manually.', status: 500 },
       })
       const { store, user } = renderRegister()
       await fillEmail(user, VALID_EMAIL)

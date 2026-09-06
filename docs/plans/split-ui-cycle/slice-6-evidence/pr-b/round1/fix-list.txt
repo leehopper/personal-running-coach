@@ -1,0 +1,41 @@
+F1 (major; sol red-team 5, spec 4.2 auth links, amended): both page-level secondary links (`Create account →` in
+login.page.tsx and `Sign in →` in register.page.tsx) have no 44px hit target and no focus ring. Give each `Link`
+the locked class `relative hit-target-44 rounded-sm font-condensed font-bold uppercase tracking-[0.12em]
+text-clay-text outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22]`
+(`hit-target-44` is the shared utility in frontend/src/index.css; it needs `relative`). Add a page-spec assertion on
+each page (`renders the secondary link with a 44px target and the canonical focus ring`) that reads the link's class
+list. Red: remove `hit-target-44`.
+
+F2 (major; sol red-team 10, spec 4.2 auth fields, amended): the auth form stack still uses `space-y-4` and the
+FormItem keeps the primitive's default gap. In auth-form-shell.component.tsx the `<form>` becomes
+`flex flex-col gap-3.5`; in auth-text-field.component.tsx each `FormItem` gets `className="gap-1.5"`. Add a page-spec
+assertion for both classes on one page (`lays out the form on the poster rhythm`). Red: restore `space-y-4`.
+
+F3 (major; mutation ledger finding 2): neither page spec pins the locked main frame. In login.page.spec.tsx and
+register.page.spec.tsx assert the `<main>` class list contains `mx-auto`, `min-h-dvh`, `max-w-md`, `gap-[26px]`,
+`px-[26px]`, and `pb-10` (`renders the poster frame`). Red: change `max-w-md` to `max-w-sm`.
+
+F4 (major; mutation ledger finding 3): password-visibility-toggle.component.spec.tsx does not pin the toggle's
+geometry. Assert the button carries the icon-size classes button.tsx emits for `size="icon"` (read button.tsx and
+assert the literal size class and the `before:` hit expansion class) and the position classes
+`absolute top-1/2 right-1 -translate-y-1/2` (`keeps the 44px target and the field-edge position`). Red: change
+`size="icon"` to `size="sm"`.
+
+F5 (major; mutation ledger finding 4): the auth primary geometry is untested. In one page spec assert the submit
+button's class list contains `w-full`, `h-[52px]`, `text-[17px]`, and `tracking-[0.14em]` (`renders the 52px poster
+primary`). Red: change `h-[52px]` to `h-9`.
+
+F6 DROPPED (mutation ledger finding 5, conformance checks_run prettier on evidence files): the evidence markdown,
+JSON, and brief under docs/plans/ are outside the Prettier gate (lefthook's prettier hook covers source globs; the
+stage report's claim covers the touched source and e2e files, all clean). No action.
+
+F7 ORCHESTRATOR-DONE (conformance findings 1 and 2, mutation finding 6): the stage report omitted the three
+orchestrator-added evidence paths and carried a stale E2E deviation. The orchestrator appended an addendum to
+.stage-report.md and build-report.md reconciling the 22-path commit and the host results. No implementer action.
+
+F8 ORCHESTRATOR-RAN (treat as measured fact; recorded in
+docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-orchestrator-runs.md and round1/orchestrator-runs.md): from the
+session against the clone at 8aa14029: `npm run test` 1058/1058; `npm run check-contrast` 50/50; `npm run codegen:check`
+exit 0; `npm run build` clean; eslint exit 0 and prettier clean on every touched source and e2e file; Playwright 14 passed
+with the two pre-existing `main` failures; the exact-password-locator and tagline e2e mutation replays are being run by
+the orchestrator in a separate worktree while this fix round runs.

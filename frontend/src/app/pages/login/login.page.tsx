@@ -5,8 +5,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { zodResolver } from '@hookform/resolvers/zod'
 
-import { Card } from '@/components/ui/card'
 import { useLoginMutation } from '~/api/auth.api'
+import { AuthPosterHeader } from '~/modules/auth/components/auth-poster-header.component'
 import { parseProblem } from '~/modules/auth/helpers/problem-details.helpers'
 import { loginSchema, type LoginFormValues } from '~/modules/auth/schemas/auth.schema'
 import { sessionVerified } from '~/modules/auth/store/auth.slice'
@@ -58,17 +58,19 @@ const LoginPage = () => {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm gap-0 p-6">
-        <LoginForm form={form} onSubmit={onSubmit} isLoading={isLoading} formAlert={formAlert} />
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-[26px] bg-background px-[26px] pb-10">
+      <AuthPosterHeader />
+      <LoginForm form={form} onSubmit={onSubmit} isLoading={isLoading} formAlert={formAlert} />
 
-        <p className="mt-4 text-sm text-muted-foreground">
-          Need an account?{' '}
-          <Link to="/register" className="font-medium text-foreground underline">
-            Create one
-          </Link>
-        </p>
-      </Card>
+      <p className="font-body text-sm text-muted-foreground">
+        First run here?{' '}
+        <Link
+          to="/register"
+          className="relative hit-target-44 rounded-sm font-condensed font-bold uppercase tracking-[0.12em] text-clay-text outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/[0.22]"
+        >
+          Create account {'\u2192'}
+        </Link>
+      </p>
     </main>
   )
 }

@@ -23,6 +23,7 @@ const uniqueEmail = (): string => `e2e-${randomUUID()}@runcoach.test`
 
 // Meets the backend Identity policy (12+ chars, upper, lower, digit,
 // non-alphanumeric) and the frontend `registerSchema`.
+// eslint-disable-next-line sonarjs/no-hardcoded-passwords -- static E2E fixture password, not a real credential
 const VALID_PASSWORD = 'Correct-Horse-9!'
 
 // Wire-format enum inlined (not imported) so the e2e suite stays decoupled
@@ -87,7 +88,14 @@ test('register → authenticated home → reload → logout clears session', asy
   //    so the backend issues `__Host-RunCoach` + the antiforgery pair.
   await page.goto('/register')
   await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(VALID_PASSWORD)
+  await expect(page.getByRole('img', { name: 'Split' })).toBeVisible()
+  await expect(page.getByText('The plan adapts. You do the work.')).toBeVisible()
+  const password = page.getByLabel('Password', { exact: true })
+  await password.fill(VALID_PASSWORD)
+  const passwordToggle = page.getByTestId('password-visibility-toggle')
+  await passwordToggle.click()
+  await expect(password).toHaveAttribute('type', 'text')
+  await expect(passwordToggle).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: /create account/i }).click()
 
   await expect(page).toHaveURL('/')

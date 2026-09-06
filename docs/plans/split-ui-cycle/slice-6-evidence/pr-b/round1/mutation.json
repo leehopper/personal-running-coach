@@ -1,0 +1,423 @@
+{
+ "gate": "REJECT",
+ "findings": [
+  {
+   "severity": "major",
+   "claim": "E2E mutation replay was not runnable in this sandbox.",
+   "evidence": "`npm run e2e -- e2e/auth.spec.ts` failed with `Error: listen EPERM: operation not permitted ::1:5173`. The same error occurred for each changed E2E spec.",
+   "fix": "Run the listed targeted E2E mutation commands against the host stack.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "major",
+   "claim": "Register does not directly test the locked Alpine main-frame class.",
+   "evidence": "`frontend/src/app/pages/register/register.page.tsx:75` renders the frame. `frontend/src/app/pages/register/register.page.spec.tsx:106-114` checks header and heading only.",
+   "fix": "Add an assertion for the exact main class, then replay a class mutation.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The password toggle hit-target configuration is not directly tested.",
+   "evidence": "`frontend/src/app/modules/auth/components/password-visibility-toggle.component.tsx:14-20` pins variant, size, position, and the shared 44px hit target. `password-visibility-toggle.component.spec.tsx:26-45` does not assert these.",
+   "fix": "Add direct assertions for the locked toggle classes and hit target, then replay a size or position mutation.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The auth primary button geometry is not directly tested.",
+   "evidence": "`frontend/src/app/modules/auth/components/auth-form-shell.component.tsx:57-64` pins `w-full h-[52px] text-[17px] tracking-[0.14em]`. Login and register pending tests do not inspect these classes.",
+   "fix": "Add a direct geometry assertion and replay an `h-[52px]` mutation.",
+   "mode": "INSPECTED"
+  },
+  {
+   "severity": "major",
+   "claim": "The stage report claims all changed files passed Prettier, but committed evidence files fail the check.",
+   "evidence": "`.stage-report.md:22` claims all changed files passed. `prettier --check` reported formatting errors in `docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-report.md:1` and `build-vars.json:1`; `build-brief.txt` has no inferred parser.",
+   "fix": "Format the evidence files or scope the report claim to files supported by the formatter.",
+   "mode": "MECHANIZED"
+  },
+  {
+   "severity": "minor",
+   "claim": "The stage report's E2E deviation is stale.",
+   "evidence": "`.stage-report.md:44,47,78-80` says E2E was unavailable. `docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-orchestrator-runs.md:26-37` records 14 passed and 2 known pre-existing failures.",
+   "fix": "Update the report to reference the orchestrator run and its known failures.",
+   "mode": "INSPECTED"
+  }
+ ],
+ "mutations": [
+  {
+   "mutation": "Remove the Split wordmark aria-label.",
+   "expected_red_test": "npx vitest run src/app/modules/auth/components/auth-poster-header.component.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove the poster rule class.",
+   "expected_red_test": "npx vitest run src/app/modules/auth/components/auth-poster-header.component.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove the poster tagline.",
+   "expected_red_test": "npx vitest run src/app/modules/auth/components/auth-poster-header.component.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Add a raw hex class to AuthPosterHeader.",
+   "expected_red_test": "npx vitest run src/app/modules/auth/components/auth-poster-header.component.spec.tsx, login.page.spec.tsx, register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove aria-pressed from PasswordVisibilityToggle.",
+   "expected_red_test": "npx vitest run src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Replace the toggle onClick callback with a no-op.",
+   "expected_red_test": "npx vitest run src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Add a raw hex class to PasswordVisibilityToggle.",
+   "expected_red_test": "npx vitest run src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove sr-only from the login heading.",
+   "expected_red_test": "npx vitest run src/app/pages/login/login.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change login password autocomplete to new-password.",
+   "expected_red_test": "npx vitest run src/app/pages/login/login.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Stop AuthTextField from switching password input type.",
+   "expected_red_test": "npx vitest run src/app/pages/login/login.page.spec.tsx and register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Put a child element inside auth-oauth-reserve.",
+   "expected_red_test": "npx vitest run src/app/pages/login/login.page.spec.tsx and register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change the login link copy from Create account arrow to Create one.",
+   "expected_red_test": "npx vitest run src/app/pages/login/login.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change login pending copy from Signing in ellipsis to three periods.",
+   "expected_red_test": "npx vitest run src/app/pages/login/login.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Revert login fillPassword to a non-exact password label lookup.",
+   "expected_red_test": "npx vitest run src/app/pages/login/login.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Add sr-only to the register heading.",
+   "expected_red_test": "npx vitest run src/app/pages/register/register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change register password autocomplete to current-password.",
+   "expected_red_test": "npx vitest run src/app/pages/register/register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Force visible password autocomplete to current-password.",
+   "expected_red_test": "npx vitest run src/app/pages/register/register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change the register link copy from Sign in arrow to Sign in.",
+   "expected_red_test": "npx vitest run src/app/pages/register/register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Change register pending copy from Creating account ellipsis to three periods.",
+   "expected_red_test": "npx vitest run src/app/pages/register/register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Replace the exact register helper sentence with the old helper copy.",
+   "expected_red_test": "npx vitest run src/app/pages/register/register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Revert register fillPassword to a non-exact password label lookup.",
+   "expected_red_test": "npx vitest run src/app/pages/register/register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Suppress AuthFormShell formAlert rendering.",
+   "expected_red_test": "npx vitest run src/app/pages/login/login.page.spec.tsx and register.page.spec.tsx",
+   "observed": "RED"
+  },
+  {
+   "mutation": "Remove the AuthPosterHeader tagline.",
+   "expected_red_test": "npm run e2e -- e2e/auth.spec.ts",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Revert auth.spec.ts to a non-exact Password locator.",
+   "expected_red_test": "npm run e2e -- e2e/auth.spec.ts",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Revert the exact password locator in conversation-streaming.spec.ts.",
+   "expected_red_test": "npm run e2e -- e2e/conversation-streaming.spec.ts",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Revert the exact password locator in onboarding.spec.ts.",
+   "expected_red_test": "npm run e2e -- e2e/onboarding.spec.ts",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Revert the exact password locator in plan-render.spec.ts.",
+   "expected_red_test": "npm run e2e -- e2e/plan-render.spec.ts",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Revert the exact password locator in regenerate-plan.spec.ts.",
+   "expected_red_test": "npm run e2e -- e2e/regenerate-plan.spec.ts",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Revert the exact password locator in shell-navigation.spec.ts.",
+   "expected_red_test": "npm run e2e -- e2e/shell-navigation.spec.ts",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Revert the exact password locator in workout-logging.spec.ts.",
+   "expected_red_test": "npm run e2e -- e2e/workout-logging.spec.ts",
+   "observed": "NOT_RUNNABLE_IN_SANDBOX"
+  },
+  {
+   "mutation": "Change the register main frame max-w-md class to max-w-sm. No direct test currently covers it.",
+   "expected_red_test": "No register frame assertion exists.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Change PasswordVisibilityToggle size=icon to size=icon-xs. No direct hit-target test currently covers it.",
+   "expected_red_test": "No direct toggle hit-target assertion exists.",
+   "observed": "NOT_RUN"
+  },
+  {
+   "mutation": "Change the auth submit button h-[52px] class to h-9. No direct geometry test currently covers it.",
+   "expected_red_test": "No direct auth primary geometry assertion exists.",
+   "observed": "NOT_RUN"
+  }
+ ],
+ "conformance": [
+  {
+   "item": "docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-brief.txt",
+   "status": "PARTIAL",
+   "where": "Artifact metadata only. No runtime state, events, wire shape, token, or route mutation. Prettier cannot infer a parser for this extension."
+  },
+  {
+   "item": "docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-report.md",
+   "status": "PARTIAL",
+   "where": "Artifact report only. No runtime mutation. The documented all-files Prettier claim is contradicted by the local check."
+  },
+  {
+   "item": "docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-vars.json",
+   "status": "PARTIAL",
+   "where": "Artifact variables only. No runtime mutation. The local Prettier check reports formatting errors."
+  },
+  {
+   "item": "frontend/e2e/auth.spec.ts",
+   "status": "SATISFIED",
+   "where": "Test-only mutation: adds poster, tagline, toggle, and exact password assertions. Host evidence reports auth journey pass. Local attack was blocked by the Playwright web-server listener error."
+  },
+  {
+   "item": "frontend/e2e/conversation-streaming.spec.ts",
+   "status": "SATISFIED",
+   "where": "Locator-only mutation to exact Password. Wrong locator order or ambiguity would fail the journey. Host evidence reports the changed journey pass. Local mutation command was listener-blocked."
+  },
+  {
+   "item": "frontend/e2e/onboarding.spec.ts",
+   "status": "SATISFIED",
+   "where": "Locator-only mutation to exact Password. Wrong locator would fail auth setup. Host evidence reports the changed journey pass. Local mutation command was listener-blocked."
+  },
+  {
+   "item": "frontend/e2e/plan-render.spec.ts",
+   "status": "SATISFIED",
+   "where": "Locator-only mutation to exact Password. Host evidence reports the changed journey pass; its separate strict failure is known pre-existing. Local mutation command was listener-blocked."
+  },
+  {
+   "item": "frontend/e2e/regenerate-plan.spec.ts",
+   "status": "SATISFIED",
+   "where": "Locator-only mutation to exact Password. Wrong locator would fail the auth precondition. Host evidence reports the changed journey pass. Local mutation command was listener-blocked."
+  },
+  {
+   "item": "frontend/e2e/shell-navigation.spec.ts",
+   "status": "SATISFIED",
+   "where": "Locator-only mutation to exact Password. Wrong locator would fail auth navigation setup. Host evidence reports the changed journey pass. Local mutation command was listener-blocked."
+  },
+  {
+   "item": "frontend/e2e/workout-logging.spec.ts",
+   "status": "SATISFIED",
+   "where": "Locator-only mutation to exact Password. Host evidence reports the changed journey pass; its separate strict failure is known pre-existing. Local mutation command was listener-blocked."
+  },
+  {
+   "item": "auth-form-shell.component.tsx",
+   "status": "PARTIAL",
+   "where": "Mutates heading visibility, pending state, submit event, alert rendering, and empty OAuth reserve. RED mutations prove those pins. Exact primary button geometry is implemented at :60 but lacks a direct test."
+  },
+  {
+   "item": "auth-poster-header.component.spec.tsx",
+   "status": "SATISFIED",
+   "where": "Test assertions pin wordmark name, poster rule, tagline, and theme token parity. Each corresponding source mutation produced RED."
+  },
+  {
+   "item": "auth-poster-header.component.tsx",
+   "status": "SATISFIED",
+   "where": "Mutates only poster markup and semantic token classes. Missing name, rule, tagline, or raw hex mutations all produced RED."
+  },
+  {
+   "item": "auth-text-field.component.tsx",
+   "status": "SATISFIED",
+   "where": "Mutates local visibility state, input type, autocomplete, and password padding while preserving form field wiring. Wrong type and autocomplete mutations produced RED in login or register tests."
+  },
+  {
+   "item": "password-visibility-toggle.component.spec.tsx",
+   "status": "PARTIAL",
+   "where": "Tests pin button type, labels, pressed state, click behavior, icons, and parity. Those mutations produced RED. Variant, size, position, and hit target are not directly asserted."
+  },
+  {
+   "item": "password-visibility-toggle.component.tsx",
+   "status": "PARTIAL",
+   "where": "Mutates click event, aria state, icon state, and semantic Button tokens. Wrong callback, pressed state, and raw hex mutations produced RED. The 44px hit-target configuration lacks a direct test."
+  },
+  {
+   "item": "login-form.component.tsx",
+   "status": "SATISFIED",
+   "where": "Mutates login heading visibility, pending copy, and exact password lookup support without changing payload or routes. Heading, pending, and ambiguity mutations produced RED."
+  },
+  {
+   "item": "login.page.spec.tsx",
+   "status": "SATISFIED",
+   "where": "Pins login poster, field semantics, visibility, reserve emptiness, links, pending state, form errors, and theme parity. Narrow suite passes and relevant source mutations produced RED."
+  },
+  {
+   "item": "login.page.tsx",
+   "status": "SATISFIED",
+   "where": "Mutates poster layout and register route presentation while preserving login payload, success navigation, and sanitized next handling. Existing login tests and host evidence defend these paths."
+  },
+  {
+   "item": "register-form.component.tsx",
+   "status": "SATISFIED",
+   "where": "Mutates register heading, pending copy, helper copy, and exact password lookup support without changing payload. Relevant mutations produced RED."
+  },
+  {
+   "item": "register.page.spec.tsx",
+   "status": "PARTIAL",
+   "where": "Pins register poster, fields, visibility, reserve emptiness, links, pending state, helper, errors, and parity. It does not directly pin the exact Alpine main-frame class."
+  },
+  {
+   "item": "register.page.tsx",
+   "status": "PARTIAL",
+   "where": "Mutates poster layout and login route presentation while preserving register then login payload flow. Existing tests defend routes and flow, but no direct test defends the exact main-frame class."
+  }
+ ],
+ "checks_run": [
+  {
+   "command": "npx vitest run src/app/modules/auth/components/auth-poster-header.component.spec.tsx",
+   "result": "PASS. Tests 4 passed (4)."
+  },
+  {
+   "command": "npx vitest run src/app/modules/auth/components/password-visibility-toggle.component.spec.tsx",
+   "result": "PASS. Tests 3 passed (3)."
+  },
+  {
+   "command": "npx vitest run src/app/pages/login/login.page.spec.tsx",
+   "result": "PASS. Tests 18 passed (18)."
+  },
+  {
+   "command": "npx vitest run src/app/pages/register/register.page.spec.tsx",
+   "result": "PASS. Tests 17 passed (17)."
+  },
+  {
+   "command": "npm run build",
+   "result": "PASS. Vite completed with `built` and only the existing chunk-size warning."
+  },
+  {
+   "command": "npx eslint <19 changed frontend ts/tsx files>",
+   "result": "PASS. Exit 0 with no output."
+  },
+  {
+   "command": "npx prettier --check <19 changed frontend ts/tsx files>",
+   "result": "PASS. All matched files use Prettier code style."
+  },
+  {
+   "command": "git diff --check",
+   "result": "PASS. No whitespace errors."
+  },
+  {
+   "command": "git diff --exit-code -- src/app/api/generated ../backend/openapi/swagger.json",
+   "result": "PASS. generated-drift-rc=0."
+  },
+  {
+   "command": "dotnet build RunCoach.slnx --no-restore -m:1 -nr:false -p:UseSharedCompilation=false --disable-build-servers",
+   "result": "PASS. Build succeeded. 0 Warning(s). 0 Error(s)."
+  },
+  {
+   "command": "dotnet format RunCoach.slnx --no-restore --verify-no-changes",
+   "result": "NOT_RUNNABLE IN THIS SANDBOX. Timed out after 30 seconds with no output."
+  },
+  {
+   "command": "prettier --check docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-report.md docs/plans/split-ui-cycle/slice-6-evidence/pr-b/build-vars.json",
+   "result": "RED. Prettier reported formatting issues in both files."
+  },
+  {
+   "command": "npm run e2e -- e2e/auth.spec.ts",
+   "result": "NOT_RUNNABLE IN THIS SANDBOX. `Error: listen EPERM: operation not permitted ::1:5173`."
+  }
+ ],
+ "orchestrator_runs": [
+  {
+   "command": "npm run test",
+   "purpose": "Full frontend Vitest run. Orchestrator record reports 88 files and 1058/1058 tests passed."
+  },
+  {
+   "command": "npm run check-contrast",
+   "purpose": "Contrast gate. Orchestrator record reports all 50 checked pairs passed."
+  },
+  {
+   "command": "npm run e2e",
+   "purpose": "Run the complete Playwright suite against the host stack and replay E2E mutations."
+  },
+  {
+   "command": "npm run e2e -- e2e/auth.spec.ts",
+   "purpose": "Replay auth poster and exact-password locator mutations."
+  },
+  {
+   "command": "npm run e2e -- e2e/conversation-streaming.spec.ts",
+   "purpose": "Replay the exact-password locator mutation."
+  },
+  {
+   "command": "npm run e2e -- e2e/onboarding.spec.ts",
+   "purpose": "Replay the exact-password locator mutation."
+  },
+  {
+   "command": "npm run e2e -- e2e/plan-render.spec.ts",
+   "purpose": "Replay the exact-password locator mutation."
+  },
+  {
+   "command": "npm run e2e -- e2e/regenerate-plan.spec.ts",
+   "purpose": "Replay the exact-password locator mutation."
+  },
+  {
+   "command": "npm run e2e -- e2e/shell-navigation.spec.ts",
+   "purpose": "Replay the exact-password locator mutation."
+  },
+  {
+   "command": "npm run e2e -- e2e/workout-logging.spec.ts",
+   "purpose": "Replay the exact-password locator mutation."
+  }
+ ],
+ "verdict": "REJECT. Static frontend gates and narrow unit tests pass, but three locked UI contracts lack direct mutation-capable tests, E2E mutations are sandbox-blocked, and committed evidence files fail the claimed all-files Prettier gate."
+}

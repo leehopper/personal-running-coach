@@ -159,7 +159,7 @@ const installNavigationStubs = async (page: Page): Promise<void> => {
 const registerAndLandHome = async (page: Page): Promise<void> => {
   await page.goto('/register')
   await page.getByLabel('Email').fill(uniqueEmail())
-  await page.getByLabel('Password').fill(VALID_PASSWORD)
+  await page.getByLabel('Password', { exact: true }).fill(VALID_PASSWORD)
   await page.getByRole('button', { name: /create account/i }).click()
   await expect(page).toHaveURL('/')
   await expect(page.getByTestId('home-page')).toBeVisible()

@@ -6,6 +6,7 @@ import { Form } from '@/components/ui/form'
 
 export interface AuthFormShellProps<TValues extends FieldValues> {
   heading: string
+  headingVisuallyHidden?: boolean
   formAlert: string | null
   form: UseFormReturn<TValues>
   onSubmit: (values: TValues) => Promise<void> | void
@@ -23,6 +24,7 @@ export interface AuthFormShellProps<TValues extends FieldValues> {
  */
 export const AuthFormShell = <TValues extends FieldValues>({
   heading,
+  headingVisuallyHidden = false,
   formAlert,
   form,
   onSubmit,
@@ -35,7 +37,9 @@ export const AuthFormShell = <TValues extends FieldValues>({
 
   return (
     <>
-      <h1 className="mb-4 text-2xl font-semibold">{heading}</h1>
+      <h1 className={headingVisuallyHidden ? 'sr-only' : 't-screen-title text-foreground'}>
+        {heading}
+      </h1>
 
       {formAlert !== null && (
         <div
@@ -48,11 +52,16 @@ export const AuthFormShell = <TValues extends FieldValues>({
       )}
 
       <Form {...form}>
-        <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-3.5">
           {children}
-          <Button type="submit" disabled={isSubmitDisabled} className="w-full">
+          <Button
+            type="submit"
+            disabled={isSubmitDisabled}
+            className="w-full h-[52px] text-[17px] tracking-[0.14em]"
+          >
             {isLoading ? pendingLabel : submitLabel}
           </Button>
+          <div aria-hidden="true" data-testid="auth-oauth-reserve" className="min-h-[52px]" />
         </form>
       </Form>
     </>

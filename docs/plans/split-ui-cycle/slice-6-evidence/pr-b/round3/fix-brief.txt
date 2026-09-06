@@ -1,0 +1,24 @@
+<task>
+You are the fix-round implementer for Slice 6 PR-B (auth poster screens) round 3, the CodeRabbit thread on PR #364 in this git clone (cwd, branch feat/slice-6-auth, HEAD = 8625ec03). Two Codex lenses and the orchestrator judged the build against docs/specs/slice-6-settings-auth/spec.md (sections 1 C, 3 PR-B, 4.2 auth rows); the orchestrator adjudicated their findings into the fix list below. Apply every fix. Read AGENTS.md, the spec, and the prior stage report at .stage-report.md first, then the CLAUDE.md and REVIEW.md files covering the trees you touch.
+</task>
+
+<fixes>
+F1 (minor; CodeRabbit review thread on PR #364, frontend/src/app/pages/register/register-form.component.tsx line 40,
+house rule in frontend/CLAUDE.md Typography: numbers use the condensed font): the register password-rules helper renders
+`12` in `font-mono` inherited from the helper's wrapper. Wrap the numeral in `<span className="font-condensed">12</span>`
+and keep the rest of the helper copy in mono; the visible text stays `12 characters or more, with an uppercase letter, a
+lowercase letter, a digit, and a symbol.` so the existing register spec assertion on the helper text (it matches text
+content, not markup) keeps passing. Add one assertion to register.page.spec.tsx that the helper's numeral element carries
+`font-condensed` (`renders the helper numeral in the condensed font`). Red: drop the span.
+
+Items marked ORCHESTRATOR-RAN carry the output of a command the sandbox could not run; treat that output as measured fact.
+</fixes>
+
+<environment_and_gates>
+Same as the build round: create `/tmp/codex-agent-feat/slice-6-auth` once and set `TMPDIR=/tmp/codex-agent-feat/slice-6-auth` inline on each command that needs it; from backend/ `dotnet build RunCoach.slnx --no-restore` and `dotnet format RunCoach.slnx --include <changed .cs> --no-restore --verify-no-changes` on changed .cs; from frontend/ `npm run build`, `npx vitest run <each touched spec>`, `npx eslint` and `npx prettier --check` on changed files. Git is blocked; leave changes in the working tree. No backend test runs in this sandbox: the test host cannot create its named pipe (SocketException 13). For every test you add or change, name the exact `dotnet test --project tests/RunCoach.Api.Tests/RunCoach.Api.Tests.csproj --no-build --filter-class <FullName>` command for the orchestrator under Deviations, with that error as the reason; never claim a test result.
+Files you may touch: the build's file list plus frontend/src/app/pages/register/register-form.component.tsx and frontend/src/app/pages/register/register.page.spec.tsx only.. Nothing else.
+</environment_and_gates>
+
+<completeness_contract>
+Final message = markdown stage report: Fixes (F1..Fn, each: what changed, file:line, the check that now goes red against the original bug, or VERIFIED BY INSPECTION when the item is documentation-only; never claim a mechanized red for a doc change), Gates (each command and its last output line), Deviations (any fix you could not apply and why), Open questions. Finish with the line FIX ROUND COMPLETE.
+</completeness_contract>

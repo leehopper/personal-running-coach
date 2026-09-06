@@ -1,0 +1,8 @@
+{
+ "slice": "Slice 6 PR-B (auth poster screens) round 3, the CodeRabbit thread on PR #364",
+ "branch": "feat/slice-6-auth",
+ "head": "8625ec03",
+ "spec_path": "docs/specs/slice-6-settings-auth/spec.md (sections 1 C, 3 PR-B, 4.2 auth rows)",
+ "fix_list": "F1 (minor; CodeRabbit review thread on PR #364, frontend/src/app/pages/register/register-form.component.tsx line 40,\nhouse rule in frontend/CLAUDE.md Typography: numbers use the condensed font): the register password-rules helper renders\n`12` in `font-mono` inherited from the helper's wrapper. Wrap the numeral in `<span className=\"font-condensed\">12</span>`\nand keep the rest of the helper copy in mono; the visible text stays `12 characters or more, with an uppercase letter, a\nlowercase letter, a digit, and a symbol.` so the existing register spec assertion on the helper text (it matches text\ncontent, not markup) keeps passing. Add one assertion to register.page.spec.tsx that the helper's numeral element carries\n`font-condensed` (`renders the helper numeral in the condensed font`). Red: drop the span.\n",
+ "allowed_files": "frontend/src/app/pages/register/register-form.component.tsx and frontend/src/app/pages/register/register.page.spec.tsx only."
+}
