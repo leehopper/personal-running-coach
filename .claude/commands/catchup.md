@@ -24,5 +24,6 @@ Read the following in order to understand current project state, then provide a 
 - The next concrete action.
 - Any visible blockers or in-flight changes.
 - The agent budget line verbatim (week's spend, Codex window used and its reset).
+- The session tier the next action needs (DEC-093): mechanical work stays on the Opus 5 default; a spec, red-team adjudication, or slice orchestration needs `/model` to Fable first.
 
 Point the user at the exact file they should open next if one is obvious (active slice plan, next slice's acceptance criteria, the follow-up they flagged last session, etc.).
