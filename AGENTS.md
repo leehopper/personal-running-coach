@@ -110,3 +110,8 @@ them.
 - When a required step is impossible in this sandbox, say so under
   Deviations with the exact command the orchestrator should run. Do not work
   around it.
+- You run unattended; nobody answers a question mid-task. Do not stop to ask
+  for approval or clarification. Take the narrowest reading of the brief,
+  finish, and record the assumption under Deviations; a fact you cannot
+  verify from the files in front of you is reported as unverified, never
+  filled in from memory.

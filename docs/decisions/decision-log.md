@@ -3228,7 +3228,7 @@ A minted workout id buys **no durability** (point 2), **no uniqueness** (the coo
 
 **Date:** 2026-09-04
 **Category:** Development workflow / agent orchestration
-**Status:** Accepted — mechanisms in place (`AGENTS.md`, `.claude/rules/codex-dispatch.md`, `.claude/codex/`); sandbox facts measured in a local clone the same day; first real use is the Slice 5 build.
+**Status:** Accepted, revised by DEC-093 (model seats and session tier) — mechanisms in place (`AGENTS.md`, `.claude/rules/codex-dispatch.md`, `.claude/codex/`); sandbox facts measured in a local clone the same day; first real use is the Slice 5 build.
 **Drives:** which engine runs each class of agent work in this repo, and the repo-side mechanics (clone, worktrees, evidence, shipping) that keep Codex builds and reviews commit-safe.
 **Builds on:** DEC-008 (plan-first: the spec is the reviewers' definition of done); DEC-043 (one authority per signal: the maintainer's code-gauntlet run stays the PR's cross-family review); the maintainer's user-level `codex-orchestration` skill, which holds the routing table, the fleet driver, the budget script, and the companion helper.
 
@@ -3250,6 +3250,38 @@ Repo mechanics: `git clone --local` into a jobs directory outside the repo, the 
 **Consequences:** the `.claude/rules/` file costs about sixty lines of context per turn (accepted; revisit if it grows). `.codex/`, `.agents/`, `.stage-report.md`, `.fix-brief.txt`, and `.tmp-*/` are gitignored. A lens may mark a mutation NOT_RUNNABLE_IN_SANDBOX only after attempting it and quoting the sandbox's refusal; the session runs those commands and attaches the output to the round record, and the mutation counts as unverified until then. Backend tests that need Testcontainers, Playwright, the eval re-record, and codegen run from the session, never inside Codex. Open: a sampled Claude audit flag on the driver for an all-Codex pipeline; the sol `max` refactor row is inherited from the sibling project's evidence and awaits a measured refactor here.
 
 **Cross-references:** `.claude/rules/codex-dispatch.md`; `.claude/codex/README.md`; `AGENTS.md`; `CLAUDE.md` § Agent Policy; `.claude/commands/catchup.md` (budget step).
+
+
+## DEC-093: Agent routing revised for GPT-6 Astra and the Claude weekly sub-cap — Astra takes the red-team seat, large refactors, judgment recon, and structured drafts; mechanical sessions on Opus 5; a session handoff budget
+
+**Date:** 2026-09-11
+**Category:** Development workflow / agent orchestration
+**Status:** Accepted — ported from the sibling project's revision of the same rule, which was piloted, red-teamed over four rounds by both families, and ruled by the maintainer the same morning.
+**Revises:** DEC-092 (the model seats and the session diet; the repo mechanics, the per-stage review, and the code-gauntlet pass are unchanged).
+
+**Problem.** OpenAI released GPT-6 Astra, a flagship model at coding-index parity with the Claude session's model. Midway through the week the maintainer's meters read the Claude frontier-model sub-cap at 92 percent and all Claude models at 62, while the Codex weekly window read 25. With subagent fan-out already on Codex, the Claude session itself was now about 70 percent of the Claude spend (API-list-price proxy over seven days), and within it what a turn appends (tool output, inline reads) cost more than re-reading the standing context. Work had to move to Codex without losing quality.
+
+**Decision.**
+- **Seats pinned to Astra at `xhigh`:** the Codex side of a spec or plan red-team (sol at `max` becomes the fallback); a build refactor of about twenty files or more, or one that holds a cross-module invariant (replacing the unmeasured sol `max` row); a build stage that fails review twice.
+- **The session diet moves to Codex by need:** recon that ends in a judgment over material the session would otherwise read inline (a branch's whole diff, a CI or suite log, a gauntlet or CodeRabbit report, a research artifact) is one Astra task with a schema; a single file of about 300 lines or fewer stays on luna. Structured first drafts (slice specs, cycle-plan sections, decision-log entries, handoffs) are one Astra task from a brief; routine drafts with a fixed shape (PR bodies, round records) stay on luna. The session edits and decides.
+- **Unchanged on luna:** slice recon lenses over bounded file sets, refute lenses, bounded build stages, the two per-stage review lenses and the fix rounds. Astra holds no bulk row: it costs about fifty times luna per input token and showed no measured gain on schema-bound throughput. Cross-document recall stays on terra `high`.
+- **Invariants added:** Astra never adjudicates alone, and every seat it holds keeps a Claude check; its findings are candidates, never verdicts. `max` and `ultra` are never defaults. Past about 60 percent of the Codex weekly window mid-week, Astra drops to `high` on non-critical builds.
+- **Session tier:** Opus 5 is the saved session default and drives the mechanical sessions (catchup and close-out records, ROADMAP hygiene, CI rot and dependabot trains). A session that writes or red-teams a spec, adjudicates lenses or a gauntlet run, or orchestrates a slice switches to Fable with `/model`. The frontier-model bucket is half the Claude week and burns fastest; the documented per-task quality gap to Opus 5 is modest, so the hardest sessions keep Fable.
+- **Session shape (trial):** hand off at 300 turns or 300k context, whichever first; the first handoff's cost is recorded so the threshold can move.
+- **AGENTS.md:** Codex agents are told they run unattended and must not stop for approval or clarification; Astra asks for both more often than the 5.6 family and reads instruction files more literally.
+
+**Evidence (measured in the sibling project, 2026-09-11, codex-cli 0.153.0, the maintainer's personal Pro plan):** a 22-task Astra pilot through the same fleet driver, every task schema-exact on the first attempt; on a replayed refute set Astra's recall matched luna and sol (0.56 vs 0.55) at the lowest precision (0.29 vs 0.46 luna) with fewer tokens and a third of the wall time; fold agreement 0.84 at `xhigh` and 0.78 at `max` for 10 percent more tokens; a read-only recon over one night of logs in 108k tokens with quoted evidence and honest unverified marks; a rules draft from a brief in 48k tokens with more usable structure than luna's. The weekly meter moved 25 to 30 percent over 1.55M Astra tokens, matching the published credit card (Astra 250 / 25 / 1,250 credits per million in / cached / out; luna 5 / 0.5 / 30): one window point is about 0.3M Astra, 0.7M sol, 1.5M terra, or 14M luna tokens. Public rows (September 2026): Astra and the Claude frontier model both score 62 on the Artificial Analysis coding-agent index, on Terminal-Bench 4.0 Astra reads 57.9 to 58.2 against 55.8 to 57.9 (tied to slightly ahead); OpenAI's system card reports Astra's chain of thought as less monitorable than prior models, Apollo measured evaluation awareness in 41 percent of samples at `xhigh`, and Astra hallucinates on about half of attempted closed-book claims, which is why no seat is Astra alone.
+
+**Rejected alternatives:**
+- **Astra on the bulk lenses or the per-stage review lenses.** Fifty times luna on input with no measured gain; a day of refute items on Astra would spend about thirteen window points.
+- **Astra as an adjudicator or the fold default.** The monitorability and evaluation-awareness flags; rulings stay on the Claude session.
+- **`max` or `ultra` as defaults.** Lower fold agreement at `max`; `ultra` bills its subagents into the same window.
+- **Every session on Opus 5.** The maintainer's standing preference is the frontier model's judgment on design and adjudication; the tier narrows to the mechanical sessions.
+- **Adding a per-stage Claude opus review lens here, as the sibling project runs.** Not part of this revision; DEC-092's per-stage review with the maintainer's code-gauntlet pass as the cross-family check stands.
+
+**Consequences:** the first Astra red-team and the first Astra refactor in this repo are sized from the fleet ledger before launch and their token counts recorded in the slice evidence. The budget script (user-level) now reads both fleet ledger roots and prints a session-shape line (sessions, median and max turns, mean and max context per turn), so the diet's drift is visible at every catchup. Open: the orchestrator/subagent split in that script is by model prefix, so an Opus 5 session reads as subagent spend until it splits by transcript path.
+
+**Cross-references:** `.claude/rules/codex-dispatch.md`; `.claude/codex/README.md` (steps 2, 3, 4, 8, Conventions); `AGENTS.md` § Reporting; `CLAUDE.md` § Agent Policy; `.claude/commands/catchup.md`; DEC-092.
 
 ---
 

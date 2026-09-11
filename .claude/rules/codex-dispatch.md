@@ -1,35 +1,85 @@
-# Agent routing (DEC-092)
+# Agent routing (DEC-092, revised by DEC-093)
 
 Work in this repo runs on two model families on purpose: the Claude session
-orchestrates and rules; bulk reads, builds, per-stage reviews, and fix rounds
-run on Codex, driven from that session with the maintainer's user-level
-`codex-orchestration` skill (routing table, `codex-fleet.py`,
-`agent-budget.py`, `cx.sh`). Load that skill before the first dispatch. This
-file holds only what differs here. The stage recipe and every template:
-`.claude/codex/README.md`. Codex agents read `AGENTS.md`, not this file.
+orchestrates and rules; bulk reads, builds, per-stage reviews, fix rounds,
+and the session's big reads and structured drafts run on Codex, driven from
+that session with the maintainer's user-level `codex-orchestration` skill
+(routing table, model rows, `codex-fleet.py`, `agent-budget.py`, `cx.sh`).
+Load that skill before the first dispatch. This file holds only what differs
+here. The stage recipe and every template: `.claude/codex/README.md`. Codex
+agents read `AGENTS.md`, not this file.
 
 ## Routing as applied here
 
-- Conversation, adjudication, gates, commits, PRs: this session.
-- Recon over the codebase for a slice, refute lenses, extraction: luna
-  `xhigh` fleets with a schema, read-only, from the main tree, at any batch
-  size, with no question to the user.
+The first matching row wins. Cost decides only when nothing above it does,
+and cross-model costs compare in Codex window points, not raw tokens.
+
+- Conversation, adjudication, gates, commits, PRs: this session (tier below).
+- Spec or plan red-team, and a standing disagreement between two named
+  reviewers on one document: one Claude opus
+  lens (Workflow tool) plus one Astra `xhigh` lens (fleet driver, `--model
+  gpt-6-astra --effort xhigh`); sol `max` is the fallback when Astra is
+  unavailable. Neither Codex verdict is accepted without the Claude side.
+- Recon over the codebase for a slice (tracing, extraction, bounded file
+  sets per lens), refute lenses: luna `xhigh` fleets with a schema,
+  read-only, from the main tree, at any batch size, with no question to the
+  user. Cross-document recall (a design source against the code) goes to
+  terra `high`; a refute item that needs reasoning depth escalates to Astra
+  `xhigh` with a Claude check. Astra's 50x input cost is why not to default up.
+- Recon that ends in a judgment over material the session would otherwise
+  read inline (a branch's whole diff, a CI or suite log over about 300
+  lines, a gauntlet or CodeRabbit report, a research artifact): one Astra
+  `xhigh` task with a schema; the session reads the result. One file of
+  about 300 lines or fewer goes to luna.
+- First drafts that hold a structure over many facts (slice specs,
+  cycle-plan sections, decision-log entries, handoffs, rules): one Astra
+  `xhigh` task from a brief. Routine drafts with a fixed shape (PR bodies,
+  round records, Captured rows): luna `xhigh`. The session edits and decides.
 - Build stage: one luna `xhigh` companion task with write access in a local
-  clone outside the repo; sol `max` for refactors of about 20 files or more.
+  clone outside the repo. A refactor of about 20 files or more, or one that
+  holds a cross-module invariant: Astra `xhigh` in the clone. A stage that
+  fails review twice escalates to Astra `xhigh`.
 - Per-stage review: two luna `xhigh` lenses (mutation ledger, spec
   conformance), both with write access, in detached worktrees, then a luna
-  fix round in the clone, repeated until zero blocker and zero major. Every lens report passes `.claude/codex/check-review.py` before adjudication. The
+  fix round in the clone, repeated until zero blocker and zero major. Every
+  lens report passes `.claude/codex/check-review.py` before adjudication. The
   cross-family pass on every PR is the maintainer's own code-gauntlet run in
   another session: never run it here; address its findings when asked.
-- Spec or plan red-team, and two reviewers who disagree: one Claude opus lens
-  (Workflow tool) plus one sol `max` lens (fleet driver, `--model
-  gpt-5.6-sol --effort max`). Sol's verdict is never accepted without the
-  Claude side.
-- Session diet: first drafts of PR bodies, decision-log entries, cycle-plan
-  sections, and big recon reads come from a luna task with a bounded output.
-  The session edits and decides.
+
+Invariants:
+
+- Author and final refuter are never the same family (Astra, sol, terra,
+  luna are one; Fable and opus the other). Never Fable for a subagent.
+- Astra never adjudicates alone: every seat it holds keeps a Claude check
+  (its chain of thought is less monitorable, it shows evaluation awareness,
+  and it hallucinates on half of closed-book claims). Its findings are
+  candidates, never verdicts.
+- Codex agents work only over material in front of them; a missing fact
+  comes back unverified, never filled in.
+- `max` and `ultra` are never defaults on any model (`ultra` bills its
+  subagents into the same window).
+- Past about 60 percent of the Codex weekly window mid-week, Astra drops to
+  `high` on non-critical builds and more work goes to luna.
+
+## Session tier, shape and diet
+
+- Tier. Opus 5 is the saved default and drives the mechanical sessions:
+  catchup and close-out records, ROADMAP and Captured-row hygiene, CI rot
+  and dependabot trains, ops wiring. A session that writes or red-teams a
+  spec, adjudicates lenses or a gauntlet run, or orchestrates a slice's
+  fleets switches to Fable with `/model` at its start, or in place when a
+  design fork appears mid-session.
+- Shape (a trial): hand off at 300 turns or 300k context, whichever comes
+  first, and note the handoff's cost in the round record so the threshold
+  can move.
+- Diet: every inline read is a cache write. Never read inline a branch's
+  whole diff, a suite or CI log, a fleet log or ledger, or a research
+  artifact; route it through the recon rows above or read a bounded excerpt.
+  Batch independent tool calls into one turn.
 - Budget line at every catchup and before any fan-out:
   `python3 ~/.claude/skills/codex-orchestration/agent-budget.py --live --account`.
+  One window point is about 14M luna, 1.5M terra, 0.7M sol, or 0.3M Astra
+  tokens; size an Astra job from the ledger before launching it.
 
 ## Repo mechanics that differ from the skill
 

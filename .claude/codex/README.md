@@ -54,25 +54,38 @@ each over a bounded file set):
     python3 $SKILL/codex-fleet.py --name <slice>-recon --items "$C/$EV/recon/items.jsonl" \
       --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
       --workers 3 --timeout 900 --cwd "$R"
-    python3 $SKILL/codex-fleet.py --name <slice>-recon --collect "$C/$EV/recon/out.json"
+    python3 $SKILL/codex-fleet.py --name <slice>-recon --items "$C/$EV/recon/items.jsonl" \
+      --template .claude/codex/recon-prompt.txt --collect "$C/$EV/recon/out.json"
 
 `--dry-run` first renders the prompts under `$JOBS/fleets/<name>/prompts/` for
 a read-through. The session adjudicates the recommendations into the spec.
+
+A lens over a design source against the code (cross-document recall) runs on
+terra: `--model gpt-5.6-terra --effort high`. A recon of one file of about
+300 lines or fewer is a one-item luna fleet. A single recon that ends in a
+judgment over anything larger the session would otherwise read inline (a
+branch's whole diff, a CI or suite log, a gauntlet or CodeRabbit report, a
+research artifact) is a one-item fleet on Astra with the same template and schema:
+`--model gpt-6-astra --effort xhigh --workers 1 --timeout 1800`. The session
+reads the collected JSON, never the source.
 
 ## 3. Spec red-team: both families
 
 Claude side: a Workflow with one opus agent at `xhigh`, given
 `.claude/codex/redteam-prompt.txt` rendered for the spec and
 `redteam-schema.json` as its schema; save its JSON to `$C/$EV/redteam/opus.json`.
-Codex side, sol at `max`:
+Codex side, Astra at `xhigh`:
 
-    printf '%s\n' '{"id":"sol","doc_kind":"spec","doc_path":"docs/specs/<slice>/spec.md","context_paths":"docs/plans/<cycle>/cycle-plan.md, docs/plans/<cycle>/slice-N-<name>.md"}' > "$C/$EV/redteam/items.jsonl"
+    printf '%s\n' '{"id":"astra","doc_kind":"spec","doc_path":"docs/specs/<slice>/spec.md","context_paths":"docs/plans/<cycle>/cycle-plan.md, docs/plans/<cycle>/slice-N-<name>.md"}' > "$C/$EV/redteam/items.jsonl"
     python3 $SKILL/codex-fleet.py --name <slice>-redteam --items "$C/$EV/redteam/items.jsonl" \
       --template .claude/codex/redteam-prompt.txt --schema .claude/codex/redteam-schema.json \
-      --model gpt-5.6-sol --effort max --workers 1 --timeout 1500 --cwd "$R"
+      --model gpt-6-astra --effort xhigh --workers 1 --timeout 1500 --cwd "$R"
 
-Adjudicate both into `$C/$EV/redteam/adjudication.md`. A sol finding stands
-only when the Claude side or a repo check confirms it. Revise the spec; rerun
+When Astra is unavailable, run the same item on sol (`--model gpt-5.6-sol
+--effort max`) and name the substitution in the adjudication. Adjudicate both
+into `$C/$EV/redteam/adjudication.md`. A Codex finding stands only when the
+Claude side or a repo check confirms it; Astra raises the most corrections
+with the lowest precision, so treat its list as candidates. Revise the spec; rerun
 on REJECT. Then commit the evidence so far in the clone (`git add "$EV"`,
 `git commit`): reviewers' worktrees carry only what HEAD~1 committed.
 
@@ -84,6 +97,11 @@ Write `$C/$EV/build-vars.json` with `slice`, `branch`, `spec_path`,
     python3 .claude/codex/render.py .claude/codex/build-brief.txt "$C/$EV/build-vars.json" > "$C/$EV/build-brief.txt"
     bash $SKILL/cx.sh run <slice>-build "$C" gpt-5.6-luna xhigh "$C/$EV/build-brief.txt"
     bash $SKILL/cx.sh wait <slice>-build 60
+
+A refactor of about 20 files or more, or one that holds a cross-module
+invariant, runs the same command with `gpt-6-astra xhigh`; so does a stage
+that failed review twice. Size an Astra build from the ledger first (one
+window point is about 0.3M Astra tokens).
 
 `cx.sh run` exits 1 on success: never chain it with `&&`. Run `wait` in a
 background Bash; a build takes 30 to 75 minutes. Then:
@@ -164,9 +182,12 @@ path and told to `cd` there first (no worktree isolation flag). Repeat 6 and
 
 The push runs only when the scrub finds nothing (grep exit 1); a match or a grep error stops here. The pattern covers macOS, Linux, and Windows home paths and email addresses.
 
-PR body: a luna draft (`draft-prompt.txt` with `artifact_kind` "a pull
+PR body: a luna draft with `draft-prompt.txt` (`artifact_kind` "a pull
 request body", `shape_example_path` a recent PR body saved under `$EV`,
 `sources` the stage reports) that the session edits; then `gh pr create`.
+The same template drafts a slice spec, a cycle-plan section, or a
+decision-log entry, but those hold a structure over many facts and run on
+Astra `xhigh`.
 The maintainer's code-gauntlet run is the cross-family pass; address its
 findings when asked. The maintainer merges.
 
@@ -191,9 +212,14 @@ repo's clone or worktrees; other sessions own the rest.
 
 ## Conventions
 
-- Effort: luna `xhigh` for every build, review, fix, and recon lens; sol
-  `max` only on the red-team row; never `max` on luna as a default.
-- Timeouts: 900 s per recon lens, 1500 s per review lens; builds and fixes go
+- Models: luna `xhigh` for every bounded build, review, fix, and slice
+  recon lens; terra `high` for cross-document recall; Astra `xhigh` for the
+  red-team seat, judgment recon, structured drafts, large refactors, and a
+  stage that failed review twice (sol `max` is the red-team fallback).
+  `max` and `ultra` are never defaults. Past about 60 percent of the Codex
+  weekly window mid-week, Astra drops to `high` on non-critical builds.
+- Timeouts: 900 s per recon lens, 1800 s for a single Astra recon, 1500 s
+  per review or red-team lens; builds and fixes go
   through the companion, which `cx.sh wait` polls without a timeout.
 - Freeze inputs: finish a fleet before landing the documents it reasons
   about, or its later items read a ruling and go circular.
