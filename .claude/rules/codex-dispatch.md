@@ -40,8 +40,12 @@ and cross-model costs compare in Codex window points, not raw tokens.
   holds a cross-module invariant: Astra `xhigh` in the clone. A stage that
   fails review twice escalates to Astra `xhigh`.
 - Per-stage review: two luna `xhigh` lenses (mutation ledger, spec
-  conformance), both with write access, in detached worktrees, then a luna
-  fix round in the clone, repeated until zero blocker and zero major. Every
+  conformance), both with write access, in detached worktrees, then one Claude
+  opus lens through the Workflow tool, then a luna fix round in the clone,
+  repeated until zero blocker and zero major. The opus lens stays in every
+  round: on the 2026-09-11 hermes budget port it found the blocker both luna
+  lenses missed, a gate that passed in a worktree and failed in the
+  repository root, and a regression an earlier fix round had introduced. Every
   lens report passes `.claude/codex/check-review.py` before adjudication. The
   cross-family pass on every PR is the maintainer's own code-gauntlet run in
   another session: never run it here; address its findings when asked.
@@ -69,9 +73,13 @@ Invariants:
   spec, adjudicates lenses or a gauntlet run, or orchestrates a slice's
   fleets switches to Fable with `/model` at its start, or in place when a
   design fork appears mid-session.
-- Shape (a trial): hand off at 300 turns or 300k context, whichever comes
-  first, and note the handoff's cost in the round record so the threshold
-  can move.
+- Shape (a trial): hand off at about 130 API calls or 300k context,
+  whichever comes first, and note the handoff's cost in the round record
+  so the threshold can move. The earlier "300 turns" counted transcript
+  lines, and one API call writes several of those. Measured 2026-09-11 in
+  hermes: a session ran 83 API calls at a median 398k context and crossed
+  the context half first, as 29 of that week's sessions did and none
+  crossed the call half.
 - Diet: every inline read is a cache write. Never read inline a branch's
   whole diff, a suite or CI log, a fleet log or ledger, or a research
   artifact; route it through the recon rows above or read a bounded excerpt.
