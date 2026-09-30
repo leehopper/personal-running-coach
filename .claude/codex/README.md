@@ -10,20 +10,26 @@ the brief carries only the per-task contract.
 
 Paths used below:
 
-- `SKILL=~/.claude/skills/codex-orchestration` (the maintainer's user-level
-  skill: driver `codex-fleet.py`, budget `agent-budget.py`, companion helper
-  `cx.sh`)
-- `JOBS=~/.claude/codex-jobs` (fleet state under `fleets/<name>/`, companion
-  jobs under `jobs/`, clones under `clones/`, worktrees under `worktrees/`)
+- The orchestration kit's commands, always spelled by full path:
+  `~/personal/orchestration-kit-stable/bin/codex-fleet --seat <seat>` and
+  `~/personal/orchestration-kit-stable/bin/agent-budget`. The seat picks the
+  model, effort and default timeout; `--model` and `--effort` are errors.
+  Seats and mechanics: the seat table in `~/.claude/CLAUDE.md` and the plugin
+  skill `orchestration-kit:codex-orchestration`. A single task is a one-item
+  fleet.
+- `STATE=~/.claude/orchestration-state` (fleet state under
+  `fleets/<name>/`: `prompts/` from a dry run, `results/<id>.json`, logs)
+- `JOBS=~/.claude/codex-jobs` (clones under `clones/`, worktrees under
+  `worktrees/`)
 - `R=$PWD` (this repo's main checkout, always on `main`)
 - `B=<branch>`; `C=$JOBS/clones/$B` (the clone, the only writer)
 - `EV=docs/plans/<cycle>/<slice>-evidence` (committed evidence, written in the
   clone: briefs, lens JSONs, adjudications, reports; the driver's logs and
-  ledgers stay under `$JOBS`)
+  ledgers stay under `$STATE`)
 
 ## 0. Budget and account
 
-    python3 $SKILL/agent-budget.py --live --account
+    ~/personal/orchestration-kit-stable/bin/agent-budget --live --account --brief
 
 Read the `codex live` line (weekly window used, reset date) and the account
 line (it must name the personal plan). Rerun before any fan-out.
@@ -51,63 +57,89 @@ each over a bounded file set):
 
     {"id": "r1-<topic>", "slice": "Slice N PR-A", "slice_summary": "<one paragraph from the cycle plan>", "brief": "<the questions>", "files": "path, path, path"}
 
-    python3 $SKILL/codex-fleet.py --name <slice>-recon --items "$C/$EV/recon/items.jsonl" \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --seat recon_large \
+      --items "$C/$EV/recon/items.jsonl" \
       --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
-      --workers 3 --timeout 900 --cwd "$R"
-    python3 $SKILL/codex-fleet.py --name <slice>-recon --items "$C/$EV/recon/items.jsonl" \
-      --template .claude/codex/recon-prompt.txt --collect "$C/$EV/recon/out.json"
+      --workers 3 --cwd "$R" --dry-run
+    # read the rendered prompts, then launch: the same command without --dry-run
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --seat recon_large \
+      --items "$C/$EV/recon/items.jsonl" \
+      --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
+      --workers 3 --cwd "$R"
+    # when it finishes, collect
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --seat recon_large \
+      --items "$C/$EV/recon/items.jsonl" \
+      --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
+      --collect "$C/$EV/recon/out.json"
 
-`--dry-run` first renders the prompts under `$JOBS/fleets/<name>/prompts/` for
-a read-through. The session adjudicates the recommendations into the spec.
+The `--dry-run` renders the prompts under `$STATE/fleets/<name>/prompts/`;
+`--collect` needs the same `--name`, `--items`, `--template` and `--schema`
+as the launch. A dry run leaves `{name}` in place for any field the items
+line lacks, so read the rendered prompt for leftover braces. The first fleet
+on a seat with no ledger history exits `estimate_required`: rerun with
+`--estimate-credits` and `--estimate-reason`. The session adjudicates the recommendations into
+the spec.
 
-A lens over a design source against the code (cross-document recall) runs on
-terra: `--model gpt-5.6-terra --effort high`. A recon of one file of about
-300 lines or fewer is a one-item luna fleet. A single recon that ends in a
-judgment over anything larger the session would otherwise read inline (a
-branch's whole diff, a CI or suite log, a gauntlet or CodeRabbit report, a
-research artifact) is a one-item fleet on Astra with the same template and schema:
-`--model gpt-6-astra --effort xhigh --workers 1 --timeout 1800`. The session
-reads the collected JSON, never the source.
+A lens over a design source against the code (cross-document recall) uses
+`--seat recall`. A lens over one file of about 300 lines or fewer uses
+`--seat recon_small`. A single recon that ends in a judgment over anything
+larger the session would otherwise read inline (a branch's whole diff, a CI
+or suite log, a gauntlet or CodeRabbit report, a research artifact) is a
+one-item `recon_large` fleet with the same template and schema and
+`--workers 1`; a task that needs more depth escalates by the seat's own row
+(`--escalate on=needs_depth reason=<why>`). The session reads the collected
+JSON, never the source.
 
 ## 3. Spec red-team: both families
 
-Claude side: a Workflow with one opus agent at `xhigh`, given
-`.claude/codex/redteam-prompt.txt` rendered for the spec and
+Claude side: a Workflow with one agent on the `red_team` seat's Claude row
+(model and effort from
+`~/personal/orchestration-kit-stable/bin/seat resolve red_team --engine-mode claude_only`),
+given `.claude/codex/redteam-prompt.txt` rendered for the spec and
 `redteam-schema.json` as its schema; save its JSON to `$C/$EV/redteam/opus.json`.
-Codex side, Astra at `xhigh`:
+Codex side, the same seat:
 
-    printf '%s\n' '{"id":"astra","doc_kind":"spec","doc_path":"docs/specs/<slice>/spec.md","context_paths":"docs/plans/<cycle>/cycle-plan.md, docs/plans/<cycle>/slice-N-<name>.md"}' > "$C/$EV/redteam/items.jsonl"
-    python3 $SKILL/codex-fleet.py --name <slice>-redteam --items "$C/$EV/redteam/items.jsonl" \
+    printf '%s\n' '{"id":"codex","doc_kind":"spec","doc_path":"docs/specs/<slice>/spec.md","context_paths":"docs/plans/<cycle>/cycle-plan.md, docs/plans/<cycle>/slice-N-<name>.md"}' > "$C/$EV/redteam/items.jsonl"
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-redteam --seat red_team \
+      --items "$C/$EV/redteam/items.jsonl" \
       --template .claude/codex/redteam-prompt.txt --schema .claude/codex/redteam-schema.json \
-      --model gpt-6-astra --effort xhigh --workers 1 --timeout 1500 --cwd "$R"
+      --workers 1 --cwd "$R"
 
-When Astra is unavailable, run the same item on sol (`--model gpt-5.6-sol
---effort max`) and name the substitution in the adjudication. Adjudicate both
+A red-team that needs more depth escalates by the seat's row
+(`--escalate on=needs_depth reason=<why>`) and keeps its Claude check; when the
+Codex side is unavailable (usage limit), rerun after the reset or name the
+substitution in the adjudication. Adjudicate both
 into `$C/$EV/redteam/adjudication.md`. A Codex finding stands only when the
-Claude side or a repo check confirms it; Astra raises the most corrections
-with the lowest precision, so treat its list as candidates. Revise the spec; rerun
+Claude side or a repo check confirms it. Treat a Codex list as
+candidates, not verdicts. Revise the spec; rerun
 on REJECT. Then commit the evidence so far in the clone (`git add "$EV"`,
 `git commit`): reviewers' worktrees carry only what HEAD~1 committed.
 
 ## 4. Build
 
-Write `$C/$EV/build-vars.json` with `slice`, `branch`, `spec_path`,
-`plan_paths`, `extra_reading`, `file_list`, `extra_constraints`, then:
+Write `$C/$EV/build-items.jsonl`, one line holding `id`, `slice`, `branch`,
+`spec_path`, `plan_paths`, `extra_reading`, `file_list`, `extra_constraints`
+(the fleet renders `build-brief.txt` with these), then from the clone:
 
-    python3 .claude/codex/render.py .claude/codex/build-brief.txt "$C/$EV/build-vars.json" > "$C/$EV/build-brief.txt"
-    bash $SKILL/cx.sh run <slice>-build "$C" gpt-5.6-luna xhigh "$C/$EV/build-brief.txt"
-    bash $SKILL/cx.sh wait <slice>-build 60
+    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-build --seat build_bounded \
+      --items "$C/$EV/build-items.jsonl" --template .claude/codex/build-brief.txt \
+      --schema .claude/codex/build-schema.json --workers 1 --write --cwd "$C" --timeout 5400 --dry-run
 
-A refactor of about 20 files or more, or one that holds a cross-module
-invariant, runs the same command with `gpt-6-astra xhigh`; so does a stage
-that failed review twice. Size an Astra build from the ledger first (one
-window point is about 0.3M Astra tokens).
+Read the rendered prompt, then run the same command without `--dry-run`,
+detached (a Bash `run_in_background`, or `nohup ... &`), and wait with one
+blocking call; a build takes 30 to 75 minutes. A refactor of about 20 files or
+more, or one that holds a cross-module invariant, runs the same command with
+`--seat build_refactor`; a stage that failed review twice escalates by the
+seat's row (`--escalate on=two_failed_reviews reason=<why>`).
 
-`cx.sh run` exits 1 on success: never chain it with `&&`. Run `wait` in a
-background Bash; a build takes 30 to 75 minutes. Then:
+The launcher accepts only a JSON result. The agent writes its Markdown stage
+report to `.codex-report.md` in the clone (gitignored) and returns a small
+JSON: status, report path and line count, files changed, gates. Read the
+result at `$STATE/fleets/<slice>-build/results/<id>.json` (or collect it),
+then:
 
-    cp $JOBS/jobs/<slice>-build.result.md "$C/.stage-report.md"
-    cp $JOBS/jobs/<slice>-build.result.md "$C/$EV/build-report.md"
+    cp "$C/.codex-report.md" "$C/.stage-report.md"
+    cp "$C/.codex-report.md" "$C/$EV/build-report.md"
     cd "$C" && git status --short        # the changes must exist; a builder can report COMPLETE with an empty tree
     git add <the brief's file list> "$EV"   # never git add -A
     git commit                           # lefthook runs here
@@ -117,7 +149,7 @@ Run from the session what the sandbox could not, and paste each result into
 create the test host's named pipe), Playwright, and the codegen chain if a
 wire changed. Builders build with the in-process flag bundle in `AGENTS.md`.
 
-## 5. Review: two luna lenses in detached worktrees
+## 5. Review: two `review_lens` lenses in detached worktrees
 
     cd "$R" && git fetch "$C" "$B:$B"
     [ "$(git rev-parse "$B")" = "$(git -C "$C" rev-parse HEAD)" ] || echo "STALE FETCH"
@@ -136,14 +168,16 @@ it), then one fleet per lens so `--cwd` points at its worktree. Both lenses
 get `--write`: the mutation lens mutates and restores, and the conformance
 lens needs a writable temp to run anything.
 
-    python3 $SKILL/codex-fleet.py --name <slice>-r1-mutation --items "$C/$EV/round1/items-mutation.jsonl" \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-r1-mutation --seat review_lens \
+      --items "$C/$EV/round1/items-mutation.jsonl" \
       --template .claude/codex/review-context.txt --schema .claude/codex/review-schema.json \
       --workers 1 --timeout 1500 --cwd "$JOBS/worktrees/$B-r1-mutation" --write
-    python3 $SKILL/codex-fleet.py --name <slice>-r1-conformance --items "$C/$EV/round1/items-conformance.jsonl" \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-r1-conformance --seat review_lens \
+      --items "$C/$EV/round1/items-conformance.jsonl" \
       --template .claude/codex/review-context.txt --schema .claude/codex/review-schema.json \
       --workers 1 --timeout 1500 --cwd "$JOBS/worktrees/$B-r1-conformance" --write
 
-Copy `$JOBS/fleets/<name>/results/*.json` into `$C/$EV/round1/`. Then `python3 .claude/codex/check-review.py "$C/$EV/round1/"*.json`: a report that fails this gate is rerun, not adjudicated.
+Copy `$STATE/fleets/<name>/results/*.json` into `$C/$EV/round1/`. Then `python3 .claude/codex/check-review.py "$C/$EV/round1/"*.json`: a report that fails this gate is rerun, not adjudicated.
 Then the
 required step: run every `orchestrator_runs` command from the session and
 write each command with its output into `$C/$EV/round1/orchestrator-runs.md`.
@@ -155,10 +189,21 @@ records its run.
 Write `$C/$EV/round1/fix-list.txt`: `F1..Fn`, each with severity, which lens
 raised it, and the exact change; mark items closed by an orchestrator run as
 ORCHESTRATOR-RAN with the output. Drop what the repo refutes; merge
-duplicates. Render `fix-brief.txt` with `slice`, `branch`, `head`,
-`spec_path`, `fix_list`, `allowed_files` to `$C/$EV/round1/fix-brief.txt` and
-copy it to `$C/.fix-brief.txt`; `cx.sh run <slice>-fix1` in the clone and
-`wait`; copy the result to `$C/.stage-report.md` and `$C/$EV/round1/fix-report.md`;
+duplicates. Write `$C/$EV/round1/fix-items.jsonl`, one line with `id`, `slice`, `branch`,
+`head`, `spec_path`, `fix_list`, `allowed_files`, and copy the fix list to
+`$C/$EV/round1/fix-brief.txt` and `$C/.fix-brief.txt` for the record and
+the verify round. Run the fix round in the clone
+as a one-item fleet on the seat that matches the work: `fix_mechanical` (test
+rows, renames, report items), `fix_mid` (one module's logic) or `fix_hard`
+(crash consistency, shell, cross-module):
+
+    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-fix1 --seat fix_mid \
+      --items "$C/$EV/round1/fix-items.jsonl" --template .claude/codex/fix-brief.txt \
+      --schema .claude/codex/fix-schema.json --workers 1 --write --cwd "$C" --timeout 5400 --dry-run
+
+then without `--dry-run`, detached, as in the build. The agent writes its
+report to `.codex-report.md` and returns the JSON. Copy the report to
+`$C/.stage-report.md` and `$C/$EV/round1/fix-report.md`;
 `git status --short` (the changes must exist); stage the file list and `$EV`;
 commit.
 
@@ -168,9 +213,9 @@ Remove the round-1 worktrees (`git worktree remove --force`, then
 `git worktree prune`), fetch the branch again with the SHA check, add fresh
 worktrees at NEW paths (`$B-r2-verify`), copy in the spec, `node_modules`,
 a restore, `.stage-report.md`, and `.fix-brief.txt` (the round-1 JSONs ride
-the commit under `$EV`). Run one luna lens with `lens-verify.txt` (with
-`--write`). On a disagreement between lenses, add one opus lens through the
-Workflow tool at `xhigh` with the same schema, given the worktree's absolute
+the commit under `$EV`). Run one `review_lens` lens with `lens-verify.txt` (with
+`--write`). On a disagreement between lenses, add one lens on the seat's Claude row through the
+Workflow tool with the same schema, given the worktree's absolute
 path and told to `cd` there first (no worktree isolation flag). Repeat 6 and
 7 until zero blocker and zero major; two rounds is typical.
 
@@ -182,20 +227,32 @@ path and told to `cd` there first (no worktree isolation flag). Repeat 6 and
 
 The push runs only when the scrub finds nothing (grep exit 1); a match or a grep error stops here. The pattern covers macOS, Linux, and Windows home paths and email addresses.
 
-PR body: a luna draft with `draft-prompt.txt` (`artifact_kind` "a pull
-request body", `shape_example_path` a recent PR body saved under `$EV`,
-`sources` the stage reports) that the session edits; then `gh pr create`.
-The same template drafts a slice spec, a cycle-plan section, or a
-decision-log entry, but those hold a structure over many facts and run on
-Astra `xhigh`.
-The maintainer's code-gauntlet run is the cross-family pass; address its
-findings when asked. The maintainer merges.
+PR body: a `draft_routine` draft. Write one items line with `id`,
+`artifact_kind` ("a pull request body"), `shape_example_path` (a recent PR body
+saved under `$EV`), `sources` (the stage reports), `brief`, `word_cap` and
+`out_path` (relative to the clone, for example `$EV/pr-body.md`), then from the
+clone:
+
+    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-prbody --seat draft_routine \
+      --items "$C/$EV/pr-body-items.jsonl" --template .claude/codex/draft-prompt.txt \
+      --schema .claude/codex/draft-schema.json --workers 1 --write --cwd "$C"
+
+The agent writes the draft to `out_path` and returns a small JSON (status, path,
+word count, gaps); the launcher accepts only JSON. The session edits the draft,
+then `gh pr create`. The same template drafts a slice spec, a cycle-plan
+section, or a decision-log entry, but those hold a structure over many facts and
+run on `--seat draft_structured`.
+The cross-family pass is the headless code-gauntlet run the session launches
+itself once the PR is ready (not a draft):
+`~/personal/orchestration-kit-stable/bin/gauntlet-review <pr> --repo-dir <worktree at the PR head>`,
+with a detached worktree at the PR head instead of `$R` (which stays on main). Address its findings before asking the
+maintainer to look. The maintainer merges.
 
 ## 9. Clean up
 
 `git worktree remove --force` each worktree, `git worktree prune`,
-`/bin/rm -rf "$C"` once the branch is pushed. List broker processes with
-`pgrep -fl app-server-broker.mjs` and kill only those whose `--cwd` was this
+`/bin/rm -rf "$C"` once the branch is pushed. List leftover fleet processes with
+`pgrep -fl codex-fleet` and kill only those whose `--cwd` was this
 repo's clone or worktrees; other sessions own the rest.
 
 ## Items-file snippet
@@ -212,15 +269,15 @@ repo's clone or worktrees; other sessions own the rest.
 
 ## Conventions
 
-- Models: luna `xhigh` for every bounded build, review, fix, and slice
-  recon lens; terra `high` for cross-document recall; Astra `xhigh` for the
-  red-team seat, judgment recon, structured drafts, large refactors, and a
-  stage that failed review twice (sol `max` is the red-team fallback).
-  `max` and `ultra` are never defaults. Past about 60 percent of the Codex
-  weekly window mid-week, Astra drops to `high` on non-critical builds.
-- Timeouts: 900 s per recon lens, 1800 s for a single Astra recon, 1500 s
-  per review or red-team lens; builds and fixes go
-  through the companion, which `cx.sh wait` polls without a timeout.
+- Seats: `recon_large`/`recon_small`/`recall` for recon, `red_team`,
+  `build_bounded`/`build_refactor`, `review_lens`, `fix_mechanical`/`fix_mid`/`fix_hard`,
+  `draft_structured`/`draft_routine`. The seat sets model, effort and default
+  timeout; escalate only by the seat's own row with a reason. `max` and
+  `ultra` are never defaults.
+- Timeouts: leave `--timeout` to the seat for recon, red-team and drafts; builds
+  and fix rounds run `--timeout 5400`, review lenses `--timeout 1500`. A
+  timed-out mutation lens leaves a mutated worktree: `git checkout .` in it
+  before any rerun.
 - Freeze inputs: finish a fleet before landing the documents it reasons
   about, or its later items read a ruling and go circular.
 - ASCII in every prompt and schema string; quotes under 300 characters.

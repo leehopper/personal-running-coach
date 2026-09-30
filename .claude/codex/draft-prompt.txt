@@ -1,5 +1,5 @@
 <task>
-Draft {artifact_kind} for the RunCoach repo (your cwd; read AGENTS.md first; read-only except the output file). Match the house shape: read {shape_example_path} for the section pattern and register, then write from the brief and the sources below only.
+Draft {artifact_kind} for the RunCoach repo (your cwd; read AGENTS.md first; write only the output file). Match the house shape: read {shape_example_path} for the section pattern and register, then write from the brief and the sources below only.
 </task>
 <brief>
 {brief}
@@ -14,5 +14,8 @@ Use only the sources listed and the repo files they cite. Every claim of what ch
 Plain prose; no em dashes (use commas or periods); no filler adjectives (comprehensive, robust, seamless, powerful, elegant, crucial, key, vital, significant); one idea per sentence, 25 words maximum; bullets only for parallel items; no bolded-label bullets; end on the last real fact. ASCII only. Under {word_cap} words.
 </style>
 <output>
-Write the draft to {out_path}. Then print a five-line stage report: sections written, word count, sources used, gaps you could not ground, anything you left out because of the word cap.
+Write the draft to {out_path} (relative to your cwd).
 </output>
+<structured_output_contract>
+Your final message is only a JSON object matching the schema: status (COMPLETE, or INCOMPLETE when a section could not be written), out_path, word_count of the draft, and gaps (each claim or section you could not ground, or anything cut for the word cap; empty when none). No prose outside the JSON.
+</structured_output_contract>

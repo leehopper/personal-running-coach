@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "out_path",
+    "word_count",
+    "gaps"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE"
+      ]
+    },
+    "out_path": {
+      "type": "string"
+    },
+    "word_count": {
+      "type": "integer"
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
