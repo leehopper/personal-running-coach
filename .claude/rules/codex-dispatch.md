@@ -36,8 +36,10 @@ Codex agents read `AGENTS.md`, not this file.
   rounds on `fix_mechanical` / `fix_mid` / `fix_hard` in the clone, repeated
   until zero blocker and zero major. Every lens report passes
   `.claude/codex/check-review.py` before adjudication. The cross-family pass
-  on every PR is the maintainer's own code-gauntlet run in another session:
-  never run it here; address its findings when asked.
+  on every PR is the headless code-gauntlet run this session launches itself
+  (`~/personal/orchestration-kit-stable/bin/gauntlet-review <pr> --repo-dir
+  <checkout at the PR head>`); address its findings before asking the
+  maintainer to look.
 
 Escalation, the cross-family rules, budget, session tier and handoff are the
 kit's and the maintainer's global rules; do not restate them here.
