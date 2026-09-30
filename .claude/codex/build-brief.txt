@@ -26,5 +26,9 @@ Do not touch any other file. If an acceptance criterion forces another file, sto
 </method>
 
 <completeness_contract>
-Every acceptance criterion gets a line: PASS with the command and its last output line, or DEVIATION with what and why. No criterion may be silently skipped. The report is your final message, markdown, sections: Files (exact paths, new vs changed), Gates (each command and its last line), Acceptance table, Mutations (each new test and the bug it fails against), Deviations (including every command the orchestrator must run for you), Open questions. Finish with the line STAGE COMPLETE.
+Every acceptance criterion gets a line: PASS with the command and its last output line, or DEVIATION with what and why. No criterion may be silently skipped. Write the stage report as markdown to `.codex-report.md` in your cwd (untracked), sections: Files (exact paths, new vs changed), Gates (each command and its last line), Acceptance table, Mutations (each new test and the bug it fails against), Deviations (including every command the orchestrator must run for you), Open questions. End the report with the line STAGE COMPLETE.
 </completeness_contract>
+
+<structured_output_contract>
+Your final message is only a JSON object matching the schema: status (COMPLETE, or INCOMPLETE when any criterion is a DEVIATION you could not close), report_path (`.codex-report.md`), report_lines (line count of that file), files_changed (paths), gates (each command with its last output line). No prose outside the JSON.
+</structured_output_contract>

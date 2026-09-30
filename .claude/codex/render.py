@@ -4,7 +4,7 @@
 Usage: python3 .claude/codex/render.py <template.txt> <vars.json> > prompt.txt
 
 Same rendering the fleet driver applies to --template, so one convention holds
-for fleet templates and companion briefs alike: `{name}` is a placeholder and a
+for fleet templates and one-off briefs alike: `{name}` is a placeholder and a
 literal brace is doubled (`{{` / `}}`). A missing placeholder is an error, not an
 empty string.
 """

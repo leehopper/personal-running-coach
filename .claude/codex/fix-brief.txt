@@ -13,5 +13,9 @@ Files you may touch: the build's file list plus {allowed_files}. Nothing else.
 </environment_and_gates>
 
 <completeness_contract>
-Final message = markdown stage report: Fixes (F1..Fn, each: what changed, file:line, the check that now goes red against the original bug, or VERIFIED BY INSPECTION when the item is documentation-only; never claim a mechanized red for a doc change), Gates (each command and its last output line), Deviations (any fix you could not apply and why), Open questions. Finish with the line FIX ROUND COMPLETE.
+Write the stage report as markdown to `.codex-report.md` in your cwd (untracked; leave `.stage-report.md`, the prior report, untouched). Sections: Fixes (F1..Fn, each: what changed, file:line, the check that now goes red against the original bug, or VERIFIED BY INSPECTION when the item is documentation-only; never claim a mechanized red for a doc change), Gates (each command and its last output line), Deviations (any fix you could not apply and why), Open questions. End the report with the line FIX ROUND COMPLETE.
 </completeness_contract>
+
+<structured_output_contract>
+Your final message is only a JSON object matching the schema: status (COMPLETE, or INCOMPLETE when a fix is skipped), report_path (`.codex-report.md`), report_lines (line count), files_changed (paths), fixes_applied and fixes_skipped (fix ids such as F1), gates (each command with its last output line). No prose outside the JSON.
+</structured_output_contract>

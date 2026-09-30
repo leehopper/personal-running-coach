@@ -1,0 +1,65 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "report_path",
+    "report_lines",
+    "files_changed",
+    "fixes_applied",
+    "fixes_skipped",
+    "gates"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE"
+      ]
+    },
+    "report_path": {
+      "type": "string"
+    },
+    "report_lines": {
+      "type": "integer"
+    },
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fixes_applied": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fixes_skipped": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command",
+          "last_line"
+        ],
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "last_line": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

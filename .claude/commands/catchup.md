@@ -13,7 +13,7 @@ Read the following in order to understand current project state, then provide a 
 
 ## Agent budget
 
-6. `python3 ~/.claude/skills/codex-orchestration/agent-budget.py --live --account` — the week's agent spend by family, the Codex weekly window (used %, reset), and which account is live.
+6. `~/personal/orchestration-kit-stable/bin/agent-budget --live --account --brief` — the week's agent spend by family, the Codex weekly window (used %, reset), and which account is live.
 
 ## Summary format
 
@@ -24,6 +24,6 @@ Read the following in order to understand current project state, then provide a 
 - The next concrete action.
 - Any visible blockers or in-flight changes.
 - The agent budget line verbatim (week's spend, Codex window used and its reset).
-- The session tier the next action needs (DEC-093): mechanical work stays on the Opus 5 default; a spec, red-team adjudication, or slice orchestration needs `/model` to Fable first.
+- The session tier: Opus 5.5 drives every session kind; Fable only by `/model` for the most critical reasoning the maintainer names (see `~/.claude/CLAUDE.md`).
 
 Point the user at the exact file they should open next if one is obvious (active slice plan, next slice's acceptance criteria, the follow-up they flagged last session, etc.).

@@ -58,6 +58,7 @@ docs/specs/
 .codex/
 .agents/
 .stage-report.md
+.codex-report.md
 .fix-brief.txt
 .tmp-*/
 
