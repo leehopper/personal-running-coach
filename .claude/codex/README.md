@@ -25,7 +25,7 @@ Paths used below:
 - `B=<branch>`; `C=$JOBS/clones/$B` (the clone, the only writer)
 - `EV=docs/plans/<cycle>/<slice>-evidence` (committed evidence, written in the
   clone: briefs, lens JSONs, adjudications, reports; the driver's logs and
-  ledgers stay under `$JOBS`)
+  ledgers stay under `$STATE`)
 
 ## 0. Budget and account
 
@@ -61,7 +61,12 @@ each over a bounded file set):
       --items "$C/$EV/recon/items.jsonl" \
       --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
       --workers 3 --cwd "$R" --dry-run
-    # read the rendered prompts, then the same command without --dry-run
+    # read the rendered prompts, then launch: the same command without --dry-run
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --seat recon_large \
+      --items "$C/$EV/recon/items.jsonl" \
+      --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
+      --workers 3 --cwd "$R"
+    # when it finishes, collect
     ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --seat recon_large \
       --items "$C/$EV/recon/items.jsonl" \
       --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
@@ -222,16 +227,25 @@ path and told to `cd` there first (no worktree isolation flag). Repeat 6 and
 
 The push runs only when the scrub finds nothing (grep exit 1); a match or a grep error stops here. The pattern covers macOS, Linux, and Windows home paths and email addresses.
 
-PR body: a `draft_routine` draft with `draft-prompt.txt` (`artifact_kind` "a pull
-request body", `shape_example_path` a recent PR body saved under `$EV`,
-`sources` the stage reports) that the session edits; then `gh pr create`.
-The same template drafts a slice spec, a cycle-plan section, or a
-decision-log entry, but those hold a structure over many facts and run on
-`draft_structured`.
+PR body: a `draft_routine` draft. Write one items line with `id`,
+`artifact_kind` ("a pull request body"), `shape_example_path` (a recent PR body
+saved under `$EV`), `sources` (the stage reports), `brief`, `word_cap` and
+`out_path` (relative to the clone, for example `$EV/pr-body.md`), then from the
+clone:
+
+    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-prbody --seat draft_routine \
+      --items "$C/$EV/pr-body-items.jsonl" --template .claude/codex/draft-prompt.txt \
+      --schema .claude/codex/draft-schema.json --workers 1 --write --cwd "$C"
+
+The agent writes the draft to `out_path` and returns a small JSON (status, path,
+word count, gaps); the launcher accepts only JSON. The session edits the draft,
+then `gh pr create`. The same template drafts a slice spec, a cycle-plan
+section, or a decision-log entry, but those hold a structure over many facts and
+run on `--seat draft_structured`.
 The cross-family pass is the headless code-gauntlet run the session launches
 itself once the PR is ready (not a draft):
-`~/personal/orchestration-kit-stable/bin/gauntlet-review <pr> --repo-dir "$R"`,
-with `$R` checked out at the PR head. Address its findings before asking the
+`~/personal/orchestration-kit-stable/bin/gauntlet-review <pr> --repo-dir <worktree at the PR head>`,
+with a detached worktree at the PR head instead of `$R` (which stays on main). Address its findings before asking the
 maintainer to look. The maintainer merges.
 
 ## 9. Clean up

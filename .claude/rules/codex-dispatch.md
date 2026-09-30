@@ -76,12 +76,12 @@ kit's and the maintainer's global rules; do not restate them here.
   fix lists, stage reports, orchestrator-run outputs) is committed under
   `docs/plans/<cycle>/<slice>-evidence/`, written in the clone and committed
   before the build so review worktrees carry it. The driver's logs and
-  ledgers stay under the jobs directory. Public repo: grep the evidence for
+  ledgers stay under the kit's state directory. Public repo: grep the evidence for
   home paths and addresses before the push.
 - Shipping: `git push -u origin <branch>` from the main repo after the
   fetch, then `gh pr create`. The user merges. A lens's `orchestrator_runs`
   (Docker-bound tests and the like) are run from this session with the
   output attached to the round record; until then the mutation they guard
   counts as unverified, never green.
-- Companion-generated `.codex/` and `.agents/` mirrors, `.stage-report.md`,
-  and `.tmp-*/` scratch paths are gitignored.
+- Generated `.codex/` and `.agents/` mirrors, `.stage-report.md`,
+  `.codex-report.md`, and `.tmp-*/` scratch paths are gitignored.
