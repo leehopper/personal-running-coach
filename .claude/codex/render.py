@@ -3,10 +3,9 @@
 
 Usage: python3 .claude/codex/render.py <template.txt> <vars.json> > prompt.txt
 
-Same rendering the fleet driver applies to --template, so one convention holds
-for fleet templates and one-off briefs alike: `{name}` is a placeholder and a
-literal brace is doubled (`{{` / `}}`). A missing placeholder is an error, not an
-empty string.
+Same `{name}` convention the fleet driver applies to --template: a literal brace
+is doubled (`{{` / `}}`). Unlike the fleet driver, which leaves an unfilled
+`{name}` in the prompt, a missing placeholder here is an error.
 """
 
 import json

@@ -23,8 +23,8 @@ Codex agents read `AGENTS.md`, not this file.
   one `recon_large` task with a schema; the session reads the result.
 - Spec or plan red-team, and a standing disagreement between two named
   reviewers on one document: the `red_team` seat, both families (a Claude
-  Workflow lens plus the Codex fleet). Neither verdict is accepted without
-  the other.
+  Workflow lens plus the Codex fleet). Neither Codex verdict is accepted
+  without the Claude side.
 - First drafts that hold a structure over many facts (slice specs,
   cycle-plan sections, decision-log entries, handoffs, rules):
   `draft_structured`. Routine drafts with a fixed shape (PR bodies, round

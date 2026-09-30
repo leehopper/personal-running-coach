@@ -68,8 +68,11 @@ each over a bounded file set):
       --collect "$C/$EV/recon/out.json"
 
 The `--dry-run` renders the prompts under `$STATE/fleets/<name>/prompts/`;
-`--collect` needs the same `--name`, `--seat`, `--items`, `--template` and
-`--schema` as the launch. The session adjudicates the recommendations into
+`--collect` needs the same `--name`, `--items`, `--template` and `--schema`
+as the launch. A dry run leaves `{name}` in place for any field the items
+line lacks, so read the rendered prompt for leftover braces. The first fleet
+on a seat with no ledger history exits `estimate_required`: rerun with
+`--estimate-credits` and `--estimate-reason`. The session adjudicates the recommendations into
 the spec.
 
 A lens over a design source against the code (cross-document recall) uses
@@ -102,7 +105,7 @@ A red-team that needs more depth escalates by the seat's row
 Codex side is unavailable (usage limit), rerun after the reset or name the
 substitution in the adjudication. Adjudicate both
 into `$C/$EV/redteam/adjudication.md`. A Codex finding stands only when the
-Claude side or a repo check confirms it; Treat a Codex list as
+Claude side or a repo check confirms it. Treat a Codex list as
 candidates, not verdicts. Revise the spec; rerun
 on REJECT. Then commit the evidence so far in the clone (`git add "$EV"`,
 `git commit`): reviewers' worktrees carry only what HEAD~1 committed.
@@ -163,11 +166,11 @@ lens needs a writable temp to run anything.
     ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-r1-mutation --seat review_lens \
       --items "$C/$EV/round1/items-mutation.jsonl" \
       --template .claude/codex/review-context.txt --schema .claude/codex/review-schema.json \
-      --workers 1 --cwd "$JOBS/worktrees/$B-r1-mutation" --write
+      --workers 1 --timeout 1500 --cwd "$JOBS/worktrees/$B-r1-mutation" --write
     ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-r1-conformance --seat review_lens \
       --items "$C/$EV/round1/items-conformance.jsonl" \
       --template .claude/codex/review-context.txt --schema .claude/codex/review-schema.json \
-      --workers 1 --cwd "$JOBS/worktrees/$B-r1-conformance" --write
+      --workers 1 --timeout 1500 --cwd "$JOBS/worktrees/$B-r1-conformance" --write
 
 Copy `$STATE/fleets/<name>/results/*.json` into `$C/$EV/round1/`. Then `python3 .claude/codex/check-review.py "$C/$EV/round1/"*.json`: a report that fails this gate is rerun, not adjudicated.
 Then the
@@ -191,7 +194,7 @@ rows, renames, report items), `fix_mid` (one module's logic) or `fix_hard`
 
     cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-fix1 --seat fix_mid \
       --items "$C/$EV/round1/fix-items.jsonl" --template .claude/codex/fix-brief.txt \
-      --schema .claude/codex/fix-schema.json --workers 1 --write --cwd "$C" --dry-run
+      --schema .claude/codex/fix-schema.json --workers 1 --write --cwd "$C" --timeout 5400 --dry-run
 
 then without `--dry-run`, detached, as in the build. The agent writes its
 report to `.codex-report.md` and returns the JSON. Copy the report to
@@ -254,8 +257,10 @@ repo's clone or worktrees; other sessions own the rest.
   `draft_structured`/`draft_routine`. The seat sets model, effort and default
   timeout; escalate only by the seat's own row with a reason. `max` and
   `ultra` are never defaults.
-- Timeouts: leave `--timeout` to the seat; a build or a large fix round is a
-  one-item fleet with a larger `--timeout`, run detached.
+- Timeouts: leave `--timeout` to the seat for recon, red-team and drafts; builds
+  and fix rounds run `--timeout 5400`, review lenses `--timeout 1500`. A
+  timed-out mutation lens leaves a mutated worktree: `git checkout .` in it
+  before any rerun.
 - Freeze inputs: finish a fleet before landing the documents it reasons
   about, or its later items read a ruling and go circular.
 - ASCII in every prompt and schema string; quotes under 300 characters.
