@@ -228,8 +228,11 @@ request body", `shape_example_path` a recent PR body saved under `$EV`,
 The same template drafts a slice spec, a cycle-plan section, or a
 decision-log entry, but those hold a structure over many facts and run on
 `draft_structured`.
-The maintainer's code-gauntlet run is the cross-family pass; address its
-findings when asked. The maintainer merges.
+The cross-family pass is the headless code-gauntlet run the session launches
+itself once the PR is ready (not a draft):
+`~/personal/orchestration-kit-stable/bin/gauntlet-review <pr> --repo-dir "$R"`,
+with `$R` checked out at the PR head. Address its findings before asking the
+maintainer to look. The maintainer merges.
 
 ## 9. Clean up
 
