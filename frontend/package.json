@@ -68,7 +68,7 @@
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.0",
     "esbuild-runner": "^2.2.2",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
