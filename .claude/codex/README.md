@@ -92,15 +92,15 @@ never the source.
 
 ## 3. Spec red-team: both families
 
-Claude side: a Workflow with one agent on the `review` kind's Claude row
-(model and effort from
-`~/personal/orchestration-kit-stable/bin/kind resolve review --engine-mode claude_only`),
+Claude side: a Workflow with one agent on the `review` kind's red-team step-up
+(Opus medium; confirm with
+`~/personal/orchestration-kit-stable/bin/kind resolve review --engine-mode claude_only --model opus --effort medium --reason "red team"`),
 given `.claude/codex/redteam-prompt.txt` rendered for the spec and
 `redteam-schema.json` as its schema; save its JSON to `$C/$EV/redteam/opus.json`.
 Codex side, the same kind:
 
     printf '%s\n' '{"id":"codex","doc_kind":"spec","doc_path":"docs/specs/<slice>/spec.md","context_paths":"docs/plans/<cycle>/cycle-plan.md, docs/plans/<cycle>/slice-N-<name>.md"}' > "$C/$EV/redteam/items.jsonl"
-    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-redteam --kind review \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-redteam --kind review --model sol --effort xhigh --reason "red team" \
       --items "$C/$EV/redteam/items.jsonl" \
       --template .claude/codex/redteam-prompt.txt --schema .claude/codex/redteam-schema.json \
       --workers 1 --cwd "$R"
@@ -130,7 +130,7 @@ detached (a Bash `run_in_background`, or `nohup ... &`), and wait with one
 blocking call; a build takes 30 to 75 minutes. A refactor of about 20 files or
 more, or one that holds a cross-module invariant, runs the same command with
 `--kind deep_build`; a stage that failed review twice steps up with a reasoned
-override (for example `--effort xhigh --reason "<why>"`).
+override (for example `--model sol --effort xhigh --reason "<why>"`).
 
 The launcher accepts only a JSON result. The agent writes its Markdown stage
 report to `.codex-report.md` in the clone (gitignored) and returns a small
