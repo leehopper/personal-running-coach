@@ -11,12 +11,13 @@ the brief carries only the per-task contract.
 Paths used below:
 
 - The orchestration kit's commands, always spelled by full path:
-  `~/personal/orchestration-kit-stable/bin/codex-fleet --seat <seat>` and
-  `~/personal/orchestration-kit-stable/bin/agent-budget`. The seat picks the
-  model, effort and default timeout; `--model` and `--effort` are errors.
-  Seats and mechanics: the seat table in `~/.claude/CLAUDE.md` and the plugin
-  skill `orchestration-kit:codex-orchestration`. A single task is a one-item
-  fleet.
+  `~/personal/orchestration-kit-stable/bin/codex-fleet --kind <kind>` and
+  `~/personal/orchestration-kit-stable/bin/agent-budget`. The kind picks the
+  model, effort and default timeout; override only with `--model M --effort E
+  --reason "<why>"`. Kinds and mechanics: the table in
+  `~/personal/orchestration-kit-stable/models.md` and the plugin skill
+  `orchestration-kit:codex-orchestration`. A single task is
+  `--kind <kind> --prompt "<task>"` or a one-item fleet.
 - `STATE=~/.claude/orchestration-state` (fleet state under
   `fleets/<name>/`: `prompts/` from a dry run, `results/<id>.json`, logs)
 - `JOBS=~/.claude/codex-jobs` (clones under `clones/`, worktrees under
@@ -57,17 +58,17 @@ each over a bounded file set):
 
     {"id": "r1-<topic>", "slice": "Slice N PR-A", "slice_summary": "<one paragraph from the cycle plan>", "brief": "<the questions>", "files": "path, path, path"}
 
-    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --seat recon_large \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --kind read \
       --items "$C/$EV/recon/items.jsonl" \
       --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
       --workers 3 --cwd "$R" --dry-run
     # read the rendered prompts, then launch: the same command without --dry-run
-    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --seat recon_large \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --kind read \
       --items "$C/$EV/recon/items.jsonl" \
       --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
       --workers 3 --cwd "$R"
     # when it finishes, collect
-    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --seat recon_large \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-recon --kind read \
       --items "$C/$EV/recon/items.jsonl" \
       --template .claude/codex/recon-prompt.txt --schema .claude/codex/recon-schema.json \
       --collect "$C/$EV/recon/out.json"
@@ -76,37 +77,36 @@ The `--dry-run` renders the prompts under `$STATE/fleets/<name>/prompts/`;
 `--collect` needs the same `--name`, `--items`, `--template` and `--schema`
 as the launch. A dry run leaves `{name}` in place for any field the items
 line lacks, so read the rendered prompt for leftover braces. The first fleet
-on a seat with no ledger history exits `estimate_required`: rerun with
+on a kind with no ledger history exits `estimate_required`: rerun with
 `--estimate-credits` and `--estimate-reason`. The session adjudicates the recommendations into
 the spec.
 
-A lens over a design source against the code (cross-document recall) uses
-`--seat recall`. A lens over one file of about 300 lines or fewer uses
-`--seat recon_small`. A single recon that ends in a judgment over anything
-larger the session would otherwise read inline (a branch's whole diff, a CI
-or suite log, a gauntlet or CodeRabbit report, a research artifact) is a
-one-item `recon_large` fleet with the same template and schema and
-`--workers 1`; a task that needs more depth escalates by the seat's own row
-(`--escalate on=needs_depth reason=<why>`). The session reads the collected
-JSON, never the source.
+A lens over a design source against the code (cross-document recall) or over
+one file of about 300 lines or fewer is the same `read` kind. A single recon
+that ends in a judgment over anything larger the session would otherwise read
+inline (a branch's whole diff, a CI or suite log, a gauntlet or CodeRabbit
+report, a research artifact) is a one-item `read` fleet with the same template
+and schema and `--workers 1`; a task that needs more depth steps up with
+`--model M --effort E --reason "<why>"`. The session reads the collected JSON,
+never the source.
 
 ## 3. Spec red-team: both families
 
-Claude side: a Workflow with one agent on the `red_team` seat's Claude row
-(model and effort from
-`~/personal/orchestration-kit-stable/bin/seat resolve red_team --engine-mode claude_only`),
+Claude side: a Workflow with one agent on the `review` kind's red-team step-up
+(Opus medium; confirm with
+`~/personal/orchestration-kit-stable/bin/kind resolve review --engine-mode claude_only --model opus --effort medium --reason "red team"`),
 given `.claude/codex/redteam-prompt.txt` rendered for the spec and
 `redteam-schema.json` as its schema; save its JSON to `$C/$EV/redteam/opus.json`.
-Codex side, the same seat:
+Codex side, the same kind:
 
     printf '%s\n' '{"id":"codex","doc_kind":"spec","doc_path":"docs/specs/<slice>/spec.md","context_paths":"docs/plans/<cycle>/cycle-plan.md, docs/plans/<cycle>/slice-N-<name>.md"}' > "$C/$EV/redteam/items.jsonl"
-    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-redteam --seat red_team \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-redteam --kind review --model sol --effort xhigh --reason "red team" \
       --items "$C/$EV/redteam/items.jsonl" \
       --template .claude/codex/redteam-prompt.txt --schema .claude/codex/redteam-schema.json \
       --workers 1 --cwd "$R"
 
-A red-team that needs more depth escalates by the seat's row
-(`--escalate on=needs_depth reason=<why>`) and keeps its Claude check; when the
+A red-team that needs more depth steps up with a reasoned override
+(`--model M --effort E --reason "<why>"`) and keeps its Claude check; when the
 Codex side is unavailable (usage limit), rerun after the reset or name the
 substitution in the adjudication. Adjudicate both
 into `$C/$EV/redteam/adjudication.md`. A Codex finding stands only when the
@@ -121,7 +121,7 @@ Write `$C/$EV/build-items.jsonl`, one line holding `id`, `slice`, `branch`,
 `spec_path`, `plan_paths`, `extra_reading`, `file_list`, `extra_constraints`
 (the fleet renders `build-brief.txt` with these), then from the clone:
 
-    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-build --seat build_bounded \
+    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-build --kind build \
       --items "$C/$EV/build-items.jsonl" --template .claude/codex/build-brief.txt \
       --schema .claude/codex/build-schema.json --workers 1 --write --cwd "$C" --timeout 5400 --dry-run
 
@@ -129,8 +129,8 @@ Read the rendered prompt, then run the same command without `--dry-run`,
 detached (a Bash `run_in_background`, or `nohup ... &`), and wait with one
 blocking call; a build takes 30 to 75 minutes. A refactor of about 20 files or
 more, or one that holds a cross-module invariant, runs the same command with
-`--seat build_refactor`; a stage that failed review twice escalates by the
-seat's row (`--escalate on=two_failed_reviews reason=<why>`).
+`--kind deep_build`; a stage that failed review twice steps up with a reasoned
+override (for example `--model sol --effort xhigh --reason "<why>"`).
 
 The launcher accepts only a JSON result. The agent writes its Markdown stage
 report to `.codex-report.md` in the clone (gitignored) and returns a small
@@ -149,7 +149,7 @@ Run from the session what the sandbox could not, and paste each result into
 create the test host's named pipe), Playwright, and the codegen chain if a
 wire changed. Builders build with the in-process flag bundle in `AGENTS.md`.
 
-## 5. Review: two `review_lens` lenses in detached worktrees
+## 5. Review: `review` lenses in detached worktrees
 
     cd "$R" && git fetch "$C" "$B:$B"
     [ "$(git rev-parse "$B")" = "$(git -C "$C" rev-parse HEAD)" ] || echo "STALE FETCH"
@@ -168,11 +168,11 @@ it), then one fleet per lens so `--cwd` points at its worktree. Both lenses
 get `--write`: the mutation lens mutates and restores, and the conformance
 lens needs a writable temp to run anything.
 
-    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-r1-mutation --seat review_lens \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-r1-mutation --kind review \
       --items "$C/$EV/round1/items-mutation.jsonl" \
       --template .claude/codex/review-context.txt --schema .claude/codex/review-schema.json \
       --workers 1 --timeout 1500 --cwd "$JOBS/worktrees/$B-r1-mutation" --write
-    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-r1-conformance --seat review_lens \
+    ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-r1-conformance --kind review \
       --items "$C/$EV/round1/items-conformance.jsonl" \
       --template .claude/codex/review-context.txt --schema .claude/codex/review-schema.json \
       --workers 1 --timeout 1500 --cwd "$JOBS/worktrees/$B-r1-conformance" --write
@@ -193,11 +193,11 @@ duplicates. Write `$C/$EV/round1/fix-items.jsonl`, one line with `id`, `slice`, 
 `head`, `spec_path`, `fix_list`, `allowed_files`, and copy the fix list to
 `$C/$EV/round1/fix-brief.txt` and `$C/.fix-brief.txt` for the record and
 the verify round. Run the fix round in the clone
-as a one-item fleet on the seat that matches the work: `fix_mechanical` (test
-rows, renames, report items), `fix_mid` (one module's logic) or `fix_hard`
-(crash consistency, shell, cross-module):
+as a one-item fleet on the kind that matches the work: `build` (test rows,
+renames, report items, one module's logic) or `deep_build` (crash
+consistency, shell, cross-module):
 
-    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-fix1 --seat fix_mid \
+    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-fix1 --kind build \
       --items "$C/$EV/round1/fix-items.jsonl" --template .claude/codex/fix-brief.txt \
       --schema .claude/codex/fix-schema.json --workers 1 --write --cwd "$C" --timeout 5400 --dry-run
 
@@ -213,11 +213,13 @@ Remove the round-1 worktrees (`git worktree remove --force`, then
 `git worktree prune`), fetch the branch again with the SHA check, add fresh
 worktrees at NEW paths (`$B-r2-verify`), copy in the spec, `node_modules`,
 a restore, `.stage-report.md`, and `.fix-brief.txt` (the round-1 JSONs ride
-the commit under `$EV`). Run one `review_lens` lens with `lens-verify.txt` (with
-`--write`). On a disagreement between lenses, add one lens on the seat's Claude row through the
+the commit under `$EV`). Run one `review` lens with `lens-verify.txt` (with
+`--write`). On a disagreement between lenses, add one lens on the kind's Claude row through the
 Workflow tool with the same schema, given the worktree's absolute
 path and told to `cd` there first (no worktree isolation flag). Repeat 6 and
-7 until zero blocker and zero major; two rounds is typical.
+7 until a round has no finding with evidence (a reachable caller or a failing
+input), then close with one check from the model family that did not write
+the fix.
 
 ## 8. Ship
 
@@ -227,13 +229,13 @@ path and told to `cd` there first (no worktree isolation flag). Repeat 6 and
 
 The push runs only when the scrub finds nothing (grep exit 1); a match or a grep error stops here. The pattern covers macOS, Linux, and Windows home paths and email addresses.
 
-PR body: a `draft_routine` draft. Write one items line with `id`,
+PR body: a `draft` kind draft. Write one items line with `id`,
 `artifact_kind` ("a pull request body"), `shape_example_path` (a recent PR body
 saved under `$EV`), `sources` (the stage reports), `brief`, `word_cap` and
 `out_path` (relative to the clone, for example `$EV/pr-body.md`), then from the
 clone:
 
-    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-prbody --seat draft_routine \
+    cd "$C" && ~/personal/orchestration-kit-stable/bin/codex-fleet --name <slice>-prbody --kind draft \
       --items "$C/$EV/pr-body-items.jsonl" --template .claude/codex/draft-prompt.txt \
       --schema .claude/codex/draft-schema.json --workers 1 --write --cwd "$C"
 
@@ -241,7 +243,7 @@ The agent writes the draft to `out_path` and returns a small JSON (status, path,
 word count, gaps); the launcher accepts only JSON. The session edits the draft,
 then `gh pr create`. The same template drafts a slice spec, a cycle-plan
 section, or a decision-log entry, but those hold a structure over many facts and
-run on `--seat draft_structured`.
+run on the same `draft` kind with a step-up reason when the structure is large.
 The cross-family pass is the headless code-gauntlet run the session launches
 itself once the PR is ready (not a draft):
 `~/personal/orchestration-kit-stable/bin/gauntlet-review <pr> --repo-dir <worktree at the PR head>`,
@@ -269,12 +271,11 @@ repo's clone or worktrees; other sessions own the rest.
 
 ## Conventions
 
-- Seats: `recon_large`/`recon_small`/`recall` for recon, `red_team`,
-  `build_bounded`/`build_refactor`, `review_lens`, `fix_mechanical`/`fix_mid`/`fix_hard`,
-  `draft_structured`/`draft_routine`. The seat sets model, effort and default
-  timeout; escalate only by the seat's own row with a reason. `max` and
-  `ultra` are never defaults.
-- Timeouts: leave `--timeout` to the seat for recon, red-team and drafts; builds
+- Kinds: `read` for recon, `review` for lenses and red-team, `build` and
+  `deep_build` for builds and fix rounds, `draft`, `judge`. The kind sets
+  model, effort and default timeout; override only with `--model`, `--effort`
+  and a `--reason`. `max` and `ultra` are never defaults.
+- Timeouts: leave `--timeout` to the kind for recon, red-team and drafts; builds
   and fix rounds run `--timeout 5400`, review lenses `--timeout 1500`. A
   timed-out mutation lens leaves a mutated worktree: `git checkout .` in it
   before any rerun.
