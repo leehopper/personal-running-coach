@@ -1,45 +1,58 @@
 # Agent routing (DEC-092, revised by DEC-093)
 
-Work in this repo runs on two model families on purpose. Routing is by seat and
-the orchestration kit owns it: the seat table in the maintainer's
-`~/.claude/CLAUDE.md` is the routing of record, and the plugin skill
-`orchestration-kit:codex-orchestration` holds the launch, budget, brief and
-review mechanics (`~/personal/orchestration-kit-stable/bin/codex-fleet --seat
-<seat>`, `~/personal/orchestration-kit-stable/bin/agent-budget --live --account
+Work in this repo runs on two model families on purpose. Routing is by task
+kind and the orchestration kit owns it: the kind table in
+`~/personal/orchestration-kit-stable/models.md` is the routing of record, and
+the plugin skill `orchestration-kit:codex-orchestration` holds the launch,
+budget, brief and review mechanics
+(`~/personal/orchestration-kit-stable/bin/codex-fleet --kind <kind>`,
+`~/personal/orchestration-kit-stable/bin/agent-budget --live --account
 --brief`). Load that skill before the first dispatch. This file holds only what
 differs here. The stage recipe and every template: `.claude/codex/README.md`.
 Codex agents read `AGENTS.md`, not this file.
 
-## Seats as applied here
+## Kinds as applied here
+
+Kinds are read, review, build, deep_build, draft and judge. A kind's default
+model and effort come from the table; override only with `--model`, `--effort`
+and a `--reason`. Claude side: agent types `orchestration-kit:read`, `review`,
+`build`, `deep-build`, `draft`, `judge`, or a Workflow `agent()` with the model
+and effort from `bin/kind resolve <kind> --engine-mode claude_only`.
 
 - Conversation, adjudication, gates, commits, PRs: this session.
 - Recon over the codebase for a slice (tracing, extraction, bounded file sets
-  per lens), refute lenses: `recon_large` / `refute_lens` fleets with a
-  schema, read-only, from the main tree, with no question to the user. One
-  file of about 300 lines or fewer: `recon_small`. A design source against
-  the code: `recall`. Recon that ends in a judgment over material the session
-  would otherwise read inline (a branch's whole diff, a CI or suite log over
-  about 300 lines, a gauntlet or CodeRabbit report, a research artifact):
-  one `recon_large` task with a schema; the session reads the result.
+  per lens), refute lenses, a design source against the code, one file of
+  about 300 lines or fewer: `read` fleets (judgment recon steps up to Terra
+  or Sol by the table) with a schema, read-only, from the main tree, with no
+  question to the user. Recon that ends in a judgment over material the
+  session would otherwise read inline (a branch's whole diff, a CI or suite
+  log over about 300 lines, a gauntlet or CodeRabbit report, a research
+  artifact): one `read` task with a schema; the session reads the result.
 - Spec or plan red-team, and a standing disagreement between two named
-  reviewers on one document: the `red_team` seat, both families (a Claude
-  Workflow lens plus the Codex fleet). Neither Codex verdict is accepted
-  without the Claude side.
+  reviewers on one document: `review` on both families (a Claude Workflow
+  lens plus the Codex fleet). Neither Codex verdict is accepted without the
+  Claude side.
 - First drafts that hold a structure over many facts (slice specs,
-  cycle-plan sections, decision-log entries, handoffs, rules):
-  `draft_structured`. Routine drafts with a fixed shape (PR bodies, round
-  records, Captured rows): `draft_routine`. The session edits and decides.
-- Build stage: `build_bounded` in a local clone outside the repo; about 20
-  files or more, or a cross-module invariant: `build_refactor`.
-- Per-stage review: two `review_lens` lenses (mutation ledger, spec
-  conformance), both with write access, in detached worktrees, then fix
-  rounds on `fix_mechanical` / `fix_mid` / `fix_hard` in the clone, repeated
-  until zero blocker and zero major. Every lens report passes
+  cycle-plan sections, decision-log entries, handoffs, rules, round records):
+  `draft`; routine fixed-shape drafts (PR bodies, Captured rows) use the
+  `draft` kind's routine default. The session edits and decides.
+- Build stage: `build` in a local clone outside the repo; about 20 files or
+  more, or a cross-module invariant: `deep_build`.
+- Per-stage review: `review` lenses (mutation ledger, spec conformance) with
+  write access, in detached worktrees, then fix rounds on `build`
+  (mechanical or one module's logic) or `deep_build` (crash consistency,
+  shell, cross-module) in the clone. A finding counts only with evidence (a
+  reachable caller or a failing input). Stop when a round has none, and close
+  with one check from the other model family. Every lens report passes
   `.claude/codex/check-review.py` before adjudication. The cross-family pass
   on every PR is the headless code-gauntlet run this session launches itself
   (`~/personal/orchestration-kit-stable/bin/gauntlet-review <pr> --repo-dir
   <checkout at the PR head>`); address its findings before asking the
   maintainer to look.
+- Fable and Astra: `~/personal/orchestration-kit-stable/bin/big-design
+  --decision D<n> --artifact <path> --reason "<Lee's words>"`, then
+  `codex-fleet --kind judge --model astra --effort <E> --decision D<n>`; only
+  on Lee's yes.
 
 Escalation, the cross-family rules, budget, session tier and handoff are the
 kit's and the maintainer's global rules; do not restate them here.
