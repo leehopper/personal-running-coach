@@ -20,7 +20,7 @@
 # contributors use Path B (host-run API + Compose for infra only) per
 # CONTRIBUTING.md and DEC-045. Remove this comment and retry Path A on the
 # first .NET 11 SDK bump.
-FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:ea8bde36c11b6e7eec2656d0e59101d4462f6bd630730f2c8201ed0572b295d5 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0@sha256:65f3c7c6a25a239ab3e6719f2896147e7b68242ff2d8818dd70498bde6ef8bea AS build
 
 # Defensive belt-and-suspenders against #122608-class regressions if this
 # Dockerfile is ever accidentally built on arm64. Exhaustive ARM64 SVE/SVE2
