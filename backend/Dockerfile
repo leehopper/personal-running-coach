@@ -48,7 +48,7 @@ RUN dotnet restore RunCoach.slnx
 COPY . .
 RUN dotnet publish src/RunCoach.Api/RunCoach.Api.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:7644f992230d35cf230017189d4038c0ae0f7388b13f4f7ae1900a155bafb597 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0@sha256:bc0d6653979efba491ab3d6f589d691f96c309c3c3ef81325efa6978e7b7f242 AS runtime
 
 WORKDIR /app
 COPY --from=build /app/publish .
