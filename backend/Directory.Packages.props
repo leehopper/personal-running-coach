@@ -64,7 +64,7 @@
     <PackageVersion Include="Anthropic" Version="12.45.0" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
     <!-- Configuration (eval tests) -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.11" />
     <!-- AI Evaluation -->
